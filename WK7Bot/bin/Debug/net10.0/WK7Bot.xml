@@ -1,0 +1,542 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>WK7Bot</name>
+    </assembly>
+    <members>
+        <member name="T:WK7Bot.Core.Entities.RssDashboardSetting">
+            <summary>
+            Stores the Discord message tracking details for the active RSS subscription dashboard.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssDashboardSetting.Id">
+            <summary>
+            Gets or sets the primary key for the setting entity.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssDashboardSetting.ChannelId">
+            <summary>
+            Gets or sets the Discord channel ID containing the active dashboard message.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssDashboardSetting.MessageId">
+            <summary>
+            Gets or sets the Discord message ID of the interactive dashboard.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Core.Entities.RssFeed">
+            <summary>
+            Represents an RSS feed source tracked by the bot alongside its associated Discord channel and notification role.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssFeed.Id">
+            <summary>
+            Gets or sets the unique database identifier for the RSS feed.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssFeed.Name">
+            <summary>
+            Gets or sets the user-friendly name of the feed.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssFeed.Url">
+            <summary>
+            Gets or sets the target RSS or Atom feed URL.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssFeed.ChannelId">
+            <summary>
+            Gets or sets the Discord channel ID dedicated to this feed.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssFeed.RoleId">
+            <summary>
+            Gets or sets the Discord role ID used for subscriber notifications.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssFeed.LastItemGuid">
+            <summary>
+            Gets or sets the identifier of the last processed feed item to prevent duplicate postings.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssFeed.LastPublishedDate">
+            <summary>
+            Gets or sets the publication timestamp of the last processed item.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssFeed.RefreshIntervalMinutes">
+            <summary>
+            Gets or sets the polling interval in minutes.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.RssFeed.LastPolledAt">
+            <summary>
+            Gets or sets the timestamp when the feed was last polled.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Core.Interfaces.IRssRepository">
+            <summary>
+            Defines data access operations for managing RSS feeds and dashboard configuration state.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.IRssRepository.GetAllFeedsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Retrieves all active RSS feeds registered in the system.
+            </summary>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A collection of all configured RSS feeds.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.IRssRepository.GetFeedByNameAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves a specific RSS feed by its display name.
+            </summary>
+            <param name="name">The name of the RSS feed.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>The matching RSS feed entity if found; otherwise, null.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.IRssRepository.AddFeedAsync(WK7Bot.Core.Entities.RssFeed,System.Threading.CancellationToken)">
+            <summary>
+            Adds a new RSS feed entity to the storage context.
+            </summary>
+            <param name="feed">The feed entity to insert.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.IRssRepository.UpdateFeedAsync(WK7Bot.Core.Entities.RssFeed,System.Threading.CancellationToken)">
+            <summary>
+            Updates an existing RSS feed entity with new state data.
+            </summary>
+            <param name="feed">The modified feed entity.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.IRssRepository.DeleteFeedAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Removes an RSS feed entity by its unique identifier.
+            </summary>
+            <param name="id">The database identifier of the feed to remove.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.IRssRepository.SaveDashboardLocationAsync(System.UInt64,System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Stores or updates the active Discord dashboard message tracking location.
+            </summary>
+            <param name="channelId">The channel ID where the dashboard is posted.</param>
+            <param name="messageId">The message ID of the active dashboard component.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.IRssRepository.GetDashboardLocationAsync(System.Threading.CancellationToken)">
+            <summary>
+            Retrieves the saved dashboard message location if one has been posted.
+            </summary>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
+        </member>
+        <member name="T:WK7Bot.Infrastructure.Data.BotDbContext">
+            <summary>
+            Represents the primary Entity Framework Core database context for managing application entities.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.BotDbContext.#ctor(Microsoft.EntityFrameworkCore.DbContextOptions{WK7Bot.Infrastructure.Data.BotDbContext})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Infrastructure.Data.BotDbContext"/> class with the specified configuration options.
+            </summary>
+            <param name="options">The context options controlling database connection and provider behavior.</param>
+        </member>
+        <member name="P:WK7Bot.Infrastructure.Data.BotDbContext.RssFeeds">
+            <summary>
+            Gets or sets the database set for managing tracked RSS feeds.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Infrastructure.Data.BotDbContext.DashboardSettings">
+            <summary>
+            Gets or sets the database set for managing interactive RSS dashboard location settings.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.BotDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <summary>
+            Configures entity mappings, database constraints, and table schemas during model construction.
+            </summary>
+            <param name="modelBuilder">The builder instance used to define entity structure and keys.</param>
+        </member>
+        <member name="T:WK7Bot.Infrastructure.Data.RssRepository">
+            <summary>
+            Entity Framework Core implementation of the RSS repository data access contract.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.RssRepository.#ctor(WK7Bot.Infrastructure.Data.BotDbContext)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Infrastructure.Data.RssRepository"/> class.
+            </summary>
+            <param name="dbContext">The database context instance.</param>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.RssRepository.GetAllFeedsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Retrieves all active RSS feeds registered in the system.
+            </summary>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A collection of all configured RSS feeds.</returns>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.RssRepository.GetFeedByNameAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves a specific RSS feed by its display name.
+            </summary>
+            <param name="name">The name of the RSS feed.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>The matching RSS feed entity if found; otherwise, null.</returns>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.RssRepository.AddFeedAsync(WK7Bot.Core.Entities.RssFeed,System.Threading.CancellationToken)">
+            <summary>
+            Adds a new RSS feed entity to the storage context.
+            </summary>
+            <param name="feed">The feed entity to insert.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.RssRepository.UpdateFeedAsync(WK7Bot.Core.Entities.RssFeed,System.Threading.CancellationToken)">
+            <summary>
+            Updates an existing RSS feed entity with new state data.
+            </summary>
+            <param name="feed">The modified feed entity.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.RssRepository.DeleteFeedAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Removes an RSS feed entity by its unique identifier.
+            </summary>
+            <param name="id">The database identifier of the feed to remove.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.RssRepository.SaveDashboardLocationAsync(System.UInt64,System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Stores or updates the active Discord dashboard message tracking location.
+            </summary>
+            <param name="channelId">The channel ID where the dashboard is posted.</param>
+            <param name="messageId">The message ID of the active dashboard component.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.RssRepository.GetDashboardLocationAsync(System.Threading.CancellationToken)">
+            <summary>
+            Retrieves the saved dashboard message location if one has been posted.
+            </summary>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
+        </member>
+        <member name="T:WK7Bot.Infrastructure.Extensions.InfrastructureServiceCollectionExtensions">
+            <summary>
+            Provides extension methods for registering infrastructure services, EF Core SQLite data access, and repository layers into the application service container.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Extensions.InfrastructureServiceCollectionExtensions.AddInfrastructureServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Configures and registers the SQLite database context, auto-initialization, and repository dependencies.
+            </summary>
+            <param name="services">The service collection instance being configured.</param>
+            <param name="configuration">The application configuration containing database connection settings.</param>
+            <returns>The modified service collection instance for chained method calls.</returns>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Extensions.InfrastructureServiceCollectionExtensions.InitializeDatabaseAsync(System.IServiceProvider)">
+            <summary>
+            Ensures the SQLite database file and required schema are created automatically on application startup.
+            </summary>
+            <param name="serviceProvider">The root service provider instance used to create a service scope.</param>
+            <returns>A task representing the asynchronous database initialization operation.</returns>
+        </member>
+        <member name="T:WK7Bot.Modules.RssCommandsModule">
+            <summary>
+            Provides slash commands and component interactions for managing RSS feeds, permissions, and self-service subscriptions.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Modules.RssCommandsModule.#ctor(WK7Bot.Core.Interfaces.IRssRepository)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Modules.RssCommandsModule"/> class.
+            </summary>
+            <param name="repository">The repository used for RSS feed data persistence.</param>
+        </member>
+        <member name="M:WK7Bot.Modules.RssCommandsModule.AddFeedAsync(System.String,System.String)">
+            <summary>
+            Registers a new RSS feed, creates its category, read-only channel, and notification role, and refreshes the active dashboard.
+            </summary>
+            <param name="name">The display name of the feed.</param>
+            <param name="url">The RSS feed XML endpoint URL.</param>
+            <returns>A task representing the command response operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.RssCommandsModule.RemoveFeedAsync(System.String)">
+            <summary>
+            Removes an existing RSS feed and updates the interactive dashboard.
+            </summary>
+            <param name="name">The name of the feed to remove.</param>
+            <returns>A task representing the command response operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.RssCommandsModule.PostDashboardAsync">
+            <summary>
+            Posts or updates the interactive subscription dashboard select menu in the current channel and stores its location.
+            </summary>
+            <returns>A task representing the command response operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.RssCommandsModule.HandleSubscriptionSelectionAsync(System.String[])">
+            <summary>
+            Handles the selection state changes from the interactive subscription select menu component.
+            </summary>
+            <param name="selectedRoleIds">The array of selected role ID strings submitted by the user.</param>
+            <returns>A task representing the interaction response operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.RssCommandsModule.RefreshDashboardMessageAsync">
+            <summary>
+            Refreshes the existing subscription dashboard message in Discord with the latest RSS feed options.
+            </summary>
+            <returns>A task representing the asynchronous dashboard update operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.RssCommandsModule.BuildDashboardMessage(System.Collections.Generic.List{WK7Bot.Core.Entities.RssFeed})">
+            <summary>
+            Constructs the Discord embed and select menu component for the RSS dashboard.
+            </summary>
+            <param name="feeds">The list of active RSS feeds.</param>
+            <returns>A tuple containing the constructed embed and message components.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.RssCommandsModule.GetOrCreateCategoryAsync(Discord.IGuild,System.String)">
+            <summary>
+            Fetches the existing Discord category or creates a new one if it does not exist.
+            </summary>
+            <param name="guild">Target guild where the category should exist.</param>
+            <param name="categoryName">Name of the parent category.</param>
+            <returns>The existing or newly created category channel.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.RssCommandsModule.SanitizeChannelName(System.String)">
+            <summary>
+            Converts a display name into a Discord-compliant channel name string.
+            </summary>
+            <param name="rawName">The raw input name.</param>
+            <returns>A lowercase, hyphenated channel name string.</returns>
+        </member>
+        <member name="T:WK7Bot.Modules.SystemModule">
+            <summary>
+            Provides general diagnostic slash commands for testing gateway latency and API connections.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Modules.SystemModule.#ctor(WK7Bot.Services.IHomeAssistantService)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Modules.SystemModule"/> class.
+            </summary>
+            <param name="homeAssistantService">The Home Assistant API client service.</param>
+        </member>
+        <member name="M:WK7Bot.Modules.SystemModule.PingCommandAsync">
+            <summary>
+            Returns the active gateway WebSocket latency in milliseconds.
+            </summary>
+            <returns>A task representing the command execution operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.SystemModule.HomeAssistantStatusCommandAsync">
+            <summary>
+            Queries the internal Home Assistant REST API to verify authentication and network access.
+            </summary>
+            <returns>A task representing the command execution operation.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.DiscordBotWorker">
+            <summary>
+            Manages the background connection lifecycle for the Discord bot client.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordBotWorker.#ctor(Discord.WebSocket.DiscordSocketClient,Microsoft.Extensions.Configuration.IConfiguration,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.DiscordBotWorker})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.DiscordBotWorker"/> class with injected dependencies.
+            </summary>
+            <param name="client">The active Discord gateway socket client.</param>
+            <param name="configuration">Application configuration loaded from environment variables, user secrets, and JSON options.</param>
+            <param name="logger">The diagnostic logging service.</param>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordBotWorker.ExecuteAsync(System.Threading.CancellationToken)">
+            <summary>
+            Connects to the Discord gateway and maintains active background execution.
+            </summary>
+            <param name="stoppingToken">Cancellation token triggered when the application host stops.</param>
+            <returns>A long-running task representing the service execution lifecycle.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordBotWorker.GetDiscordToken">
+            <summary>
+            Resolves the Discord bot token across multiple configuration sources including .NET User Secrets, Home Assistant options, and environment variables.
+            </summary>
+            <returns>The resolved Discord bot token string, or null if no valid token was found.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordBotWorker.OnLogAsync(Discord.LogMessage)">
+            <summary>
+            Forwards diagnostic events emitted by the Discord socket client into the application logger.
+            </summary>
+            <param name="message">The incoming event payload containing severity, source, and message text.</param>
+            <returns>A completed task representing the log forwarding operation.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.HomeAssistantService">
+            <summary>
+            Communicates with Home Assistant through the internal Supervisor proxy using Bearer token authentication.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantService.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.HomeAssistantService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.HomeAssistantService"/> class and configures default headers.
+            </summary>
+            <param name="httpClient">The HTTP client instance configured for REST communication.</param>
+            <param name="logger">The diagnostic logging service.</param>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantService.GetApiStateAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Executes an HTTP GET request against the Home Assistant REST API via the Supervisor proxy connection.
+            </summary>
+            <param name="endpoint">The relative endpoint path to request from the REST API.</param>
+            <param name="cancellationToken">Cancellation token to cancel the request execution.</param>
+            <returns>The raw string payload returned by the Home Assistant API.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.IHomeAssistantService">
+            <summary>
+            Defines client operations for interacting with the Home Assistant REST API.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.IHomeAssistantService.GetApiStateAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Executes an HTTP GET request against the Home Assistant REST API via the Supervisor proxy connection.
+            </summary>
+            <param name="endpoint">The relative endpoint path to request from the REST API.</param>
+            <param name="cancellationToken">Cancellation token to cancel the request execution.</param>
+            <returns>The raw string payload returned by the Home Assistant API.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.InteractionHandlingService">
+            <summary>
+            Manages the registration of interaction modules and routes incoming Discord slash command interactions.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.InteractionHandlingService.#ctor(Discord.WebSocket.DiscordSocketClient,Discord.Interactions.InteractionService,System.IServiceProvider,Microsoft.Extensions.Configuration.IConfiguration,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.InteractionHandlingService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.InteractionHandlingService"/> class.
+            </summary>
+            <param name="client">The active Discord socket client instance.</param>
+            <param name="interactionService">The interaction service responsible for handling commands.</param>
+            <param name="services">The dependency injection service provider context.</param>
+            <param name="configuration">The application configuration instance.</param>
+            <param name="logger">The logging service instance.</param>
+        </member>
+        <member name="M:WK7Bot.Services.InteractionHandlingService.StartAsync(System.Threading.CancellationToken)">
+            <summary>
+            Subscribes to gateway events and registers all interaction modules present in the executing assembly.
+            </summary>
+            <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+            <returns>A task representing the asynchronous service start operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.InteractionHandlingService.StopAsync(System.Threading.CancellationToken)">
+            <summary>
+            Unsubscribes from gateway events upon service shutdown.
+            </summary>
+            <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+            <returns>A task representing the asynchronous service stop operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.InteractionHandlingService.OnClientReadyAsync">
+            <summary>
+            Registers interaction commands with the Discord API once the socket client reports ready.
+            </summary>
+            <returns>A task representing the asynchronous command registration operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.InteractionHandlingService.OnInteractionCreatedAsync(Discord.WebSocket.SocketInteraction)">
+            <summary>
+            Intercepts incoming WebSocket interactions and routes them to the matching command module handler.
+            </summary>
+            <param name="interaction">The incoming socket interaction payload from Discord.</param>
+            <returns>A task representing the asynchronous interaction execution operation.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.RssParserService">
+            <summary>
+            Provides functionality for fetching and parsing external RSS and Atom feeds.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.RssParserService.#ctor(Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.RssParserService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.RssParserService"/> class.
+            </summary>
+            <param name="logger">The logger instance for diagnostics.</param>
+        </member>
+        <member name="M:WK7Bot.Services.RssParserService.FetchNewItemsAsync(WK7Bot.Core.Entities.RssFeed,System.Threading.CancellationToken)">
+            <summary>
+            Fetches the feed from the specified URL and retrieves new items published after the last recorded state.
+            </summary>
+            <param name="feed">The database entity containing feed configuration and historical tracking state.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>A list of newly published feed items ordered by publication date ascending.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.RssParserService.IsItemNewer(CodeHollow.FeedReader.FeedItem,WK7Bot.Core.Entities.RssFeed)">
+            <summary>
+            Determines whether an individual feed item is newer than the recorded feed state.
+            </summary>
+            <param name="item">The candidate feed item retrieved from the feed.</param>
+            <param name="feed">The current feed entity stored in the database.</param>
+            <returns><see langword="true"/> if the item has not been posted previously; otherwise, <see langword="false"/>.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.RssPollingBackgroundService">
+            <summary>
+            Background service that periodically polls registered RSS feeds and broadcasts updates to Discord.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.RssPollingBackgroundService.#ctor(System.IServiceProvider,Discord.WebSocket.DiscordSocketClient,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.RssPollingBackgroundService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.RssPollingBackgroundService"/> class.
+            </summary>
+            <param name="serviceProvider">The service provider to create database scopes.</param>
+            <param name="discordClient">The active Discord client instance.</param>
+            <param name="logger">The logger instance for operational tracking.</param>
+        </member>
+        <member name="M:WK7Bot.Services.RssPollingBackgroundService.OnDiscordClientReadyAsync">
+            <summary>
+            Handles the internal Ready event emitted by the Discord client, marking the service as ready to broadcast feed updates.
+            </summary>
+            <returns>A completed task representing the synchronous state update.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.RssPollingBackgroundService.ExecuteAsync(System.Threading.CancellationToken)">
+            <summary>
+            Executes the background polling loop while the host service is running.
+            </summary>
+            <param name="stoppingToken">Cancellation token indicating service shutdown.</param>
+            <returns>A task representing the background processing lifecycle.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.RssPollingBackgroundService.PollAllFeedsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Queries all active feeds from the database and processes pending news entries.
+            </summary>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.RssPollingBackgroundService.SendFeedEmbedAsync(Discord.ITextChannel,WK7Bot.Core.Entities.RssFeed,CodeHollow.FeedReader.FeedItem)">
+            <summary>
+            Formats an individual feed entry as a rich Discord embed and sends it with a role mention.
+            </summary>
+            <param name="channel">The target Discord channel for the feed.</param>
+            <param name="feed">The associated feed tracking entity.</param>
+            <param name="item">The newly retrieved feed item.</param>
+            <returns>A task representing the send operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.RssPollingBackgroundService.CleanDescription(System.String)">
+            <summary>
+            Strips HTML tags and truncates the feed summary to fit within Discord embed constraints.
+            </summary>
+            <param name="rawDescription">The raw HTML or plain text description from the RSS feed.</param>
+            <returns>A sanitized string suitable for display in a Discord embed description.</returns>
+        </member>
+        <member name="T:Program">
+            <summary>
+            Auto-generated public partial Program class for top-level statement apps.
+            </summary>
+        </member>
+        <member name="T:DatabaseInitializationExtensions">
+            <summary>
+            Extension methods for application database lifecycle and schema initialization.
+            </summary>
+        </member>
+        <member name="M:DatabaseInitializationExtensions.InitializeDatabaseAsync(Microsoft.AspNetCore.Builder.WebApplication)">
+            <summary>
+            Ensures that the parent directory exists and that the SQLite database file and schema are fully initialized on application startup.
+            </summary>
+            <param name="app">The running web application instance providing service resolution access.</param>
+            <returns>A task representing the asynchronous database startup operation.</returns>
+        </member>
+    </members>
+</doc>

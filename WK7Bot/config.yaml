@@ -1,0 +1,20 @@
+﻿name: "WK7 Bot"
+description: "Discord Bot for Home Assistant integration and RSS feed management."
+version: "1.0.0"
+slug: "wk7bot"
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: application
+boot: auto
+map:
+  - config:rw
+  - ssl
+options:
+  discord_token: ""
+schema:
+  discord_token: str
