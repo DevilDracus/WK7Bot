@@ -91,17 +91,17 @@ public class RssRepository : IRssRepository
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task SaveDashboardLocationAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken = default)
     {
-        var setting = await _dbContext.DashboardSettings.FirstOrDefaultAsync(cancellationToken);
+        var setting = await _dbContext.RssDashboardSettings.FirstOrDefaultAsync(cancellationToken);
         if (setting == null)
         {
             setting = new RssDashboardSetting { ChannelId = channelId, MessageId = messageId };
-            await _dbContext.DashboardSettings.AddAsync(setting, cancellationToken);
+            await _dbContext.RssDashboardSettings.AddAsync(setting, cancellationToken);
         }
         else
         {
             setting.ChannelId = channelId;
             setting.MessageId = messageId;
-            _dbContext.DashboardSettings.Update(setting);
+            _dbContext.RssDashboardSettings.Update(setting);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -114,7 +114,7 @@ public class RssRepository : IRssRepository
     /// <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
     public async Task<(ulong ChannelId, ulong MessageId)?> GetDashboardLocationAsync(CancellationToken cancellationToken = default)
     {
-        var setting = await _dbContext.DashboardSettings.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+        var setting = await _dbContext.RssDashboardSettings.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
         if (setting == null)
         {
             return null;

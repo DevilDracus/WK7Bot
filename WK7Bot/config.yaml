@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.0"
+version: "0.0.3"
 slug: "wk7bot"
 init: false
 arch:
@@ -18,3 +18,6 @@ options:
   discord_token: ""
 schema:
   discord_token: str
+hassio_api: true
+homeassistant_api: true
+hassio_role: "default"
