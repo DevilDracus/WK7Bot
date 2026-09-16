@@ -133,10 +133,12 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
 
     /// <summary>
     /// Handles user selections from the RSS subscription multi-select menu component.
+    /// Extracts selected role identifiers from the component interaction data and synchronizes the user's server roles accordingly.
     /// </summary>
+    /// <param name="selectedValues">An array of string values selected by the user from the multi-select menu.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     [ComponentInteraction("rss-subscription-select")]
-    public async Task HandleSubscriptionSelectionAsync()
+    public async Task HandleSubscriptionSelectionAsync(string[] selectedValues)
     {
         await DeferAsync(ephemeral: true);
 
@@ -145,10 +147,6 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             await FollowupAsync("This action can only be performed within a server.", ephemeral: true);
             return;
         }
-
-        var selectedValues = Context.Interaction is SocketMessageComponent socketComponent 
-            ? socketComponent.Data.Values 
-            : Array.Empty<string>();
 
         var feeds = await _repository.GetAllFeedsAsync();
         var allFeedRoleIds = feeds.Select(f => f.RoleId).ToHashSet();
