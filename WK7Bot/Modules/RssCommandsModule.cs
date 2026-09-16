@@ -25,7 +25,7 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     /// <summary>
-    /// Registers a new RSS feed, creates its category, read-only channel, and notification role, and refreshes the active dashboard.
+    /// Registers a new RSS feed, creates its category, private read-only channel restricted to the notification role, and refreshes the active dashboard.
     /// </summary>
     /// <param name="name">The display name of the feed.</param>
     /// <param name="url">The RSS feed XML endpoint URL.</param>
@@ -53,7 +53,8 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             properties.Topic = $"RSS feed for {name}. Use the subscription dashboard to manage notifications.";
             properties.PermissionOverwrites = new List<Overwrite>
             {
-                new(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(sendMessages: PermValue.Deny))
+                new(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(viewChannel: PermValue.Deny)),
+                new(role.Id, PermissionTarget.Role, new OverwritePermissions(viewChannel: PermValue.Allow, readMessageHistory: PermValue.Allow, sendMessages: PermValue.Deny))
             };
         });
 
@@ -68,7 +69,7 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
         await _repository.AddFeedAsync(feedEntity);
         await RefreshDashboardMessageAsync();
 
-        await FollowupAsync($"Created read-only channel <#{channel.Id}> and notification role <@&{role.Id}> for RSS feed **{name}**. The subscription dashboard has been updated.");
+        await FollowupAsync($"Created private read-only channel <#{channel.Id}> and notification role <@&{role.Id}> for RSS feed **{name}**. The subscription dashboard has been updated.");
     }
 
     /// <summary>
@@ -134,9 +135,10 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
     /// Handles the selection state changes from the interactive subscription select menu component.
     /// </summary>
     /// <returns>A task representing the interaction response operation.</returns>
-    [ComponentInteraction("rss-subscription-select*")]
+    [ComponentInteraction("rss-subscription-select")]
     public async Task HandleSubscriptionSelectionAsync()
     {
+        // Acknowledge the interaction immediately to prevent the 3-second timeout
         await DeferAsync(ephemeral: true);
 
         if (Context.User is not SocketGuildUser guildUser)
@@ -174,6 +176,7 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             await guildUser.RemoveRoleAsync(roleId);
         }
 
+        // Respond via FollowupAsync since we deferred the initial response
         await FollowupAsync("Your RSS feed subscriptions have been successfully updated!", ephemeral: true);
     }
 
