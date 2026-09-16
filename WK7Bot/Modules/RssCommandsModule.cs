@@ -133,10 +133,10 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
     /// <summary>
     /// Handles the selection state changes from the interactive subscription select menu component.
     /// </summary>
-    /// <param name="selectedRoleIds">The array of selected role ID strings submitted by the user.</param>
+    /// <param name="selectedRoleIds">The raw comma-delimited string values submitted by the user from the select menu.</param>
     /// <returns>A task representing the interaction response operation.</returns>
     [ComponentInteraction("rss-subscription-select*")]
-    public async Task HandleSubscriptionSelectionAsync(string[] selectedRoleIds)
+    public async Task HandleSubscriptionSelectionAsync(string selectedRoleIds)
     {
         await DeferAsync(ephemeral: true);
 
@@ -146,10 +146,15 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             return;
         }
 
+        // Split the values if multiple were selected (Discord sends them comma-separated or via component data)
+        var selectedValues = Context.Interaction is SocketMessageComponent socketComponent 
+            ? socketComponent.Data.Values 
+            : Array.Empty<string>();
+
         var feeds = await _repository.GetAllFeedsAsync();
         var allFeedRoleIds = feeds.Select(f => f.RoleId).ToHashSet();
 
-        var selectedSet = selectedRoleIds
+        var selectedSet = selectedValues
             .Select(ulong.Parse)
             .ToHashSet();
 
