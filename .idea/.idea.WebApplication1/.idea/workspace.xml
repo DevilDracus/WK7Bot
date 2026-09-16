@@ -16,8 +16,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9de4ff0b-8e0a-4361-96a1-1195f4527103" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.WebApplication1/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.WebApplication1/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/WK7Bot/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/WK7Bot/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/WK7Bot/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/WK7Bot/config.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -176,7 +175,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1789551837731</updated>
-      <workItem from="1789551840267" duration="5907000" />
+      <workItem from="1789551840267" duration="6275000" />
     </task>
     <task id="LOCAL-00001" summary="Initial Commit">
       <option name="closed" value="true" />
@@ -194,7 +193,15 @@
       <option name="project" value="LOCAL" />
       <updated>1789557318176</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Changes to Dockerfile">
+      <option name="closed" value="true" />
+      <created>1789557788861</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1789557788861</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -217,7 +224,8 @@
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
     <MESSAGE value="Initial Commit" />
     <MESSAGE value="Move repository.yaml" />
-    <option name="LAST_COMMIT_MESSAGE" value="Move repository.yaml" />
+    <MESSAGE value="Changes to Dockerfile" />
+    <option name="LAST_COMMIT_MESSAGE" value="Changes to Dockerfile" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
