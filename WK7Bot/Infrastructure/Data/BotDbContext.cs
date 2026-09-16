@@ -24,7 +24,7 @@ public class BotDbContext : DbContext
     /// <summary>
     /// Gets or sets the database set for managing interactive RSS dashboard location settings.
     /// </summary>
-    public DbSet<RssDashboardSetting> DashboardSettings => Set<RssDashboardSetting>();
+    public DbSet<RssDashboardSetting> RssDashboardSettings => Set<RssDashboardSetting>();
 
     /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.

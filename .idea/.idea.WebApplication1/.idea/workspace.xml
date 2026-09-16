@@ -51,6 +51,7 @@
     <setting file="file://$PROJECT_DIR$/WK7Bot/Services/HomeAssistantService.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/WK7Bot/Services/IHomeAssistantService.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/WK7Bot/Services/InteractionHandlingService.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/WK7Bot/Services/RssDashboardService.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/WK7Bot/Services/RssParserService.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/WK7Bot/Services/RssPollingBackgroundService.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
