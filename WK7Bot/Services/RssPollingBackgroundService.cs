@@ -120,9 +120,18 @@ public class RssPollingBackgroundService : BackgroundService
     /// <returns>A task representing the send operation.</returns>
     private async Task SendFeedEmbedAsync(ITextChannel channel, RssFeed feed, CodeHollow.FeedReader.FeedItem item)
     {
+        // Sanitize the URL to remove any accidental newlines, tabs, or trailing whitespace from the feed parser
+        var sanitizedUrl = item.Link?.Trim();
+
+        if (string.IsNullOrWhiteSpace(sanitizedUrl) || !Uri.IsWellFormedUriString(sanitizedUrl, UriKind.Absolute))
+        {
+            _logger.LogWarning("Skipping feed item with invalid or missing URL for feed {FeedName}.", feed.Name);
+            return;
+        }
+        
         var embedBuilder = new EmbedBuilder()
             .WithTitle(item.Title)
-            .WithUrl(item.Link)
+            .WithUrl(sanitizedUrl)
             .WithDescription(CleanDescription(item.Description))
             .WithColor(Color.Blue)
             .WithFooter(text: feed.Name)
