@@ -132,13 +132,12 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     /// <summary>
-    /// Handles the selection state changes from the interactive subscription select menu component.
+    /// Handles user selections from the RSS subscription multi-select menu component.
     /// </summary>
-    /// <returns>A task representing the interaction response operation.</returns>
+    /// <returns>A task representing the asynchronous operation.</returns>
     [ComponentInteraction("rss-subscription-select")]
     public async Task HandleSubscriptionSelectionAsync()
     {
-        // Acknowledge the interaction immediately to prevent the 3-second timeout
         await DeferAsync(ephemeral: true);
 
         if (Context.User is not SocketGuildUser guildUser)
@@ -176,7 +175,6 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             await guildUser.RemoveRoleAsync(roleId);
         }
 
-        // Respond via FollowupAsync since we deferred the initial response
         await FollowupAsync("Your RSS feed subscriptions have been successfully updated!", ephemeral: true);
     }
 
