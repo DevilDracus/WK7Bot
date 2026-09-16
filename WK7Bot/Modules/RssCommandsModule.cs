@@ -135,10 +135,17 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     /// <param name="selectedRoleIds">The array of selected role ID strings submitted by the user.</param>
     /// <returns>A task representing the interaction response operation.</returns>
-    [ComponentInteraction("rss-subscription-select")]
+    [ComponentInteraction("rss-subscription-select*")]
     public async Task HandleSubscriptionSelectionAsync(string[] selectedRoleIds)
     {
-        var guildUser = (SocketGuildUser)Context.User;
+        await DeferAsync(ephemeral: true);
+
+        if (Context.User is not SocketGuildUser guildUser)
+        {
+            await FollowupAsync("This action can only be performed within a server.", ephemeral: true);
+            return;
+        }
+
         var feeds = await _repository.GetAllFeedsAsync();
         var allFeedRoleIds = feeds.Select(f => f.RoleId).ToHashSet();
 
@@ -164,7 +171,7 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             await guildUser.RemoveRoleAsync(roleId);
         }
 
-        await RespondAsync("Your RSS feed subscriptions have been successfully updated!", ephemeral: true);
+        await FollowupAsync("Your RSS feed subscriptions have been successfully updated!", ephemeral: true);
     }
 
     /// <summary>
