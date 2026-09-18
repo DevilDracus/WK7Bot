@@ -2,39 +2,33 @@
 
 using Discord;
 using Discord.WebSocket;
-using Ical.Net;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
-/// Background service that periodically fetches the Stadtreinigung Leipzig ICS feed,
-/// checks for waste collections that occurred on the previous day, and posts reminder notifications to a dedicated Discord channel.
+/// Background service that periodically checks for waste collections that occurred on the previous day
+/// using <see cref="ILeipzigWasteService"/> and posts confirmation notifications to a dedicated Discord channel.
 /// </summary>
 public class LeipzigWasteBackgroundService : BackgroundService
 {
     private const string TargetChannelName = "🗑️-leipzig-waste";
     private readonly DiscordSocketClient _discordClient;
-    private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
+    private readonly ILeipzigWasteService _wasteService;
     private readonly ILogger<LeipzigWasteBackgroundService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LeipzigWasteBackgroundService"/> class.
     /// </summary>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
-    /// <param name="httpClient">The HTTP client instance for downloading external web resources.</param>
-    /// <param name="configuration">The application configuration root containing feed endpoints.</param>
+    /// <param name="wasteService">The Leipzig waste schedule parser service.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public LeipzigWasteBackgroundService(
         DiscordSocketClient discordClient,
-        HttpClient httpClient,
-        IConfiguration configuration,
+        ILeipzigWasteService wasteService,
         ILogger<LeipzigWasteBackgroundService> logger)
     {
         _discordClient = discordClient;
-        _httpClient = httpClient;
-        _configuration = configuration;
+        _wasteService = wasteService;
         _logger = logger;
     }
 
@@ -50,14 +44,17 @@ public class LeipzigWasteBackgroundService : BackgroundService
             try
             {
                 var now = DateTime.Now;
-                var nextRunTime = now.Date.AddDays(1).AddHours(8);
+                var nextRunTime = now.Hour >= 8
+                    ? now.Date.AddDays(1).AddHours(8)
+                    : now.Date.AddHours(8);
+
                 var delay = nextRunTime - now;
 
                 _logger.LogInformation("Waste notification check scheduled for {NextRunTime}", nextRunTime);
 
-                await CheckAndSendWasteNotificationsAsync(stoppingToken);
-
                 await Task.Delay(delay, stoppingToken);
+
+                await CheckAndSendWasteNotificationsAsync(stoppingToken);
             }
             catch (TaskCanceledException)
             {
@@ -72,14 +69,14 @@ public class LeipzigWasteBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Downloads the ICS calendar, identifies events matching yesterday's date, and sends Discord notification embeds.
+    /// Queries yesterday's waste collections via the waste service and sends Discord notification embeds.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token for network operations.</param>
     /// <returns>A task representing the asynchronous notification process.</returns>
     private async Task CheckAndSendWasteNotificationsAsync(CancellationToken cancellationToken)
     {
         var yesterday = DateTime.Today.AddDays(-1);
-        var collectionsYesterday = await GetWasteTypesForDateAsync(yesterday, cancellationToken);
+        var collectionsYesterday = await _wasteService.GetWasteTypesForDateAsync(yesterday, cancellationToken);
 
         if (collectionsYesterday.Count == 0)
         {
@@ -93,81 +90,6 @@ public class LeipzigWasteBackgroundService : BackgroundService
 
             await channel.SendMessageAsync(embed: embed);
         }
-    }
-
-    /// <summary>
-    /// Downloads and parses the ICS feed to retrieve waste collection summaries for a specific target date.
-    /// </summary>
-    /// <param name="targetDate">The target calendar date to evaluate.</param>
-    /// <param name="cancellationToken">Cancellation token for network operations.</param>
-    /// <returns>A list of friendly waste collection names found on the target date.</returns>
-    private async Task<List<string>> GetWasteTypesForDateAsync(DateTime targetDate, CancellationToken cancellationToken)
-    {
-        var detectedWasteTypes = new List<string>();
-        var feedUrl = _configuration["LeipzigWaste:IcsFeedUrl"];
-
-        if (string.IsNullOrWhiteSpace(feedUrl))
-        {
-            _logger.LogError("Stadtreinigung Leipzig ICS feed URL is not configured in appsettings.json.");
-            return detectedWasteTypes;
-        }
-
-        try
-        {
-            using var response = await _httpClient.GetAsync(feedUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var contentString = await response.Content.ReadAsStringAsync(cancellationToken);
-            if (!contentString.StartsWith("BEGIN:VCALENDAR", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning("Retrieved payload from Leipzig waste endpoint does not appear to be a valid ICS calendar stream.");
-                return detectedWasteTypes;
-            }
-
-            var calendar = Calendar.Load(contentString);
-
-            foreach (var calendarEvent in calendar.Events)
-            {
-                if (calendarEvent.Start.Value.Date == targetDate.Date)
-                {
-                    var friendlyName = MapWasteSummaryToFriendlyName(calendarEvent.Summary);
-                    detectedWasteTypes.Add(friendlyName);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to download or parse the Stadtreinigung Leipzig ICS feed from {FeedUrl}", feedUrl);
-        }
-
-        return detectedWasteTypes;
-    }
-
-    /// <summary>
-    /// Maps raw ICS event summaries into user-friendly German notification text with corresponding emojis.
-    /// </summary>
-    /// <param name="rawSummary">The raw summary text extracted from the ICS event.</param>
-    /// <returns>A formatted display string describing the waste type.</returns>
-    private string MapWasteSummaryToFriendlyName(string rawSummary)
-    {
-        if (rawSummary.Contains("Restabfall", StringComparison.OrdinalIgnoreCase) || rawSummary.Contains("schwarz", StringComparison.OrdinalIgnoreCase))
-        {
-            return "⬛ Schwarze Tonne (Restabfall)";
-        }
-        if (rawSummary.Contains("Papier", StringComparison.OrdinalIgnoreCase) || rawSummary.Contains("blau", StringComparison.OrdinalIgnoreCase))
-        {
-            return "🟦 Blaue Tonne (Pappe & Papier)";
-        }
-        if (rawSummary.Contains("Wertstoff", StringComparison.OrdinalIgnoreCase) || rawSummary.Contains("gelb", StringComparison.OrdinalIgnoreCase))
-        {
-            return "🟨 Gelbe Tonne / Gelber Sack (Wertstoffe)";
-        }
-        if (rawSummary.Contains("Bio", StringComparison.OrdinalIgnoreCase) || rawSummary.Contains("braun", StringComparison.OrdinalIgnoreCase))
-        {
-            return "🟫 Braune Tonne (Biogut)";
-        }
-
-        return $"🗑️ {rawSummary}";
     }
 
     /// <summary>
