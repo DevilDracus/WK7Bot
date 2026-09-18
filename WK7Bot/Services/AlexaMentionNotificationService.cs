@@ -83,7 +83,7 @@ public class AlexaMentionNotificationService : IHostedService
             if (userMessage.MentionedUsers.Any(u => u.Id == targetUserId))
             {
                 var authorName = userMessage.Author.GlobalName ?? userMessage.Author.Username;
-                var notificationText = $"Neue Nachricht von {authorName}, die Nachricht enthält: {userMessage.CleanContent}";
+                var notificationText = $"Neue Nachricht von {authorName}, die Nachricht lautet: {userMessage.CleanContent}";
 
                 _logger.LogInformation("Discord mention detected for user {TargetUserId}. Forwarding to Alexa API.", targetUserId);
 
