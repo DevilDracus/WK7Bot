@@ -14,7 +14,7 @@ using System.Globalization;
 /// </summary>
 public class LeipzigWasteBackgroundService : BackgroundService
 {
-    private const string TargetChannelName = "🗑️-leipzig-waste";
+    private const string TargetChannelName = "🗑️leipzig-waste";
     private readonly DiscordSocketClient _discordClient;
     private readonly ILeipzigWasteService _wasteService;
     private readonly ILogger<LeipzigWasteBackgroundService> _logger;
