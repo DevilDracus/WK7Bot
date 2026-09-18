@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿namespace WK7Bot.Services;
+
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Discord;
@@ -7,8 +9,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using MQTTnet;
 
-namespace WK7Bot.Services;
-
+/// <summary>
+/// Background service that bridges Discord text channels and direct messages with Home Assistant via MQTT Discovery and notification commands.
+/// </summary>
 public class HomeAssistantNotifierService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
@@ -18,14 +21,14 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeAssistantNotifierService"/> class with required dependencies.
     /// </summary>
-    /// <param name="discordClient">The active Discord socket client instance used for channel interactions.</param>
+    /// <param name="discordClient">The active Discord socket client instance used for channel and user interactions.</param>
     /// <param name="mqttClient">The active MQTT client instance used to communicate with Home Assistant.</param>
-    /// <param name="configuration">The configuration provider used to retrieve broker settings.</param>
+    /// <param name="configuration">The configuration provider used to retrieve broker settings and user IDs.</param>
     public HomeAssistantNotifierService(DiscordSocketClient discordClient, IMqttClient mqttClient, IConfiguration configuration)
     {
-        _discordClient = discordClient;
-        _mqttClient = mqttClient;
-        _configuration = configuration;
+        _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
+        _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     }
 
     /// <summary>
@@ -58,24 +61,24 @@ public class HomeAssistantNotifierService : BackgroundService
 
         if (_discordClient.ConnectionState == ConnectionState.Connected)
         {
-            await RegisterAllWritableChannelsAsync();
+            await RegisterAllEntitiesAsync();
         }
 
         _mqttClient.ApplicationMessageReceivedAsync += async eventArgs =>
         {
-            await ProcessIncomingMultiChannelNotificationAsync(eventArgs);
+            await ProcessIncomingNotificationAsync(eventArgs);
         };
 
         await _mqttClient.SubscribeAsync("homeassistant/notify/+/set", cancellationToken: stoppingToken);
     }
 
     /// <summary>
-    /// Event handler executed when the Discord client achieves a ready state, initiating full channel discovery.
+    /// Event handler executed when the Discord client achieves a ready state, initiating full channel and user entity discovery.
     /// </summary>
-    /// <returns>A task representing the initial channel discovery operation.</returns>
+    /// <returns>A task representing the initial entity discovery operation.</returns>
     private async Task OnReadyAsync()
     {
-        await RegisterAllWritableChannelsAsync();
+        await RegisterAllEntitiesAsync();
     }
 
     /// <summary>
@@ -126,10 +129,10 @@ public class HomeAssistantNotifierService : BackgroundService
     }
 
     /// <summary>
-    /// Iterates through all connected guilds and registers entities for text channels where send permissions are granted.
+    /// Iterates through all connected guilds and registers writable text channels alongside configured direct message user notification entities.
     /// </summary>
-    /// <returns>A task representing the bulk channel registration workflow.</returns>
-    public async Task RegisterAllWritableChannelsAsync()
+    /// <returns>A task representing the complete entity registration workflow.</returns>
+    public async Task RegisterAllEntitiesAsync()
     {
         foreach (var guild in _discordClient.Guilds)
         {
@@ -138,6 +141,30 @@ public class HomeAssistantNotifierService : BackgroundService
                 if (IsWritable(channel))
                 {
                     await RegisterChannelNotificationEntityAsync(channel);
+                }
+            }
+        }
+
+        foreach (var userId in GetConfiguredDmUserIds())
+        {
+            await RegisterUserDmNotificationEntityAsync(userId);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the list of configured user IDs designated to receive private direct message notifications from configuration options.
+    /// </summary>
+    /// <returns>A collection of parsed ulong user identifiers.</returns>
+    private IEnumerable<ulong> GetConfiguredDmUserIds()
+    {
+        var userIds = _configuration.GetSection("discord_dm_user_ids").Get<string[]>();
+        if (userIds != null)
+        {
+            foreach (var idStr in userIds)
+            {
+                if (ulong.TryParse(idStr.Trim(), out var id))
+                {
+                    yield return id;
                 }
             }
         }
@@ -158,6 +185,51 @@ public class HomeAssistantNotifierService : BackgroundService
         var discoveryPayload = new
         {
             name = $"Discord #{channel.Name} ({channel.Guild.Name})",
+            unique_id = uniqueId,
+            command_topic = commandTopic,
+            device = new
+            {
+                identifiers = new[] { "csharp_discord_bot" },
+                name = "Discord Bot Service",
+                model = "C# Discord Integration",
+                manufacturer = "Custom Application"
+            }
+        };
+
+        var jsonPayload = JsonSerializer.Serialize(discoveryPayload);
+
+        var message = new MqttApplicationMessageBuilder()
+            .WithTopic(discoveryTopic)
+            .WithPayload(jsonPayload)
+            .WithRetainFlag()
+            .Build();
+
+        await _mqttClient.PublishAsync(message);
+    }
+
+    /// <summary>
+    /// Registers a specific Discord user as a Home Assistant direct message notification entity via MQTT Discovery.
+    /// </summary>
+    /// <param name="userId">The target user Snowflake ID to expose as an MQTT entity.</param>
+    /// <returns>A task representing the publication of the discovery MQTT payload.</returns>
+    private async Task RegisterUserDmNotificationEntityAsync(ulong userId)
+    {
+        IUser? user = _discordClient.GetUser(userId);
+        if (user == null)
+        {
+            user = await _discordClient.Rest.GetUserAsync(userId);
+        }
+
+        var username = user?.Username ?? userId.ToString();
+        var sanitizedUsername = Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+        
+        var uniqueId = $"wk7_notify_dm_{sanitizedUsername}_{userId}";
+        var discoveryTopic = $"homeassistant/notify/{uniqueId}/config";
+        var commandTopic = $"homeassistant/notify/wk7_dm_{userId}/set";
+
+        var discoveryPayload = new
+        {
+            name = $"Discord DM (@{username})",
             unique_id = uniqueId,
             command_topic = commandTopic,
             device = new
@@ -212,11 +284,11 @@ public class HomeAssistantNotifierService : BackgroundService
     }
 
     /// <summary>
-    /// Extracts the target channel identifier from an incoming MQTT message topic and dispatches the message payload to Discord.
+    /// Extracts target channel or user identifiers from incoming MQTT message topics and dispatches the message payload to Discord.
     /// </summary>
     /// <param name="eventArgs">The received MQTT application message event arguments containing topic and payload data.</param>
     /// <returns>A task representing the message dispatch operation.</returns>
-    private async Task ProcessIncomingMultiChannelNotificationAsync(MqttApplicationMessageReceivedEventArgs eventArgs)
+    private async Task ProcessIncomingNotificationAsync(MqttApplicationMessageReceivedEventArgs eventArgs)
     {
         var topic = eventArgs.ApplicationMessage.Topic;
         var payloadText = eventArgs.ApplicationMessage.ConvertPayloadToString();
@@ -224,8 +296,27 @@ public class HomeAssistantNotifierService : BackgroundService
         var segments = topic.Split('/');
         if (segments.Length == 4 && segments[2].StartsWith("wk7_") && segments[3] == "set")
         {
-            var channelIdString = segments[2].Replace("wk7_", string.Empty);
-            if (ulong.TryParse(channelIdString, out var channelId))
+            var identifierPart = segments[2].Replace("wk7_", string.Empty);
+
+            if (identifierPart.StartsWith("dm_"))
+            {
+                var userIdString = identifierPart.Replace("dm_", string.Empty);
+                if (ulong.TryParse(userIdString, out var userId))
+                {
+                    IUser? user = _discordClient.GetUser(userId);
+                    if (user == null)
+                    {
+                        user = await _discordClient.Rest.GetUserAsync(userId);
+                    }
+
+                    if (user != null)
+                    {
+                        var dmChannel = await user.CreateDMChannelAsync();
+                        await dmChannel.SendMessageAsync(payloadText);
+                    }
+                }
+            }
+            else if (ulong.TryParse(identifierPart, out var channelId))
             {
                 if (_discordClient.GetChannel(channelId) is SocketTextChannel textChannel)
                 {
