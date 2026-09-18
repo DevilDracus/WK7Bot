@@ -7,7 +7,7 @@ using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 
 /// <summary>
-/// Provides slash commands and component interactions for managing RSS feeds, permissions, and self-service subscriptions.
+/// Provides slash commands for managing RSS news feeds and posting subscription dashboards.
 /// </summary>
 [Group("rss", "Commands for managing RSS news feeds and subscriptions")]
 public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
@@ -129,51 +129,6 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
         var responseMessage = await GetOriginalResponseAsync();
 
         await _repository.SaveDashboardLocationAsync(Context.Channel.Id, responseMessage.Id);
-    }
-
-    /// <summary>
-    /// Handles user selections from the RSS subscription multi-select menu component.
-    /// Extracts selected role identifiers from the component interaction data and synchronizes the user's server roles accordingly.
-    /// </summary>
-    /// <param name="selectedValues">An array of string values selected by the user from the multi-select menu.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    [ComponentInteraction("rss-subscription-select")]
-    public async Task HandleSubscriptionSelectionAsync(string[] selectedValues)
-    {
-        await DeferAsync(ephemeral: true);
-
-        if (Context.User is not SocketGuildUser guildUser)
-        {
-            await FollowupAsync("This action can only be performed within a server.", ephemeral: true);
-            return;
-        }
-
-        var feeds = await _repository.GetAllFeedsAsync();
-        var allFeedRoleIds = feeds.Select(f => f.RoleId).ToHashSet();
-
-        var selectedSet = selectedValues
-            .Select(ulong.Parse)
-            .ToHashSet();
-
-        var rolesToAdd = selectedSet
-            .Where(roleId => !guildUser.Roles.Any(r => r.Id == roleId))
-            .ToList();
-
-        var rolesToRemove = allFeedRoleIds
-            .Where(roleId => !selectedSet.Contains(roleId) && guildUser.Roles.Any(r => r.Id == roleId))
-            .ToList();
-
-        foreach (var roleId in rolesToAdd)
-        {
-            await guildUser.AddRoleAsync(roleId);
-        }
-
-        foreach (var roleId in rolesToRemove)
-        {
-            await guildUser.RemoveRoleAsync(roleId);
-        }
-
-        await FollowupAsync("Your RSS feed subscriptions have been successfully updated!", ephemeral: true);
     }
 
     /// <summary>

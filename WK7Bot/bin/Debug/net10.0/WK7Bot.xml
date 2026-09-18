@@ -150,7 +150,7 @@
             Gets or sets the database set for managing tracked RSS feeds.
             </summary>
         </member>
-        <member name="P:WK7Bot.Infrastructure.Data.BotDbContext.DashboardSettings">
+        <member name="P:WK7Bot.Infrastructure.Data.BotDbContext.RssDashboardSettings">
             <summary>
             Gets or sets the database set for managing interactive RSS dashboard location settings.
             </summary>
@@ -249,7 +249,7 @@
         </member>
         <member name="T:WK7Bot.Modules.RssCommandsModule">
             <summary>
-            Provides slash commands and component interactions for managing RSS feeds, permissions, and self-service subscriptions.
+            Provides slash commands for managing RSS news feeds and posting subscription dashboards.
             </summary>
         </member>
         <member name="M:WK7Bot.Modules.RssCommandsModule.#ctor(WK7Bot.Core.Interfaces.IRssRepository)">
@@ -260,7 +260,7 @@
         </member>
         <member name="M:WK7Bot.Modules.RssCommandsModule.AddFeedAsync(System.String,System.String)">
             <summary>
-            Registers a new RSS feed, creates its category, read-only channel, and notification role, and refreshes the active dashboard.
+            Registers a new RSS feed, creates its category, private read-only channel restricted to the notification role, and refreshes the active dashboard.
             </summary>
             <param name="name">The display name of the feed.</param>
             <param name="url">The RSS feed XML endpoint URL.</param>
@@ -278,13 +278,6 @@
             Posts or updates the interactive subscription dashboard select menu in the current channel and stores its location.
             </summary>
             <returns>A task representing the command response operation.</returns>
-        </member>
-        <member name="M:WK7Bot.Modules.RssCommandsModule.HandleSubscriptionSelectionAsync(System.String[])">
-            <summary>
-            Handles the selection state changes from the interactive subscription select menu component.
-            </summary>
-            <param name="selectedRoleIds">The array of selected role ID strings submitted by the user.</param>
-            <returns>A task representing the interaction response operation.</returns>
         </member>
         <member name="M:WK7Bot.Modules.RssCommandsModule.RefreshDashboardMessageAsync">
             <summary>
@@ -313,6 +306,25 @@
             </summary>
             <param name="rawName">The raw input name.</param>
             <returns>A lowercase, hyphenated channel name string.</returns>
+        </member>
+        <member name="T:WK7Bot.Modules.RssComponentModule">
+            <summary>
+            Handles UI component interactions such as select menus and buttons for RSS feed subscriptions.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Modules.RssComponentModule.#ctor(WK7Bot.Core.Interfaces.IRssRepository)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Modules.RssComponentModule"/> class.
+            </summary>
+            <param name="repository">The repository used for RSS feed data persistence.</param>
+        </member>
+        <member name="M:WK7Bot.Modules.RssComponentModule.HandleSubscriptionSelectionAsync(System.String[])">
+            <summary>
+            Handles user selections from the RSS subscription multi-select menu component.
+            Extracts selected role identifiers, catches hierarchy and permission exceptions, and updates user server roles in batch operations.
+            </summary>
+            <param name="selectedValues">An array of string values selected by the user from the multi-select menu.</param>
+            <returns>A task representing the asynchronous interaction handling operation.</returns>
         </member>
         <member name="T:WK7Bot.Modules.SystemModule">
             <summary>
@@ -369,6 +381,83 @@
             </summary>
             <param name="message">The incoming event payload containing severity, source, and message text.</param>
             <returns>A completed task representing the log forwarding operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.#ctor(Discord.WebSocket.DiscordSocketClient,MQTTnet.IMqttClient,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.HomeAssistantNotifierService"/> class with required dependencies.
+            </summary>
+            <param name="discordClient">The active Discord socket client instance used for channel interactions.</param>
+            <param name="mqttClient">The active MQTT client instance used to communicate with Home Assistant.</param>
+            <param name="configuration">The configuration provider used to retrieve broker settings.</param>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.ExecuteAsync(System.Threading.CancellationToken)">
+            <summary>
+            Connects asynchronously to the MQTT broker, applies credentials if configured, subscribes to Discord events, and listens for MQTT notifications.
+            </summary>
+            <param name="stoppingToken">A cancellation token monitored to observe service shutdown requests.</param>
+            <returns>A task representing the background execution lifecycle.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.OnReadyAsync">
+            <summary>
+            Event handler executed when the Discord client achieves a ready state, initiating full channel discovery.
+            </summary>
+            <returns>A task representing the initial channel discovery operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.OnChannelCreatedAsync(Discord.WebSocket.SocketChannel)">
+            <summary>
+            Event handler executed when a new channel is created within a Discord guild.
+            </summary>
+            <param name="channel">The newly created socket channel instance.</param>
+            <returns>A task representing the conditional entity registration.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.OnChannelDestroyedAsync(Discord.WebSocket.SocketChannel)">
+            <summary>
+            Event handler executed when an existing channel is deleted from a Discord guild.
+            </summary>
+            <param name="channel">The deleted socket channel instance.</param>
+            <returns>A task representing the entity removal operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.OnChannelUpdatedAsync(Discord.WebSocket.SocketChannel,Discord.WebSocket.SocketChannel)">
+            <summary>
+            Event handler executed when a channel's metadata or permissions are updated.
+            </summary>
+            <param name="oldChannel">The previous socket channel state.</param>
+            <param name="newChannel">The updated socket channel state.</param>
+            <returns>A task representing the state synchronization operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.RegisterAllWritableChannelsAsync">
+            <summary>
+            Iterates through all connected guilds and registers entities for text channels where send permissions are granted.
+            </summary>
+            <returns>A task representing the bulk channel registration workflow.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.RegisterChannelNotificationEntityAsync(Discord.WebSocket.SocketTextChannel)">
+            <summary>
+            Registers a specific Discord text channel as a Home Assistant notification entity via MQTT Discovery.
+            </summary>
+            <param name="channel">The target text channel to expose as an MQTT entity.</param>
+            <returns>A task representing the publication of the discovery MQTT payload.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.UnregisterChannelNotificationEntityAsync(Discord.WebSocket.SocketTextChannel)">
+            <summary>
+            Removes a Discord channel entity from Home Assistant by publishing an empty payload to its discovery topic.
+            </summary>
+            <param name="channel">The target text channel to remove from Home Assistant discovery.</param>
+            <returns>A task representing the publication of the MQTT deletion payload.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.IsWritable(Discord.WebSocket.SocketTextChannel)">
+            <summary>
+            Determines whether the current bot user possesses permissions to send messages in the specified channel.
+            </summary>
+            <param name="channel">The text channel to evaluate permissions against.</param>
+            <returns>True if the bot can send messages in the channel; otherwise, false.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.ProcessIncomingMultiChannelNotificationAsync(MQTTnet.MqttApplicationMessageReceivedEventArgs)">
+            <summary>
+            Extracts the target channel identifier from an incoming MQTT message topic and dispatches the message payload to Discord.
+            </summary>
+            <param name="eventArgs">The received MQTT application message event arguments containing topic and payload data.</param>
+            <returns>A task representing the message dispatch operation.</returns>
         </member>
         <member name="T:WK7Bot.Services.HomeAssistantService">
             <summary>
@@ -444,6 +533,22 @@
             </summary>
             <param name="interaction">The incoming socket interaction payload from Discord.</param>
             <returns>A task representing the asynchronous interaction execution operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.RssDashboardService.#ctor(WK7Bot.Infrastructure.Data.BotDbContext,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.RssDashboardService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.RssDashboardService"/> class.
+            </summary>
+            <param name="dbContext">The database context for accessing RSS settings and feed records.</param>
+            <param name="logger">The logger instance for tracking operational events.</param>
+        </member>
+        <member name="M:WK7Bot.Services.RssDashboardService.RefreshDashboardAsync(Discord.ITextChannel,System.Threading.CancellationToken)">
+            <summary>
+            Updates the existing RSS subscription dashboard message or creates a new one in the target channel if none exists.
+            Stores the resulting Channel ID and Message ID in the database.
+            </summary>
+            <param name="channel">The text channel where the dashboard embed should reside.</param>
+            <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+            <returns>A task representing the asynchronous operation.</returns>
         </member>
         <member name="T:WK7Bot.Services.RssParserService">
             <summary>

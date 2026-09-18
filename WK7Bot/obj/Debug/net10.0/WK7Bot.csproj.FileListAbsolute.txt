@@ -199,3 +199,5 @@ C:\Users\Dracus\RiderProjects\WebApplication1\WK7Bot\obj\Debug\net10.0\WK7Bot.xm
 C:\Users\Dracus\RiderProjects\WebApplication1\WK7Bot\obj\Debug\net10.0\WK7Bot.pdb
 C:\Users\Dracus\RiderProjects\WebApplication1\WK7Bot\obj\Debug\net10.0\WK7Bot.genruntimeconfig.cache
 C:\Users\Dracus\RiderProjects\WebApplication1\WK7Bot\obj\Debug\net10.0\ref\WK7Bot.dll
+C:\Users\Dracus\RiderProjects\WebApplication1\WK7Bot\bin\Debug\net10.0\MQTTnet.dll
+C:\Users\Dracus\RiderProjects\WebApplication1\WK7Bot\obj\Debug\net10.0\WK7Bot.sourcelink.json
