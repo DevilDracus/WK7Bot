@@ -4,12 +4,13 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
 /// <summary>
 /// Hosted background service monitoring Discord gateway messages for target user mentions
-/// and forwarding queued notifications to the getnotify.me Alexa API using token and secret credentials.
+/// and forwarding queued notifications to the getnotify.me Alexa API using HTTP Basic Authentication.
 /// </summary>
 public class AlexaMentionNotificationService : IHostedService
 {
@@ -96,7 +97,7 @@ public class AlexaMentionNotificationService : IHostedService
     }
 
     /// <summary>
-    /// Dispatches the formatted notification payload along with API token and secret credentials to getnotify.me.
+    /// Dispatches the formatted notification payload to getnotify.me using HTTP Basic Authentication.
     /// </summary>
     /// <param name="notificationText">The formatted message content to be queued for Alexa.</param>
     /// <returns>A task representing the asynchronous HTTP request operation.</returns>
@@ -104,7 +105,12 @@ public class AlexaMentionNotificationService : IHostedService
     {
         var apiToken = _configuration["alexa_notification:api_token"];
         var apiSecret = _configuration["alexa_notification:api_secret"];
-        var endpointUrl = _configuration["alexa_notification:endpoint_url"] ?? "https://api.getnotify.me/v1/notify";
+        var endpointUrl = _configuration["alexa_notification:endpoint_url"];
+
+        if (string.IsNullOrWhiteSpace(endpointUrl))
+        {
+            endpointUrl = "https://api.getnotify.me/submit";
+        }
 
         if (string.IsNullOrWhiteSpace(apiToken) || string.IsNullOrWhiteSpace(apiSecret))
         {
@@ -112,19 +118,21 @@ public class AlexaMentionNotificationService : IHostedService
             return;
         }
 
-        var payload = new
-        {
-            token = apiToken,
-            secret = apiSecret,
-            notification = notificationText
-        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
 
+        var cleanToken = apiToken.Trim();
+        var cleanSecret = apiSecret.Trim();
+
+        var authBytes = Encoding.UTF8.GetBytes($"{cleanToken}:{cleanSecret}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
+
+        var payload = new { message = notificationText };
         var json = JsonSerializer.Serialize(payload);
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
         try
         {
-            using var response = await _httpClient.PostAsync(endpointUrl, content);
+            using var response = await _httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
             _logger.LogInformation("Successfully dispatched persistent notification to getnotify.me API.");
