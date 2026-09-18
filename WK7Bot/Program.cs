@@ -33,6 +33,7 @@ builder.Services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
 builder.Services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
 builder.Services.AddHttpClient<IHomeAssistantService, HomeAssistantService>();
 builder.Services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
+builder.Services.AddHttpClient<AlexaMentionNotificationService>();
 
 builder.Services.AddSingleton<IMqttClient>(sp => new MqttClientFactory().CreateMqttClient());
 
@@ -41,6 +42,7 @@ builder.Services.AddHostedService<RssPollingBackgroundService>();
 builder.Services.AddHostedService<DiscordBotWorker>();
 builder.Services.AddHostedService<HomeAssistantNotifierService>();
 builder.Services.AddHostedService<LeipzigWasteBackgroundService>();
+builder.Services.AddHostedService<AlexaMentionNotificationService>();
 
 var app = builder.Build();
 
