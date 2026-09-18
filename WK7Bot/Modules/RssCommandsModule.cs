@@ -125,7 +125,7 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
 
         var (embed, component) = BuildDashboardMessage(feeds);
 
-        await RespondAsync(embed: embed, components: component);
+        await RespondAsync(embed: embed, components: component, ephemeral: true);
         var responseMessage = await GetOriginalResponseAsync();
 
         await _repository.SaveDashboardLocationAsync(Context.Channel.Id, responseMessage.Id);
