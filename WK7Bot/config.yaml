@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.10"
+version: "1.0.11"
 slug: "wk7bot"
 init: false
 arch:
@@ -16,8 +16,16 @@ map:
   - ssl
 options:
   discord_token: ""
+  mqtt_host: "core-mosquitto"
+  mqtt_port: 1883
+  mqtt_username: ""
+  mqtt_password: ""
 schema:
   discord_token: str
+  mqtt_host: str
+  mqtt_port: int
+  mqtt_username: str?
+  mqtt_password: str?
 hassio_api: true
 homeassistant_api: true
 hassio_role: "default"

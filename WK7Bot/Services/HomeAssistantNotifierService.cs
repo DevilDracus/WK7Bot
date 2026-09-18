@@ -1,32 +1,65 @@
 ﻿using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Discord;
 using Discord.WebSocket;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using MQTTnet;
+
+namespace WK7Bot.Services;
 
 public class HomeAssistantNotifierService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IMqttClient _mqttClient;
+    private readonly IConfiguration _configuration;
 
-    public HomeAssistantNotifierService(DiscordSocketClient discordClient, IMqttClient mqttClient)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="HomeAssistantNotifierService"/> class with required dependencies.
+    /// </summary>
+    /// <param name="discordClient">The active Discord socket client instance used for channel interactions.</param>
+    /// <param name="mqttClient">The active MQTT client instance used to communicate with Home Assistant.</param>
+    /// <param name="configuration">The configuration provider used to retrieve broker settings.</param>
+    public HomeAssistantNotifierService(DiscordSocketClient discordClient, IMqttClient mqttClient, IConfiguration configuration)
     {
         _discordClient = discordClient;
         _mqttClient = mqttClient;
+        _configuration = configuration;
     }
 
     /// <summary>
-    /// Executes the background service, subscribing to Discord socket events and configuring MQTT listeners.
+    /// Connects asynchronously to the MQTT broker, optionally applying credentials if configured, subscribes to Discord events, and listens for MQTT notifications.
     /// </summary>
     /// <param name="stoppingToken">A cancellation token monitored to observe service shutdown requests.</param>
     /// <returns>A task representing the background execution lifecycle.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var mqttHost = _configuration["mqtt_host"] ?? _configuration["Mqtt:Host"] ?? "core-mosquitto";
+        var mqttPort = _configuration.GetValue<int?>("mqtt_port") ?? _configuration.GetValue<int>("Mqtt:Port", 1883);
+        var mqttUsername = _configuration["mqtt_username"] ?? _configuration["Mqtt:Username"];
+        var mqttPassword = _configuration["mqtt_password"] ?? _configuration["Mqtt:Password"];
+
+        var optionsBuilder = new MqttClientOptionsBuilder()
+            .WithTcpServer(mqttHost, mqttPort)
+            .WithCleanSession();
+
+        if (!string.IsNullOrWhiteSpace(mqttUsername))
+        {
+            optionsBuilder.WithCredentials(mqttUsername, mqttPassword);
+        }
+
+        await _mqttClient.ConnectAsync(optionsBuilder.Build(), stoppingToken);
+
         _discordClient.Ready += OnReadyAsync;
         _discordClient.ChannelCreated += OnChannelCreatedAsync;
         _discordClient.ChannelDestroyed += OnChannelDestroyedAsync;
         _discordClient.ChannelUpdated += OnChannelUpdatedAsync;
+
+        if (_discordClient.ConnectionState == ConnectionState.Connected)
+        {
+            await RegisterAllWritableChannelsAsync();
+        }
 
         await _mqttClient.SubscribeAsync("homeassistant/notify/wk7_+/set", cancellationToken: stoppingToken);
 
@@ -34,8 +67,6 @@ public class HomeAssistantNotifierService : BackgroundService
         {
             await ProcessIncomingMultiChannelNotificationAsync(eventArgs);
         };
-
-        await Task.CompletedTask;
     }
 
     /// <summary>
