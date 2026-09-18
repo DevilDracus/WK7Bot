@@ -1,5 +1,6 @@
 ﻿using Discord.Interactions;
 using WK7Bot.Services;
+using WK7Bot.Services.Interfaces;
 
 namespace WK7Bot.Modules;
 

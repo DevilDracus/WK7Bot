@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Services;
+﻿namespace WK7Bot.Services.Interfaces;
 
 /// <summary>
 /// Defines client operations for interacting with the Home Assistant REST API.

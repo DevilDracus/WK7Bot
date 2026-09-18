@@ -1,4 +1,6 @@
-﻿namespace WK7Bot.Services;
+﻿using WK7Bot.Services.Interfaces;
+
+namespace WK7Bot.Services;
 
 using Ical.Net;
 using Microsoft.Extensions.Configuration;

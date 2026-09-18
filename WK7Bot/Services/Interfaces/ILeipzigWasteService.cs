@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Services;
+﻿namespace WK7Bot.Services.Interfaces;
 
 /// <summary>
 /// Service interface defining contract capabilities for parsing and fetching Leipzig waste collection schedules.

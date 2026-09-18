@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.22"
+version: "1.0.23"
 slug: "wk7bot"
 init: false
 arch:
@@ -25,6 +25,11 @@ options:
     api_token: "YOUR_GETNOTIFY_TOKEN"
     api_secret: "YOUR_GETNOTIFY_SECRET"
     endpoint_url: "https://api.getnotify.me/v1/notify"
+  features:
+    rss_polling_enabled: true
+    home_assistant_notifier_enabled: true
+    leipzig_waste_enabled: true
+    alexa_notifications_enabled: true
 schema:
   discord_token: str
   mqtt_host: str
@@ -36,6 +41,11 @@ schema:
     api_token: str?
     api_secret: str?
     endpoint_url: str?
+  features:
+    rss_polling_enabled: bool
+    home_assistant_notifier_enabled: bool
+    leipzig_waste_enabled: bool
+    alexa_notifications_enabled: bool
 hassio_api: true
 homeassistant_api: true
 hassio_role: "default"

@@ -1,4 +1,6 @@
-﻿namespace WK7Bot.Modules;
+﻿using WK7Bot.Services.Interfaces;
+
+namespace WK7Bot.Modules;
 
 using Discord;
 using Discord.Interactions;

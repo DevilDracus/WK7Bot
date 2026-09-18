@@ -9,8 +9,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MQTTnet;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Extensions;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Services;
+using WK7Bot.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,31 +20,10 @@ builder.Configuration.AddJsonFile("/data/options.json", optional: true, reloadOn
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=/data/wk7bot.db";
 
-builder.Services.AddDbContext<BotDbContext>(options =>
-    options.UseSqlite(connectionString));
-
-builder.Services.AddScoped<IRssRepository, RssRepository>();
-builder.Services.AddTransient<RssParserService>();
-
-builder.Services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
-{
-    GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildMembers | GatewayIntents.GuildPresences,
-    AlwaysDownloadUsers = true
-}));
-
-builder.Services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
-builder.Services.AddHttpClient<IHomeAssistantService, HomeAssistantService>();
-builder.Services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
-builder.Services.AddHttpClient<AlexaMentionNotificationService>();
-
-builder.Services.AddSingleton<IMqttClient>(sp => new MqttClientFactory().CreateMqttClient());
-
-builder.Services.AddHostedService<InteractionHandlingService>();
-builder.Services.AddHostedService<RssPollingBackgroundService>();
-builder.Services.AddHostedService<DiscordBotWorker>();
-builder.Services.AddHostedService<HomeAssistantNotifierService>();
-builder.Services.AddHostedService<LeipzigWasteBackgroundService>();
-builder.Services.AddHostedService<AlexaMentionNotificationService>();
+// Modular service registrations
+builder.Services.AddBotDatabase(connectionString);
+builder.Services.AddBotDiscordAndClients();
+builder.Services.AddBotHostedServices(builder.Configuration);
 
 var app = builder.Build();
 

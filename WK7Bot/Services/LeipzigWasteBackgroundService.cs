@@ -1,4 +1,6 @@
-﻿namespace WK7Bot.Services;
+﻿using WK7Bot.Services.Interfaces;
+
+namespace WK7Bot.Services;
 
 using Discord;
 using Discord.WebSocket;
