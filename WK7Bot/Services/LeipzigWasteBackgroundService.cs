@@ -3,9 +3,9 @@
 using Discord;
 using Discord.WebSocket;
 using Ical.Net;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Text.RegularExpressions;
 
 /// <summary>
 /// Background service that periodically fetches the Stadtreinigung Leipzig ICS feed,
@@ -16,26 +16,25 @@ public class LeipzigWasteBackgroundService : BackgroundService
     private const string TargetChannelName = "🗑️-leipzig-waste";
     private readonly DiscordSocketClient _discordClient;
     private readonly HttpClient _httpClient;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<LeipzigWasteBackgroundService> _logger;
-
-    /// <summary>
-    /// Gets or sets the Stadtreinigung Leipzig ICS calendar URL endpoint.
-    /// </summary>
-    private const string IcsFeedUrl = "https://www.stadtreinigung-leipzig.de/abfallkalender/ics/Saturnstrasse.ics"; // Update with your exact ICS URL if needed
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LeipzigWasteBackgroundService"/> class.
     /// </summary>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="httpClient">The HTTP client instance for downloading external web resources.</param>
+    /// <param name="configuration">The application configuration root containing feed endpoints.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public LeipzigWasteBackgroundService(
         DiscordSocketClient discordClient,
         HttpClient httpClient,
+        IConfiguration configuration,
         ILogger<LeipzigWasteBackgroundService> logger)
     {
         _discordClient = discordClient;
         _httpClient = httpClient;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -51,7 +50,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
             try
             {
                 var now = DateTime.Now;
-                var nextRunTime = now.Date.AddDays(1).AddHours(8); // Schedule for 08:00 AM tomorrow
+                var nextRunTime = now.Date.AddDays(1).AddHours(8);
                 var delay = nextRunTime - now;
 
                 _logger.LogInformation("Waste notification check scheduled for {NextRunTime}", nextRunTime);
@@ -105,11 +104,27 @@ public class LeipzigWasteBackgroundService : BackgroundService
     private async Task<List<string>> GetWasteTypesForDateAsync(DateTime targetDate, CancellationToken cancellationToken)
     {
         var detectedWasteTypes = new List<string>();
+        var feedUrl = _configuration["LeipzigWaste:IcsFeedUrl"];
+
+        if (string.IsNullOrWhiteSpace(feedUrl))
+        {
+            _logger.LogError("Stadtreinigung Leipzig ICS feed URL is not configured in appsettings.json.");
+            return detectedWasteTypes;
+        }
 
         try
         {
-            var csStream = await _httpClient.GetStreamAsync(IcsFeedUrl, cancellationToken);
-            var calendar = Calendar.Load(csStream);
+            using var response = await _httpClient.GetAsync(feedUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var contentString = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!contentString.StartsWith("BEGIN:VCALENDAR", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Retrieved payload from Leipzig waste endpoint does not appear to be a valid ICS calendar stream.");
+                return detectedWasteTypes;
+            }
+
+            var calendar = Calendar.Load(contentString);
 
             foreach (var calendarEvent in calendar.Events)
             {
@@ -122,7 +137,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to download or parse the Stadtreinigung Leipzig ICS feed.");
+            _logger.LogError(ex, "Failed to download or parse the Stadtreinigung Leipzig ICS feed from {FeedUrl}", feedUrl);
         }
 
         return detectedWasteTypes;
@@ -177,7 +192,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// Checks for an existing waste notification channel in the guild or creates a new read-only channel.
     /// </summary>
     /// <param name="guild">The target guild where channel existence is evaluated.</param>
-    /// <returns>The existing or newly created text channel instance.</returns>
+    /// <returns>A task representing the asynchronous channel creation or retrieval operation, returning the text channel instance.</returns>
     private async Task<ITextChannel> GetOrCreateWasteChannelAsync(SocketGuild guild)
     {
         var existingChannel = guild.TextChannels.FirstOrDefault(c => c.Name.Equals(TargetChannelName, StringComparison.OrdinalIgnoreCase));
