@@ -52,6 +52,10 @@
               "target": "Package",
               "version": "[3.17.1, )"
             },
+            "Ical.Net": {
+              "target": "Package",
+              "version": "[5.2.3, )"
+            },
             "MQTTnet": {
               "target": "Package",
               "version": "[5.2.0.1603, )"

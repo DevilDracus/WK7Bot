@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "fud+6o2DjQY=",
+  "dgSpecHash": "Tcrdb2STJ3g=",
   "success": true,
   "projectFilePath": "C:\\Users\\Dracus\\RiderProjects\\WebApplication1\\WK7Bot\\WK7Bot.csproj",
   "expectedPackageFiles": [
@@ -15,6 +15,7 @@
     "C:\\Users\\Dracus\\.nuget\\packages\\discord.net.webhook\\3.17.1\\discord.net.webhook.3.17.1.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\discord.net.websocket\\3.17.1\\discord.net.websocket.3.17.1.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
+    "C:\\Users\\Dracus\\.nuget\\packages\\ical.net\\5.2.3\\ical.net.5.2.3.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\8.0.0\\microsoft.bcl.asyncinterfaces.8.0.0.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\microsoft.build.framework\\18.0.2\\microsoft.build.framework.18.0.2.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\microsoft.codeanalysis.analyzers\\3.11.0\\microsoft.codeanalysis.analyzers.3.11.0.nupkg.sha512",
@@ -51,6 +52,7 @@
     "C:\\Users\\Dracus\\.nuget\\packages\\mono.texttemplating\\3.0.0\\mono.texttemplating.3.0.0.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\mqttnet\\5.2.0.1603\\mqttnet.5.2.0.1603.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\newtonsoft.json\\13.0.4\\newtonsoft.json.13.0.4.nupkg.sha512",
+    "C:\\Users\\Dracus\\.nuget\\packages\\nodatime\\3.2.2\\nodatime.3.2.2.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\sqlitepclraw.bundle_e_sqlite3\\2.1.12\\sqlitepclraw.bundle_e_sqlite3.2.1.12.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\sqlitepclraw.core\\2.1.12\\sqlitepclraw.core.2.1.12.nupkg.sha512",
     "C:\\Users\\Dracus\\.nuget\\packages\\sqlitepclraw.lib.e_sqlite3\\2.1.12\\sqlitepclraw.lib.e_sqlite3.2.1.12.nupkg.sha512",
