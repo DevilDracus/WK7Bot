@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.18"
+version: "1.0.19"
 slug: "wk7bot"
 init: false
 arch:
@@ -20,12 +20,22 @@ options:
   mqtt_port: 1883
   mqtt_username: ""
   mqtt_password: ""
+  alexa_notification:
+    target_user_id: "YOUR_DISCORD_USER_ID"
+    api_token: "YOUR_GETNOTIFY_TOKEN"
+    api_secret: "YOUR_GETNOTIFY_SECRET"
+    endpoint_url: "https://api.getnotify.me/v1/notify"
 schema:
   discord_token: str
   mqtt_host: str
   mqtt_port: int
   mqtt_username: str?
   mqtt_password: str?
+  alexa_notification:
+    target_user_id: str?
+    api_token: str?
+    api_secret: str?
+    endpoint_url: str?
 hassio_api: true
 homeassistant_api: true
 hassio_role: "default"
