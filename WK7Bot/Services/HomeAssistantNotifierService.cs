@@ -29,7 +29,7 @@ public class HomeAssistantNotifierService : BackgroundService
     }
 
     /// <summary>
-    /// Connects asynchronously to the MQTT broker, optionally applying credentials if configured, subscribes to Discord events, and listens for MQTT notifications.
+    /// Connects asynchronously to the MQTT broker, applies credentials if configured, subscribes to Discord events, and listens for MQTT notifications.
     /// </summary>
     /// <param name="stoppingToken">A cancellation token monitored to observe service shutdown requests.</param>
     /// <returns>A task representing the background execution lifecycle.</returns>
@@ -61,12 +61,12 @@ public class HomeAssistantNotifierService : BackgroundService
             await RegisterAllWritableChannelsAsync();
         }
 
-        await _mqttClient.SubscribeAsync("homeassistant/notify/wk7_+/set", cancellationToken: stoppingToken);
-
         _mqttClient.ApplicationMessageReceivedAsync += async eventArgs =>
         {
             await ProcessIncomingMultiChannelNotificationAsync(eventArgs);
         };
+
+        await _mqttClient.SubscribeAsync("homeassistant/notify/+/set", cancellationToken: stoppingToken);
     }
 
     /// <summary>
