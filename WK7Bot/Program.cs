@@ -32,7 +32,7 @@ builder.Services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
 
 builder.Services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
 builder.Services.AddHttpClient<IHomeAssistantService, HomeAssistantService>();
-builder.Services.AddHttpClient<LeipzigWasteBackgroundService>();
+builder.Services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
 
 builder.Services.AddSingleton<IMqttClient>(sp => new MqttClientFactory().CreateMqttClient());
 
