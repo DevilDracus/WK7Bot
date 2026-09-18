@@ -1006,6 +1006,19 @@
           "buildTransitive/Mono.TextTemplating.targets": {}
         }
       },
+      "MQTTnet/5.2.0.1603": {
+        "type": "package",
+        "compile": {
+          "lib/net10.0/MQTTnet.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/MQTTnet.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Newtonsoft.Json/13.0.4": {
         "type": "package",
         "compile": {
@@ -3348,6 +3361,23 @@
         "readme.md"
       ]
     },
+    "MQTTnet/5.2.0.1603": {
+      "sha512": "iNuWVo/568aRo2ExEN2qkC4J5b07ckKqt+9Uok2kIbbK7PMBsXvYiKVENPHmOBWFB5ExhlNQb/qQ8M9/IYRTdQ==",
+      "type": "package",
+      "path": "mqttnet/5.2.0.1603",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "lib/net10.0/MQTTnet.dll",
+        "lib/net10.0/MQTTnet.xml",
+        "lib/net8.0/MQTTnet.dll",
+        "lib/net8.0/MQTTnet.xml",
+        "mqttnet.5.2.0.1603.nupkg.sha512",
+        "mqttnet.nuspec",
+        "nuget.png"
+      ]
+    },
     "Newtonsoft.Json/13.0.4": {
       "sha512": "pdgNNMai3zv51W5aq268sujXUyx7SNdE2bj1wZcWjAQrKMFZV260lbqYop1d2GM67JI1huLRwxo9ZqnfF/lC6A==",
       "type": "package",
@@ -3901,6 +3931,7 @@
     "net10.0": [
       "CodeHollow.FeedReader >= 1.2.6",
       "Discord.Net >= 3.17.1",
+      "MQTTnet >= 5.2.0.1603",
       "Microsoft.EntityFrameworkCore.SqlServer >= 10.0.12",
       "Microsoft.EntityFrameworkCore.Sqlite >= 10.0.12",
       "Microsoft.EntityFrameworkCore.Tools >= 10.0.12"
@@ -3956,6 +3987,10 @@
           "Discord.Net": {
             "target": "Package",
             "version": "[3.17.1, )"
+          },
+          "MQTTnet": {
+            "target": "Package",
+            "version": "[5.2.0.1603, )"
           },
           "Microsoft.EntityFrameworkCore.SqlServer": {
             "target": "Package",

@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MQTTnet;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Services;
@@ -32,9 +33,12 @@ builder.Services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
 builder.Services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
 builder.Services.AddHttpClient<IHomeAssistantService, HomeAssistantService>();
 
+builder.Services.AddSingleton<IMqttClient>(sp => new MqttClientFactory().CreateMqttClient());
+
 builder.Services.AddHostedService<InteractionHandlingService>();
 builder.Services.AddHostedService<RssPollingBackgroundService>();
 builder.Services.AddHostedService<DiscordBotWorker>();
+builder.Services.AddHostedService<HomeAssistantNotifierService>();
 
 var app = builder.Build();
 
