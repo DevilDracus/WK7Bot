@@ -1,11 +1,9 @@
-﻿using WK7Bot.Services.Interfaces;
-
-namespace WK7Bot.Modules;
-
+﻿using System.Globalization;
 using Discord;
 using Discord.Interactions;
-using System.Globalization;
-using WK7Bot.Services;
+using WK7Bot.Services.Interfaces;
+
+namespace WK7Bot.Modules;
 
 /// <summary>
 /// Interaction module exposing slash commands for checking Leipzig waste collection schedules on demand.

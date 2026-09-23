@@ -1,5 +1,4 @@
 ﻿using CodeHollow.FeedReader;
-using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Entities;
 
 namespace WK7Bot.Services;

@@ -1,15 +1,9 @@
-﻿using WK7Bot.Infrastructure.Data;
+﻿using Discord;
+using Microsoft.EntityFrameworkCore;
+using WK7Bot.Core.Entities;
+using WK7Bot.Infrastructure.Data;
 
 namespace WK7Bot.Services;
-
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Discord;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using WK7Bot.Core;
-using WK7Bot.Core.Entities;
 
 public class RssDashboardService
 {
