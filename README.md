@@ -1,5 +1,18 @@
-﻿# WK7Bot
+# WK7Bot
 A feature-rich Discord bot built with .NET that combines RSS feed monitoring, Home Assistant notifications, and local utility integrations for Discord communities.
+
+## Home Assistant Installation
+
+[![Add repository to Home Assistant][repository-badge]][repository-url]
+
+Easily add the WK7Bot add-on repository directly to Home Assistant.
+
+If you prefer to add the repository manually, follow the official Home Assistant documentation and use the following repository URL:
+
+```text
+https://github.com/DevilDracus/WK7Bot
+```
+
 
 ## Features
 
@@ -181,3 +194,6 @@ Any modified or derivative versions distributed or provided as a service must al
 If you build upon WK7Bot, please include a reference to the original project:
 
 [WK7Bot Repository](https://github.com/DevilDracus/WK7Bot)
+
+[repository-badge]: https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg
+[repository-url]: https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fdevildracus%2FWK7Bot
