@@ -1,12 +1,9 @@
-﻿using WK7Bot.Services.Interfaces;
-
-namespace WK7Bot.Services;
-
+﻿using System.Globalization;
 using Discord;
 using Discord.WebSocket;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using System.Globalization;
+using WK7Bot.Services.Interfaces;
+
+namespace WK7Bot.Services;
 
 /// <summary>
 /// Background service that periodically checks for Leipzig waste collections,

@@ -1,10 +1,9 @@
-﻿namespace WK7Bot.Modules;
-
-using Discord;
+﻿using Discord;
 using Discord.Interactions;
-using Discord.WebSocket;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
+
+namespace WK7Bot.Modules;
 
 /// <summary>
 /// Provides slash commands for managing RSS news feeds and posting subscription dashboards.

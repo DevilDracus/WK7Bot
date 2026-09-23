@@ -1,10 +1,6 @@
 ﻿using System.Reflection;
-using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace WK7Bot.Services;
 

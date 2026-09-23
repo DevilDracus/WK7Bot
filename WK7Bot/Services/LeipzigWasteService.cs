@@ -1,10 +1,7 @@
-﻿using WK7Bot.Services.Interfaces;
+﻿using Ical.Net;
+using WK7Bot.Services.Interfaces;
 
 namespace WK7Bot.Services;
-
-using Ical.Net;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Implementation of the waste service responsible for retrieving and mapping ICS feed data.

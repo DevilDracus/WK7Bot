@@ -1,7 +1,7 @@
-﻿namespace WK7Bot.Infrastructure.Data;
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using WK7Bot.Core.Entities;
+
+namespace WK7Bot.Infrastructure.Data;
 
 /// <summary>
 /// Represents the primary Entity Framework Core database context for managing application entities.

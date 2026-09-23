@@ -1,10 +1,9 @@
-﻿namespace WK7Bot.Modules;
-
-using Discord;
+﻿using System.Net;
 using Discord.Interactions;
 using Discord.WebSocket;
-using System.Net;
 using WK7Bot.Core.Interfaces;
+
+namespace WK7Bot.Modules;
 
 /// <summary>
 /// Handles UI component interactions such as select menus and buttons for RSS feed subscriptions.

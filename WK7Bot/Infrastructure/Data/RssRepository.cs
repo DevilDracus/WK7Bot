@@ -1,8 +1,8 @@
-﻿namespace WK7Bot.Infrastructure.Data;
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
+
+namespace WK7Bot.Infrastructure.Data;
 
 /// <summary>
 /// Entity Framework Core implementation of the RSS repository data access contract.
