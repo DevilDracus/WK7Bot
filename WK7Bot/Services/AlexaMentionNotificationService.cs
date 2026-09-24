@@ -1,12 +1,9 @@
-﻿namespace WK7Bot.Services;
-
-using Discord.WebSocket;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Discord.WebSocket;
+
+namespace WK7Bot.Services;
 
 /// <summary>
 /// Hosted background service monitoring Discord gateway messages for target user mentions

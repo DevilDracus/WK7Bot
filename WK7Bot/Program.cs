@@ -1,18 +1,7 @@
-using Discord;
-using Discord.Interactions;
-using Discord.WebSocket;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using MQTTnet;
-using WK7Bot.Core.Interfaces;
 using WK7Bot.Extensions;
 using WK7Bot.Infrastructure.Data;
-using WK7Bot.Services;
-using WK7Bot.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 

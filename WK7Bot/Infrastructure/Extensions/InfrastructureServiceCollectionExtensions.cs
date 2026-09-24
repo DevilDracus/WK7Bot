@@ -1,10 +1,8 @@
-﻿namespace WK7Bot.Infrastructure.Extensions;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.EntityFrameworkCore;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Infrastructure.Data;
+
+namespace WK7Bot.Infrastructure.Extensions;
 
 /// <summary>
 /// Provides extension methods for registering infrastructure services, EF Core SQLite data access, and repository layers into the application service container.

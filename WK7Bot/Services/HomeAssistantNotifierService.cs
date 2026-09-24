@@ -1,13 +1,10 @@
-﻿namespace WK7Bot.Services;
-
-using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Discord;
 using Discord.WebSocket;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 using MQTTnet;
+
+namespace WK7Bot.Services;
 
 /// <summary>
 /// Background service that bridges Discord text channels and direct messages with Home Assistant via MQTT Discovery and notification commands.

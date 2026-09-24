@@ -1,17 +1,14 @@
-﻿using WK7Bot.Services.Interfaces;
-
-namespace WK7Bot.Extensions;
-
-using Discord;
+﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using MQTTnet;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Services;
+using WK7Bot.Services.Interfaces;
+
+namespace WK7Bot.Extensions;
 
 /// <summary>
 /// Extension methods for configuring application services, data stores, and background workers modularly.

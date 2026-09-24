@@ -1,6 +1,6 @@
-﻿namespace WK7Bot.Core.Interfaces;
+﻿using WK7Bot.Core.Entities;
 
-using WK7Bot.Core.Entities;
+namespace WK7Bot.Core.Interfaces;
 
 /// <summary>
 /// Defines data access operations for managing RSS feeds and dashboard configuration state.
