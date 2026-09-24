@@ -23,5 +23,10 @@ public class SteamAchievement
     /// <summary>
     /// Gets or sets the exact timestamp when the achievement was unlocked.
     /// </summary>
-    public DateTimeOffset UnlockTime { get; set; }
+    public DateTimeOffset? UnlockTime { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the absolute URL pointing to the achievement icon graphic.
+    /// </summary>
+    public string IconUrl { get; set; } = string.Empty;
 }
