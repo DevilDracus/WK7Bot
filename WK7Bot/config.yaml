@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.28"
+version: "1.0.29"
 slug: "wk7bot"
 init: false
 arch:
@@ -20,6 +20,8 @@ options:
   mqtt_port: 1883
   mqtt_username: ""
   mqtt_password: ""
+  steam_api_key: ""
+  discord_steam_mappings: []
   discord_dm_user_ids: []
   alexa_notification:
     target_user_id: "YOUR_DISCORD_USER_ID"
@@ -32,12 +34,17 @@ options:
     leipzig_waste_enabled: true
     alexa_notifications_enabled: true
     discord_presence_mqtt_enabled: true
+    steam_presence_enabled: true
 schema:
   discord_token: str
   mqtt_host: str
   mqtt_port: int
   mqtt_username: str?
   mqtt_password: str?
+  steam_api_key: str?
+  discord_steam_mappings:
+    - discord_user_id: str
+      steam_id: str
   discord_dm_user_ids:
     - str
   alexa_notification:
@@ -51,6 +58,7 @@ schema:
     leipzig_waste_enabled: bool
     alexa_notifications_enabled: bool
     discord_presence_mqtt_enabled: bool
+    steam_presence_enabled: bool
 hassio_api: true
 homeassistant_api: true
 hassio_role: "default"

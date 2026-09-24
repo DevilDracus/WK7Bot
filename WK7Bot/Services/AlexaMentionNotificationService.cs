@@ -1,9 +1,18 @@
-﻿using System.Net.Http.Headers;
+﻿namespace WK7Bot.Services;
+
+using Discord.WebSocket;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using Discord.WebSocket;
-
-namespace WK7Bot.Services;
+using System.Threading;
+using System.Threading.Tasks;
+using WK7Bot.Options;
 
 /// <summary>
 /// Hosted background service monitoring Discord gateway messages for target user mentions
@@ -13,7 +22,7 @@ public class AlexaMentionNotificationService : IHostedService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
+    private readonly Wk7BotOptions _options;
     private readonly ILogger<AlexaMentionNotificationService> _logger;
 
     /// <summary>
@@ -21,27 +30,33 @@ public class AlexaMentionNotificationService : IHostedService
     /// </summary>
     /// <param name="discordClient">The active Discord socket client instance.</param>
     /// <param name="httpClient">The HTTP client instance for outbound REST API requests.</param>
-    /// <param name="configuration">The application configuration providing target user and API credentials.</param>
+    /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for operational diagnostics.</param>
     public AlexaMentionNotificationService(
         DiscordSocketClient discordClient,
         HttpClient httpClient,
-        IConfiguration configuration,
+        IOptions<Wk7BotOptions> options,
         ILogger<AlexaMentionNotificationService> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
     /// <summary>
-    /// Binds the message received event handler to the Discord socket client when the background service starts.
+    /// Binds the message received event handler to the Discord socket client when the background service starts if enabled.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token monitored during application startup.</param>
     /// <returns>A completed task representing startup initialization.</returns>
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        if (!_options.Features.AlexaNotificationsEnabled)
+        {
+            _logger.LogInformation("Alexa mention notification service is disabled via feature options.");
+            return Task.CompletedTask;
+        }
+
         _discordClient.MessageReceived += HandleMessageReceivedAsync;
         return Task.CompletedTask;
     }
@@ -53,7 +68,11 @@ public class AlexaMentionNotificationService : IHostedService
     /// <returns>A completed task representing shutdown cleanup.</returns>
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        _discordClient.MessageReceived -= HandleMessageReceivedAsync;
+        if (_options.Features.AlexaNotificationsEnabled)
+        {
+            _discordClient.MessageReceived -= HandleMessageReceivedAsync;
+        }
+
         return Task.CompletedTask;
     }
 
@@ -71,7 +90,7 @@ public class AlexaMentionNotificationService : IHostedService
                 return;
             }
 
-            var targetUserIdStr = _configuration["alexa_notification:target_user_id"];
+            var targetUserIdStr = _options.AlexaNotification.TargetUserId;
             if (!ulong.TryParse(targetUserIdStr, out var targetUserId))
             {
                 return;
@@ -100,13 +119,13 @@ public class AlexaMentionNotificationService : IHostedService
     /// <returns>A task representing the asynchronous HTTP request operation.</returns>
     private async Task SendAlexaNotificationAsync(string notificationText)
     {
-        var apiToken = _configuration["alexa_notification:api_token"];
-        var apiSecret = _configuration["alexa_notification:api_secret"];
-        var endpointUrl = _configuration["alexa_notification:endpoint_url"];
+        var apiToken = _options.AlexaNotification.ApiToken;
+        var apiSecret = _options.AlexaNotification.ApiSecret;
+        var endpointUrl = _options.AlexaNotification.EndpointUrl;
 
         if (string.IsNullOrWhiteSpace(endpointUrl))
         {
-            endpointUrl = "https://api.getnotify.me/submit";
+            endpointUrl = "https://api.getnotify.me/v1/notify";
         }
 
         if (string.IsNullOrWhiteSpace(apiToken) || string.IsNullOrWhiteSpace(apiSecret))

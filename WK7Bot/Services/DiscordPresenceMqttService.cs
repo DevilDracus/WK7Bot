@@ -2,9 +2,9 @@
 
 using Discord;
 using Discord.WebSocket;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MQTTnet;
 using System;
 using System.Collections.Concurrent;
@@ -13,6 +13,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using WK7Bot.Models;
+using WK7Bot.Options;
+using WK7Bot.Services.Interfaces;
 
 /// <summary>
 /// Listens to Discord presence updates, extracts user status and activity artwork, and publishes unified user entities to Home Assistant via MQTT Discovery.
@@ -21,7 +23,8 @@ public class DiscordPresenceMqttService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IMqttClient _mqttClient;
-    private readonly IConfiguration _configuration;
+    private readonly ISteamService _steamService;
+    private readonly Wk7BotOptions _options;
     private readonly ILogger<DiscordPresenceMqttService> _logger;
     private readonly ConcurrentDictionary<ulong, bool> _discoveredUsers = new();
 
@@ -30,18 +33,21 @@ public class DiscordPresenceMqttService : BackgroundService
     /// </summary>
     /// <param name="discordClient">The active Discord socket client handling server connections.</param>
     /// <param name="mqttClient">The connected MQTT client instance responsible for broker communication.</param>
-    /// <param name="configuration">The application configuration provider containing MQTT connection parameters.</param>
+    /// <param name="steamService">The Steam service instance used to fetch Steam metadata.</param>
+    /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logging service instance for operational diagnostics.</param>
     public DiscordPresenceMqttService(
         DiscordSocketClient discordClient,
         IMqttClient mqttClient,
-        IConfiguration configuration,
+        ISteamService steamService,
+        IOptions<Wk7BotOptions> options,
         ILogger<DiscordPresenceMqttService> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
-        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
     /// <summary>
@@ -51,6 +57,12 @@ public class DiscordPresenceMqttService : BackgroundService
     /// <returns>A task representing the asynchronous lifecycle of the service.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!_options.Features.DiscordPresenceMqttEnabled)
+        {
+            _logger.LogInformation("Discord presence MQTT service is disabled via feature options.");
+            return;
+        }
+
         await ConnectMqttClientAsync(stoppingToken);
 
         _discordClient.PresenceUpdated += OnPresenceUpdatedAsync;
@@ -83,18 +95,15 @@ public class DiscordPresenceMqttService : BackgroundService
             return;
         }
 
-        string host = _configuration["Mqtt:Host"] ?? "localhost";
-        int port = _configuration.GetValue<int>("Mqtt:Port", 1883);
+        string host = string.IsNullOrWhiteSpace(_options.MqttHost) ? "localhost" : _options.MqttHost;
+        int port = _options.MqttPort > 0 ? _options.MqttPort : 1883;
 
         var optionsBuilder = new MqttClientOptionsBuilder()
             .WithTcpServer(host, port);
 
-        string? username = _configuration["Mqtt:Username"];
-        string? password = _configuration["Mqtt:Password"];
-
-        if (!string.IsNullOrWhiteSpace(username))
+        if (!string.IsNullOrWhiteSpace(_options.MqttUsername))
         {
-            optionsBuilder.WithCredentials(username, password);
+            optionsBuilder.WithCredentials(_options.MqttUsername, _options.MqttPassword);
         }
 
         try
@@ -148,7 +157,7 @@ public class DiscordPresenceMqttService : BackgroundService
     }
 
     /// <summary>
-    /// Extracts presence entity data, ensures Home Assistant discovery registration, and publishes current state to MQTT.
+    /// Extracts presence entity data, enriches Steam telemetry if enabled, ensures Home Assistant discovery registration, and publishes current state to MQTT.
     /// </summary>
     /// <param name="user">The socket user target.</param>
     /// <param name="presence">The active presence object containing status and activities, if available.</param>
@@ -158,6 +167,15 @@ public class DiscordPresenceMqttService : BackgroundService
         try
         {
             var presenceEntity = ExtractPresenceEntity(user, presence);
+
+            if (_options.Features.SteamPresenceEnabled)
+            {
+                string? userSteamId = _steamService.GetSteamIdForDiscordUser(user.Id.ToString());
+                if (!string.IsNullOrWhiteSpace(userSteamId))
+                {
+                    presenceEntity.SteamData = await _steamService.GetSteamUserDataAsync(userSteamId);
+                }
+            }
 
             if (!_discoveredUsers.ContainsKey(user.Id))
             {
@@ -351,6 +369,7 @@ public class DiscordPresenceMqttService : BackgroundService
             entity.GameName,
             entity.GameDetails,
             entity.GameThumbnailUrl,
+            entity.SteamData,
             entity.LastUpdated,
             entity_picture = !string.IsNullOrWhiteSpace(entity.GameThumbnailUrl) 
                 ? entity.GameThumbnailUrl 

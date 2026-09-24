@@ -1,7 +1,14 @@
-﻿using Discord;
-using Discord.WebSocket;
+﻿namespace WK7Bot.Services;
 
-namespace WK7Bot.Services;
+using Discord;
+using Discord.WebSocket;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using WK7Bot.Options;
 
 /// <summary>
 /// Manages the background connection lifecycle for the Discord bot client.
@@ -9,23 +16,23 @@ namespace WK7Bot.Services;
 public class DiscordBotWorker : BackgroundService
 {
     private readonly DiscordSocketClient _client;
-    private readonly IConfiguration _configuration;
+    private readonly Wk7BotOptions _options;
     private readonly ILogger<DiscordBotWorker> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordBotWorker"/> class with injected dependencies.
     /// </summary>
     /// <param name="client">The active Discord gateway socket client.</param>
-    /// <param name="configuration">Application configuration loaded from environment variables, user secrets, and JSON options.</param>
+    /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The diagnostic logging service.</param>
     public DiscordBotWorker(
         DiscordSocketClient client,
-        IConfiguration configuration,
+        IOptions<Wk7BotOptions> options,
         ILogger<DiscordBotWorker> logger)
     {
-        _client = client;
-        _configuration = configuration;
-        _logger = logger;
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
     /// <summary>
@@ -41,7 +48,7 @@ public class DiscordBotWorker : BackgroundService
 
         if (string.IsNullOrWhiteSpace(token))
         {
-            _logger.LogCritical("No valid Discord bot token was provided in configuration. Check your secrets or appsettings.json.");
+            _logger.LogCritical("No valid Discord bot token was provided in configuration. Check your options or environment variables.");
             return;
         }
 
@@ -54,16 +61,17 @@ public class DiscordBotWorker : BackgroundService
     }
 
     /// <summary>
-    /// Resolves the Discord bot token across multiple configuration sources including .NET User Secrets, Home Assistant options, and environment variables.
+    /// Resolves the Discord bot token, falling back to environment variables if unpopulated in strongly-typed options.
     /// </summary>
     /// <returns>The resolved Discord bot token string, or null if no valid token was found.</returns>
     private string? GetDiscordToken()
     {
-        return _configuration["Discord:Token"]
-            ?? _configuration["discord_token"]
-            ?? _configuration["BotToken"]
-            ?? _configuration["token"]
-            ?? Environment.GetEnvironmentVariable("DISCORD_BOT_TOKEN");
+        if (!string.IsNullOrWhiteSpace(_options.DiscordToken))
+        {
+            return _options.DiscordToken;
+        }
+
+        return Environment.GetEnvironmentVariable("DISCORD_BOT_TOKEN");
     }
 
     /// <summary>

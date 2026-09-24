@@ -1,10 +1,18 @@
-﻿using System.Text.Json;
-using System.Text.RegularExpressions;
+﻿namespace WK7Bot.Services;
+
 using Discord;
 using Discord.WebSocket;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MQTTnet;
-
-namespace WK7Bot.Services;
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using WK7Bot.Options;
 
 /// <summary>
 /// Background service that bridges Discord text channels and direct messages with Home Assistant via MQTT Discovery and notification commands.
@@ -13,19 +21,26 @@ public class HomeAssistantNotifierService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IMqttClient _mqttClient;
-    private readonly IConfiguration _configuration;
+    private readonly Wk7BotOptions _options;
+    private readonly ILogger<HomeAssistantNotifierService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeAssistantNotifierService"/> class with required dependencies.
     /// </summary>
     /// <param name="discordClient">The active Discord socket client instance used for channel and user interactions.</param>
     /// <param name="mqttClient">The active MQTT client instance used to communicate with Home Assistant.</param>
-    /// <param name="configuration">The configuration provider used to retrieve broker settings and user IDs.</param>
-    public HomeAssistantNotifierService(DiscordSocketClient discordClient, IMqttClient mqttClient, IConfiguration configuration)
+    /// <param name="options">The strongly-typed application configuration options.</param>
+    /// <param name="logger">The diagnostic logging service instance.</param>
+    public HomeAssistantNotifierService(
+        DiscordSocketClient discordClient, 
+        IMqttClient mqttClient, 
+        IOptions<Wk7BotOptions> options,
+        ILogger<HomeAssistantNotifierService> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
-        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
     /// <summary>
@@ -35,21 +50,34 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <returns>A task representing the background execution lifecycle.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var mqttHost = _configuration["mqtt_host"] ?? _configuration["Mqtt:Host"] ?? "core-mosquitto";
-        var mqttPort = _configuration.GetValue<int?>("mqtt_port") ?? _configuration.GetValue<int>("Mqtt:Port", 1883);
-        var mqttUsername = _configuration["mqtt_username"] ?? _configuration["Mqtt:Username"];
-        var mqttPassword = _configuration["mqtt_password"] ?? _configuration["Mqtt:Password"];
+        if (!_options.Features.HomeAssistantNotifierEnabled)
+        {
+            _logger.LogInformation("Home Assistant notifier service is disabled via feature options.");
+            return;
+        }
+
+        var mqttHost = string.IsNullOrWhiteSpace(_options.MqttHost) ? "core-mosquitto" : _options.MqttHost;
+        var mqttPort = _options.MqttPort > 0 ? _options.MqttPort : 1883;
 
         var optionsBuilder = new MqttClientOptionsBuilder()
             .WithTcpServer(mqttHost, mqttPort)
             .WithCleanSession();
 
-        if (!string.IsNullOrWhiteSpace(mqttUsername))
+        if (!string.IsNullOrWhiteSpace(_options.MqttUsername))
         {
-            optionsBuilder.WithCredentials(mqttUsername, mqttPassword);
+            optionsBuilder.WithCredentials(_options.MqttUsername, _options.MqttPassword);
         }
 
-        await _mqttClient.ConnectAsync(optionsBuilder.Build(), stoppingToken);
+        try
+        {
+            await _mqttClient.ConnectAsync(optionsBuilder.Build(), stoppingToken);
+            _logger.LogInformation("Successfully connected Home Assistant Notifier to MQTT broker at {Host}:{Port}", mqttHost, mqttPort);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to connect Home Assistant Notifier to MQTT broker at {Host}:{Port}", mqttHost, mqttPort);
+            return;
+        }
 
         _discordClient.Ready += OnReadyAsync;
         _discordClient.ChannelCreated += OnChannelCreatedAsync;
@@ -154,15 +182,11 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <returns>A collection of parsed ulong user identifiers.</returns>
     private IEnumerable<ulong> GetConfiguredDmUserIds()
     {
-        var userIds = _configuration.GetSection("discord_dm_user_ids").Get<string[]>();
-        if (userIds != null)
+        foreach (var idStr in _options.DiscordDmUserIds)
         {
-            foreach (var idStr in userIds)
+            if (ulong.TryParse(idStr.Trim(), out var id))
             {
-                if (ulong.TryParse(idStr.Trim(), out var id))
-                {
-                    yield return id;
-                }
+                yield return id;
             }
         }
     }

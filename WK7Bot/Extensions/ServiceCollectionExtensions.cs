@@ -47,6 +47,7 @@ public static class ServiceCollectionExtensions
         
         services.AddHttpClient<IHomeAssistantService, HomeAssistantService>();
         services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
+        services.AddHttpClient<ISteamService, SteamService>();
         services.AddHttpClient<AlexaMentionNotificationService>();
 
         services.AddTransient<RssParserService>();

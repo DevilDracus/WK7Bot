@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using WK7Bot.Extensions;
 using WK7Bot.Infrastructure.Data;
+using WK7Bot.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddBotDatabase(connectionString);
 builder.Services.AddBotDiscordAndClients();
 builder.Services.AddBotHostedServices(builder.Configuration);
+
+builder.Services.Configure<Wk7BotOptions>(
+    builder.Configuration.GetSection(Wk7BotOptions.SectionName));
 
 var app = builder.Build();
 
