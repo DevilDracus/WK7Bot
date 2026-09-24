@@ -15,8 +15,18 @@ builder.Services.AddBotDatabase(connectionString);
 builder.Services.AddBotDiscordAndClients();
 builder.Services.AddBotHostedServices(builder.Configuration);
 
-builder.Services.Configure<Wk7BotOptions>(
-    builder.Configuration.GetSection(Wk7BotOptions.SectionName));
+var wk7Section = builder.Configuration.GetSection(Wk7BotOptions.SectionName);
+
+if (wk7Section.Exists())
+{
+    // Binds from "Wk7Bot": { ... } section in appsettings
+    builder.Services.Configure<Wk7BotOptions>(wk7Section);
+}
+else
+{
+    // Binds directly from root (Home Assistant config.yaml / options.json)
+    builder.Services.Configure<Wk7BotOptions>(builder.Configuration);
+}
 
 var app = builder.Build();
 
