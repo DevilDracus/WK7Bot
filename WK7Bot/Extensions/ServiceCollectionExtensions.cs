@@ -37,6 +37,7 @@ public static class ServiceCollectionExtensions
     /// <returns>The service collection instance for method chaining.</returns>
     public static IServiceCollection AddBotDiscordAndClients(this IServiceCollection services)
     {
+        services.AddMemoryCache();
         services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
         {
             GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildMembers | GatewayIntents.GuildPresences,
