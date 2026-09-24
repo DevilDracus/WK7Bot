@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MQTTnet;
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -13,13 +14,14 @@ using System.Threading.Tasks;
 using WK7Bot.Models;
 
 /// <summary>
-/// Listens to Discord presence updates, extracts user status and activity artwork, and publishes custom user entities over MQTT.
+/// Listens to Discord presence updates, extracts user status and activity artwork, and publishes custom user entities and Home Assistant MQTT Discovery payloads.
 /// </summary>
 public class DiscordPresenceMqttService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IMqttClient _mqttClient;
     private readonly ILogger<DiscordPresenceMqttService> _logger;
+    private readonly ConcurrentDictionary<ulong, bool> _discoveredUsers = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordPresenceMqttService"/> class.
@@ -49,7 +51,7 @@ public class DiscordPresenceMqttService : BackgroundService
         }
         catch (OperationCanceledException)
         {
-            
+            // Host is shutting down cleanly
         }
         finally
         {
@@ -74,6 +76,13 @@ public class DiscordPresenceMqttService : BackgroundService
         try
         {
             var presenceEntity = ExtractPresenceEntity(user, after);
+
+            if (!_discoveredUsers.ContainsKey(user.Id))
+            {
+                await PublishHomeAssistantDiscoveryAsync(presenceEntity);
+                _discoveredUsers.TryAdd(user.Id, true);
+            }
+
             await PublishPresenceEntityAsync(presenceEntity);
         }
         catch (Exception ex)
@@ -162,6 +171,76 @@ public class DiscordPresenceMqttService : BackgroundService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Transmits Home Assistant MQTT Auto-Discovery configuration payloads to dynamically register user presence sensors and devices.
+    /// </summary>
+    /// <param name="entity">The presence entity instance containing user metadata.</param>
+    /// <returns>A task tracking asynchronous MQTT discovery publication.</returns>
+    private async Task PublishHomeAssistantDiscoveryAsync(UserPresenceEntity entity)
+    {
+        if (!_mqttClient.IsConnected)
+        {
+            return;
+        }
+
+        string deviceId = $"discord_user_{entity.DiscordUserId}";
+        string stateTopic = $"wk7bot/presence/users/{entity.DiscordUserId}";
+
+        var deviceObj = new
+        {
+            identifiers = new[] { deviceId },
+            name = $"{entity.Username} (Discord)",
+            model = "Discord Presence Tracker",
+            manufacturer = "WK7Bot"
+        };
+
+        var statusDiscovery = new
+        {
+            name = "Status",
+            unique_id = $"{deviceId}_status",
+            state_topic = stateTopic,
+            value_template = "{{ value_json.Status }}",
+            json_attributes_topic = stateTopic,
+            icon = "mdi:discord",
+            device = deviceObj
+        };
+
+        var gameDiscovery = new
+        {
+            name = "Current Game",
+            unique_id = $"{deviceId}_game",
+            state_topic = stateTopic,
+            value_template = "{{ value_json.GameName if value_json.GameName is not none else 'None' }}",
+            json_attributes_topic = stateTopic,
+            icon = "mdi:controller",
+            device = deviceObj
+        };
+
+        await SendMqttDiscoveryPayloadAsync($"homeassistant/sensor/{deviceId}/status/config", statusDiscovery);
+        await SendMqttDiscoveryPayloadAsync($"homeassistant/sensor/{deviceId}/game/config", gameDiscovery);
+
+        _logger.LogInformation("Published Home Assistant MQTT Discovery configuration for user {Username}", entity.Username);
+    }
+
+    /// <summary>
+    /// Helper method for serializing and publishing individual discovery payload objects to the Home Assistant configuration topic.
+    /// </summary>
+    /// <param name="topic">The target discovery topic path.</param>
+    /// <param name="payloadObject">The object payload to serialize as JSON.</param>
+    /// <returns>A task tracking asynchronous publication.</returns>
+    private async Task SendMqttDiscoveryPayloadAsync(string topic, object payloadObject)
+    {
+        string payloadJson = JsonSerializer.Serialize(payloadObject, new JsonSerializerOptions { WriteIndented = false });
+
+        var message = new MqttApplicationMessageBuilder()
+            .WithTopic(topic)
+            .WithPayload(payloadJson)
+            .WithRetainFlag(true)
+            .Build();
+
+        await _mqttClient.PublishAsync(message);
     }
 
     /// <summary>
