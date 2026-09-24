@@ -88,6 +88,11 @@ public static class ServiceCollectionExtensions
         {
             services.AddHostedService<AlexaMentionNotificationService>();
         }
+        
+        if (configuration.GetValue<bool>("features:discord_presence_mqtt_enabled", true))
+        {
+            services.AddHostedService<DiscordPresenceMqttService>();
+        }
 
         return services;
     }
