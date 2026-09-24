@@ -2,6 +2,7 @@
 
 using Discord;
 using Discord.WebSocket;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MQTTnet;
@@ -14,12 +15,13 @@ using System.Threading.Tasks;
 using WK7Bot.Models;
 
 /// <summary>
-/// Listens to Discord presence updates, extracts user status and activity artwork, and publishes custom user entities and Home Assistant MQTT Discovery payloads.
+/// Listens to Discord presence updates, extracts user status and activity artwork, and publishes unified user entities to Home Assistant via MQTT Discovery.
 /// </summary>
 public class DiscordPresenceMqttService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IMqttClient _mqttClient;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<DiscordPresenceMqttService> _logger;
     private readonly ConcurrentDictionary<ulong, bool> _discoveredUsers = new();
 
@@ -28,22 +30,31 @@ public class DiscordPresenceMqttService : BackgroundService
     /// </summary>
     /// <param name="discordClient">The active Discord socket client handling server connections.</param>
     /// <param name="mqttClient">The connected MQTT client instance responsible for broker communication.</param>
+    /// <param name="configuration">The application configuration provider containing MQTT connection parameters.</param>
     /// <param name="logger">The logging service instance for operational diagnostics.</param>
-    public DiscordPresenceMqttService(DiscordSocketClient discordClient, IMqttClient mqttClient, ILogger<DiscordPresenceMqttService> logger)
+    public DiscordPresenceMqttService(
+        DiscordSocketClient discordClient,
+        IMqttClient mqttClient,
+        IConfiguration configuration,
+        ILogger<DiscordPresenceMqttService> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
-    /// Registers presence update handlers and maintains background execution until shutdown is requested.
+    /// Registers presence update handlers, connects the MQTT client, and maintains background execution.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token monitored for background service termination.</param>
     /// <returns>A task representing the asynchronous lifecycle of the service.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await ConnectMqttClientAsync(stoppingToken);
+
         _discordClient.PresenceUpdated += OnPresenceUpdatedAsync;
+        _discordClient.Ready += OnDiscordReadyAsync;
 
         try
         {
@@ -56,6 +67,66 @@ public class DiscordPresenceMqttService : BackgroundService
         finally
         {
             _discordClient.PresenceUpdated -= OnPresenceUpdatedAsync;
+            _discordClient.Ready -= OnDiscordReadyAsync;
+        }
+    }
+
+    /// <summary>
+    /// Establishes connection to the MQTT broker using application configuration settings.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
+    /// <returns>A task tracking the asynchronous connection operation.</returns>
+    private async Task ConnectMqttClientAsync(CancellationToken cancellationToken)
+    {
+        if (_mqttClient.IsConnected)
+        {
+            return;
+        }
+
+        string host = _configuration["Mqtt:Host"] ?? "localhost";
+        int port = _configuration.GetValue<int>("Mqtt:Port", 1883);
+
+        var optionsBuilder = new MqttClientOptionsBuilder()
+            .WithTcpServer(host, port);
+
+        string? username = _configuration["Mqtt:Username"];
+        string? password = _configuration["Mqtt:Password"];
+
+        if (!string.IsNullOrWhiteSpace(username))
+        {
+            optionsBuilder.WithCredentials(username, password);
+        }
+
+        try
+        {
+            await _mqttClient.ConnectAsync(optionsBuilder.Build(), cancellationToken);
+            _logger.LogInformation("Successfully connected to MQTT broker at {Host}:{Port}", host, port);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to connect to MQTT broker at {Host}:{Port}", host, port);
+        }
+    }
+
+    /// <summary>
+    /// Performs an initial presence sweep for all cached guild users upon Discord client ready state.
+    /// </summary>
+    /// <returns>A task tracking asynchronous sweep processing.</returns>
+    private async Task OnDiscordReadyAsync()
+    {
+        _logger.LogInformation("Discord client ready. Running initial user presence sweep for Home Assistant...");
+
+        foreach (var guild in _discordClient.Guilds)
+        {
+            foreach (var user in guild.Users)
+            {
+                if (user.IsBot)
+                {
+                    continue;
+                }
+
+                await ProcessUserPresenceAsync(user, null);
+            }
         }
     }
 
@@ -73,9 +144,20 @@ public class DiscordPresenceMqttService : BackgroundService
             return;
         }
 
+        await ProcessUserPresenceAsync(user, after);
+    }
+
+    /// <summary>
+    /// Extracts presence entity data, ensures Home Assistant discovery registration, and publishes current state to MQTT.
+    /// </summary>
+    /// <param name="user">The socket user target.</param>
+    /// <param name="presence">The active presence object containing status and activities, if available.</param>
+    /// <returns>A task tracking discovery and state publishing operations.</returns>
+    private async Task ProcessUserPresenceAsync(SocketUser user, SocketPresence? presence = null)
+    {
         try
         {
-            var presenceEntity = ExtractPresenceEntity(user, after);
+            var presenceEntity = ExtractPresenceEntity(user, presence);
 
             if (!_discoveredUsers.ContainsKey(user.Id))
             {
@@ -92,23 +174,31 @@ public class DiscordPresenceMqttService : BackgroundService
     }
 
     /// <summary>
-    /// Transforms Discord user and presence state into a structured entity model.
+    /// Transforms Discord user state into a structured entity model using either event presence or cached user state.
     /// </summary>
-    /// <param name="user">The user object associated with the update event.</param>
-    /// <param name="presence">The user presence data containing activities and status.</param>
+    /// <param name="user">The user object associated with the update event or guild sweep.</param>
+    /// <param name="presence">The optional user presence data from a presence update event.</param>
     /// <returns>A populated user presence entity ready for JSON serialization.</returns>
-    private static UserPresenceEntity ExtractPresenceEntity(SocketUser user, SocketPresence presence)
+    private static UserPresenceEntity ExtractPresenceEntity(SocketUser user, SocketPresence? presence = null)
     {
+        var status = presence?.Status.ToString() ?? user.Status.ToString();
+        var activities = presence?.Activities ?? user.Activities;
+
         var entity = new UserPresenceEntity
         {
             Username = user.Username,
             DiscordUserId = user.Id,
-            Status = presence.Status.ToString(),
+            Status = status,
             AvatarUrl = user.GetDisplayAvatarUrl(ImageFormat.Auto, 256),
             LastUpdated = DateTimeOffset.UtcNow
         };
 
-        var richGame = presence.Activities.OfType<RichGame>().FirstOrDefault();
+        if (activities == null)
+        {
+            return entity;
+        }
+
+        var richGame = activities.OfType<RichGame>().FirstOrDefault();
         if (richGame != null)
         {
             entity.GameName = richGame.Name;
@@ -117,13 +207,13 @@ public class DiscordPresenceMqttService : BackgroundService
             return entity;
         }
 
-        var customStatus = presence.Activities.OfType<CustomStatusGame>().FirstOrDefault();
+        var customStatus = activities.OfType<CustomStatusGame>().FirstOrDefault();
         if (customStatus != null)
         {
             entity.GameDetails = customStatus.State;
         }
 
-        var standardGame = presence.Activities.OfType<Game>().FirstOrDefault();
+        var standardGame = activities.OfType<Game>().FirstOrDefault();
         if (standardGame != null)
         {
             entity.GameName = standardGame.Name;
@@ -174,7 +264,7 @@ public class DiscordPresenceMqttService : BackgroundService
     }
 
     /// <summary>
-    /// Transmits Home Assistant MQTT Auto-Discovery configuration payloads to dynamically register user presence sensors and devices.
+    /// Transmits a single Home Assistant MQTT Auto-Discovery configuration payload to dynamically register a unified user presence entity with all metadata attributes.
     /// </summary>
     /// <param name="entity">The presence entity instance containing user metadata.</param>
     /// <returns>A task tracking asynchronous MQTT discovery publication.</returns>
@@ -182,46 +272,36 @@ public class DiscordPresenceMqttService : BackgroundService
     {
         if (!_mqttClient.IsConnected)
         {
-            return;
+            await ConnectMqttClientAsync(CancellationToken.None);
+            if (!_mqttClient.IsConnected)
+            {
+                return;
+            }
         }
 
         string deviceId = $"discord_user_{entity.DiscordUserId}";
         string stateTopic = $"wk7bot/presence/users/{entity.DiscordUserId}";
 
-        var deviceObj = new
+        var singleEntityDiscovery = new
         {
-            identifiers = new[] { deviceId },
-            name = $"{entity.Username} (Discord)",
-            model = "Discord Presence Tracker",
-            manufacturer = "WK7Bot"
-        };
-
-        var statusDiscovery = new
-        {
-            name = "Status",
-            unique_id = $"{deviceId}_status",
+            name = $"{entity.Username} Presence",
+            unique_id = deviceId,
             state_topic = stateTopic,
             value_template = "{{ value_json.Status }}",
             json_attributes_topic = stateTopic,
             icon = "mdi:discord",
-            device = deviceObj
+            device = new
+            {
+                identifiers = new[] { deviceId },
+                name = $"{entity.Username} (Discord)",
+                model = "Discord Presence Tracker",
+                manufacturer = "WK7Bot"
+            }
         };
 
-        var gameDiscovery = new
-        {
-            name = "Current Game",
-            unique_id = $"{deviceId}_game",
-            state_topic = stateTopic,
-            value_template = "{{ value_json.GameName if value_json.GameName is not none else 'None' }}",
-            json_attributes_topic = stateTopic,
-            icon = "mdi:controller",
-            device = deviceObj
-        };
+        await SendMqttDiscoveryPayloadAsync($"homeassistant/sensor/{deviceId}/config", singleEntityDiscovery);
 
-        await SendMqttDiscoveryPayloadAsync($"homeassistant/sensor/{deviceId}/status/config", statusDiscovery);
-        await SendMqttDiscoveryPayloadAsync($"homeassistant/sensor/{deviceId}/game/config", gameDiscovery);
-
-        _logger.LogInformation("Published Home Assistant MQTT Discovery configuration for user {Username}", entity.Username);
+        _logger.LogInformation("Published unified Home Assistant MQTT Discovery configuration entity for user {Username}", entity.Username);
     }
 
     /// <summary>
@@ -244,7 +324,7 @@ public class DiscordPresenceMqttService : BackgroundService
     }
 
     /// <summary>
-    /// Serializes the presence entity and transmits it to the dedicated MQTT state topic.
+    /// Serializes the presence entity, dynamically appends the entity_picture mapping for Home Assistant, and transmits it to the dedicated MQTT state topic.
     /// </summary>
     /// <param name="entity">The presence entity instance containing user data.</param>
     /// <returns>A task tracking asynchronous MQTT publication.</returns>
@@ -252,12 +332,32 @@ public class DiscordPresenceMqttService : BackgroundService
     {
         if (!_mqttClient.IsConnected)
         {
-            _logger.LogWarning("MQTT client disconnected. Skipping presence broadcast for {Username}", entity.Username);
-            return;
+            await ConnectMqttClientAsync(CancellationToken.None);
+            if (!_mqttClient.IsConnected)
+            {
+                _logger.LogWarning("MQTT client disconnected. Skipping presence broadcast for {Username}", entity.Username);
+                return;
+            }
         }
 
         string topic = $"wk7bot/presence/users/{entity.DiscordUserId}";
-        string payload = JsonSerializer.Serialize(entity, new JsonSerializerOptions
+
+        var payloadObj = new
+        {
+            entity.Username,
+            entity.DiscordUserId,
+            entity.Status,
+            entity.AvatarUrl,
+            entity.GameName,
+            entity.GameDetails,
+            entity.GameThumbnailUrl,
+            entity.LastUpdated,
+            entity_picture = !string.IsNullOrWhiteSpace(entity.GameThumbnailUrl) 
+                ? entity.GameThumbnailUrl 
+                : entity.AvatarUrl
+        };
+
+        string payload = JsonSerializer.Serialize(payloadObj, new JsonSerializerOptions
         {
             WriteIndented = false
         });
