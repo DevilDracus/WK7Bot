@@ -22,7 +22,9 @@ public class GeminiFoodService : IGeminiFoodService
     private readonly Wk7BotOptions _options;
     private readonly ILogger<GeminiFoodService> _logger;
 
-    private const string GeminiModel = "gemini-3.8-flash";
+    // Primary free model and fallback model
+    private const string PrimaryModel = "gemini-3.8-flash";
+    private const string FallbackModel = "gemini-3.1-flash-lite";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GeminiFoodService"/> class.
@@ -57,8 +59,8 @@ public class GeminiFoodService : IGeminiFoodService
 
         string monthName = dateTime.ToString("MMMM");
         string prompt = $"Provide a complete list of seasonal produce for the month of {monthName} in Central Europe (Germany/Leipzig region). " +
-                       $"Categorize every item strictly into fruits, vegetables, herbs, and nuts.\n" +
-                       $"IMPORTANT: Use the GERMAN names of the fruits, vegetables, herbs and nuts!";
+                       $"Categorize every item strictly into fruits, vegetables, herbs, and nuts.\n" + 
+                       $"IMPORTANT: Use the GERMAN names for fruits, vegetables, herbs and nuts!";
 
         var jsonSchema = new JsonObject
         {
@@ -139,71 +141,108 @@ public class GeminiFoodService : IGeminiFoodService
     }
 
     /// <summary>
-    /// Submits a structured JSON generation payload to the Gemini API and deserializes the typed output.
+    /// Submits a structured JSON generation payload to Gemini with automatic model fallback and retries on 503/429 errors.
     /// </summary>
-    /// <typeparam name="T">The target model type.</typeparam>
-    /// <param name="prompt">User prompt text.</param>
-    /// <param name="responseSchema">JSON Schema definition node.</param>
-    /// <param name="cancellationToken">A token to monitor for operation cancellation.</param>
-    /// <returns>Deserialized output model or default value on error.</returns>
     private async Task<T?> RequestGeminiStructuredOutputAsync<T>(string prompt, JsonObject responseSchema, CancellationToken cancellationToken)
     {
-        try
-        {
-            string requestUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{GeminiModel}:generateContent?key={_options.GeminiApiKey}";
+        // Try Primary Model first, then fall back to FallbackModel if unavailable
+        string[] candidateModels = { PrimaryModel, FallbackModel };
 
-            var requestPayload = new
+        foreach (var modelName in candidateModels)
+        {
+            var result = await TryExecuteRequestWithRetryAsync<T>(modelName, prompt, responseSchema, cancellationToken);
+            if (result != null)
             {
-                contents = new[]
+                return result;
+            }
+
+            _logger.LogWarning("Model {ModelName} failed or was unavailable. Trying next candidate...", modelName);
+        }
+
+        _logger.LogError("All candidate Gemini models failed to yield a response.");
+        return default;
+    }
+
+    /// <summary>
+    /// Executes the HTTP REST API call to Gemini with exponential backoff for transient 503 / 429 status codes.
+    /// </summary>
+    private async Task<T?> TryExecuteRequestWithRetryAsync<T>(string modelName, string prompt, JsonObject responseSchema, CancellationToken cancellationToken)
+    {
+        int maxRetries = 3;
+        int delayMs = 2000;
+
+        string requestUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent?key={_options.GeminiApiKey}";
+
+        var requestPayload = new
+        {
+            contents = new[]
+            {
+                new
                 {
-                    new
+                    parts = new[]
                     {
-                        parts = new[]
-                        {
-                            new { text = prompt }
-                        }
+                        new { text = prompt }
                     }
-                },
-                generationConfig = new
-                {
-                    responseMimeType = "application/json",
-                    responseSchema = responseSchema
                 }
-            };
-
-            string jsonPayload = JsonSerializer.Serialize(requestPayload);
-            using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
-            using var response = await _httpClient.PostAsync(requestUrl, content, cancellationToken);
-            if (!response.IsSuccessStatusCode)
+            },
+            generationConfig = new
             {
-                string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogError("Gemini API call failed with status code {StatusCode}: {ErrorBody}", response.StatusCode, errorBody);
-                return default;
+                responseMimeType = "application/json",
+                responseSchema = responseSchema
             }
+        };
 
-            string responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-            using var doc = JsonDocument.Parse(responseJson);
-
-            var root = doc.RootElement;
-            if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
-            {
-                _logger.LogWarning("Gemini API response contained no candidates.");
-                return default;
-            }
-
-            var textProperty = candidates[0]
-                .GetProperty("content")
-                .GetProperty("parts")[0]
-                .GetProperty("text");
-
-            string innerJson = textProperty.GetString() ?? string.Empty;
-            return JsonSerializer.Deserialize<T>(innerJson);
-        }
-        catch (Exception ex)
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            _logger.LogError(ex, "Failed executing structured Gemini API generation call.");
-            return default;
+            try
+            {
+                string jsonPayload = JsonSerializer.Serialize(requestPayload);
+                using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+                using var response = await _httpClient.PostAsync(requestUrl, content, cancellationToken);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    string responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+                    using var doc = JsonDocument.Parse(responseJson);
+
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+                    {
+                        string innerJson = candidates[0]
+                            .GetProperty("content")
+                            .GetProperty("parts")[0]
+                            .GetProperty("text")
+                            .GetString() ?? string.Empty;
+
+                        return JsonSerializer.Deserialize<T>(innerJson);
+                    }
+                }
+
+                int statusCode = (int)response.StatusCode;
+                string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+                // Retry on transient 503 (Unavailable) or 429 (Too Many Requests)
+                if ((statusCode == 503 || statusCode == 429) && attempt < maxRetries)
+                {
+                    _logger.LogWarning("Gemini API returned status {StatusCode} for model {Model}. Retrying attempt {Attempt}/{Max} in {Delay}ms...",
+                        statusCode, modelName, attempt, maxRetries, delayMs);
+
+                    await Task.Delay(delayMs, cancellationToken);
+                    delayMs *= 2; // Exponential backoff
+                    continue;
+                }
+
+                _logger.LogError("Gemini API call to model {Model} failed with status code {StatusCode}: {ErrorBody}",
+                    modelName, response.StatusCode, errorBody);
+                break;
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogError(ex, "Unexpected exception during Gemini request for model {Model} on attempt {Attempt}", modelName, attempt);
+            }
         }
+
+        return default;
     }
 }
