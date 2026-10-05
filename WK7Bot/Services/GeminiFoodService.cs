@@ -188,7 +188,8 @@ public class GeminiFoodService : IGeminiFoodService
             generationConfig = new
             {
                 responseMimeType = "application/json",
-                responseSchema = responseSchema
+                responseSchema = responseSchema,
+                maxOutputTokens = 8192 // Ensures large structured recipes finish generating completely without truncation
             }
         };
 
