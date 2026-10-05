@@ -1,5 +1,6 @@
 ﻿namespace WK7Bot.Services.Interfaces;
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using WK7Bot.Models;
@@ -10,12 +11,12 @@ using WK7Bot.Models;
 public interface ISteamService
 {
     /// <summary>
-    /// Resolves the mapped 64-bit Steam ID for a given Discord user ID from options.
+    /// Resolves the mapped 64-bit Steam ID for a given Discord user ID from configuration options.
     /// </summary>
     /// <param name="discordUserId">The target Discord user snowflake ID string.</param>
     /// <returns>The mapped 64-bit Steam ID, or null if no mapping exists.</returns>
     string? GetSteamIdForDiscordUser(string discordUserId);
-    
+
     /// <summary>
     /// Fetches player summary data, recent game playtimes, and active game achievements for a specific Steam ID.
     /// </summary>
@@ -23,4 +24,16 @@ public interface ISteamService
     /// <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
     /// <returns>A populated <see cref="SteamUserData"/> model or null if fetching fails.</returns>
     Task<SteamUserData?> GetSteamUserDataAsync(string steamId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves player achievements for a specified game and merges human-readable titles, descriptions, and icon image URLs from the Steam Game Schema API.
+    /// </summary>
+    /// <param name="steamId">The unique 64-bit Steam identifier of the target user.</param>
+    /// <param name="appId">The unique application identifier for the target game.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A collection of enriched <see cref="SteamAchievement"/> instances containing achievement metadata, timestamps, and icon URLs.</returns>
+    Task<IReadOnlyList<SteamAchievement>> GetEnrichedAchievementsAsync(
+        string steamId,
+        uint appId,
+        CancellationToken cancellationToken = default);
 }
