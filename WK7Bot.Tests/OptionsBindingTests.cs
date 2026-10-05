@@ -82,7 +82,8 @@ public class OptionsBindingTests
             {
                 ["discord_token"] = "root-token",
                 ["mqtt_host"] = "core-mosquitto",
-                ["features:leipzig_waste_enabled"] = "false"
+                ["features:leipzig_waste_enabled"] = "false",
+                ["features:food_service_enabled"] = "false"
             })
             .Build();
 
@@ -92,6 +93,7 @@ public class OptionsBindingTests
         Assert.Equal("root-token", options.DiscordToken);
         Assert.Equal("core-mosquitto", options.MqttHost);
         Assert.False(options.Features.LeipzigWasteEnabled);
+        Assert.False(options.Features.FoodServiceEnabled);
     }
 
     [Fact]
