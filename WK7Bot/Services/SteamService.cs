@@ -128,7 +128,6 @@ public class SteamService : ISteamService
 
                 userData.RecentAchievements = achievementsArrays
                     .SelectMany(a => a)
-                    .Where(a => a.UnlockTime.HasValue)
                     .OrderByDescending(a => a.UnlockTime)
                     .Take(5)
                     .ToList();
@@ -365,6 +364,35 @@ public class SteamService : ISteamService
         using var response = await GetSteamApiWithRetryAsync(url, "GetPlayerAchievements", cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                var body = (await response.Content.ReadAsStringAsync(cancellationToken)).Trim();
+                var bodySnippet = string.IsNullOrEmpty(body)
+                    ? "(empty)"
+                    : body.Length > 200 ? body[..200] : body;
+
+                _logger.LogWarning(
+                    "Steam API returned 403 Forbidden for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId}). "
+                    + "This usually means the target user's 'Game details' privacy setting is not Public (friends-only is "
+                    + "not enough for the Web API); falling back to GetTopAchievementsForGames, which still returns "
+                    + "unlocked achievements but without unlock timestamps. Body: {Body}",
+                    appId,
+                    steamId,
+                    bodySnippet);
+
+                var fallback = await GetTopAchievementsFallbackAsync(steamId, appId, cancellationToken);
+                if (fallback.Count > 0)
+                {
+                    _logger.LogInformation(
+                        "GetTopAchievementsForGames fallback recovered {Count} unlocked achievement(s) (AppId: {AppId}, SteamId: {SteamId}).",
+                        fallback.Count,
+                        appId,
+                        steamId);
+                }
+
+                return fallback;
+            }
+
             _logger.LogWarning("Steam API returned status code {StatusCode} for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId})", response.StatusCode, appId, steamId);
             return new List<SteamAchievement>();
         }
@@ -403,6 +431,60 @@ public class SteamService : ISteamService
                 Name = !string.IsNullOrWhiteSpace(item.Name) ? item.Name : item.ApiName,
                 Description = item.Description ?? string.Empty,
                 UnlockTime = unlockDateTime
+            });
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Fallback for users whose 'Game details' privacy blocks <c>GetPlayerAchievements</c> (HTTP 403):
+    /// retrieves the user's unlocked achievements via <c>IPlayerService/GetTopAchievementsForGames</c>,
+    /// which honors only profile-level visibility. The response carries display names, descriptions, and
+    /// icon file names but no unlock timestamps, so <see cref="SteamAchievement.UnlockTime"/> stays <see langword="null"/>.
+    /// </summary>
+    /// <param name="steamId">The 64-bit Steam ID of the user.</param>
+    /// <param name="appId">The application identifier for the game.</param>
+    /// <param name="cancellationToken">A token to monitor for operation cancellation.</param>
+    /// <returns>The unlocked achievements reported by the fallback endpoint, or an empty list when unavailable.</returns>
+    private async Task<List<SteamAchievement>> GetTopAchievementsFallbackAsync(string steamId, uint appId, CancellationToken cancellationToken)
+    {
+        string url = $"https://api.steampowered.com/IPlayerService/GetTopAchievementsForGames/v1/?key={_options.SteamApiKey}&steamid={steamId}&language=en&max_achievements=1000&appids[0]={appId}";
+
+        using var response = await GetSteamApiWithRetryAsync(url, "GetTopAchievementsForGames", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Steam API returned status code {StatusCode} for GetTopAchievementsForGames fallback (AppId: {AppId}, SteamId: {SteamId})",
+                response.StatusCode,
+                appId,
+                steamId);
+            return new List<SteamAchievement>();
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<SteamTopAchievementsResponse>(cancellationToken: cancellationToken);
+        var game = payload?.Response?.Games?.FirstOrDefault(g => g.AppId == appId);
+        if (game?.Achievements == null || game.Achievements.Count == 0)
+        {
+            return new List<SteamAchievement>();
+        }
+
+        var results = new List<SteamAchievement>();
+
+        foreach (var item in game.Achievements)
+        {
+            var displayName = !string.IsNullOrWhiteSpace(item.Name) ? item.Name : string.Empty;
+            var iconUrl = string.IsNullOrEmpty(item.Icon)
+                ? string.Empty
+                : $"https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/{appId}/{item.Icon}";
+
+            results.Add(new SteamAchievement
+            {
+                ApiName = displayName,
+                Name = displayName,
+                Description = item.Desc ?? string.Empty,
+                UnlockTime = null,
+                IconUrl = iconUrl
             });
         }
 
@@ -721,6 +803,90 @@ internal class PlayerStatsData
     /// </summary>
     [JsonPropertyName("error")]
     public string? Error { get; set; }
+}
+
+/// <summary>
+/// Root container model for the Steam GetTopAchievementsForGames Web API response.
+/// </summary>
+internal class SteamTopAchievementsResponse
+{
+    /// <summary>
+    /// Gets or sets the payload containing per-game unlocked achievements.
+    /// </summary>
+    [JsonPropertyName("response")]
+    public SteamTopAchievementsPayload? Response { get; set; }
+}
+
+/// <summary>
+/// Inner payload returned by Steam GetTopAchievementsForGames.
+/// </summary>
+internal class SteamTopAchievementsPayload
+{
+    /// <summary>
+    /// Gets or sets the list of games with unlocked achievement details for the requested user.
+    /// </summary>
+    [JsonPropertyName("games")]
+    public List<SteamTopAchievementGame>? Games { get; set; }
+}
+
+/// <summary>
+/// Per-game unlocked achievement data returned by Steam GetTopAchievementsForGames.
+/// </summary>
+internal class SteamTopAchievementGame
+{
+    /// <summary>
+    /// Gets or sets the application identifier of the game.
+    /// </summary>
+    [JsonPropertyName("appid")]
+    public uint AppId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the total number of achievements defined for the game.
+    /// </summary>
+    [JsonPropertyName("total_achievements")]
+    public int TotalAchievements { get; set; }
+
+    /// <summary>
+    /// Gets or sets the achievements the user has unlocked; absent when none are unlocked.
+    /// </summary>
+    [JsonPropertyName("achievements")]
+    public List<SteamTopAchievementItem>? Achievements { get; set; }
+}
+
+/// <summary>
+/// Individual unlocked achievement entry returned by Steam GetTopAchievementsForGames.
+/// </summary>
+internal class SteamTopAchievementItem
+{
+    /// <summary>
+    /// Gets or sets the localized display title of the achievement.
+    /// </summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>
+    /// Gets or sets the localized description of the achievement.
+    /// </summary>
+    [JsonPropertyName("desc")]
+    public string? Desc { get; set; }
+
+    /// <summary>
+    /// Gets or sets the unlocked icon file name (without CDN prefix).
+    /// </summary>
+    [JsonPropertyName("icon")]
+    public string? Icon { get; set; }
+
+    /// <summary>
+    /// Gets or sets the locked/grayscale icon file name (without CDN prefix).
+    /// </summary>
+    [JsonPropertyName("icon_gray")]
+    public string? IconGray { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the achievement is hidden on the community site.
+    /// </summary>
+    [JsonPropertyName("hidden")]
+    public bool Hidden { get; set; }
 }
 
 /// <summary>

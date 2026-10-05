@@ -36,9 +36,10 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - Maps Discord user IDs to Steam IDs (`DiscordSteamMappings`).
 - Fetches player summaries, recently played games, and enriched achievement data (icons + unlock timestamps) from the Steam Web API with a 24h schema cache.
 - **Resilient achievement fetching** – achievement-endpoint calls are limited to 2 concurrent requests and retried with linear backoff (up to 3 attempts) on `429`/`5xx`; other errors (e.g. `400` for games without stats) fail fast without retry.
+- **Privacy fallback** – when `GetPlayerAchievements` returns `403` (target user's *Game details* setting is friends-only/private, which the Web API refuses), the bot falls back to `IPlayerService/GetTopAchievementsForGames`, which still returns the user's unlocked achievements (name, description, icon) — just without unlock timestamps, so those achievements sort after timestamped ones.
 - **No cache poisoning** – only *successful* schema responses are cached for 24h; failures are never cached, so transient Steam errors self-heal on the next fetch.
 - **Fetch cooldown** – `SteamDataCache` serves Steam data from a 60s per-user cache, so Discord presence-update storms hit Steam at most once per minute per user.
-- **Diagnostics** – previously silent failure paths (no games to fetch, non-success responses, `playerstats.success=false` with Steam's error string) are logged, and per-game unlocked-achievement counts are logged at debug level.
+- **Diagnostics** – previously silent failure paths (no games to fetch, non-success responses, `playerstats.success=false` with Steam's error string) are logged, and per-game unlocked-achievement counts are logged at debug level. A `403` from `GetPlayerAchievements` is logged with an actionable hint (the target user's *Game details* privacy setting is likely not Public — friends-only is not enough for the Web API) plus the response body snippet, and a follow-up log reports how many achievements the fallback recovered.
 
 ### AI Food & Recipe Automation (Google Gemini)
 - `GeminiFoodService` calls the Google Gemini `generateContent` API using JSON-schema structured output to produce German-language seasonal produce lists and dialysis / kidney-transplant-safe weekly recipes.

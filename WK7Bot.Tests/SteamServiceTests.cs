@@ -461,6 +461,218 @@ public class SteamServiceTests
     }
 
     [Fact]
+    public async Task GetEnrichedAchievementsAsync_LogsPrivacyHint_OnForbidden_WithoutRetry()
+    {
+        int playerCalls = 0;
+        var logger = new CapturingLogger<SteamService>();
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                playerCalls++;
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler, logger: logger);
+
+        var result = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+
+        Assert.Empty(result);
+        Assert.Equal(1, playerCalls);
+        Assert.Contains(logger.Entries, e =>
+            e.Level == LogLevel.Warning
+            && e.Message.Contains("403 Forbidden")
+            && e.Message.Contains("Game details")
+            && e.Message.Contains("(empty)"));
+    }
+
+    [Fact]
+    public async Task GetEnrichedAchievementsAsync_LogsResponseBody_OnForbidden()
+    {
+        var logger = new CapturingLogger<SteamService>();
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden)
+                {
+                    Content = new StringContent("""{"response":{"error":"access denied"}}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler, logger: logger);
+
+        var result = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+
+        Assert.Empty(result);
+        Assert.Contains(logger.Entries, e =>
+            e.Level == LogLevel.Warning
+            && e.Message.Contains("403 Forbidden")
+            && e.Message.Contains("access denied"));
+    }
+
+    [Fact]
+    public async Task GetEnrichedAchievementsAsync_FallsBackToTopAchievements_OnForbidden()
+    {
+        int fallbackCalls = 0;
+        var logger = new CapturingLogger<SteamService>();
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            }
+
+            if (url.Contains("GetTopAchievementsForGames"))
+            {
+                fallbackCalls++;
+                return Json("""
+                {
+                  "response": {
+                    "games": [
+                      {
+                        "appid": 730,
+                        "total_achievements": 20,
+                        "achievements": [
+                          { "name": "First Blood", "desc": "Get a kill", "icon": "abc.jpg", "icon_gray": "abc_gray.jpg", "hidden": false, "player_percent_unlocked": "12.0" },
+                          { "name": "Winner", "desc": "Win a round", "icon": "def.jpg", "icon_gray": "def_gray.jpg", "hidden": false, "player_percent_unlocked": "3.4" }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            if (url.Contains("GetSchemaForGame"))
+            {
+                return Json("""{"game":{"availableGameStats":{"achievements":[]}}}""");
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler, logger: logger);
+
+        var result = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+
+        Assert.Equal(1, fallbackCalls);
+
+        var first = result.Single(a => a.Name == "First Blood");
+        Assert.Equal("Get a kill", first.Description);
+        Assert.Equal("https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/730/abc.jpg", first.IconUrl);
+        Assert.Null(first.UnlockTime);
+
+        Assert.Contains(logger.Entries, e =>
+            e.Level == LogLevel.Information
+            && e.Message.Contains("fallback recovered"));
+    }
+
+    [Fact]
+    public async Task GetEnrichedAchievementsAsync_ReturnsEmpty_WhenForbiddenAndFallbackFails()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerAchievements") || url.Contains("GetTopAchievementsForGames"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetSteamUserDataAsync_IncludesTimestamplessAchievements_FromPrivacyFallback()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerSummaries"))
+            {
+                return Json("""
+                {
+                  "response": {
+                    "players": [
+                      { "steamid": "76561198012345678", "personaname": "PrivUser", "personastate": 1, "gameextrainfo": "CS2", "gameid": "730" }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            if (url.Contains("GetRecentlyPlayedGames"))
+            {
+                return Json("""{"response":{"games":[]}}""");
+            }
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            }
+
+            if (url.Contains("GetTopAchievementsForGames"))
+            {
+                return Json("""
+                {
+                  "response": {
+                    "games": [
+                      {
+                        "appid": 730,
+                        "total_achievements": 20,
+                        "achievements": [
+                          { "name": "First Blood", "desc": "Get a kill", "icon": "abc.jpg", "icon_gray": "abc_gray.jpg", "hidden": false, "player_percent_unlocked": "12.0" }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            if (url.Contains("GetSchemaForGame"))
+            {
+                return Json("""{"game":{"availableGameStats":{"achievements":[]}}}""");
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GetSteamUserDataAsync(TestSteamId);
+
+        Assert.NotNull(result);
+        var achievement = Assert.Single(result!.RecentAchievements);
+        Assert.Equal("First Blood", achievement.Name);
+        Assert.Null(achievement.UnlockTime);
+    }
+
+    [Fact]
     public async Task GetEnrichedAchievementsAsync_GivesUpAfterMaxAttempts_OnPersistentTransientFailure()
     {
         int playerCalls = 0;

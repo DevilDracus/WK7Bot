@@ -1848,6 +1848,18 @@
             <param name="cancellationToken">A token to monitor for operation cancellation.</param>
             <returns>A list of unlocked player achievements populated with API names, titles, descriptions, and unlock times.</returns>
         </member>
+        <member name="M:WK7Bot.Services.SteamService.GetTopAchievementsFallbackAsync(System.String,System.UInt32,System.Threading.CancellationToken)">
+            <summary>
+            Fallback for users whose 'Game details' privacy blocks <c>GetPlayerAchievements</c> (HTTP 403):
+            retrieves the user's unlocked achievements via <c>IPlayerService/GetTopAchievementsForGames</c>,
+            which honors only profile-level visibility. The response carries display names, descriptions, and
+            icon file names but no unlock timestamps, so <see cref="P:WK7Bot.Models.SteamAchievement.UnlockTime"/> stays <see langword="null"/>.
+            </summary>
+            <param name="steamId">The 64-bit Steam ID of the user.</param>
+            <param name="appId">The application identifier for the game.</param>
+            <param name="cancellationToken">A token to monitor for operation cancellation.</param>
+            <returns>The unlocked achievements reported by the fallback endpoint, or an empty list when unavailable.</returns>
+        </member>
         <member name="M:WK7Bot.Services.SteamService.GetSteamApiWithRetryAsync(System.String,System.String,System.Threading.CancellationToken)">
             <summary>
             Executes a Steam Web API GET request while limiting achievement endpoint concurrency and retrying transient failures (429/5xx) with linear backoff.
@@ -2062,6 +2074,76 @@
         <member name="P:WK7Bot.Services.PlayerStatsData.Error">
             <summary>
             Gets or sets an optional error message string if request processing failed.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SteamTopAchievementsResponse">
+            <summary>
+            Root container model for the Steam GetTopAchievementsForGames Web API response.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementsResponse.Response">
+            <summary>
+            Gets or sets the payload containing per-game unlocked achievements.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SteamTopAchievementsPayload">
+            <summary>
+            Inner payload returned by Steam GetTopAchievementsForGames.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementsPayload.Games">
+            <summary>
+            Gets or sets the list of games with unlocked achievement details for the requested user.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SteamTopAchievementGame">
+            <summary>
+            Per-game unlocked achievement data returned by Steam GetTopAchievementsForGames.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementGame.AppId">
+            <summary>
+            Gets or sets the application identifier of the game.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementGame.TotalAchievements">
+            <summary>
+            Gets or sets the total number of achievements defined for the game.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementGame.Achievements">
+            <summary>
+            Gets or sets the achievements the user has unlocked; absent when none are unlocked.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SteamTopAchievementItem">
+            <summary>
+            Individual unlocked achievement entry returned by Steam GetTopAchievementsForGames.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementItem.Name">
+            <summary>
+            Gets or sets the localized display title of the achievement.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementItem.Desc">
+            <summary>
+            Gets or sets the localized description of the achievement.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementItem.Icon">
+            <summary>
+            Gets or sets the unlocked icon file name (without CDN prefix).
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementItem.IconGray">
+            <summary>
+            Gets or sets the locked/grayscale icon file name (without CDN prefix).
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementItem.Hidden">
+            <summary>
+            Gets or sets a value indicating whether the achievement is hidden on the community site.
             </summary>
         </member>
         <member name="T:WK7Bot.Services.FlexibleIntConverter">
