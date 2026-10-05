@@ -270,6 +270,7 @@ public class SteamServiceTests
                             {
                               "playerstats": {
                                 "success": true,
+                                "Success": true,
                                 "achievements": [
                                   { "apiname": "achievement_one", "achieved": 1, "unlocktime": 1700000000, "name": "First!", "description": "Did the thing" },
                                   { "apiname": "achievement_two", "achieved": 0, "unlocktime": 0 },
@@ -328,7 +329,7 @@ public class SteamServiceTests
 
             if (url.Contains("GetPlayerAchievements"))
             {
-                return Json($"{{\"playerstats\":{{\"success\":true,\"achievements\":[{achievements}]}}}}");
+                return Json($"{{\"playerstats\":{{\"success\":true,\"Success\":true,\"achievements\":[{achievements}]}}}}");
             }
 
             if (url.Contains("GetSchemaForGame"))
