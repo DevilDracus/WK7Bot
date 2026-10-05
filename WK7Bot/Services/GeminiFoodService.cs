@@ -95,13 +95,14 @@ public class GeminiFoodService : IGeminiFoodService
 
         string monthName = dateTime.ToString("MMMM");
         string prompt = $"Create a delicious recipe for {monthName} using local Central European seasonal fruits or vegetables. " +
-                       $"CRITICAL DIETARY RESTRICTIONS:\n" +
-                       $"1. Tailor for individuals on dialysis or kidney transplant recipients taking immunosuppressants.\n" +
-                       $"2. Keep Potassium (Kalium) moderate/controlled and Sodium under strict limits.\n" +
-                       $"3. Strictly EXCLUDE raw/undercooked items, raw sprouts, grapefruit, pomegranate, and unpasteurized ingredients.\n" +
-                       $"4. Ensure ALL ingredients are fully cooked to prevent foodborne illness.\n" +
-                       $"5. Compute full nutritional values per serving including Calories, Protein, Carbohydrates, Fat, Sodium, Potassium (Kalium), Sulfate, and Phosphorus.\n\n" +
-                       $"IMPORTANT: Use GERMAN for the recipe!";
+                        $"CRITICAL DIETARY RESTRICTIONS:\n" +
+                        $"1. Tailor for individuals on dialysis or kidney transplant recipients taking immunosuppressants.\n" +
+                        $"2. Keep Potassium (Kalium) moderate/controlled and Sodium under strict limits.\n" +
+                        $"3. Strictly EXCLUDE: raw/undercooked items, raw sprouts, grapefruit, pomegranate, unpasteurized ingredients, AND ALL MOLD CHEESES (Schimmelkäse like Gorgonzola, Roquefort, Brie, Camembert are an absolute NO-GO).\n" +
+                        $"4. Rohmilchkäse (raw milk cheese) is strictly prohibited unless it is thoroughly heated, cooked in a boiling sauce, or fully baked.\n" +
+                        $"5. Ensure ALL ingredients are fully cooked to prevent foodborne illness.\n" +
+                        $"6. Compute full nutritional values per serving including Calories, Protein, Carbohydrates, Fat, Sodium, Potassium (Kalium), Sulfate, and Phosphorus.\n\n" +
+                        $"IMPORTANT: Use GERMAN for the recipe!";
 
         var jsonSchema = new JsonObject
         {
