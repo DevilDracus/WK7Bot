@@ -1,26 +1,11 @@
-﻿name: "WK7 Bot"
-description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.36"
-slug: "wk7bot"
-init: false
-arch:
-  - aarch64
-  - amd64
-  - armhf
-  - armv7
-  - i386
-startup: application
-boot: auto
-map:
-  - config:rw
-  - ssl
-options:
+﻿options:
   discord_token: ""
   mqtt_host: "core-mosquitto"
   mqtt_port: 1883
   mqtt_username: ""
   mqtt_password: ""
   steam_api_key: ""
+  gemini_api_key: ""
   discord_steam_mappings: []
   discord_dm_user_ids: []
   alexa_notification:
@@ -35,6 +20,7 @@ options:
     alexa_notifications_enabled: true
     discord_presence_mqtt_enabled: true
     steam_presence_enabled: true
+    food_service_enabled: true
 schema:
   discord_token: str
   mqtt_host: str
@@ -42,6 +28,7 @@ schema:
   mqtt_username: str?
   mqtt_password: str?
   steam_api_key: str?
+  gemini_api_key: str?
   discord_steam_mappings:
     - discord_user_id: str
       steam_id: str
@@ -59,6 +46,4 @@ schema:
     alexa_notifications_enabled: bool
     discord_presence_mqtt_enabled: bool
     steam_presence_enabled: bool
-hassio_api: true
-homeassistant_api: true
-hassio_role: "default"
+    food_service_enabled: bool

@@ -50,6 +50,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IHomeAssistantService, HomeAssistantService>();
         services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
         services.AddHttpClient<ISteamService, SteamService>();
+        services.AddHttpClient<IGeminiFoodService, GeminiFoodService>();
         services.AddHttpClient<AlexaMentionNotificationService>();
 
         services.AddTransient<RssParserService>();
@@ -97,6 +98,11 @@ public static class ServiceCollectionExtensions
         if (IsFeatureEnabled(configuration, "discord_presence_mqtt_enabled"))
         {
             services.AddHostedService<DiscordPresenceMqttService>();
+        }
+
+        if (IsFeatureEnabled(configuration, "food_service_enabled"))
+        {
+            services.AddHostedService<FoodPublisherService>();
         }
 
         return services;

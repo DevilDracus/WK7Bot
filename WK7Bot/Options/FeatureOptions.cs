@@ -1,46 +1,51 @@
 ﻿namespace WK7Bot.Options;
 
-using Microsoft.Extensions.Configuration;
+using System.Text.Json.Serialization;
 
 /// <summary>
-/// Toggles indicating enabled or disabled application feature modules.
-/// All features default to enabled to match Home Assistant add-on defaults and registration-time defaults.
+/// Feature toggles for controlling background services.
 /// </summary>
 public class FeatureOptions
 {
     /// <summary>
-    /// Gets or sets a value indicating whether RSS feed background polling is enabled.
+    /// Gets or sets a value indicating whether RSS feed polling is enabled.
     /// </summary>
-    [ConfigurationKeyName("rss_polling_enabled")]
+    [JsonPropertyName("rss_polling_enabled")]
     public bool RssPollingEnabled { get; set; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether Home Assistant notification listener is enabled.
     /// </summary>
-    [ConfigurationKeyName("home_assistant_notifier_enabled")]
+    [JsonPropertyName("home_assistant_notifier_enabled")]
     public bool HomeAssistantNotifierEnabled { get; set; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether Leipzig waste collection schedule tracking is enabled.
     /// </summary>
-    [ConfigurationKeyName("leipzig_waste_enabled")]
+    [JsonPropertyName("leipzig_waste_enabled")]
     public bool LeipzigWasteEnabled { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether Alexa notification dispatching is enabled.
+    /// Gets or sets a value indicating whether Alexa notifications are enabled.
     /// </summary>
-    [ConfigurationKeyName("alexa_notifications_enabled")]
+    [JsonPropertyName("alexa_notifications_enabled")]
     public bool AlexaNotificationsEnabled { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether publishing Discord presence updates to MQTT is enabled.
+    /// Gets or sets a value indicating whether Discord presence syncing via MQTT is enabled.
     /// </summary>
-    [ConfigurationKeyName("discord_presence_mqtt_enabled")]
+    [JsonPropertyName("discord_presence_mqtt_enabled")]
     public bool DiscordPresenceMqttEnabled { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether Steam presence enrichment is enabled.
+    /// Gets or sets a value indicating whether Steam presence tracking is enabled.
     /// </summary>
-    [ConfigurationKeyName("steam_presence_enabled")]
+    [JsonPropertyName("steam_presence_enabled")]
     public bool SteamPresenceEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the monthly seasonal food and weekly recipe background service is enabled.
+    /// </summary>
+    [JsonPropertyName("food_service_enabled")]
+    public bool FoodServiceEnabled { get; set; } = true;
 }

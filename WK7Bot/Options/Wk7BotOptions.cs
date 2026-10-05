@@ -50,6 +50,12 @@ public class Wk7BotOptions
     public string? SteamApiKey { get; set; }
 
     /// <summary>
+    /// Gets or sets the Google Gemini API key used for generating seasonal produce and tailored renal recipes.
+    /// </summary>
+    [ConfigurationKeyName("gemini_api_key")]
+    public string? GeminiApiKey { get; set; }
+
+    /// <summary>
     /// Gets or sets the list of explicit Discord user ID to Steam ID mappings.
     /// </summary>
     [ConfigurationKeyName("discord_steam_mappings")]
