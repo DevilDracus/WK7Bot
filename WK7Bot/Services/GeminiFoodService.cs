@@ -22,7 +22,7 @@ public class GeminiFoodService : IGeminiFoodService
     private readonly Wk7BotOptions _options;
     private readonly ILogger<GeminiFoodService> _logger;
 
-    private const string GeminiModel = "gemini-2.5-flash";
+    private const string GeminiModel = "gemini-3.8-flash";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GeminiFoodService"/> class.
