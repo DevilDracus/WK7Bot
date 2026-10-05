@@ -1,4 +1,6 @@
-﻿namespace WK7Bot.Services;
+﻿using System.Text.Json;
+
+namespace WK7Bot.Services;
 
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -58,7 +60,7 @@ public class SteamService : ISteamService
     }
 
     /// <summary>
-    /// Fetches player summary data, recent game playtimes, and enriched active or recently played game achievements for a specific Steam ID.
+    /// Fetches player summary data, recent game playtimes, and globally enriched active or recently played game achievements for a specific Steam ID.
     /// </summary>
     /// <param name="steamId">The 64-bit Steam ID of the user.</param>
     /// <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
@@ -83,28 +85,32 @@ public class SteamService : ISteamService
 
             await EnrichRecentGamesAsync(userData, cancellationToken);
 
-            var combinedAchievements = new List<SteamAchievement>();
+            // Pool app IDs from both the current game and up to 5 recent games to prevent shadowing
+            var appIdsToFetch = new HashSet<uint>();
 
             if (userData.CurrentGameAppId.HasValue)
             {
-                var activeAchievements = await GetEnrichedAchievementsAsync(steamId, userData.CurrentGameAppId.Value, cancellationToken);
-                combinedAchievements.AddRange(activeAchievements);
+                appIdsToFetch.Add(userData.CurrentGameAppId.Value);
             }
 
-            if (combinedAchievements.Count == 0 && userData.RecentGames.Count > 0)
+            foreach (var recentGame in userData.RecentGames.Take(5))
             {
-                foreach (var recentGame in userData.RecentGames.Take(3))
-                {
-                    var recentAchievements = await GetEnrichedAchievementsAsync(steamId, recentGame.AppId, cancellationToken);
-                    combinedAchievements.AddRange(recentAchievements);
-                }
+                appIdsToFetch.Add(recentGame.AppId);
             }
 
-            userData.RecentAchievements = combinedAchievements
-                .Where(a => a.UnlockTime.HasValue)
-                .OrderByDescending(a => a.UnlockTime)
-                .Take(5)
-                .ToList();
+            if (appIdsToFetch.Count > 0)
+            {
+                // Fetch achievements concurrently across all collected games
+                var fetchTasks = appIdsToFetch.Select(appId => GetEnrichedAchievementsAsync(steamId, appId, cancellationToken));
+                var achievementsArrays = await Task.WhenAll(fetchTasks);
+
+                userData.RecentAchievements = achievementsArrays
+                    .SelectMany(a => a)
+                    .Where(a => a.UnlockTime.HasValue)
+                    .OrderByDescending(a => a.UnlockTime)
+                    .Take(5)
+                    .ToList();
+            }
 
             return userData;
         }
@@ -318,7 +324,14 @@ public class SteamService : ISteamService
             return new List<SteamAchievement>();
         }
 
-        var achievementResponse = await response.Content.ReadFromJsonAsync<SteamPlayerAchievementsResponse>(cancellationToken: cancellationToken);
+        // Permissive parsing options to handle Steam's inconsistent payload types
+        var options = new JsonSerializerOptions
+        {
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            PropertyNameCaseInsensitive = true
+        };
+
+        var achievementResponse = await response.Content.ReadFromJsonAsync<SteamPlayerAchievementsResponse>(options, cancellationToken);
 
         var playerStats = achievementResponse?.PlayerStats;
         if (playerStats == null || !playerStats.Success || playerStats.Achievements == null)
@@ -327,8 +340,11 @@ public class SteamService : ISteamService
         }
 
         var results = new List<SteamAchievement>();
-        foreach (var item in playerStats.Achievements.Where(a => a.Achieved == 1))
+        
+        // Use the new IsAchieved property which evaluates the JsonElement
+        foreach (var item in playerStats.Achievements.Where(a => a.IsAchieved))
         {
+            // Use the new UnlockTime property
             DateTimeOffset? unlockDateTime = item.UnlockTime > 0
                 ? DateTimeOffset.FromUnixTimeSeconds(item.UnlockTime)
                 : null;
@@ -484,17 +500,39 @@ internal class PlayerAchievementItem
     [JsonPropertyName("apiname")]
     public string ApiName { get; set; } = string.Empty;
 
+    // Use JsonElement to gracefully handle int, bool, and string without throwing exceptions
     [JsonPropertyName("achieved")]
-    public int Achieved { get; set; }
+    public JsonElement AchievedElement { get; set; }
 
     [JsonPropertyName("unlocktime")]
-    public long UnlockTime { get; set; }
+    public JsonElement UnlockTimeElement { get; set; }
 
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 
     [JsonPropertyName("description")]
     public string? Description { get; set; }
+
+    public bool IsAchieved
+    {
+        get
+        {
+            if (AchievedElement.ValueKind == JsonValueKind.Number) return AchievedElement.GetInt32() == 1;
+            if (AchievedElement.ValueKind == JsonValueKind.True) return true;
+            if (AchievedElement.ValueKind == JsonValueKind.String && int.TryParse(AchievedElement.GetString(), out int val)) return val == 1;
+            return false;
+        }
+    }
+
+    public long UnlockTime
+    {
+        get
+        {
+            if (UnlockTimeElement.ValueKind == JsonValueKind.Number) return UnlockTimeElement.GetInt64();
+            if (UnlockTimeElement.ValueKind == JsonValueKind.String && long.TryParse(UnlockTimeElement.GetString(), out long val)) return val;
+            return 0;
+        }
+    }
 }
 
 #endregion
