@@ -1,4 +1,6 @@
-﻿namespace WK7Bot.Modules;
+﻿using System.Globalization;
+
+namespace WK7Bot.Modules;
 
 using System;
 using System.Linq;
@@ -87,6 +89,77 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Error occurred while executing /recipe slash command.");
             await FollowupAsync("❌ An unexpected error occurred while generating the recipe.", ephemeral: true);
+        }
+    }
+    
+    /// <summary>
+    /// Generates seasonal produce information for a specified month (or current month) and posts it to the #🍎food channel.
+    /// </summary>
+    /// <param name="monthInput">Optional month number (1-12). Defaults to the current month if omitted.</param>
+    /// <returns>A task tracking the asynchronous command execution.</returns>
+    [SlashCommand("seasonal-produce", "Displays seasonal fruits, vegetables, herbs, and nuts for a given month in #🍎food.")]
+    public async Task GetSeasonalProduceAsync(
+        [Summary("month", "The month number (1-12). Leave empty for the current month.")] int? monthInput = null)
+    {
+        await DeferAsync(ephemeral: true);
+
+        try
+        {
+            var targetChannel = Context.Guild?.TextChannels
+                .FirstOrDefault(c => string.Equals(c.Name, TargetChannelName, StringComparison.OrdinalIgnoreCase));
+
+            if (targetChannel == null)
+            {
+                await FollowupAsync($"❌ Could not find the channel `#{TargetChannelName}` in this server.", ephemeral: true);
+                return;
+            }
+
+            int targetMonth = DateTime.Now.Month;
+            if (monthInput.HasValue)
+            {
+                if (monthInput.Value < 1 || monthInput.Value > 12)
+                {
+                    await FollowupAsync("❌ Invalid month provided. Please enter a value between 1 and 12.", ephemeral: true);
+                    return;
+                }
+                targetMonth = monthInput.Value;
+            }
+
+            // Construct target date for the selected month in the current year
+            var targetDate = new DateTime(DateTime.Now.Year, targetMonth, 1);
+            var produceData = await _geminiFoodService.GetSeasonalProduceAsync(targetDate);
+
+            if (produceData == null)
+            {
+                await FollowupAsync("❌ Failed to retrieve seasonal produce from Gemini API. Please try again later.", ephemeral: true);
+                return;
+            }
+
+            string monthName = targetDate.ToString("MMMM", CultureInfo.GetCultureInfo("de-DE"));
+            string fruitsFormatted = produceData.Fruits.Count > 0 ? string.Join(", ", produceData.Fruits) : "Keine angegeben";
+            string vegetablesFormatted = produceData.Vegetables.Count > 0 ? string.Join(", ", produceData.Vegetables) : "Keine angegeben";
+            string herbsFormatted = produceData.Herbs.Count > 0 ? string.Join(", ", produceData.Herbs) : "Keine angegeben";
+            string nutsFormatted = produceData.Nuts.Count > 0 ? string.Join(", ", produceData.Nuts) : "Keine angegeben";
+
+            var embed = new EmbedBuilder()
+                .WithTitle($"🌱 Saisonkalender: {produceData.Month ?? monthName}")
+                .WithDescription($"Übersicht der regionalen Saisonprodukte (Zentraleuropa / Leipzig-Region) für **{monthName}**.")
+                .WithColor(Color.Green)
+                .AddField("🍎 Obst", fruitsFormatted, false)
+                .AddField("🥕 Gemüse", vegetablesFormatted, false)
+                .AddField("🌿 Kräuter", herbsFormatted, false)
+                .AddField("🌰 Nüsse", nutsFormatted, false)
+                .WithFooter($"Requested by @{Context.User.Username} • Regionale Saisonware")
+                .WithCurrentTimestamp()
+                .Build();
+
+            await targetChannel.SendMessageAsync(embed: embed);
+            await FollowupAsync($"✅ Seasonal produce overview for **{monthName}** successfully posted to {targetChannel.Mention}!", ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while executing /seasonal-produce slash command.");
+            await FollowupAsync("❌ An unexpected error occurred while generating the seasonal produce list.", ephemeral: true);
         }
     }
 }

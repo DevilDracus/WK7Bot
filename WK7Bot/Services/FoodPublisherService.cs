@@ -1,4 +1,6 @@
-﻿namespace WK7Bot.Services;
+﻿using System.Globalization;
+
+namespace WK7Bot.Services;
 
 using System;
 using System.Linq;
@@ -122,15 +124,21 @@ public class FoodPublisherService : BackgroundService
         var produce = await _geminiFoodService.GetSeasonalProduceAsync(now, cancellationToken);
         if (produce == null) return;
 
+        string monthName = DateTime.Today.ToString("MMMM", CultureInfo.GetCultureInfo("de-DE"));
+        string fruitsFormatted = produce.Fruits.Count > 0 ? string.Join(", ", produce.Fruits) : "Keine angegeben";
+        string vegetablesFormatted = produce.Vegetables.Count > 0 ? string.Join(", ", produce.Vegetables) : "Keine angegeben";
+        string herbsFormatted = produce.Herbs.Count > 0 ? string.Join(", ", produce.Herbs) : "Keine angegeben";
+        string nutsFormatted = produce.Nuts.Count > 0 ? string.Join(", ", produce.Nuts) : "Keine angegeben";
+        
         var embed = new EmbedBuilder()
-            .WithTitle($"🍎 Seasonal Produce Guide — {produce.Month}")
-            .WithDescription("Fresh seasonal fruits, vegetables, herbs, and nuts for this month (Central Europe region):")
+            .WithTitle($"🌱 Saisonkalender: {produce.Month ?? monthName}")
+            .WithDescription($"Übersicht der regionalen Saisonprodukte (Zentraleuropa / Leipzig-Region) für **{monthName}**.")
             .WithColor(Color.Green)
-            .AddField("🍏 Fruits", produce.Fruits.Count > 0 ? string.Join(", ", produce.Fruits) : "None", false)
-            .AddField("🥦 Vegetables", produce.Vegetables.Count > 0 ? string.Join(", ", produce.Vegetables) : "None", false)
-            .AddField("🌿 Herbs", produce.Herbs.Count > 0 ? string.Join(", ", produce.Herbs) : "None", false)
-            .AddField("🥜 Nuts", produce.Nuts.Count > 0 ? string.Join(", ", produce.Nuts) : "None", false)
-            .WithFooter("WK7 Bot Seasonal Food Service")
+            .AddField("🍎 Obst", fruitsFormatted, false)
+            .AddField("🥕 Gemüse", vegetablesFormatted, false)
+            .AddField("🌿 Kräuter", herbsFormatted, false)
+            .AddField("🌰 Nüsse", nutsFormatted, false)
+            .WithFooter($"Sent by WK7 Bot • Regionale Saisonware")
             .WithCurrentTimestamp()
             .Build();
 
