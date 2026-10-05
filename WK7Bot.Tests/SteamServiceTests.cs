@@ -267,16 +267,17 @@ public class SteamServiceTests
             if (url.Contains("GetPlayerAchievements"))
             {
                 return Json("""
-                {
-                  "playerstats": {
-                    "achievements": [
-                      { "apiname": "achievement_one", "achieved": 1, "unlocktime": 1700000000, "name": "First!", "description": "Did the thing" },
-                      { "apiname": "achievement_two", "achieved": 0, "unlocktime": 0 },
-                      { "apiname": "unknown_achievement", "achieved": 1, "unlocktime": 1600000000, "name": "Mystery", "description": "No schema" }
-                    ]
-                  }
-                }
-                """);
+                            {
+                              "playerstats": {
+                                "success": true,
+                                "achievements": [
+                                  { "apiname": "achievement_one", "achieved": 1, "unlocktime": 1700000000, "name": "First!", "description": "Did the thing" },
+                                  { "apiname": "achievement_two", "achieved": 0, "unlocktime": 0 },
+                                  { "apiname": "unknown_achievement", "achieved": 1, "unlocktime": 1600000000, "name": "Mystery", "description": "No schema" }
+                                ]
+                              }
+                            }
+                            """);
             }
 
             return Json("{}");
@@ -327,7 +328,7 @@ public class SteamServiceTests
 
             if (url.Contains("GetPlayerAchievements"))
             {
-                return Json($"{{\"playerstats\":{{\"achievements\":[{achievements}]}}}}");
+                return Json($"{{\"playerstats\":{{\"success\":true,\"achievements\":[{achievements}]}}}}");
             }
 
             if (url.Contains("GetSchemaForGame"))
