@@ -372,6 +372,136 @@
             <param name="cancellationToken">Cancellation token to observe.</param>
             <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
         </member>
+        <member name="T:WK7Bot.Models.SeasonalFoodData">
+            <summary>
+            Container model representing seasonal regional produce returned by Gemini structured outputs.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SeasonalFoodData.Month">
+            <summary>
+            Gets or sets the target month name.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SeasonalFoodData.Fruits">
+            <summary>
+            Gets or sets the collection of seasonal fruits.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SeasonalFoodData.Vegetables">
+            <summary>
+            Gets or sets the collection of seasonal vegetables.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SeasonalFoodData.Herbs">
+            <summary>
+            Gets or sets the collection of seasonal herbs.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SeasonalFoodData.Nuts">
+            <summary>
+            Gets or sets the collection of seasonal nuts.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Models.RecipeNutrition">
+            <summary>
+            Detailed nutritional breakdown including target micronutrients.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RecipeNutrition.CaloriesKcal">
+            <summary>
+            Gets or sets total energy in kilocalories.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RecipeNutrition.ProteinGrams">
+            <summary>
+            Gets or sets total protein content in grams.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RecipeNutrition.CarbohydratesGrams">
+            <summary>
+            Gets or sets total carbohydrate content in grams.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RecipeNutrition.FatGrams">
+            <summary>
+            Gets or sets total fat content in grams.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RecipeNutrition.SodiumMg">
+            <summary>
+            Gets or sets sodium content in milligrams.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RecipeNutrition.PotassiumKaliumMg">
+            <summary>
+            Gets or sets potassium (Kalium) content in milligrams.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RecipeNutrition.SulfateMg">
+            <summary>
+            Gets or sets sulfate content in milligrams.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RecipeNutrition.PhosphorusMg">
+            <summary>
+            Gets or sets phosphorus content in milligrams.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Models.RenalRecipeData">
+            <summary>
+            Dialysis and immunosuppressive friendly weekly recipe structure generated via Gemini API.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.Title">
+            <summary>
+            Gets or sets the recipe title.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.Description">
+            <summary>
+            Gets or sets a short summary highlighting seasonal focus and renal safety details.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.PrepTime">
+            <summary>
+            Gets or sets prep time string (e.g. "20 mins").
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.CookTime">
+            <summary>
+            Gets or sets cook time string (e.g. "30 mins").
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.Servings">
+            <summary>
+            Gets or sets serving size count.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.SeasonalIngredientsUsed">
+            <summary>
+            Gets or sets list of seasonal ingredients utilized.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.Ingredients">
+            <summary>
+            Gets or sets itemized recipe ingredients with measures.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.Instructions">
+            <summary>
+            Gets or sets step-by-step cooking instructions.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.Nutrition">
+            <summary>
+            Gets or sets complete nutritional breakdown per serving.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.TransplantSafetyNotes">
+            <summary>
+            Gets or sets crucial food safety and medical diet notes (e.g., thorough cooking, grapefruit/pomegranate avoidance).
+            </summary>
+        </member>
         <member name="T:WK7Bot.Models.SteamAchievement">
             <summary>
             Represents an achievement unlocked by the player within a Steam application.
@@ -521,6 +651,45 @@
             <summary>
             Gets or sets the SteamUserData for the mapped discord user entity.
             </summary>
+        </member>
+        <member name="T:WK7Bot.Modules.FoodModule">
+            <summary>
+            Provides slash command interactions for food, seasonal produce, and renal-friendly weekly recipes.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Modules.FoodModule.#ctor(WK7Bot.Services.Interfaces.IGeminiFoodService,Microsoft.Extensions.Logging.ILogger{WK7Bot.Modules.FoodModule})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Modules.FoodModule"/> class.
+            </summary>
+            <param name="geminiFoodService">The Gemini food service instance.</param>
+            <param name="logger">The logger instance.</param>
+        </member>
+        <member name="M:WK7Bot.Modules.FoodModule.FindFoodChannel">
+            <summary>
+            Resolves the <c>#🍎food</c> text channel inside the guild the command originated from.
+            </summary>
+            <returns>The matching text channel, or <see langword="null"/> when the guild or channel is unavailable.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.FoodModule.PostToFoodChannelAsync(Discord.ITextChannel,Discord.Embed)">
+            <summary>
+            Publishes the generated embed to the target food channel.
+            </summary>
+            <param name="channel">The channel that receives the embed.</param>
+            <param name="embed">The embed to publish.</param>
+            <returns>A task that completes once the message has been sent.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.FoodModule.GenerateRecipeAsync">
+            <summary>
+            Generates a renal and transplant-friendly recipe based on current seasonal produce and posts it to the #🍎food channel.
+            </summary>
+            <returns>A task tracking the asynchronous command execution.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.FoodModule.GetSeasonalProduceAsync(System.Nullable{System.Int32})">
+            <summary>
+            Generates seasonal produce information for a specified month (or current month) and posts it to the #🍎food channel.
+            </summary>
+            <param name="monthInput">Optional month number (1-12). Defaults to the current month if omitted.</param>
+            <returns>A task tracking the asynchronous command execution.</returns>
         </member>
         <member name="T:WK7Bot.Modules.LeipzigWasteModule">
             <summary>
@@ -692,13 +861,12 @@
         </member>
         <member name="T:WK7Bot.Options.FeatureOptions">
             <summary>
-            Toggles indicating enabled or disabled application feature modules.
-            All features default to enabled to match Home Assistant add-on defaults and registration-time defaults.
+            Feature toggles for controlling background services.
             </summary>
         </member>
         <member name="P:WK7Bot.Options.FeatureOptions.RssPollingEnabled">
             <summary>
-            Gets or sets a value indicating whether RSS feed background polling is enabled.
+            Gets or sets a value indicating whether RSS feed polling is enabled.
             </summary>
         </member>
         <member name="P:WK7Bot.Options.FeatureOptions.HomeAssistantNotifierEnabled">
@@ -713,17 +881,22 @@
         </member>
         <member name="P:WK7Bot.Options.FeatureOptions.AlexaNotificationsEnabled">
             <summary>
-            Gets or sets a value indicating whether Alexa notification dispatching is enabled.
+            Gets or sets a value indicating whether Alexa notifications are enabled.
             </summary>
         </member>
         <member name="P:WK7Bot.Options.FeatureOptions.DiscordPresenceMqttEnabled">
             <summary>
-            Gets or sets a value indicating whether publishing Discord presence updates to MQTT is enabled.
+            Gets or sets a value indicating whether Discord presence syncing via MQTT is enabled.
             </summary>
         </member>
         <member name="P:WK7Bot.Options.FeatureOptions.SteamPresenceEnabled">
             <summary>
-            Gets or sets a value indicating whether Steam presence enrichment is enabled.
+            Gets or sets a value indicating whether Steam presence tracking is enabled.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.FeatureOptions.FoodServiceEnabled">
+            <summary>
+            Gets or sets a value indicating whether the monthly seasonal food and weekly recipe background service is enabled.
             </summary>
         </member>
         <member name="T:WK7Bot.Options.Wk7BotOptions">
@@ -764,6 +937,11 @@
         <member name="P:WK7Bot.Options.Wk7BotOptions.SteamApiKey">
             <summary>
             Gets or sets the Valve Steam Web API key.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.GeminiApiKey">
+            <summary>
+            Gets or sets the Google Gemini API key used for generating seasonal produce and tailored renal recipes.
             </summary>
         </member>
         <member name="P:WK7Bot.Options.Wk7BotOptions.DiscordSteamMappings">
@@ -959,6 +1137,92 @@
             <param name="entity">The presence entity instance containing user data.</param>
             <returns>A task tracking asynchronous MQTT publication.</returns>
         </member>
+        <member name="T:WK7Bot.Services.FoodPublisherService">
+            <summary>
+            Background worker service executing scheduled dispatches for monthly seasonal produce lists and weekly renal recipes into Discord.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FoodPublisherService.#ctor(Discord.WebSocket.DiscordSocketClient,WK7Bot.Services.Interfaces.IGeminiFoodService,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.FoodPublisherService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.FoodPublisherService"/> class.
+            </summary>
+            <param name="discordClient">The Discord socket client connection instance.</param>
+            <param name="geminiFoodService">The Gemini AI food and recipe service dependency.</param>
+            <param name="options">Application options instance.</param>
+            <param name="logger">Logger instance.</param>
+        </member>
+        <member name="M:WK7Bot.Services.FoodPublisherService.ExecuteAsync(System.Threading.CancellationToken)">
+            <summary>
+            Core polling loop continuously checking time anchors for monthly produce and Thursday recipe schedules.
+            </summary>
+            <param name="stoppingToken">Cancellation token used to interrupt processing during app shutdown.</param>
+            <returns>A task tracking execution state.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.FoodPublisherService.ShouldPublishMonthlyProduce(System.DateTime)">
+            <summary>
+            Determines whether the monthly produce post should trigger on the first day of the current month.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FoodPublisherService.ShouldPublishWeeklyRecipe(System.DateTime)">
+            <summary>
+            Determines whether the weekly renal recipe should trigger on Thursday at 15:30.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FoodPublisherService.PublishMonthlyProduceAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Queries seasonal produce data and posts the embedded payload to the target Discord channel.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FoodPublisherService.PublishWeeklyRecipeAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Queries renal recipe data and posts the embedded payload to the target Discord channel.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FoodPublisherService.ResolveTargetChannel">
+            <summary>
+            Resolves the socket text channel matching the configured target channel name.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.GeminiFoodService">
+            <summary>
+            Communicates with Google Gemini REST API endpoints using structured JSON schemas to retrieve seasonal produce and dialysis-safe recipes.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.GeminiFoodService.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.GeminiFoodService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.GeminiFoodService"/> class.
+            </summary>
+            <param name="httpClient">The HTTP client instance.</param>
+            <param name="options">The strongly-typed options instance containing configuration parameters.</param>
+            <param name="logger">The logger instance.</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when required dependencies are null.</exception>
+        </member>
+        <member name="M:WK7Bot.Services.GeminiFoodService.GetSeasonalProduceAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Queries the Gemini API for seasonal fruits, vegetables, herbs, and nuts for a given month and region.
+            </summary>
+            <param name="dateTime">The target month date instance.</param>
+            <param name="cancellationToken">A token to monitor for task cancellation.</param>
+            <returns>A structured <see cref="T:WK7Bot.Models.SeasonalFoodData"/> instance or null if processing fails.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.GeminiFoodService.GetWeeklyRenalRecipeAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Queries the Gemini API to generate a dialysis and immunosuppressive recipient-friendly recipe using current seasonal produce.
+            </summary>
+            <param name="dateTime">The target date used to determine seasonal ingredients.</param>
+            <param name="cancellationToken">A token to monitor for task cancellation.</param>
+            <returns>A structured <see cref="T:WK7Bot.Models.RenalRecipeData"/> instance containing nutritional metrics and instructions, or null if processing fails.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.GeminiFoodService.RequestGeminiStructuredOutputAsync``1(System.String,System.Text.Json.Nodes.JsonObject,System.Threading.CancellationToken)">
+            <summary>
+            Submits a structured JSON generation payload to Gemini with automatic model fallback and retries on 503/429 errors.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.GeminiFoodService.TryExecuteRequestWithRetryAsync``1(System.String,System.String,System.Text.Json.Nodes.JsonObject,System.Threading.CancellationToken)">
+            <summary>
+            Executes the HTTP REST API call to Gemini with exponential backoff for transient 503 / 429 status codes.
+            </summary>
+        </member>
         <member name="T:WK7Bot.Services.HomeAssistantNotifierService">
             <summary>
             Background service that bridges Discord text channels and direct messages with Home Assistant via MQTT Discovery and notification commands.
@@ -1118,6 +1382,27 @@
             <param name="interaction">The incoming socket interaction payload from Discord.</param>
             <returns>A task representing the asynchronous interaction execution operation.</returns>
         </member>
+        <member name="T:WK7Bot.Services.Interfaces.IGeminiFoodService">
+            <summary>
+            Provides methods for generating structured seasonal food lists and dialysis/transplant-safe recipes using Google Gemini structured JSON output mode.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.Interfaces.IGeminiFoodService.GetSeasonalProduceAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Queries the Gemini API for seasonal fruits, vegetables, herbs, and nuts for a given month and region.
+            </summary>
+            <param name="dateTime">The target month date instance.</param>
+            <param name="cancellationToken">A token to monitor for task cancellation.</param>
+            <returns>A structured <see cref="T:WK7Bot.Models.SeasonalFoodData"/> instance or null if processing fails.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.Interfaces.IGeminiFoodService.GetWeeklyRenalRecipeAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Queries the Gemini API to generate a dialysis and immunosuppressive recipient-friendly recipe using current seasonal produce.
+            </summary>
+            <param name="dateTime">The target date used to determine seasonal ingredients.</param>
+            <param name="cancellationToken">A token to monitor for task cancellation.</param>
+            <returns>A structured <see cref="T:WK7Bot.Models.RenalRecipeData"/> instance containing nutritional metrics and instructions, or null if processing fails.</returns>
+        </member>
         <member name="T:WK7Bot.Services.Interfaces.IHomeAssistantService">
             <summary>
             Defines client operations for interacting with the Home Assistant REST API.
@@ -1151,7 +1436,7 @@
         </member>
         <member name="M:WK7Bot.Services.Interfaces.ISteamService.GetSteamIdForDiscordUser(System.String)">
             <summary>
-            Resolves the mapped 64-bit Steam ID for a given Discord user ID from options.
+            Resolves the mapped 64-bit Steam ID for a given Discord user ID from configuration options.
             </summary>
             <param name="discordUserId">The target Discord user snowflake ID string.</param>
             <returns>The mapped 64-bit Steam ID, or null if no mapping exists.</returns>
@@ -1163,6 +1448,15 @@
             <param name="steamId">The 64-bit Steam ID of the user.</param>
             <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
             <returns>A populated <see cref="T:WK7Bot.Models.SteamUserData"/> model or null if fetching fails.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.Interfaces.ISteamService.GetEnrichedAchievementsAsync(System.String,System.UInt32,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves player achievements for a specified game and merges human-readable titles, descriptions, and icon image URLs from the Steam Game Schema API.
+            </summary>
+            <param name="steamId">The unique 64-bit Steam identifier of the target user.</param>
+            <param name="appId">The unique application identifier for the target game.</param>
+            <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+            <returns>A collection of enriched <see cref="T:WK7Bot.Models.SteamAchievement"/> instances containing achievement metadata, timestamps, and icon URLs.</returns>
         </member>
         <member name="T:WK7Bot.Services.LeipzigWasteBackgroundService">
             <summary>
@@ -1308,9 +1602,57 @@
             <param name="item">The newly retrieved feed item.</param>
             <returns>A task representing the send operation.</returns>
         </member>
+        <member name="T:WK7Bot.Services.SteamDataCache">
+            <summary>
+            Caches <see cref="T:WK7Bot.Models.SteamUserData"/> lookups per Steam ID for a short time-to-live so rapid Discord presence
+            update storms do not hammer the Steam Web API with duplicate requests.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.SteamDataCache.#ctor(WK7Bot.Services.Interfaces.ISteamService,System.TimeSpan)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.SteamDataCache"/> class.
+            </summary>
+            <param name="steamService">The underlying Steam service used on cache misses.</param>
+            <param name="timeToLive">How long a cached entry remains valid.</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when <paramref name="steamService"/> is null.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is not positive.</exception>
+        </member>
+        <member name="M:WK7Bot.Services.SteamDataCache.GetSteamUserDataAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Returns cached Steam user data when younger than the time-to-live; otherwise fetches fresh data from the Steam service.
+            </summary>
+            <param name="steamId">The 64-bit Steam ID of the user.</param>
+            <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+            <returns>The cached or freshly fetched <see cref="T:WK7Bot.Models.SteamUserData"/>, or null when retrieval fails.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.SteamDataCache.CacheEntry">
+            <summary>
+            Immutable cache entry holding the fetched data together with its fetch timestamp.
+            </summary>
+            <param name="Data">The cached Steam user data, possibly null when the fetch failed.</param>
+            <param name="FetchedAt">The UTC timestamp when the entry was stored.</param>
+        </member>
+        <member name="M:WK7Bot.Services.SteamDataCache.CacheEntry.#ctor(WK7Bot.Models.SteamUserData,System.DateTimeOffset)">
+            <summary>
+            Immutable cache entry holding the fetched data together with its fetch timestamp.
+            </summary>
+            <param name="Data">The cached Steam user data, possibly null when the fetch failed.</param>
+            <param name="FetchedAt">The UTC timestamp when the entry was stored.</param>
+        </member>
+        <member name="P:WK7Bot.Services.SteamDataCache.CacheEntry.Data">
+            <summary>The cached Steam user data, possibly null when the fetch failed.</summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamDataCache.CacheEntry.FetchedAt">
+            <summary>The UTC timestamp when the entry was stored.</summary>
+        </member>
         <member name="T:WK7Bot.Services.SteamService">
             <summary>
             Communicates with Valve Steam Web API endpoints to fetch player profiles, recent activity, and enriched achievement metrics.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamService.RetryDelay">
+            <summary>
+            Gets the base delay applied between retry attempts for transient Steam API failures. Virtual for testability.
             </summary>
         </member>
         <member name="M:WK7Bot.Services.SteamService.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Caching.Memory.IMemoryCache,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.SteamService})">
@@ -1332,7 +1674,7 @@
         </member>
         <member name="M:WK7Bot.Services.SteamService.GetSteamUserDataAsync(System.String,System.Threading.CancellationToken)">
             <summary>
-            Fetches player summary data, recent game playtimes, and enriched active game achievements for a specific Steam ID.
+            Fetches player summary data, recent game playtimes, and globally enriched active or recently played game achievements for a specific Steam ID.
             </summary>
             <param name="steamId">The 64-bit Steam ID of the user.</param>
             <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
@@ -1340,12 +1682,12 @@
         </member>
         <member name="M:WK7Bot.Services.SteamService.GetEnrichedAchievementsAsync(System.String,System.UInt32,System.Threading.CancellationToken)">
             <summary>
-            Retrieves player achievements for a specified game and merges icon image URLs obtained from the Steam Game Schema API.
+            Retrieves player achievements for a specified game and merges human-readable titles, descriptions, and icon image URLs from the Steam Game Schema API.
             </summary>
             <param name="steamId">The unique 64-bit Steam identifier of the target user.</param>
             <param name="appId">The unique application identifier for the target game.</param>
             <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-            <returns>A collection of enriched <see cref="T:WK7Bot.Models.SteamAchievement"/> instances containing achievement info, timestamps, and icon URLs.</returns>
+            <returns>A collection of enriched <see cref="T:WK7Bot.Models.SteamAchievement"/> instances containing achievement metadata, timestamps, and icon URLs.</returns>
         </member>
         <member name="M:WK7Bot.Services.SteamService.FetchPlayerSummaryAsync(System.String,System.Threading.CancellationToken)">
             <summary>
@@ -1365,11 +1707,11 @@
         </member>
         <member name="M:WK7Bot.Services.SteamService.GetGameSchemaAsync(System.UInt32,System.Threading.CancellationToken)">
             <summary>
-            Retrieves game achievement schema mappings from the Steam Web API or cache, linking API names to unlocked icon URLs.
+            Retrieves game achievement schema metadata from the Steam Web API or cache, mapping API names to display names, descriptions, and icon URLs.
             </summary>
             <param name="appId">The unique application identifier for the game.</param>
             <param name="cancellationToken">A token to monitor for operation cancellation.</param>
-            <returns>A dictionary mapping achievement API names to their respective absolute icon URLs.</returns>
+            <returns>A dictionary mapping achievement API names to their schema definition containing display properties.</returns>
         </member>
         <member name="M:WK7Bot.Services.SteamService.GetPlayerAchievementsAsync(System.String,System.UInt32,System.Threading.CancellationToken)">
             <summary>
@@ -1378,7 +1720,31 @@
             <param name="steamId">The 64-bit Steam ID of the user.</param>
             <param name="appId">The application identifier for the game.</param>
             <param name="cancellationToken">A token to monitor for operation cancellation.</param>
-            <returns>A list of player achievements populated with API names, titles, descriptions, and unlock times.</returns>
+            <returns>A list of unlocked player achievements populated with API names, titles, descriptions, and unlock times.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.GetSteamApiWithRetryAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Executes a Steam Web API GET request while limiting achievement endpoint concurrency and retrying transient failures (429/5xx) with linear backoff.
+            </summary>
+            <param name="url">The fully qualified request URL.</param>
+            <param name="operationName">The logical Steam operation name used in log messages.</param>
+            <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+            <returns>The final <see cref="T:System.Net.Http.HttpResponseMessage"/>; the caller owns and must dispose it.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.SendThrottledAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Performs a GET request under the shared achievement API concurrency throttle.
+            </summary>
+            <param name="url">The fully qualified request URL.</param>
+            <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+            <returns>The received <see cref="T:System.Net.Http.HttpResponseMessage"/>.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.IsTransientFailure(System.Net.Http.HttpResponseMessage)">
+            <summary>
+            Determines whether a response represents a transient Steam API failure eligible for retry (429 or 5xx).
+            </summary>
+            <param name="response">The response to evaluate.</param>
+            <returns>True when the request should be retried; otherwise false.</returns>
         </member>
         <member name="M:WK7Bot.Services.SteamService.MapPersonaState(System.Int32)">
             <summary>
@@ -1386,6 +1752,270 @@
             </summary>
             <param name="stateCode">The integer status code returned by the Steam API.</param>
             <returns>A string representation of the user's online state.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.SteamPlayerSummariesResponse">
+            <summary>
+            Root container model for the Steam GetPlayerSummaries Web API response.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamPlayerSummariesResponse.Response">
+            <summary>
+            Gets or sets the player summary container returned by Steam.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.PlayerSummaryContainer">
+            <summary>
+            Inner list container holding player summary items.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerSummaryContainer.Players">
+            <summary>
+            Gets or sets the list of player summaries.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.PlayerSummaryItem">
+            <summary>
+            Represents individual player summary attributes returned by Steam.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerSummaryItem.PersonaName">
+            <summary>
+            Gets or sets the display persona name of the player.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerSummaryItem.PersonaState">
+            <summary>
+            Gets or sets the numeric online status indicator.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerSummaryItem.GameExtraInfo">
+            <summary>
+            Gets or sets extra display information for the currently active game.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerSummaryItem.GameId">
+            <summary>
+            Gets or sets the application identifier of the currently active game.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SteamRecentlyPlayedGamesResponse">
+            <summary>
+            Root container model for the Steam GetRecentlyPlayedGames Web API response.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamRecentlyPlayedGamesResponse.Response">
+            <summary>
+            Gets or sets the recently played games response container.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.RecentlyPlayedGamesContainer">
+            <summary>
+            Inner list container holding recently played game items.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.RecentlyPlayedGamesContainer.Games">
+            <summary>
+            Gets or sets the collection of games played in the last two weeks.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.RecentlyPlayedGameItem">
+            <summary>
+            Represents playtime statistics for a specific game played recently.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.RecentlyPlayedGameItem.AppId">
+            <summary>
+            Gets or sets the unique Steam application identifier.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.RecentlyPlayedGameItem.Name">
+            <summary>
+            Gets or sets the title of the game.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.RecentlyPlayedGameItem.PlaytimeTwoWeeks">
+            <summary>
+            Gets or sets the total minutes played during the past two weeks.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.RecentlyPlayedGameItem.PlaytimeForever">
+            <summary>
+            Gets or sets total lifetime minutes played across all time.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SteamSchemaResponse">
+            <summary>
+            Root container model for the Steam GetSchemaForGame Web API response.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamSchemaResponse.Game">
+            <summary>
+            Gets or sets game schema metadata container.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SchemaGameData">
+            <summary>
+            Holds available game stats definitions for a game schema.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SchemaGameData.AvailableGameStats">
+            <summary>
+            Gets or sets stats and achievement definitions available for the game.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SchemaStatsData">
+            <summary>
+            Container list for schema achievement definitions.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SchemaStatsData.Achievements">
+            <summary>
+            Gets or sets the list of achievement definitions defined in the game schema.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SchemaAchievementItem">
+            <summary>
+            Represents achievement display definitions including icons and descriptions.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SchemaAchievementItem.Name">
+            <summary>
+            Gets or sets the internal API identifier matching player stats achievement names.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SchemaAchievementItem.DisplayName">
+            <summary>
+            Gets or sets the human-readable display title.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SchemaAchievementItem.Description">
+            <summary>
+            Gets or sets the localized text describing unlock requirements.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SchemaAchievementItem.Icon">
+            <summary>
+            Gets or sets the absolute URL pointing to the unlocked achievement icon graphic.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SteamPlayerAchievementsResponse">
+            <summary>
+            Root container model for the Steam GetPlayerAchievements Web API response.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamPlayerAchievementsResponse.PlayerStats">
+            <summary>
+            Gets or sets player stats achievement progress container.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.PlayerStatsData">
+            <summary>
+            Inner player statistics payload returned by Steam GetPlayerAchievements.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerStatsData.SteamId">
+            <summary>
+            Gets or sets the 64-bit target Steam identifier.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerStatsData.GameName">
+            <summary>
+            Gets or sets the display name of the target game.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerStatsData.Achievements">
+            <summary>
+            Gets or sets the collection of achievement unlock statuses for the user.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerStatsData.Success">
+            <summary>
+            Gets or sets a value indicating whether the request succeeded on Steam's backend.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerStatsData.Error">
+            <summary>
+            Gets or sets an optional error message string if request processing failed.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.FlexibleIntConverter">
+            <summary>
+            Converts JSON numbers, booleans, or string representations into an integer value.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FlexibleIntConverter.Read(System.Text.Json.Utf8JsonReader@,System.Type,System.Text.Json.JsonSerializerOptions)">
+            <summary>
+            Reads and converts JSON token values to an integer representation.
+            </summary>
+            <param name="reader">The JSON reader instance.</param>
+            <param name="typeToConvert">The target object type.</param>
+            <param name="options">Serializer options in context.</param>
+            <returns>An integer representation of the JSON token value.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.FlexibleIntConverter.Write(System.Text.Json.Utf8JsonWriter,System.Int32,System.Text.Json.JsonSerializerOptions)">
+            <summary>
+            Writes an integer value to the JSON target stream.
+            </summary>
+            <param name="writer">The JSON writer instance.</param>
+            <param name="value">The integer value to write.</param>
+            <param name="options">Serializer options in context.</param>
+        </member>
+        <member name="T:WK7Bot.Services.FlexibleLongConverter">
+            <summary>
+            Converts JSON numbers or string representations into a long integer timestamp.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FlexibleLongConverter.Read(System.Text.Json.Utf8JsonReader@,System.Type,System.Text.Json.JsonSerializerOptions)">
+            <summary>
+            Reads and converts JSON token values to a 64-bit integer timestamp.
+            </summary>
+            <param name="reader">The JSON reader instance.</param>
+            <param name="typeToConvert">The target object type.</param>
+            <param name="options">Serializer options in context.</param>
+            <returns>A 64-bit integer representation of the JSON token value.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.FlexibleLongConverter.Write(System.Text.Json.Utf8JsonWriter,System.Int64,System.Text.Json.JsonSerializerOptions)">
+            <summary>
+            Writes a 64-bit integer value to the JSON target stream.
+            </summary>
+            <param name="writer">The JSON writer instance.</param>
+            <param name="value">The integer value to write.</param>
+            <param name="options">Serializer options in context.</param>
+        </member>
+        <member name="T:WK7Bot.Services.PlayerAchievementItem">
+            <summary>
+            Represents individual player achievement progress and unlock timing.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerAchievementItem.ApiName">
+            <summary>
+            Gets or sets the internal API identifier of the achievement.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerAchievementItem.Achieved">
+            <summary>
+            Gets or sets the achievement unlock status (1 for unlocked, 0 for locked).
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerAchievementItem.UnlockTime">
+            <summary>
+            Gets or sets the Unix epoch timestamp indicating when the achievement was unlocked.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerAchievementItem.Name">
+            <summary>
+            Gets or sets the optional display name returned by the player stats endpoint.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerAchievementItem.Description">
+            <summary>
+            Gets or sets the optional description returned by the player stats endpoint.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.PlayerAchievementItem.IsAchieved">
+            <summary>
+            Gets a value indicating whether the achievement has been unlocked by the player.
+            </summary>
         </member>
         <member name="T:Program">
             <summary>

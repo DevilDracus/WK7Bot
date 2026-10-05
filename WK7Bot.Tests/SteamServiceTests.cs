@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using WK7Bot.Models;
@@ -33,10 +34,37 @@ public class SteamServiceTests
         }
     }
 
+    private sealed class TestableSteamService : SteamService
+    {
+        public TestableSteamService(
+            HttpClient httpClient,
+            IMemoryCache cache,
+            IOptions<Wk7BotOptions> options,
+            ILogger<SteamService> logger)
+            : base(httpClient, cache, options, logger)
+        {
+        }
+
+        protected override TimeSpan RetryDelay => TimeSpan.Zero;
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = new();
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
+    }
+
     private static SteamService CreateService(
         HttpMessageHandler handler,
         string? apiKey = TestApiKey,
-        List<DiscordSteamMappingOptions>? mappings = null)
+        List<DiscordSteamMappingOptions>? mappings = null,
+        ILogger<SteamService>? logger = null)
     {
         var httpClient = new HttpClient(handler);
         var cache = new MemoryCache(new MemoryCacheOptions());
@@ -46,7 +74,7 @@ public class SteamServiceTests
             DiscordSteamMappings = mappings ?? new List<DiscordSteamMappingOptions>()
         });
 
-        return new SteamService(httpClient, cache, options, NullLogger<SteamService>.Instance);
+        return new TestableSteamService(httpClient, cache, options, logger ?? NullLogger<SteamService>.Instance);
     }
 
     private static HttpResponseMessage Json(string json, HttpStatusCode statusCode = HttpStatusCode.OK)
@@ -348,5 +376,275 @@ public class SteamServiceTests
         Assert.Equal(5, result!.RecentAchievements.Count);
         Assert.Equal("ach_10", result.RecentAchievements[0].ApiName);
         Assert.Equal("ach_6", result.RecentAchievements[4].ApiName);
+    }
+
+    [Fact]
+    public async Task GetEnrichedAchievementsAsync_RetriesTransientFailure_ThenSucceeds()
+    {
+        int playerCalls = 0;
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                playerCalls++;
+                if (playerCalls == 1)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                }
+
+                return Json("""
+                {
+                  "playerstats": {
+                    "success": true,
+                    "achievements": [
+                      { "apiname": "a1", "achieved": 1, "unlocktime": 1700000000, "name": "One", "description": "d" }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            if (url.Contains("GetSchemaForGame"))
+            {
+                return Json("""
+                {
+                  "game": {
+                    "availableGameStats": {
+                      "achievements": [
+                        { "name": "a1", "displayName": "One", "description": "d", "icon": "https://example.com/icon.png" }
+                      ]
+                    }
+                  }
+                }
+                """);
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+
+        var achievement = Assert.Single(result);
+        Assert.Equal("https://example.com/icon.png", achievement.IconUrl);
+        Assert.Equal(2, playerCalls);
+    }
+
+    [Fact]
+    public async Task GetEnrichedAchievementsAsync_DoesNotRetry_OnBadRequest()
+    {
+        int playerCalls = 0;
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                playerCalls++;
+                return Json("{}", HttpStatusCode.BadRequest);
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+
+        Assert.Empty(result);
+        Assert.Equal(1, playerCalls);
+    }
+
+    [Fact]
+    public async Task GetEnrichedAchievementsAsync_GivesUpAfterMaxAttempts_OnPersistentTransientFailure()
+    {
+        int playerCalls = 0;
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                playerCalls++;
+                return new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+
+        Assert.Empty(result);
+        Assert.Equal(3, playerCalls);
+    }
+
+    [Fact]
+    public async Task GetEnrichedAchievementsAsync_DoesNotCacheFailedSchema()
+    {
+        int schemaCalls = 0;
+        bool schemaHealthy = false;
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetSchemaForGame"))
+            {
+                schemaCalls++;
+                if (!schemaHealthy)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+                }
+
+                return Json("""
+                {
+                  "game": {
+                    "availableGameStats": {
+                      "achievements": [
+                        { "name": "a1", "displayName": "One", "description": "d", "icon": "https://example.com/icon.png" }
+                      ]
+                    }
+                  }
+                }
+                """);
+            }
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                return Json("""
+                {
+                  "playerstats": {
+                    "success": true,
+                    "achievements": [
+                      { "apiname": "a1", "achieved": 1, "unlocktime": 1700000000, "name": "One", "description": "d" }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler);
+
+        var first = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+        var firstAchievement = Assert.Single(first);
+        Assert.Equal(string.Empty, firstAchievement.IconUrl);
+        Assert.Equal(3, schemaCalls);
+
+        schemaHealthy = true;
+        var second = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+        var secondAchievement = Assert.Single(second);
+        Assert.Equal("https://example.com/icon.png", secondAchievement.IconUrl);
+        Assert.Equal(4, schemaCalls);
+
+        await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+        Assert.Equal(4, schemaCalls);
+    }
+
+    [Fact]
+    public async Task GetEnrichedAchievementsAsync_LogsWarning_WhenPlayerStatsUnsuccessful()
+    {
+        var logger = new CapturingLogger<SteamService>();
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                return Json("""{"playerstats":{"success":false,"error":"There is no stats"}}""");
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler, logger: logger);
+
+        var result = await service.GetEnrichedAchievementsAsync(TestSteamId, 730);
+
+        Assert.Empty(result);
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("There is no stats"));
+    }
+
+    [Fact]
+    public async Task GetSteamUserDataAsync_LogsInformation_WhenNoGamesToFetch()
+    {
+        var logger = new CapturingLogger<SteamService>();
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerSummaries"))
+            {
+                return Json("""
+                {
+                  "response": {
+                    "players": [
+                      { "steamid": "76561198012345678", "personaname": "IdleUser", "personastate": 0 }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            return Json("""{"response":{}}""");
+        });
+
+        var service = CreateService(handler, logger: logger);
+
+        var result = await service.GetSteamUserDataAsync(TestSteamId);
+
+        Assert.NotNull(result);
+        Assert.Empty(result!.RecentAchievements);
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information && e.Message.Contains("skipping achievement fetch"));
+    }
+
+    [Fact]
+    public async Task GetSteamUserDataAsync_LogsWarning_WhenRecentlyPlayedGamesFails()
+    {
+        var logger = new CapturingLogger<SteamService>();
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+
+            if (url.Contains("GetPlayerSummaries"))
+            {
+                return Json("""
+                {
+                  "response": {
+                    "players": [
+                      { "steamid": "76561198012345678", "personaname": "TestUser", "personastate": 1 }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            if (url.Contains("GetRecentlyPlayedGames"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler, logger: logger);
+
+        var result = await service.GetSteamUserDataAsync(TestSteamId);
+
+        Assert.NotNull(result);
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("GetRecentlyPlayedGames"));
     }
 }

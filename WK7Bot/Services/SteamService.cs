@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -21,10 +22,18 @@ namespace WK7Bot.Services;
 /// </summary>
 public class SteamService : ISteamService
 {
+    private const int MaxAttempts = 3;
+
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _cache;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<SteamService> _logger;
+    private readonly SemaphoreSlim _achievementApiThrottle = new(2, 2);
+
+    /// <summary>
+    /// Gets the base delay applied between retry attempts for transient Steam API failures. Virtual for testability.
+    /// </summary>
+    protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(500);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SteamService"/> class.
@@ -96,10 +105,26 @@ public class SteamService : ISteamService
                 appIdsToFetch.Add(recentGame.AppId);
             }
 
-            if (appIdsToFetch.Count > 0)
+            if (appIdsToFetch.Count == 0)
             {
-                var fetchTasks = appIdsToFetch.Select(appId => GetEnrichedAchievementsAsync(steamId, appId, cancellationToken));
+                _logger.LogInformation(
+                    "No current game and no recently played games for Steam ID {SteamId}; skipping achievement fetch.",
+                    steamId);
+            }
+            else
+            {
+                var appIds = appIdsToFetch.ToArray();
+                var fetchTasks = appIds.Select(appId => GetEnrichedAchievementsAsync(steamId, appId, cancellationToken));
                 var achievementsArrays = await Task.WhenAll(fetchTasks);
+
+                for (int i = 0; i < appIds.Length; i++)
+                {
+                    _logger.LogDebug(
+                        "Steam achievements for AppId {AppId}: {Count} unlocked for Steam ID {SteamId}",
+                        appIds[i],
+                        achievementsArrays[i].Count,
+                        steamId);
+                }
 
                 userData.RecentAchievements = achievementsArrays
                     .SelectMany(a => a)
@@ -107,6 +132,12 @@ public class SteamService : ISteamService
                     .OrderByDescending(a => a.UnlockTime)
                     .Take(5)
                     .ToList();
+
+                _logger.LogDebug(
+                    "Steam ID {SteamId}: {Unlocked} recent achievements selected from {Apps} games.",
+                    steamId,
+                    userData.RecentAchievements.Count,
+                    appIds.Length);
             }
 
             return userData;
@@ -185,6 +216,10 @@ public class SteamService : ISteamService
         using var response = await _httpClient.GetAsync(url, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            _logger.LogWarning(
+                "Steam API returned status code {StatusCode} for GetPlayerSummaries (SteamId: {SteamId})",
+                response.StatusCode,
+                steamId);
             return null;
         }
 
@@ -229,6 +264,10 @@ public class SteamService : ISteamService
         using var response = await _httpClient.GetAsync(url, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            _logger.LogWarning(
+                "Steam API returned status code {StatusCode} for GetRecentlyPlayedGames (SteamId: {SteamId})",
+                response.StatusCode,
+                userData.SteamId);
             return;
         }
 
@@ -267,40 +306,49 @@ public class SteamService : ISteamService
     {
         var cacheKey = $"steam_schema_achievements_v2_{appId}";
 
-        return await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        if (_cache.TryGetValue<IReadOnlyDictionary<string, SchemaAchievementItem>>(cacheKey, out var cached) && cached != null)
         {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
+            return cached;
+        }
 
-            try
+        try
+        {
+            string url = $"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={_options.SteamApiKey}&appid={appId}&l=english";
+            using var response = await GetSteamApiWithRetryAsync(url, "GetSchemaForGame", cancellationToken);
+            if (!response.IsSuccessStatusCode)
             {
-                string url = $"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={_options.SteamApiKey}&appid={appId}&l=english";
-                using var response = await _httpClient.GetAsync(url, cancellationToken);
-                if (!response.IsSuccessStatusCode)
-                {
-                    return new Dictionary<string, SchemaAchievementItem>();
-                }
-
-                var schemaResponse = await response.Content.ReadFromJsonAsync<SteamSchemaResponse>(cancellationToken: cancellationToken);
-
-                var achievements = schemaResponse?.Game?.AvailableGameStats?.Achievements;
-                if (achievements == null || achievements.Count == 0)
-                {
-                    return new Dictionary<string, SchemaAchievementItem>();
-                }
-
-                return achievements
-                    .GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(
-                        g => g.Key,
-                        g => g.First(),
-                        StringComparer.OrdinalIgnoreCase);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to retrieve game schema for AppId {AppId}", appId);
+                _logger.LogWarning(
+                    "Steam API returned status code {StatusCode} for GetSchemaForGame (AppId: {AppId}). Schema is not cached.",
+                    response.StatusCode,
+                    appId);
                 return new Dictionary<string, SchemaAchievementItem>();
             }
-        }) ?? new Dictionary<string, SchemaAchievementItem>();
+
+            var schemaResponse = await response.Content.ReadFromJsonAsync<SteamSchemaResponse>(cancellationToken: cancellationToken);
+
+            var achievements = schemaResponse?.Game?.AvailableGameStats?.Achievements;
+            if (achievements == null || achievements.Count == 0)
+            {
+                var emptySchema = new Dictionary<string, SchemaAchievementItem>();
+                _cache.Set(cacheKey, emptySchema, TimeSpan.FromHours(24));
+                return emptySchema;
+            }
+
+            var schemaMap = achievements
+                .GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.First(),
+                    StringComparer.OrdinalIgnoreCase);
+
+            _cache.Set(cacheKey, schemaMap, TimeSpan.FromHours(24));
+            return schemaMap;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve game schema for AppId {AppId}. Schema is not cached.", appId);
+            return new Dictionary<string, SchemaAchievementItem>();
+        }
     }
 
     /// <summary>
@@ -314,7 +362,7 @@ public class SteamService : ISteamService
     {
         string url = $"https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?key={_options.SteamApiKey}&steamid={steamId}&appid={appId}&l=english";
 
-        using var response = await _httpClient.GetAsync(url, cancellationToken);
+        using var response = await GetSteamApiWithRetryAsync(url, "GetPlayerAchievements", cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Steam API returned status code {StatusCode} for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId})", response.StatusCode, appId, steamId);
@@ -332,6 +380,12 @@ public class SteamService : ISteamService
         var playerStats = achievementResponse?.PlayerStats;
         if (playerStats == null || !playerStats.Success || playerStats.Achievements == null)
         {
+            _logger.LogWarning(
+                "GetPlayerAchievements returned no usable data (AppId: {AppId}, SteamId: {SteamId}). Success: {Success}, Error: {Error}",
+                appId,
+                steamId,
+                playerStats?.Success,
+                playerStats?.Error ?? "none");
             return new List<SteamAchievement>();
         }
 
@@ -353,6 +407,75 @@ public class SteamService : ISteamService
         }
 
         return results;
+    }
+
+    /// <summary>
+    /// Executes a Steam Web API GET request while limiting achievement endpoint concurrency and retrying transient failures (429/5xx) with linear backoff.
+    /// </summary>
+    /// <param name="url">The fully qualified request URL.</param>
+    /// <param name="operationName">The logical Steam operation name used in log messages.</param>
+    /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+    /// <returns>The final <see cref="HttpResponseMessage"/>; the caller owns and must dispose it.</returns>
+    private async Task<HttpResponseMessage> GetSteamApiWithRetryAsync(string url, string operationName, CancellationToken cancellationToken)
+    {
+        HttpResponseMessage response = await SendThrottledAsync(url, cancellationToken);
+
+        for (int attempt = 1; attempt < MaxAttempts && IsTransientFailure(response); attempt++)
+        {
+            response.Dispose();
+
+            var delay = TimeSpan.FromMilliseconds(RetryDelay.TotalMilliseconds * attempt);
+            _logger.LogWarning(
+                "Steam API {Operation} returned a transient failure (attempt {Attempt}/{MaxAttempts}); retrying after {Delay}.",
+                operationName,
+                attempt,
+                MaxAttempts,
+                delay);
+
+            await Task.Delay(delay, cancellationToken);
+            response = await SendThrottledAsync(url, cancellationToken);
+        }
+
+        if (IsTransientFailure(response))
+        {
+            _logger.LogWarning(
+                "Steam API {Operation} still failing with status code {StatusCode} after {MaxAttempts} attempts.",
+                operationName,
+                response.StatusCode,
+                MaxAttempts);
+        }
+
+        return response;
+    }
+
+    /// <summary>
+    /// Performs a GET request under the shared achievement API concurrency throttle.
+    /// </summary>
+    /// <param name="url">The fully qualified request URL.</param>
+    /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+    /// <returns>The received <see cref="HttpResponseMessage"/>.</returns>
+    private async Task<HttpResponseMessage> SendThrottledAsync(string url, CancellationToken cancellationToken)
+    {
+        await _achievementApiThrottle.WaitAsync(cancellationToken);
+        try
+        {
+            return await _httpClient.GetAsync(url, cancellationToken);
+        }
+        finally
+        {
+            _achievementApiThrottle.Release();
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a response represents a transient Steam API failure eligible for retry (429 or 5xx).
+    /// </summary>
+    /// <param name="response">The response to evaluate.</param>
+    /// <returns>True when the request should be retried; otherwise false.</returns>
+    private static bool IsTransientFailure(HttpResponseMessage response)
+    {
+        return response.StatusCode == HttpStatusCode.TooManyRequests
+            || (int)response.StatusCode >= 500;
     }
 
     /// <summary>

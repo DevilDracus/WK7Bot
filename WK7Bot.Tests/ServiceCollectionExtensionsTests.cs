@@ -87,6 +87,41 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(typeof(Services.LeipzigWasteBackgroundService), types);
         Assert.Contains(typeof(Services.AlexaMentionNotificationService), types);
         Assert.Contains(typeof(Services.DiscordPresenceMqttService), types);
+        Assert.Contains(typeof(Services.FoodPublisherService), types);
+    }
+
+    [Fact]
+    public void AddBotHostedServices_DisablesFoodService_FromWk7BotSection()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Wk7Bot:features:food_service_enabled"] = "false"
+            })
+            .Build();
+
+        services.AddBotHostedServices(configuration);
+
+        var types = HostedServiceTypes(services).ToList();
+        Assert.DoesNotContain(typeof(Services.FoodPublisherService), types);
+    }
+
+    [Fact]
+    public void AddBotHostedServices_DisablesFoodService_FromRootSection_HomeAssistantStyle()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["features:food_service_enabled"] = "false"
+            })
+            .Build();
+
+        services.AddBotHostedServices(configuration);
+
+        var types = HostedServiceTypes(services).ToList();
+        Assert.DoesNotContain(typeof(Services.FoodPublisherService), types);
     }
 
     [Fact]

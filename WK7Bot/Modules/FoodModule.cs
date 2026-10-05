@@ -32,6 +32,23 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     /// <summary>
+    /// Resolves the <c>#🍎food</c> text channel inside the guild the command originated from.
+    /// </summary>
+    /// <returns>The matching text channel, or <see langword="null"/> when the guild or channel is unavailable.</returns>
+    protected virtual ITextChannel? FindFoodChannel()
+        => Context.Guild?.TextChannels
+            .FirstOrDefault(c => string.Equals(c.Name, TargetChannelName, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Publishes the generated embed to the target food channel.
+    /// </summary>
+    /// <param name="channel">The channel that receives the embed.</param>
+    /// <param name="embed">The embed to publish.</param>
+    /// <returns>A task that completes once the message has been sent.</returns>
+    protected virtual Task PostToFoodChannelAsync(ITextChannel channel, Embed embed)
+        => channel.SendMessageAsync(embed: embed);
+
+    /// <summary>
     /// Generates a renal and transplant-friendly recipe based on current seasonal produce and posts it to the #🍎food channel.
     /// </summary>
     /// <returns>A task tracking the asynchronous command execution.</returns>
@@ -43,8 +60,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
 
         try
         {
-            var targetChannel = Context.Guild?.TextChannels
-                .FirstOrDefault(c => string.Equals(c.Name, TargetChannelName, StringComparison.OrdinalIgnoreCase));
+            var targetChannel = FindFoodChannel();
 
             if (targetChannel == null)
             {
@@ -82,7 +98,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
                 .WithCurrentTimestamp()
                 .Build();
 
-            await targetChannel.SendMessageAsync(embed: embed);
+            await PostToFoodChannelAsync(targetChannel, embed);
             await FollowupAsync($"✅ Recipe successfully created and posted to {targetChannel.Mention}!", ephemeral: true);
         }
         catch (Exception ex)
@@ -105,8 +121,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
 
         try
         {
-            var targetChannel = Context.Guild?.TextChannels
-                .FirstOrDefault(c => string.Equals(c.Name, TargetChannelName, StringComparison.OrdinalIgnoreCase));
+            var targetChannel = FindFoodChannel();
 
             if (targetChannel == null)
             {
@@ -153,7 +168,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
                 .WithCurrentTimestamp()
                 .Build();
 
-            await targetChannel.SendMessageAsync(embed: embed);
+            await PostToFoodChannelAsync(targetChannel, embed);
             await FollowupAsync($"✅ Seasonal produce overview for **{monthName}** successfully posted to {targetChannel.Mention}!", ephemeral: true);
         }
         catch (Exception ex)

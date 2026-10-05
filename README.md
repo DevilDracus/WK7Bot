@@ -1,6 +1,6 @@
 # WK7Bot
 
-A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, RSS feed syndication, and local utility schedule automation into a unified, extensible background framework.
+A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, RSS feed syndication, AI-generated seasonal food and renal-safe recipes, and local utility schedule automation into a unified, extensible background framework.
 
 [![Add repository to Home Assistant][repository-badge]][repository-url]
 
@@ -33,6 +33,17 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 ### Steam Rich Presence Enrichment
 - Maps Discord user IDs to Steam IDs (`DiscordSteamMappings`).
 - Fetches player summaries, recently played games, and enriched achievement data (icons + unlock timestamps) from the Steam Web API with a 24h schema cache.
+- **Resilient achievement fetching** – achievement-endpoint calls are limited to 2 concurrent requests and retried with linear backoff (up to 3 attempts) on `429`/`5xx`; other errors (e.g. `400` for games without stats) fail fast without retry.
+- **No cache poisoning** – only *successful* schema responses are cached for 24h; failures are never cached, so transient Steam errors self-heal on the next fetch.
+- **Fetch cooldown** – `SteamDataCache` serves Steam data from a 60s per-user cache, so Discord presence-update storms hit Steam at most once per minute per user.
+- **Diagnostics** – previously silent failure paths (no games to fetch, non-success responses, `playerstats.success=false` with Steam's error string) are logged, and per-game unlocked-achievement counts are logged at debug level.
+
+### AI Food & Recipe Automation (Google Gemini)
+- `GeminiFoodService` calls the Google Gemini `generateContent` API using JSON-schema structured output to produce German-language seasonal produce lists and dialysis / kidney-transplant-safe weekly recipes.
+- **Model fallback & resilience** – a primary model is tried first and a lite fallback model second; transient `429`/`503` responses are retried with exponential backoff, and a missing `gemini_api_key` short-circuits before any HTTP call.
+- `/recipe` and `/seasonal-produce` post rich embeds (ingredients, steps, per-serving nutrition, renal safety notes, German month names) to the `#🍎food` channel.
+- `FoodPublisherService` publishes automatically: the monthly produce calendar on the 1st at 09:00 and the weekly recipe on Thursdays at 15:30.
+- Gated by the `food_service_enabled` feature flag.
 
 ### Home Assistant & MQTT Integration
 - `HomeAssistantNotifierService` registers every writable Discord text channel and configured DM user as an MQTT `notify` entity using Home Assistant Auto-Discovery.
@@ -48,6 +59,7 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - **Persistence:** Entity Framework Core with SQLite (stored at `/data/wk7bot.db` in the Add-On)
 - **Messaging:** `MQTTnet`, HTTP client pipelines
 - **Parsing:** `CodeHollow.FeedReader`, `Ical.Net`
+- **AI:** Google Gemini `generateContent` (structured JSON schema, primary + fallback model)
 - **Testing:** xUnit, Moq, EF Core InMemory
 - **Deployment:** Docker, Home Assistant Supervisor Add-On
 
@@ -73,11 +85,13 @@ WK7Bot
 │       ├── BotDbContext.cs
 │       └── RssRepository.cs
 ├── Models
+│   ├── FoodModels.cs                         # Seasonal produce + renal recipe models (Gemini schema)
 │   ├── SteamAchievement.cs
 │   ├── SteamRecentGame.cs
 │   ├── SteamUserData.cs
 │   └── UserPresenceEntity.cs
 ├── Modules
+│   ├── FoodModule.cs                         # /recipe and /seasonal-produce slash commands
 │   ├── LeipzigWasteModule.cs
 │   ├── RssCommandsModule.cs
 │   ├── RssComponentModule.cs
@@ -89,12 +103,15 @@ WK7Bot
 │   └── Wk7BotOptions.cs
 ├── Services
 │   ├── Interfaces
+│   │   ├── IGeminiFoodService.cs
 │   │   ├── IHomeAssistantService.cs
 │   │   ├── ILeipzigWasteService.cs
 │   │   └── ISteamService.cs
 │   ├── AlexaMentionNotificationService.cs
 │   ├── DiscordBotWorker.cs
 │   ├── DiscordPresenceMqttService.cs
+│   ├── FoodPublisherService.cs               # Scheduled Gemini posts to #🍎food
+│   ├── GeminiFoodService.cs                  # Gemini REST client with model fallback
 │   ├── HomeAssistantNotifierService.cs
 │   ├── HomeAssistantService.cs
 │   ├── InteractionHandlingService.cs
@@ -102,6 +119,7 @@ WK7Bot
 │   ├── LeipzigWasteService.cs
 │   ├── RssParserService.cs
 │   ├── RssPollingBackgroundService.cs
+│   ├── SteamDataCache.cs                     # 60s per-user Steam fetch cooldown
 │   └── SteamService.cs
 ├── Program.cs                               # Host bootstrap, options binding, /health endpoint
 ├── appsettings.json
@@ -113,13 +131,16 @@ WK7Bot
 WK7Bot.Tests                                 # xUnit test project (included in WK7Bot.sln)
 ├── FeedDeltaCalculatorTests.cs
 ├── FeedTextFormatterTests.cs
+├── FoodModuleTests.cs                       # Slash-command behaviour incl. embed content
 ├── FormattingUtilityTests.cs
+├── GeminiFoodServiceTests.cs                # Gemini envelope parsing, fallback, retries
 ├── LeipzigWasteServiceTests.cs
 ├── NameSanitizerTests.cs
 ├── OptionsBindingTests.cs
 ├── RssRepositoryTests.cs
 ├── ServiceCollectionExtensionsTests.cs
-├── SteamServiceTests.cs
+├── SteamDataCacheTests.cs                    # Cooldown caching, TTL expiry, null caching
+├── SteamServiceTests.cs                      # API mapping, retry/backoff, schema cache, log assertions
 └── WasteSummaryMapperTests.cs
 ```
 
@@ -131,8 +152,12 @@ WK7Bot.Tests                                 # xUnit test project (included in W
 | `/rss remove <name>` | Removes a feed and cleans up its channel + role | `ManageChannels` |
 | `/rss dashboard` | Posts the interactive subscription select menu | `ManageRoles` |
 | `/check-waste [days] [datum]` | Queries Leipzig waste collection dates (`DD.MM.YYYY` or `YYYY-MM-DD`) | everyone |
+| `/recipe` | Generates a seasonal renal & transplant-safe recipe and posts it to `#🍎food` | everyone |
+| `/seasonal-produce [month]` | Posts the seasonal fruit/vegetable/herb/nut calendar (month 1-12, default: current) to `#🍎food` | everyone |
 | `/ping` | Gateway latency test | everyone |
 | `/ha-status` | Tests Home Assistant Supervisor API connectivity | everyone |
+
+Both food commands are ephemeral while Gemini is queried, post the result embed into `#🍎food`, and report a clear error when the channel or the Gemini API key is missing.
 
 ## Hosted Services
 
@@ -145,6 +170,7 @@ WK7Bot.Tests                                 # xUnit test project (included in W
 | `LeipzigWasteBackgroundService` | Sends daily and weekly waste collection reminders | `leipzig_waste_enabled` |
 | `AlexaMentionNotificationService` | Forwards target-user mentions to the Alexa notification API | `alexa_notifications_enabled` |
 | `DiscordPresenceMqttService` | Publishes Discord presence snapshots to MQTT for Home Assistant | `discord_presence_mqtt_enabled` |
+| `FoodPublisherService` | Posts the monthly produce calendar and weekly recipe to `#🍎food` via Gemini | `food_service_enabled` |
 
 Feature flags are resolved from the `Wk7Bot:features` section when present (appsettings.json), otherwise from root-level `features` (Home Assistant `options.json`). Services re-check the bound options at runtime, so disabling a flag always takes effect.
 
@@ -161,6 +187,7 @@ mqtt_port: 1883
 mqtt_username: ""
 mqtt_password: ""
 steam_api_key: ""
+gemini_api_key: ""                             # Google AI Studio key for /recipe and /seasonal-produce
 discord_steam_mappings:
   - discord_user_id: "123456789012345678"
     steam_id: "76561198000000000"
@@ -178,6 +205,7 @@ features:
   alexa_notifications_enabled: true
   discord_presence_mqtt_enabled: true
   steam_presence_enabled: true
+  food_service_enabled: true
 ```
 
 ### `appsettings.json` (same keys under `Wk7Bot`)
@@ -195,6 +223,7 @@ features:
     "mqtt_host": "core-mosquitto",
     "mqtt_port": 1883,
     "steam_api_key": "YOUR_STEAM_WEB_API_KEY",
+    "gemini_api_key": "YOUR_GOOGLE_AI_STUDIO_KEY",
     "discord_steam_mappings": [
       {
         "discord_user_id": "123456789012345678",
@@ -214,11 +243,14 @@ features:
       "leipzig_waste_enabled": true,
       "alexa_notifications_enabled": true,
       "discord_presence_mqtt_enabled": true,
-      "steam_presence_enabled": true
+      "steam_presence_enabled": true,
+      "food_service_enabled": true
     }
   }
 }
 ```
+
+If no `Wk7Bot` section exists, `Program.cs` binds `Wk7BotOptions` from the configuration **root** instead — this is what the shipped `appsettings.json` does (it only carries logging, the connection string, and the Leipzig ICS URL). In that case all bot options come from environment variables or the Home Assistant `/data/options.json`.
 
 Secrets may also be supplied via environment variables (`DISCORD_BOT_TOKEN`, `SUPERVISOR_TOKEN`, etc.) or .NET user secrets.
 
@@ -260,15 +292,17 @@ dotnet test WK7Bot.sln
 dotnet test WK7Bot.Tests/WK7Bot.Tests.csproj
 ```
 
-The suite covers Steam API mapping, RSS repository CRUD (EF InMemory), ICS parsing (including BOM), feature-flag registration, options binding, and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`).
+The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM), feature-flag registration (including `food_service_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, error paths, via Moq), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`).
 
 ### Docker
 
+The Dockerfile lives in `WK7Bot/`, so the build context must be that directory:
+
 ```bash
-docker build -t wk7bot .
+docker build -f WK7Bot/Dockerfile -t wk7bot WK7Bot
 docker run -d \
   --name wk7bot \
-  -v "$(pwd)/appsettings.json:/app/appsettings.json" \
+  -v "$(pwd)/WK7Bot/appsettings.json:/app/appsettings.json" \
   wk7bot
 ```
 
@@ -287,9 +321,9 @@ docker run -d \
 
 Logs from `Discord.Net` are forwarded into the ASP.NET logging pipeline and appear in the add-on log.
 
-## Refactoring Backlog
+## Continuous Integration
 
-A tracked list of improvement candidates with unique IDs lives in [REFACTORINGS.md](REFACTORINGS.md). RF-001 through RF-005 have been implemented (pure utility extraction + dead-code removal) and are covered by the test suite.
+`.github/workflows/tests.yml` restores, builds, and runs the xUnit suite with the .NET 10 SDK on every push and pull request to `main`, `master`, and `develop`; the `trx` test results are uploaded as a build artifact.
 
 ## License & Copyright
 

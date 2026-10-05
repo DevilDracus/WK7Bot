@@ -24,9 +24,12 @@ public class DiscordPresenceMqttService : BackgroundService
     private readonly DiscordSocketClient _discordClient;
     private readonly IMqttClient _mqttClient;
     private readonly ISteamService _steamService;
+    private readonly SteamDataCache _steamDataCache;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DiscordPresenceMqttService> _logger;
     private readonly ConcurrentDictionary<ulong, bool> _discoveredUsers = new();
+
+    private static readonly TimeSpan SteamFetchCooldown = TimeSpan.FromSeconds(60);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordPresenceMqttService"/> class.
@@ -46,6 +49,7 @@ public class DiscordPresenceMqttService : BackgroundService
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
+        _steamDataCache = new SteamDataCache(steamService, SteamFetchCooldown);
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
@@ -173,7 +177,7 @@ public class DiscordPresenceMqttService : BackgroundService
                 string? userSteamId = _steamService.GetSteamIdForDiscordUser(user.Id.ToString());
                 if (!string.IsNullOrWhiteSpace(userSteamId))
                 {
-                    presenceEntity.SteamData = await _steamService.GetSteamUserDataAsync(userSteamId);
+                    presenceEntity.SteamData = await _steamDataCache.GetSteamUserDataAsync(userSteamId);
                 }
             }
 
