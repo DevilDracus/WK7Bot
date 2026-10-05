@@ -1,4 +1,5 @@
 ﻿using Ical.Net;
+using Microsoft.Extensions.Caching.Memory;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;
 
@@ -6,11 +7,17 @@ namespace WK7Bot.Services;
 
 /// <summary>
 /// Implementation of the waste service responsible for retrieving and mapping ICS feed data.
+/// Successfully downloaded calendars are cached briefly so repeated lookups (weekly overviews,
+/// /check-waste ranges) reuse a single HTTP download instead of re-fetching the feed per date.
 /// </summary>
 public class LeipzigWasteService : ILeipzigWasteService
 {
+    private const string IcsCacheKey = "leipzig_waste_ics_content_v1";
+    private static readonly TimeSpan IcsCacheTtl = TimeSpan.FromHours(1);
+
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<LeipzigWasteService> _logger;
 
     /// <summary>
@@ -18,19 +25,23 @@ public class LeipzigWasteService : ILeipzigWasteService
     /// </summary>
     /// <param name="httpClient">The HTTP client instance for requesting remote web resources.</param>
     /// <param name="configuration">The configuration provider containing application settings.</param>
+    /// <param name="cache">The memory cache instance used to reuse downloaded ICS payloads.</param>
     /// <param name="logger">The logger instance for diagnostics and execution logging.</param>
+    /// <exception cref="ArgumentNullException">Thrown when any required dependency is null.</exception>
     public LeipzigWasteService(
         HttpClient httpClient,
         IConfiguration configuration,
+        IMemoryCache cache,
         ILogger<LeipzigWasteService> logger)
     {
-        _httpClient = httpClient;
-        _configuration = configuration;
-        _logger = logger;
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
-    /// Downloads and parses the ICS feed to retrieve waste collection summaries for a target calendar date.
+    /// Downloads (or reuses a cached copy of) the ICS feed to retrieve waste collection summaries for a target calendar date.
     /// </summary>
     /// <param name="targetDate">The target date to evaluate against calendar events.</param>
     /// <param name="cancellationToken">Cancellation token for network request execution.</param>
@@ -46,22 +57,14 @@ public class LeipzigWasteService : ILeipzigWasteService
             return detectedWasteTypes;
         }
 
+        var contentString = await DownloadIcsContentAsync(feedUrl, cancellationToken);
+        if (contentString == null)
+        {
+            return detectedWasteTypes;
+        }
+
         try
         {
-            using var response = await _httpClient.GetAsync(feedUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var contentString = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            // Strip UTF-8 BOM and leading whitespace before validating the ICS envelope.
-            contentString = contentString.TrimStart('\uFEFF', ' ', '\t', '\r', '\n');
-
-            if (!contentString.StartsWith("BEGIN:VCALENDAR", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning("Retrieved payload from Leipzig waste endpoint does not appear to be a valid ICS calendar stream.");
-                return detectedWasteTypes;
-            }
-
             var calendar = Calendar.Load(contentString);
             if (calendar?.Events == null)
             {
@@ -81,9 +84,49 @@ public class LeipzigWasteService : ILeipzigWasteService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to download or parse the Stadtreinigung Leipzig ICS feed from {FeedUrl}", feedUrl);
+            _logger.LogError(ex, "Failed to parse the Stadtreinigung Leipzig ICS calendar for {TargetDate}", targetDate);
         }
 
         return detectedWasteTypes;
+    }
+
+    /// <summary>
+    /// Retrieves the raw ICS calendar payload from the configured feed URL, reusing a cached copy when fresh.
+    /// Failures are logged and never cached, so the next call retries the download.
+    /// </summary>
+    /// <param name="feedUrl">The configured ICS feed URL.</param>
+    /// <param name="cancellationToken">Cancellation token for network request execution.</param>
+    /// <returns>The BOM-trimmed ICS payload, or <see langword="null"/> when the download or validation failed.</returns>
+    private async Task<string?> DownloadIcsContentAsync(string feedUrl, CancellationToken cancellationToken)
+    {
+        if (_cache.TryGetValue<string>(IcsCacheKey, out var cached) && !string.IsNullOrEmpty(cached))
+        {
+            return cached;
+        }
+
+        try
+        {
+            using var response = await _httpClient.GetAsync(feedUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var contentString = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            // Strip UTF-8 BOM and leading whitespace before validating the ICS envelope.
+            contentString = contentString.TrimStart('\uFEFF', ' ', '\t', '\r', '\n');
+
+            if (!contentString.StartsWith("BEGIN:VCALENDAR", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Retrieved payload from Leipzig waste endpoint does not appear to be a valid ICS calendar stream.");
+                return null;
+            }
+
+            _cache.Set(IcsCacheKey, contentString, IcsCacheTtl);
+            return contentString;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to download the Stadtreinigung Leipzig ICS feed from {FeedUrl}", feedUrl);
+            return null;
+        }
     }
 }

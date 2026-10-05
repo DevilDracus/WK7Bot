@@ -28,6 +28,7 @@ public static class ServiceCollectionExtensions
             options.UseSqlite(connectionString));
 
         services.AddScoped<IRssRepository, RssRepository>();
+        services.AddScoped<IWasteDispatchRepository, WasteDispatchRepository>();
         return services;
     }
 

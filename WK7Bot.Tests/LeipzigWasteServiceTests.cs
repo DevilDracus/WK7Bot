@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using WK7Bot.Services;
@@ -39,6 +40,7 @@ public class LeipzigWasteServiceTests
         return new LeipzigWasteService(
             httpClient,
             configuration ?? CreateConfiguration(),
+            new MemoryCache(new MemoryCacheOptions()),
             NullLogger<LeipzigWasteService>.Instance);
     }
 
@@ -186,5 +188,68 @@ public class LeipzigWasteServiceTests
         var result = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 20));
 
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetWasteTypesForDateAsync_DownloadsFeedOnlyOnce_AcrossCalls()
+    {
+        var calls = 0;
+        var ics = BuildIcs(BuildEvent("20260920", "Restabfall"));
+        var service = CreateService(new StubHttpMessageHandler(_ =>
+        {
+            calls++;
+            return Text(ics);
+        }));
+
+        var first = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 20));
+        var second = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 20));
+        var otherDate = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 21));
+
+        Assert.Equal(1, calls);
+        Assert.Single(first);
+        Assert.Single(second);
+        Assert.Empty(otherDate);
+    }
+
+    [Fact]
+    public async Task GetWasteTypesForDateAsync_RetriesDownload_AfterFailure()
+    {
+        var calls = 0;
+        var ics = BuildIcs(BuildEvent("20260920", "Papier"));
+        var service = CreateService(new StubHttpMessageHandler(_ =>
+        {
+            calls++;
+            return calls == 1
+                ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                : Text(ics);
+        }));
+
+        var failed = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 20));
+        var retried = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 20));
+
+        Assert.Equal(2, calls);
+        Assert.Empty(failed);
+        Assert.Single(retried);
+    }
+
+    [Fact]
+    public async Task GetWasteTypesForDateAsync_DoesNotCache_InvalidPayload()
+    {
+        var calls = 0;
+        var ics = BuildIcs(BuildEvent("20260920", "Papier"));
+        var service = CreateService(new StubHttpMessageHandler(_ =>
+        {
+            calls++;
+            return calls == 1
+                ? Text("<html>not ics</html>")
+                : Text(ics);
+        }));
+
+        var invalid = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 20));
+        var valid = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 20));
+
+        Assert.Equal(2, calls);
+        Assert.Empty(invalid);
+        Assert.Single(valid);
     }
 }

@@ -27,6 +27,11 @@ public class BotDbContext : DbContext
     public DbSet<RssDashboardSetting> RssDashboardSettings => Set<RssDashboardSetting>();
 
     /// <summary>
+    /// Gets or sets the database set for tracking already dispatched waste notifications.
+    /// </summary>
+    public DbSet<WasteDispatchLog> WasteDispatchLogs => Set<WasteDispatchLog>();
+
+    /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
     /// <param name="modelBuilder">The builder instance used to define entity structure and keys.</param>
@@ -47,6 +52,13 @@ public class BotDbContext : DbContext
         {
             entity.ToTable("RssDashboardSettings");
             entity.HasKey(e => e.Id);
+        });
+
+        modelBuilder.Entity<WasteDispatchLog>(entity =>
+        {
+            entity.ToTable("WasteDispatchLogs");
+            entity.HasKey(e => new { e.Kind, e.GuildId, e.SentOn });
+            entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
         });
     }
 }

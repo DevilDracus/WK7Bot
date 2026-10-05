@@ -68,5 +68,17 @@ public static class DatabaseInitializationExtensions
         }
 
         await dbContext.Database.EnsureCreatedAsync();
+
+        // EnsureCreated only creates the full schema when the database file is brand new; add tables
+        // introduced after the initial release so existing deployments pick them up as well.
+        await dbContext.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS WasteDispatchLogs (
+                Kind    TEXT    NOT NULL,
+                GuildId INTEGER NOT NULL,
+                SentOn  TEXT    NOT NULL,
+                PRIMARY KEY (Kind, GuildId, SentOn)
+            );
+            """);
     }
 }

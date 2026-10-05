@@ -74,6 +74,42 @@
             Gets or sets the timestamp when the feed was last polled.
             </summary>
         </member>
+        <member name="T:WK7Bot.Core.Entities.WasteDispatchLog">
+            <summary>
+            Records that a waste notification of a given kind was already dispatched to a guild on a specific date,
+            providing restart-safe duplicate suppression across process restarts.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.WasteDispatchLog.Kind">
+            <summary>
+            Gets or sets the dispatch kind (e.g., <c>daily_confirmation</c> or <c>weekly_overview</c>).
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.WasteDispatchLog.GuildId">
+            <summary>
+            Gets or sets the Discord guild (server) the message was posted to.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.WasteDispatchLog.SentOn">
+            <summary>
+            Gets or sets the calendar date the message was sent on (normalized to midnight).
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Core.Entities.WasteDispatchKinds">
+            <summary>
+            Well-known dispatch kind constants used with <see cref="T:WK7Bot.Core.Entities.WasteDispatchLog"/>.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Core.Entities.WasteDispatchKinds.DailyConfirmation">
+            <summary>
+            Kind for the daily "yesterday's collections" confirmation posted after 08:00.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Core.Entities.WasteDispatchKinds.WeeklyOverview">
+            <summary>
+            Kind for the Monday morning weekly overview posted after 09:00.
+            </summary>
+        </member>
         <member name="T:WK7Bot.Core.Interfaces.IRssRepository">
             <summary>
             Defines data access operations for managing RSS feeds and dashboard configuration state.
@@ -133,6 +169,32 @@
             </summary>
             <param name="cancellationToken">Cancellation token to observe.</param>
             <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
+        </member>
+        <member name="T:WK7Bot.Core.Interfaces.IWasteDispatchRepository">
+            <summary>
+            Defines data access operations for persisting waste notification dispatch state so duplicate
+            messages are suppressed even after a bot restart.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.IWasteDispatchRepository.HasSentAsync(System.String,System.UInt64,System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Determines whether a dispatch of the given kind was already sent to a guild on a specific date.
+            </summary>
+            <param name="kind">The dispatch kind (see <c>WasteDispatchKinds</c>).</param>
+            <param name="guildId">The target Discord guild ID.</param>
+            <param name="sentOn">The calendar date the message would be sent on.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns><see langword="true"/> when the message was already sent; otherwise <see langword="false"/>.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.IWasteDispatchRepository.MarkSentAsync(System.String,System.UInt64,System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Records that a dispatch of the given kind was sent to a guild on a specific date. Idempotent.
+            </summary>
+            <param name="kind">The dispatch kind (see <c>WasteDispatchKinds</c>).</param>
+            <param name="guildId">The target Discord guild ID.</param>
+            <param name="sentOn">The calendar date the message was sent on.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous storage operation.</returns>
         </member>
         <member name="T:WK7Bot.Core.Utilities.DietTagFormatter">
             <summary>
@@ -319,6 +381,11 @@
             Gets or sets the database set for managing interactive RSS dashboard location settings.
             </summary>
         </member>
+        <member name="P:WK7Bot.Infrastructure.Data.BotDbContext.WasteDispatchLogs">
+            <summary>
+            Gets or sets the database set for tracking already dispatched waste notifications.
+            </summary>
+        </member>
         <member name="M:WK7Bot.Infrastructure.Data.BotDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <summary>
             Configures entity mappings, database constraints, and table schemas during model construction.
@@ -390,6 +457,37 @@
             </summary>
             <param name="cancellationToken">Cancellation token to observe.</param>
             <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
+        </member>
+        <member name="T:WK7Bot.Infrastructure.Data.WasteDispatchRepository">
+            <summary>
+            Entity Framework Core implementation of the waste dispatch state data access contract.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.WasteDispatchRepository.#ctor(WK7Bot.Infrastructure.Data.BotDbContext)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Infrastructure.Data.WasteDispatchRepository"/> class.
+            </summary>
+            <param name="dbContext">The database context instance.</param>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.WasteDispatchRepository.HasSentAsync(System.String,System.UInt64,System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Determines whether a dispatch of the given kind was already sent to a guild on a specific date.
+            </summary>
+            <param name="kind">The dispatch kind (see <c>WasteDispatchKinds</c>).</param>
+            <param name="guildId">The target Discord guild ID.</param>
+            <param name="sentOn">The calendar date the message would be sent on.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns><see langword="true"/> when the message was already sent; otherwise <see langword="false"/>.</returns>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.WasteDispatchRepository.MarkSentAsync(System.String,System.UInt64,System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Records that a dispatch of the given kind was sent to a guild on a specific date. Idempotent.
+            </summary>
+            <param name="kind">The dispatch kind (see <c>WasteDispatchKinds</c>).</param>
+            <param name="guildId">The target Discord guild ID.</param>
+            <param name="sentOn">The calendar date the message was sent on.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>A task representing the asynchronous storage operation.</returns>
         </member>
         <member name="T:WK7Bot.Models.SeasonalFoodData">
             <summary>
@@ -1436,12 +1534,14 @@
             <summary>
             Background service that periodically checks for Leipzig waste collections,
             posting daily confirmation notifications and weekly collection overviews to a dedicated Discord channel.
+            Dispatch state is persisted per guild and date so messages are never duplicated, even across bot restarts.
             </summary>
         </member>
-        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.#ctor(Discord.WebSocket.DiscordSocketClient,WK7Bot.Services.Interfaces.ILeipzigWasteService,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.LeipzigWasteBackgroundService})">
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.#ctor(System.IServiceProvider,Discord.WebSocket.DiscordSocketClient,WK7Bot.Services.Interfaces.ILeipzigWasteService,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.LeipzigWasteBackgroundService})">
             <summary>
             Initializes a new instance of the <see cref="T:WK7Bot.Services.LeipzigWasteBackgroundService"/> class.
             </summary>
+            <param name="serviceProvider">The service provider used to create database scopes for dispatch state.</param>
             <param name="discordClient">The connected Discord socket client instance.</param>
             <param name="wasteService">The Leipzig waste schedule parser service.</param>
             <param name="options">The strongly-typed application configuration options.</param>
@@ -1454,19 +1554,50 @@
             <param name="stoppingToken">Cancellation token monitored for background service shutdown.</param>
             <returns>A task representing the background execution process.</returns>
         </member>
-        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.CheckAndSendWasteNotificationsAsync(System.Threading.CancellationToken)">
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.EvaluateScheduleAsync(System.DateTime,System.Threading.CancellationToken)">
             <summary>
-            Queries yesterday's waste collections via the waste service and sends Discord notification embeds.
+            Evaluates the daily and weekly dispatch rules for the given point in time.
+            In-memory flags only serve as a fast path; the persisted per-guild dispatch state is the
+            authoritative duplicate guard, so restarting the bot does not re-send today's messages.
             </summary>
+            <param name="now">The current local date and time.</param>
+            <param name="stoppingToken">Cancellation token for network and database operations.</param>
+            <returns>A task representing the asynchronous schedule evaluation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.CheckAndSendWasteNotificationsAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Queries yesterday's waste collections and dispatches the confirmation embed to guilds that
+            have not received it yet today.
+            </summary>
+            <param name="date">The calendar date the confirmation is dispatched for bookkeeping.</param>
             <param name="cancellationToken">Cancellation token for network operations.</param>
             <returns>A task representing the asynchronous notification process.</returns>
         </member>
-        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.SendWeeklyWasteOverviewAsync(System.Threading.CancellationToken)">
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.SendWeeklyWasteOverviewAsync(System.DateTime,System.Threading.CancellationToken)">
             <summary>
-            Queries collection dates for the upcoming 7 days starting from Monday and sends a weekly overview embed to target Discord channels.
+            Builds the weekly overview embed and dispatches it to guilds that have not received this week's overview yet.
             </summary>
+            <param name="monday">The Monday date identifying the target week.</param>
             <param name="cancellationToken">Cancellation token for network operations.</param>
             <returns>A task representing the asynchronous weekly overview process.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.DispatchAsync(System.String,System.DateTime,System.Func{System.Threading.Tasks.Task{Discord.Embed}},System.Threading.CancellationToken)">
+            <summary>
+            Filters target guilds through the persisted dispatch state, builds the embed lazily (only when a
+            guild is still pending), posts it, and records success per guild so a partial failure retries
+            only the guilds that did not receive the message.
+            </summary>
+            <param name="kind">The dispatch kind identifying the message type.</param>
+            <param name="date">The calendar date used as the deduplication key.</param>
+            <param name="embedFactory">Factory producing the embed, or <see langword="null"/> when nothing should be sent.</param>
+            <param name="cancellationToken">Cancellation token for network and database operations.</param>
+            <returns>A task representing the asynchronous dispatch process.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.GetTargetGuildIds">
+            <summary>
+            Returns the IDs of all guilds that should receive waste notifications. Virtual for testability.
+            </summary>
+            <returns>The target Discord guild IDs.</returns>
         </member>
         <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.BuildWasteNotificationEmbed(System.Collections.Generic.List{System.String},System.DateTime)">
             <summary>
@@ -1484,33 +1615,54 @@
             <param name="cancellationToken">Cancellation token for calendar queries.</param>
             <returns>A task returning the constructed weekly overview embed.</returns>
         </member>
-        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.GetOrCreateWasteChannelAsync(Discord.WebSocket.SocketGuild)">
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.GetOrCreateWasteChannelAsync(System.UInt64)">
             <summary>
-            Checks for an existing waste notification channel in the guild or creates a new read-only channel.
+            Resolves the waste notification channel for a guild by ID, creating a new read-only channel when missing.
             </summary>
-            <param name="guild">The target guild where channel existence is evaluated.</param>
-            <returns>A task representing the asynchronous channel creation or retrieval operation, returning the text channel instance.</returns>
+            <param name="guildId">The target guild where channel existence is evaluated.</param>
+            <returns>The text channel instance, or <see langword="null"/> when the guild cannot be resolved.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.PostToWasteChannelAsync(Discord.ITextChannel,Discord.Embed)">
+            <summary>
+            Posts the constructed embed to the resolved waste channel. Virtual for testability.
+            </summary>
+            <param name="channel">The channel that receives the embed.</param>
+            <param name="embed">The embed to publish.</param>
+            <returns>A task that completes once the message has been sent.</returns>
         </member>
         <member name="T:WK7Bot.Services.LeipzigWasteService">
             <summary>
             Implementation of the waste service responsible for retrieving and mapping ICS feed data.
+            Successfully downloaded calendars are cached briefly so repeated lookups (weekly overviews,
+            /check-waste ranges) reuse a single HTTP download instead of re-fetching the feed per date.
             </summary>
         </member>
-        <member name="M:WK7Bot.Services.LeipzigWasteService.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Configuration.IConfiguration,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.LeipzigWasteService})">
+        <member name="M:WK7Bot.Services.LeipzigWasteService.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Configuration.IConfiguration,Microsoft.Extensions.Caching.Memory.IMemoryCache,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.LeipzigWasteService})">
             <summary>
             Initializes a new instance of the <see cref="T:WK7Bot.Services.LeipzigWasteService"/> class.
             </summary>
             <param name="httpClient">The HTTP client instance for requesting remote web resources.</param>
             <param name="configuration">The configuration provider containing application settings.</param>
+            <param name="cache">The memory cache instance used to reuse downloaded ICS payloads.</param>
             <param name="logger">The logger instance for diagnostics and execution logging.</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when any required dependency is null.</exception>
         </member>
         <member name="M:WK7Bot.Services.LeipzigWasteService.GetWasteTypesForDateAsync(System.DateTime,System.Threading.CancellationToken)">
             <summary>
-            Downloads and parses the ICS feed to retrieve waste collection summaries for a target calendar date.
+            Downloads (or reuses a cached copy of) the ICS feed to retrieve waste collection summaries for a target calendar date.
             </summary>
             <param name="targetDate">The target date to evaluate against calendar events.</param>
             <param name="cancellationToken">Cancellation token for network request execution.</param>
             <returns>A list of user-friendly waste collection descriptions scheduled for the given date.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteService.DownloadIcsContentAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves the raw ICS calendar payload from the configured feed URL, reusing a cached copy when fresh.
+            Failures are logged and never cached, so the next call retries the download.
+            </summary>
+            <param name="feedUrl">The configured ICS feed URL.</param>
+            <param name="cancellationToken">Cancellation token for network request execution.</param>
+            <returns>The BOM-trimmed ICS payload, or <see langword="null"/> when the download or validation failed.</returns>
         </member>
         <member name="T:WK7Bot.Services.RssParserService">
             <summary>

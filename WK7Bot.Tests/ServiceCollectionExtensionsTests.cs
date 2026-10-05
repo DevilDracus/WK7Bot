@@ -133,5 +133,6 @@ public class ServiceCollectionExtensionsTests
 
         Assert.Contains(services, d => d.ServiceType.Name.Contains("BotDbContext"));
         Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.IRssRepository));
+        Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.IWasteDispatchRepository));
     }
 }

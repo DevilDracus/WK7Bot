@@ -28,6 +28,8 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - Downloads and parses `.ics` calendar streams from *Stadtreinigung Leipzig* (UTF-8 BOM and leading whitespace tolerated).
 - Maps waste categories (*Restabfall*, *Papier*, *Wertstoffe*, *Biogut*) to German display labels and color-coded visuals (`WasteSummaryMapper`).
 - Daily confirmation + Monday weekly overview reminders (`LeipzigWasteBackgroundService`) in a `🗑️leipzig-waste` channel.
+- **Restart-safe deduplication** – every daily/weekly dispatch per guild is recorded in the `WasteDispatchLogs` table (`WasteDispatchRepository`), so restarting the bot never re-sends today's messages; guilds whose send failed are retried on the next tick, while successful guilds stay suppressed.
+- **ICS download caching** – a successfully validated calendar is cached for 1 hour (`IMemoryCache`), so weekly overviews and multi-day `/check-waste` ranges reuse one HTTP download instead of fetching the feed per date; failures are never cached.
 - On-demand lookups via the `/check-waste` slash command.
 
 ### Steam Rich Presence Enrichment
@@ -70,9 +72,11 @@ WK7Bot
 ├── Core
 │   ├── Entities
 │   │   ├── RssDashboardSetting.cs
-│   │   └── RssFeed.cs
+│   │   ├── RssFeed.cs
+│   │   └── WasteDispatchLog.cs                # Persisted per-guild waste dispatch records
 │   ├── Interfaces
-│   │   └── IRssRepository.cs
+│   │   ├── IRssRepository.cs
+│   │   └── IWasteDispatchRepository.cs
 │   └── Utilities
 │       ├── DietTagFormatter.cs                # Diet-tag identifiers → German embed labels
 │       ├── FeedDeltaCalculator.cs           # Pure RSS baseline/new-item decisions
@@ -84,7 +88,8 @@ WK7Bot
 ├── Infrastructure
 │   └── Data
 │       ├── BotDbContext.cs
-│       └── RssRepository.cs
+│       ├── RssRepository.cs
+│       └── WasteDispatchRepository.cs
 ├── Models
 │   ├── FoodModels.cs                         # Seasonal produce + renal recipe models (Gemini schema)
 │   ├── SteamAchievement.cs
@@ -136,13 +141,15 @@ WK7Bot.Tests                                 # xUnit test project (included in W
 ├── FoodModuleTests.cs                       # Slash-command behaviour incl. embed content
 ├── FormattingUtilityTests.cs
 ├── GeminiFoodServiceTests.cs                # Gemini envelope parsing, fallback, retries
-├── LeipzigWasteServiceTests.cs
+├── LeipzigWasteBackgroundServiceTests.cs    # Restart dedupe, daily/weekly kinds, partial-failure retry
+├── LeipzigWasteServiceTests.cs              # ICS parsing, mapping, feed download caching
 ├── NameSanitizerTests.cs
 ├── OptionsBindingTests.cs
 ├── RssRepositoryTests.cs
 ├── ServiceCollectionExtensionsTests.cs
 ├── SteamDataCacheTests.cs                    # Cooldown caching, TTL expiry, null caching
 ├── SteamServiceTests.cs                      # API mapping, retry/backoff, schema cache, log assertions
+├── WasteDispatchRepositoryTests.cs           # Dispatch state persistence (EF InMemory)
 └── WasteSummaryMapperTests.cs
 ```
 
@@ -294,7 +301,7 @@ dotnet test WK7Bot.sln
 dotnet test WK7Bot.Tests/WK7Bot.Tests.csproj
 ```
 
-The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM), feature-flag registration (including `food_service_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, error paths, via Moq), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`).
+The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, error paths, via Moq), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`).
 
 ### Docker
 
