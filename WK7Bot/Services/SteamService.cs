@@ -190,6 +190,8 @@ public class SteamService : ISteamService
                     {
                         achievement.Description = schemaItem.Description;
                     }
+
+                    achievement.Hidden = schemaItem.Hidden;
                 }
             }
 
@@ -484,7 +486,8 @@ public class SteamService : ISteamService
                 Name = displayName,
                 Description = item.Desc ?? string.Empty,
                 UnlockTime = null,
-                IconUrl = iconUrl
+                IconUrl = iconUrl,
+                Hidden = item.Hidden
             });
         }
 
@@ -755,6 +758,13 @@ internal class SchemaAchievementItem
     /// </summary>
     [JsonPropertyName("icon")]
     public string Icon { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the achievement is hidden on the community site.
+    /// </summary>
+    [JsonPropertyName("hidden")]
+    [JsonConverter(typeof(FlexibleBoolConverter))]
+    public bool Hidden { get; set; }
 }
 
 /// <summary>
@@ -886,6 +896,7 @@ internal class SteamTopAchievementItem
     /// Gets or sets a value indicating whether the achievement is hidden on the community site.
     /// </summary>
     [JsonPropertyName("hidden")]
+    [JsonConverter(typeof(FlexibleBoolConverter))]
     public bool Hidden { get; set; }
 }
 
@@ -919,6 +930,45 @@ internal class FlexibleIntConverter : JsonConverter<int>
     public override void Write(Utf8JsonWriter writer, int value, JsonSerializerOptions options)
     {
         writer.WriteNumberValue(value);
+    }
+}
+
+/// <summary>
+/// Converts JSON booleans, numbers, or string representations into a boolean value.
+/// </summary>
+internal class FlexibleBoolConverter : JsonConverter<bool>
+{
+    /// <summary>
+    /// Reads and converts JSON token values to a boolean representation.
+    /// </summary>
+    /// <param name="reader">The JSON reader instance.</param>
+    /// <param name="typeToConvert">The target object type.</param>
+    /// <param name="options">Serializer options in context.</param>
+    /// <returns>A boolean representation of the JSON token value.</returns>
+    public override bool Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.True) return true;
+        if (reader.TokenType == JsonTokenType.False) return false;
+        if (reader.TokenType == JsonTokenType.Number) return reader.GetDouble() != 0;
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var value = reader.GetString();
+            if (bool.TryParse(value, out bool parsed)) return parsed;
+            if (double.TryParse(value, out double numeric)) return numeric != 0;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Writes a boolean value to the JSON target stream.
+    /// </summary>
+    /// <param name="writer">The JSON writer instance.</param>
+    /// <param name="value">The boolean value to write.</param>
+    /// <param name="options">Serializer options in context.</param>
+    public override void Write(Utf8JsonWriter writer, bool value, JsonSerializerOptions options)
+    {
+        writer.WriteBooleanValue(value);
     }
 }
 

@@ -373,6 +373,10 @@ public class DiscordPresenceMqttService : BackgroundService
             entity.GameName,
             entity.GameDetails,
             entity.GameThumbnailUrl,
+            CurrentGameTitle = entity.SteamData?.CurrentGameTitle,
+            CurrentGameAppId = entity.SteamData?.CurrentGameAppId,
+            PlaytimeLastTwoWeeksMinutes = entity.SteamData?.PlaytimeLastTwoWeeksMinutes,
+            PersonaState = entity.SteamData?.PersonaState,
             entity.SteamData,
             entity.LastUpdated,
             entity_picture = !string.IsNullOrWhiteSpace(entity.GameThumbnailUrl) 

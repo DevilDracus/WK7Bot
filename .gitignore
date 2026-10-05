@@ -6,7 +6,7 @@
 # Custom additions
 .idea/
 appsettings.Development.json
-
+HASS_DiscordView.yaml
 
 # User-specific files
 *.rsuser

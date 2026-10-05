@@ -29,4 +29,9 @@ public class SteamAchievement
     /// Gets or sets the absolute URL pointing to the achievement icon graphic.
     /// </summary>
     public string IconUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the achievement is hidden on the Steam community site.
+    /// </summary>
+    public bool Hidden { get; set; }
 }

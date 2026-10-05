@@ -283,8 +283,8 @@ public class SteamServiceTests
                   "game": {
                     "availableGameStats": {
                       "achievements": [
-                        { "name": "achievement_one", "icon": "https://example.com/icon1.png" },
-                        { "name": "achievement_two", "icon": "https://example.com/icon2.png" }
+                        { "name": "achievement_one", "icon": "https://example.com/icon1.png", "hidden": 1 },
+                        { "name": "achievement_two", "icon": "https://example.com/icon2.png", "hidden": 0 }
                       ]
                     }
                   }
@@ -322,9 +322,11 @@ public class SteamServiceTests
         Assert.Equal("https://example.com/icon1.png", withIcon.IconUrl);
         Assert.Equal("First!", withIcon.Name);
         Assert.NotNull(withIcon.UnlockTime);
+        Assert.True(withIcon.Hidden);
 
         var noSchema = result.Single(a => a.ApiName == "unknown_achievement");
         Assert.Equal(string.Empty, noSchema.IconUrl);
+        Assert.False(noSchema.Hidden);
         Assert.DoesNotContain(result, a => a.ApiName == "achievement_two");
     }
 
@@ -550,7 +552,7 @@ public class SteamServiceTests
                         "total_achievements": 20,
                         "achievements": [
                           { "name": "First Blood", "desc": "Get a kill", "icon": "abc.jpg", "icon_gray": "abc_gray.jpg", "hidden": false, "player_percent_unlocked": "12.0" },
-                          { "name": "Winner", "desc": "Win a round", "icon": "def.jpg", "icon_gray": "def_gray.jpg", "hidden": false, "player_percent_unlocked": "3.4" }
+                          { "name": "Winner", "desc": "Win a round", "icon": "def.jpg", "icon_gray": "def_gray.jpg", "hidden": true, "player_percent_unlocked": "3.4" }
                         ]
                       }
                     ]
@@ -577,6 +579,10 @@ public class SteamServiceTests
         Assert.Equal("Get a kill", first.Description);
         Assert.Equal("https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/730/abc.jpg", first.IconUrl);
         Assert.Null(first.UnlockTime);
+        Assert.False(first.Hidden);
+
+        var hidden = result.Single(a => a.Name == "Winner");
+        Assert.True(hidden.Hidden);
 
         Assert.Contains(logger.Entries, e =>
             e.Level == LogLevel.Information

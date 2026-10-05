@@ -604,6 +604,11 @@
             Gets or sets the absolute URL pointing to the achievement icon graphic.
             </summary>
         </member>
+        <member name="P:WK7Bot.Models.SteamAchievement.Hidden">
+            <summary>
+            Gets or sets a value indicating whether the achievement is hidden on the Steam community site.
+            </summary>
+        </member>
         <member name="T:WK7Bot.Models.SteamRecentGame">
             <summary>
             Details recent gameplay duration and metadata for a specific Steam application.
@@ -2036,6 +2041,11 @@
             Gets or sets the absolute URL pointing to the unlocked achievement icon graphic.
             </summary>
         </member>
+        <member name="P:WK7Bot.Services.SchemaAchievementItem.Hidden">
+            <summary>
+            Gets or sets a value indicating whether the achievement is hidden on the community site.
+            </summary>
+        </member>
         <member name="T:WK7Bot.Services.SteamPlayerAchievementsResponse">
             <summary>
             Root container model for the Steam GetPlayerAchievements Web API response.
@@ -2166,6 +2176,28 @@
             </summary>
             <param name="writer">The JSON writer instance.</param>
             <param name="value">The integer value to write.</param>
+            <param name="options">Serializer options in context.</param>
+        </member>
+        <member name="T:WK7Bot.Services.FlexibleBoolConverter">
+            <summary>
+            Converts JSON booleans, numbers, or string representations into a boolean value.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FlexibleBoolConverter.Read(System.Text.Json.Utf8JsonReader@,System.Type,System.Text.Json.JsonSerializerOptions)">
+            <summary>
+            Reads and converts JSON token values to a boolean representation.
+            </summary>
+            <param name="reader">The JSON reader instance.</param>
+            <param name="typeToConvert">The target object type.</param>
+            <param name="options">Serializer options in context.</param>
+            <returns>A boolean representation of the JSON token value.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.FlexibleBoolConverter.Write(System.Text.Json.Utf8JsonWriter,System.Boolean,System.Text.Json.JsonSerializerOptions)">
+            <summary>
+            Writes a boolean value to the JSON target stream.
+            </summary>
+            <param name="writer">The JSON writer instance.</param>
+            <param name="value">The boolean value to write.</param>
             <param name="options">Serializer options in context.</param>
         </member>
         <member name="T:WK7Bot.Services.FlexibleLongConverter">
