@@ -134,6 +134,25 @@
             <param name="cancellationToken">Cancellation token to observe.</param>
             <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
         </member>
+        <member name="T:WK7Bot.Core.Utilities.DietTagFormatter">
+            <summary>
+            Maps the fixed English diet-tag identifiers returned by Gemini to German display labels for Discord embeds.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.DietTagFormatter.ToGermanLabel(System.String)">
+            <summary>
+            Resolves a single diet-tag identifier to its German display label, falling back to the raw tag when unknown.
+            </summary>
+            <param name="tag">The English diet-tag identifier (e.g., <c>low_potassium</c>).</param>
+            <returns>The German label, or the input tag when no mapping exists.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.DietTagFormatter.Format(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>
+            Formats a collection of diet-tag identifiers as German labels joined by a bullet separator.
+            </summary>
+            <param name="tags">The diet tags to format.</param>
+            <returns>A bullet-separated label list, or <c>—</c> when no tags are present.</returns>
+        </member>
         <member name="T:WK7Bot.Core.Utilities.FeedDeltaCalculator">
             <summary>
             Pure decision helpers for determining which RSS feed items are newly published
@@ -402,51 +421,6 @@
             Gets or sets the collection of seasonal nuts.
             </summary>
         </member>
-        <member name="T:WK7Bot.Models.RecipeNutrition">
-            <summary>
-            Detailed nutritional breakdown including target micronutrients.
-            </summary>
-        </member>
-        <member name="P:WK7Bot.Models.RecipeNutrition.CaloriesKcal">
-            <summary>
-            Gets or sets total energy in kilocalories.
-            </summary>
-        </member>
-        <member name="P:WK7Bot.Models.RecipeNutrition.ProteinGrams">
-            <summary>
-            Gets or sets total protein content in grams.
-            </summary>
-        </member>
-        <member name="P:WK7Bot.Models.RecipeNutrition.CarbohydratesGrams">
-            <summary>
-            Gets or sets total carbohydrate content in grams.
-            </summary>
-        </member>
-        <member name="P:WK7Bot.Models.RecipeNutrition.FatGrams">
-            <summary>
-            Gets or sets total fat content in grams.
-            </summary>
-        </member>
-        <member name="P:WK7Bot.Models.RecipeNutrition.SodiumMg">
-            <summary>
-            Gets or sets sodium content in milligrams.
-            </summary>
-        </member>
-        <member name="P:WK7Bot.Models.RecipeNutrition.PotassiumKaliumMg">
-            <summary>
-            Gets or sets potassium (Kalium) content in milligrams.
-            </summary>
-        </member>
-        <member name="P:WK7Bot.Models.RecipeNutrition.SulfateMg">
-            <summary>
-            Gets or sets sulfate content in milligrams.
-            </summary>
-        </member>
-        <member name="P:WK7Bot.Models.RecipeNutrition.PhosphorusMg">
-            <summary>
-            Gets or sets phosphorus content in milligrams.
-            </summary>
-        </member>
         <member name="T:WK7Bot.Models.RenalRecipeData">
             <summary>
             Dialysis and immunosuppressive friendly weekly recipe structure generated via Gemini API.
@@ -492,9 +466,9 @@
             Gets or sets step-by-step cooking instructions.
             </summary>
         </member>
-        <member name="P:WK7Bot.Models.RenalRecipeData.Nutrition">
+        <member name="P:WK7Bot.Models.RenalRecipeData.DietTags">
             <summary>
-            Gets or sets complete nutritional breakdown per serving.
+            Gets or sets the qualitative diet tags (e.g., <c>low_potassium</c>, <c>protein_rich</c>) assigned by Gemini.
             </summary>
         </member>
         <member name="P:WK7Bot.Models.RenalRecipeData.TransplantSafetyNotes">
@@ -1211,7 +1185,7 @@
             </summary>
             <param name="dateTime">The target date used to determine seasonal ingredients.</param>
             <param name="cancellationToken">A token to monitor for task cancellation.</param>
-            <returns>A structured <see cref="T:WK7Bot.Models.RenalRecipeData"/> instance containing nutritional metrics and instructions, or null if processing fails.</returns>
+            <returns>A structured <see cref="T:WK7Bot.Models.RenalRecipeData"/> instance containing diet tags and instructions, or null if processing fails.</returns>
         </member>
         <member name="M:WK7Bot.Services.GeminiFoodService.RequestGeminiStructuredOutputAsync``1(System.String,System.Text.Json.Nodes.JsonObject,System.Threading.CancellationToken)">
             <summary>
@@ -1401,7 +1375,7 @@
             </summary>
             <param name="dateTime">The target date used to determine seasonal ingredients.</param>
             <param name="cancellationToken">A token to monitor for task cancellation.</param>
-            <returns>A structured <see cref="T:WK7Bot.Models.RenalRecipeData"/> instance containing nutritional metrics and instructions, or null if processing fails.</returns>
+            <returns>A structured <see cref="T:WK7Bot.Models.RenalRecipeData"/> instance containing diet tags and instructions, or null if processing fails.</returns>
         </member>
         <member name="T:WK7Bot.Services.Interfaces.IHomeAssistantService">
             <summary>

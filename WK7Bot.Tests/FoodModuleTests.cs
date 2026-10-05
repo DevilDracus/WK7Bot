@@ -132,17 +132,7 @@ public class FoodModuleTests
         Ingredients = new List<string> { "Zucchini", "Karotten" },
         Instructions = new List<string> { "Gemüse schneiden", "Im Ofen backen" },
         TransplantSafetyNotes = "Vollständig durchgaren.",
-        Nutrition = new RecipeNutrition
-        {
-            CaloriesKcal = 320,
-            ProteinGrams = 12.5,
-            CarbohydratesGrams = 34.0,
-            FatGrams = 9.2,
-            SodiumMg = 180.0,
-            PotassiumKaliumMg = 450.0,
-            SulfateMg = 70.0,
-            PhosphorusMg = 210.0
-        }
+        DietTags = new List<string> { "low_potassium", "low_carb" }
     };
 
     private static SeasonalFoodData CreateProduce() => new()
@@ -232,7 +222,7 @@ public class FoodModuleTests
         Assert.Equal("🥗 Recipe of the Week: Gemüseauflauf", embed!.Title);
         Assert.Contains(embed.Fields, f => f.Name == "🛒 Ingredients" && f.Value.Contains("• Zucchini"));
         Assert.Contains(embed.Fields, f => f.Name == "👨‍🍳 Preparation Steps" && f.Value.Contains("1. Gemüse schneiden"));
-        Assert.Contains(embed.Fields, f => f.Name == "📊 Nutrition per Serving" && f.Value.Contains("320 kcal"));
+        Assert.Contains(embed.Fields, f => f.Name == "🏷️ Diet Tags" && f.Value.Contains("Kaliumarm") && f.Value.Contains("Kohlenhydratarm"));
         Assert.Contains(embed.Fields, f => f.Name == "🛡️ Safety & Renal Notes" && f.Value.Contains("Vollständig durchgaren."));
         Assert.NotNull(embed.Footer);
         Assert.Contains("@Tester", embed.Footer!.Value.Text);

@@ -40,60 +40,6 @@ public class SeasonalFoodData
 }
 
 /// <summary>
-/// Detailed nutritional breakdown including target micronutrients.
-/// </summary>
-public class RecipeNutrition
-{
-    /// <summary>
-    /// Gets or sets total energy in kilocalories.
-    /// </summary>
-    [JsonPropertyName("calories_kcal")]
-    public int CaloriesKcal { get; set; }
-
-    /// <summary>
-    /// Gets or sets total protein content in grams.
-    /// </summary>
-    [JsonPropertyName("protein_g")]
-    public double ProteinGrams { get; set; }
-
-    /// <summary>
-    /// Gets or sets total carbohydrate content in grams.
-    /// </summary>
-    [JsonPropertyName("carbohydrates_g")]
-    public double CarbohydratesGrams { get; set; }
-
-    /// <summary>
-    /// Gets or sets total fat content in grams.
-    /// </summary>
-    [JsonPropertyName("fat_g")]
-    public double FatGrams { get; set; }
-
-    /// <summary>
-    /// Gets or sets sodium content in milligrams.
-    /// </summary>
-    [JsonPropertyName("sodium_mg")]
-    public double SodiumMg { get; set; }
-
-    /// <summary>
-    /// Gets or sets potassium (Kalium) content in milligrams.
-    /// </summary>
-    [JsonPropertyName("potassium_kalium_mg")]
-    public double PotassiumKaliumMg { get; set; }
-
-    /// <summary>
-    /// Gets or sets sulfate content in milligrams.
-    /// </summary>
-    [JsonPropertyName("sulfate_mg")]
-    public double SulfateMg { get; set; }
-
-    /// <summary>
-    /// Gets or sets phosphorus content in milligrams.
-    /// </summary>
-    [JsonPropertyName("phosphorus_mg")]
-    public double PhosphorusMg { get; set; }
-}
-
-/// <summary>
 /// Dialysis and immunosuppressive friendly weekly recipe structure generated via Gemini API.
 /// </summary>
 public class RenalRecipeData
@@ -147,10 +93,10 @@ public class RenalRecipeData
     public List<string> Instructions { get; set; } = new();
 
     /// <summary>
-    /// Gets or sets complete nutritional breakdown per serving.
+    /// Gets or sets the qualitative diet tags (e.g., <c>low_potassium</c>, <c>protein_rich</c>) assigned by Gemini.
     /// </summary>
-    [JsonPropertyName("nutrition_per_serving")]
-    public RecipeNutrition Nutrition { get; set; } = new();
+    [JsonPropertyName("diet_tags")]
+    public List<string> DietTags { get; set; } = new();
 
     /// <summary>
     /// Gets or sets crucial food safety and medical diet notes (e.g., thorough cooking, grapefruit/pomegranate avoidance).

@@ -84,7 +84,7 @@ public class GeminiFoodService : IGeminiFoodService
     /// </summary>
     /// <param name="dateTime">The target date used to determine seasonal ingredients.</param>
     /// <param name="cancellationToken">A token to monitor for task cancellation.</param>
-    /// <returns>A structured <see cref="RenalRecipeData"/> instance containing nutritional metrics and instructions, or null if processing fails.</returns>
+    /// <returns>A structured <see cref="RenalRecipeData"/> instance containing diet tags and instructions, or null if processing fails.</returns>
     public async Task<RenalRecipeData?> GetWeeklyRenalRecipeAsync(DateTime dateTime, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_options.GeminiApiKey))
@@ -94,15 +94,18 @@ public class GeminiFoodService : IGeminiFoodService
         }
 
         string monthName = dateTime.ToString("MMMM");
-        string prompt = $"Create a delicious recipe for {monthName} using local Central European seasonal fruits or vegetables. " +
+        string prompt = $"Create a delicious recipe for the month of {monthName} using local Central European seasonal produce (Germany/Leipzig region), featuring at least one seasonal fruit or vegetable. " +
                         $"CRITICAL DIETARY RESTRICTIONS:\n" +
-                        $"1. Tailor for individuals on dialysis or kidney transplant recipients taking immunosuppressants.\n" +
-                        $"2. Keep Potassium (Kalium) moderate/controlled and Sodium under strict limits.\n" +
-                        $"3. Strictly EXCLUDE: raw/undercooked items, raw sprouts, grapefruit, pomegranate, unpasteurized ingredients, AND ALL MOLD CHEESES (Schimmelkäse like Gorgonzola, Roquefort, Brie, Camembert are an absolute NO-GO).\n" +
+                        $"1. Tailor the recipe for individuals on dialysis or kidney transplant recipients taking immunosuppressants.\n" +
+                        $"2. Keep Potassium (Kalium) moderate/controlled, Phosphorus as low as practical, and Sodium under strict limits.\n" +
+                        $"3. Strictly EXCLUDE: any raw or undercooked ingredients, raw sprouts, grapefruit, pomegranate, star fruit (Karambole), unpasteurized ingredients, AND ALL MOLD CHEESES (Schimmelkäse like Gorgonzola, Roquefort, Brie, Camembert are an absolute NO-GO).\n" +
                         $"4. Rohmilchkäse (raw milk cheese) is strictly prohibited unless it is thoroughly heated, cooked in a boiling sauce, or fully baked.\n" +
-                        $"5. Ensure ALL ingredients are fully cooked to prevent foodborne illness.\n" +
-                        $"6. Compute full nutritional values per serving including Calories, Protein, Carbohydrates, Fat, Sodium, Potassium (Kalium), Sulfate, and Phosphorus.\n\n" +
-                        $"IMPORTANT: Use GERMAN for the recipe!";
+                        $"5. Every ingredient must be fully cooked (boiled, baked, or fried through). No raw preparations: no raw salads and no fresh-fruit dishes — use fruits cooked instead (e.g., compote, stewed, or baked).\n" +
+                        $"6. Prefer low-potassium ingredients and avoid obvious high-potassium items where possible (e.g., banana, potato, tomato paste, dried fruit, nuts). Even better: use preparation methods that leach potassium out of the ingredients (e.g., soak vegetables and boil them in plenty of water, then discard the water) and include those extra steps in the instructions.\n" +
+                        $"OUTPUT REQUIREMENTS:\n" +
+                        $"7. Generate exactly 4 servings and assign every applicable diet tag from this fixed list, using the exact English identifiers: low_potassium, low_phosphate, low_sodium, low_carb, protein_rich, high_fiber (omit tags that do not apply).\n" +
+                        $"8. In transplant_safety_notes, briefly explain why the dish fits these restrictions and add a short disclaimer to consult one's doctor or dietitian.\n\n" +
+                        $"IMPORTANT: Write ALL text fields (title, description, prep_time, cook_time, seasonal_ingredients_used, ingredients, instructions, transplant_safety_notes) in GERMAN! Keep diet_tags as the exact English identifiers from the list above.";
 
         var jsonSchema = new JsonObject
         {
@@ -118,24 +121,25 @@ public class GeminiFoodService : IGeminiFoodService
                 ["ingredients"] = new JsonObject { ["type"] = "ARRAY", ["items"] = new JsonObject { ["type"] = "STRING" } },
                 ["instructions"] = new JsonObject { ["type"] = "ARRAY", ["items"] = new JsonObject { ["type"] = "STRING" } },
                 ["transplant_safety_notes"] = new JsonObject { ["type"] = "STRING" },
-                ["nutrition_per_serving"] = new JsonObject
+                ["diet_tags"] = new JsonObject
                 {
-                    ["type"] = "OBJECT",
-                    ["properties"] = new JsonObject
+                    ["type"] = "ARRAY",
+                    ["items"] = new JsonObject
                     {
-                        ["calories_kcal"] = new JsonObject { ["type"] = "INTEGER" },
-                        ["protein_g"] = new JsonObject { ["type"] = "NUMBER" },
-                        ["carbohydrates_g"] = new JsonObject { ["type"] = "NUMBER" },
-                        ["fat_g"] = new JsonObject { ["type"] = "NUMBER" },
-                        ["sodium_mg"] = new JsonObject { ["type"] = "NUMBER" },
-                        ["potassium_kalium_mg"] = new JsonObject { ["type"] = "NUMBER" },
-                        ["sulfate_mg"] = new JsonObject { ["type"] = "NUMBER" },
-                        ["phosphorus_mg"] = new JsonObject { ["type"] = "NUMBER" }
-                    },
-                    ["required"] = new JsonArray { "calories_kcal", "protein_g", "carbohydrates_g", "fat_g", "sodium_mg", "potassium_kalium_mg", "sulfate_mg", "phosphorus_mg" }
+                        ["type"] = "STRING",
+                        ["enum"] = new JsonArray
+                        {
+                            "low_potassium",
+                            "low_phosphate",
+                            "low_sodium",
+                            "low_carb",
+                            "protein_rich",
+                            "high_fiber"
+                        }
+                    }
                 }
             },
-            ["required"] = new JsonArray { "title", "description", "prep_time", "cook_time", "servings", "seasonal_ingredients_used", "ingredients", "instructions", "transplant_safety_notes", "nutrition_per_serving" }
+            ["required"] = new JsonArray { "title", "description", "prep_time", "cook_time", "servings", "seasonal_ingredients_used", "ingredients", "instructions", "transplant_safety_notes", "diet_tags" }
         };
 
         return await RequestGeminiStructuredOutputAsync<RenalRecipeData>(prompt, jsonSchema, cancellationToken);

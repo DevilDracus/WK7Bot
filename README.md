@@ -41,7 +41,7 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 ### AI Food & Recipe Automation (Google Gemini)
 - `GeminiFoodService` calls the Google Gemini `generateContent` API using JSON-schema structured output to produce German-language seasonal produce lists and dialysis / kidney-transplant-safe weekly recipes.
 - **Model fallback & resilience** – a primary model is tried first and a lite fallback model second; transient `429`/`503` responses are retried with exponential backoff, and a missing `gemini_api_key` short-circuits before any HTTP call.
-- `/recipe` and `/seasonal-produce` post rich embeds (ingredients, steps, per-serving nutrition, renal safety notes, German month names) to the `#🍎food` channel.
+- `/recipe` and `/seasonal-produce` post rich embeds (ingredients, steps, qualitative diet tags such as *Kaliumarm*/*Phosphatarm*, renal safety notes, German month names) to the `#🍎food` channel.
 - `FoodPublisherService` publishes automatically: the monthly produce calendar on the 1st at 09:00 and the weekly recipe on Thursdays at 15:30.
 - Gated by the `food_service_enabled` feature flag.
 
@@ -74,6 +74,7 @@ WK7Bot
 │   ├── Interfaces
 │   │   └── IRssRepository.cs
 │   └── Utilities
+│       ├── DietTagFormatter.cs                # Diet-tag identifiers → German embed labels
 │       ├── FeedDeltaCalculator.cs           # Pure RSS baseline/new-item decisions
 │       ├── FeedTextFormatter.cs             # HTML strip + truncation for embeds
 │       ├── NameSanitizer.cs                 # Channel slugs + MQTT-safe names
@@ -129,6 +130,7 @@ WK7Bot
 └── WK7Bot.csproj
 
 WK7Bot.Tests                                 # xUnit test project (included in WK7Bot.sln)
+├── DietTagFormatterTests.cs
 ├── FeedDeltaCalculatorTests.cs
 ├── FeedTextFormatterTests.cs
 ├── FoodModuleTests.cs                       # Slash-command behaviour incl. embed content

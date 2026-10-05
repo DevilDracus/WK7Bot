@@ -23,6 +23,6 @@ public interface IGeminiFoodService
     /// </summary>
     /// <param name="dateTime">The target date used to determine seasonal ingredients.</param>
     /// <param name="cancellationToken">A token to monitor for task cancellation.</param>
-    /// <returns>A structured <see cref="RenalRecipeData"/> instance containing nutritional metrics and instructions, or null if processing fails.</returns>
+    /// <returns>A structured <see cref="RenalRecipeData"/> instance containing diet tags and instructions, or null if processing fails.</returns>
     Task<RenalRecipeData?> GetWeeklyRenalRecipeAsync(DateTime dateTime, CancellationToken cancellationToken = default);
 }

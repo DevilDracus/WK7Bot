@@ -11,6 +11,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
@@ -159,13 +160,7 @@ public class FoodPublisherService : BackgroundService
         var recipe = await _geminiFoodService.GetWeeklyRenalRecipeAsync(now, cancellationToken);
         if (recipe == null) return;
 
-        var n = recipe.Nutrition;
-        string nutritionSummary = $"• **Calories:** {n.CaloriesKcal} kcal\n" +
-                                 $"• **Protein:** {n.ProteinGrams} g | **Carbs:** {n.CarbohydratesGrams} g | **Fat:** {n.FatGrams} g\n" +
-                                 $"• **Sodium:** {n.SodiumMg} mg\n" +
-                                 $"• **Potassium (Kalium):** {n.PotassiumKaliumMg} mg\n" +
-                                 $"• **Sulfate:** {n.SulfateMg} mg\n" +
-                                 $"• **Phosphorus:** {n.PhosphorusMg} mg";
+        var dietTags = DietTagFormatter.Format(recipe.DietTags);
 
         string ingredientsFormatted = string.Join("\n", recipe.Ingredients.Select(i => $"• {i}"));
         string instructionsFormatted = string.Join("\n", recipe.Instructions.Select((inst, idx) => $"{idx + 1}. {inst}"));
@@ -176,7 +171,7 @@ public class FoodPublisherService : BackgroundService
             .WithColor(Color.Teal)
             .AddField("🛒 Ingredients", ingredientsFormatted.Length > 1024 ? ingredientsFormatted[..1021] + "..." : ingredientsFormatted, false)
             .AddField("👨‍🍳 Preparation Steps", instructionsFormatted.Length > 1024 ? instructionsFormatted[..1021] + "..." : instructionsFormatted, false)
-            .AddField("📊 Nutrition per Serving", nutritionSummary, false)
+            .AddField("🏷️ Diet Tags", dietTags, false)
             .AddField("🛡️ Safety & Renal Notes", recipe.TransplantSafetyNotes, false)
             .WithFooter("Tailored for Dialysis & Kidney Transplant Safety")
             .WithCurrentTimestamp()

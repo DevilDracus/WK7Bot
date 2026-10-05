@@ -33,16 +33,7 @@ public class GeminiFoodServiceTests
       "seasonal_ingredients_used": ["Zucchini"],
       "ingredients": ["Zucchini", "Karotten"],
       "instructions": ["Gemüse schneiden", "Im Ofen backen"],
-      "nutrition_per_serving": {
-        "calories_kcal": 320,
-        "protein_g": 12.5,
-        "carbohydrates_g": 34.0,
-        "fat_g": 9.2,
-        "sodium_mg": 180.0,
-        "potassium_kalium_mg": 450.0,
-        "sulfate_mg": 70.0,
-        "phosphorus_mg": 210.0
-      },
+      "diet_tags": ["low_potassium", "low_phosphate", "low_carb"],
       "transplant_safety_notes": "Vollständig durchgaren."
     }
     """;
@@ -177,7 +168,7 @@ public class GeminiFoodServiceTests
     }
 
     [Fact]
-    public async Task GetWeeklyRenalRecipeAsync_ParsesStructuredResponseIncludingNutrition()
+    public async Task GetWeeklyRenalRecipeAsync_ParsesStructuredResponseIncludingDietTags()
     {
         var handler = new StubHttpMessageHandler(_ => Json(Envelope(RecipeJson)));
         var service = CreateService(handler);
@@ -193,16 +184,8 @@ public class GeminiFoodServiceTests
         Assert.Equal(new[] { "Zucchini" }, result.SeasonalIngredientsUsed);
         Assert.Equal(new[] { "Zucchini", "Karotten" }, result.Ingredients);
         Assert.Equal(new[] { "Gemüse schneiden", "Im Ofen backen" }, result.Instructions);
+        Assert.Equal(new[] { "low_potassium", "low_phosphate", "low_carb" }, result.DietTags);
         Assert.Equal("Vollständig durchgaren.", result.TransplantSafetyNotes);
-
-        Assert.Equal(320, result.Nutrition.CaloriesKcal);
-        Assert.Equal(12.5, result.Nutrition.ProteinGrams);
-        Assert.Equal(34.0, result.Nutrition.CarbohydratesGrams);
-        Assert.Equal(9.2, result.Nutrition.FatGrams);
-        Assert.Equal(180.0, result.Nutrition.SodiumMg);
-        Assert.Equal(450.0, result.Nutrition.PotassiumKaliumMg);
-        Assert.Equal(70.0, result.Nutrition.SulfateMg);
-        Assert.Equal(210.0, result.Nutrition.PhosphorusMg);
     }
 
     [Fact]
@@ -237,7 +220,8 @@ public class GeminiFoodServiceTests
         Assert.Contains("Create a delicious recipe for", payload);
         Assert.Contains("dialysis or kidney transplant recipients", payload);
         Assert.Contains("grapefruit", payload);
-        Assert.Contains("\"nutrition_per_serving\"", payload);
+        Assert.Contains("\"diet_tags\"", payload);
+        Assert.Contains("low_potassium", payload);
     }
 
     [Fact]
