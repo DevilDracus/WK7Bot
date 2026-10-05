@@ -17,6 +17,7 @@ public class OptionsBindingTests
         Assert.True(features.AlexaNotificationsEnabled);
         Assert.True(features.DiscordPresenceMqttEnabled);
         Assert.True(features.SteamPresenceEnabled);
+        Assert.True(features.FoodServiceEnabled);
     }
 
     [Fact]
@@ -31,6 +32,7 @@ public class OptionsBindingTests
                 ["Wk7Bot:mqtt_username"] = "user",
                 ["Wk7Bot:mqtt_password"] = "pass",
                 ["Wk7Bot:steam_api_key"] = "steam-key",
+                ["Wk7Bot:gemini_api_key"] = "gemini-key",
                 ["Wk7Bot:discord_steam_mappings:0:discord_user_id"] = "111",
                 ["Wk7Bot:discord_steam_mappings:0:steam_id"] = "76561198000000001",
                 ["Wk7Bot:discord_dm_user_ids:0"] = "222",
@@ -39,7 +41,8 @@ public class OptionsBindingTests
                 ["Wk7Bot:alexa_notification:api_secret"] = "sec",
                 ["Wk7Bot:alexa_notification:endpoint_url"] = "https://api.example.com/notify",
                 ["Wk7Bot:features:rss_polling_enabled"] = "false",
-                ["Wk7Bot:features:steam_presence_enabled"] = "false"
+                ["Wk7Bot:features:steam_presence_enabled"] = "false",
+                ["Wk7Bot:features:food_service_enabled"] = "false"
             })
             .Build();
 
@@ -52,6 +55,7 @@ public class OptionsBindingTests
         Assert.Equal("user", options.MqttUsername);
         Assert.Equal("pass", options.MqttPassword);
         Assert.Equal("steam-key", options.SteamApiKey);
+        Assert.Equal("gemini-key", options.GeminiApiKey);
 
         var mapping = Assert.Single(options.DiscordSteamMappings);
         Assert.Equal("111", mapping.DiscordUserId);
@@ -67,6 +71,7 @@ public class OptionsBindingTests
         Assert.False(options.Features.RssPollingEnabled);
         Assert.True(options.Features.HomeAssistantNotifierEnabled);
         Assert.False(options.Features.SteamPresenceEnabled);
+        Assert.False(options.Features.FoodServiceEnabled);
     }
 
     [Fact]
@@ -106,6 +111,7 @@ public class OptionsBindingTests
         Assert.Null(options.MqttUsername);
         Assert.Null(options.MqttPassword);
         Assert.Null(options.SteamApiKey);
+        Assert.Null(options.GeminiApiKey);
         Assert.Empty(options.DiscordSteamMappings);
         Assert.Empty(options.DiscordDmUserIds);
         Assert.NotNull(options.AlexaNotification);
