@@ -126,6 +126,32 @@ public class SteamService : ISteamService
                         steamId);
                 }
 
+                var progressByAppId = new Dictionary<uint, (int Unlocked, int Total)>();
+                for (int i = 0; i < appIds.Length; i++)
+                {
+                    var schema = await GetGameSchemaAsync(appIds[i], cancellationToken);
+                    int unlocked = achievementsArrays[i].Count;
+                    int total = schema.Count;
+                    progressByAppId[appIds[i]] = (unlocked, total);
+
+                    if (userData.CurrentGameAppId.HasValue
+                        && userData.CurrentGameAppId.Value == appIds[i]
+                        && total > 0)
+                    {
+                        userData.CurrentGameAchievementsUnlocked = unlocked;
+                        userData.CurrentGameAchievementsTotal = total;
+                    }
+                }
+
+                foreach (var recentGame in userData.RecentGames)
+                {
+                    if (progressByAppId.TryGetValue(recentGame.AppId, out var progress) && progress.Total > 0)
+                    {
+                        recentGame.AchievementsUnlocked = progress.Unlocked;
+                        recentGame.AchievementsTotal = progress.Total;
+                    }
+                }
+
                 userData.RecentAchievements = achievementsArrays
                     .SelectMany(a => a)
                     .OrderByDescending(a => a.UnlockTime)
@@ -236,7 +262,8 @@ public class SteamService : ISteamService
         {
             SteamId = steamId,
             PersonaName = player.PersonaName ?? string.Empty,
-            PersonaState = MapPersonaState(player.PersonaState)
+            PersonaState = MapPersonaState(player.PersonaState),
+            SteamAvatarUrl = string.IsNullOrWhiteSpace(player.AvatarFull) ? null : player.AvatarFull
         };
 
         if (!string.IsNullOrWhiteSpace(player.GameExtraInfo))
@@ -487,7 +514,8 @@ public class SteamService : ISteamService
                 Description = item.Desc ?? string.Empty,
                 UnlockTime = null,
                 IconUrl = iconUrl,
-                Hidden = item.Hidden
+                Hidden = item.Hidden,
+                PercentUnlocked = item.PercentUnlocked
             });
         }
 
@@ -620,6 +648,12 @@ internal class PlayerSummaryItem
     /// </summary>
     [JsonPropertyName("personaname")]
     public string? PersonaName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the absolute URL of the player's full-size Steam avatar.
+    /// </summary>
+    [JsonPropertyName("avatarfull")]
+    public string? AvatarFull { get; set; }
 
     /// <summary>
     /// Gets or sets the numeric online status indicator.
@@ -893,11 +927,18 @@ internal class SteamTopAchievementItem
     public string? IconGray { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the achievement is hidden on the community site.
+    /// Gets or sets a value indicating whether the achievement is hidden on the Steam community site.
     /// </summary>
     [JsonPropertyName("hidden")]
     [JsonConverter(typeof(FlexibleBoolConverter))]
     public bool Hidden { get; set; }
+
+    /// <summary>
+    /// Gets or sets the global percentage of Steam players who unlocked this achievement, as a numeric string (e.g. "12.0").
+    /// </summary>
+    [JsonPropertyName("player_percent_unlocked")]
+    [JsonConverter(typeof(FlexibleDoubleConverter))]
+    public double PercentUnlocked { get; set; }
 }
 
 /// <summary>
@@ -928,6 +969,42 @@ internal class FlexibleIntConverter : JsonConverter<int>
     /// <param name="value">The integer value to write.</param>
     /// <param name="options">Serializer options in context.</param>
     public override void Write(Utf8JsonWriter writer, int value, JsonSerializerOptions options)
+    {
+        writer.WriteNumberValue(value);
+    }
+}
+
+/// <summary>
+/// Converts JSON numbers or string representations into a double value.
+/// </summary>
+internal class FlexibleDoubleConverter : JsonConverter<double>
+{
+    /// <summary>
+    /// Reads and converts JSON token values to a double representation.
+    /// </summary>
+    /// <param name="reader">The JSON reader instance.</param>
+    /// <param name="typeToConvert">The target object type.</param>
+    /// <param name="options">Serializer options in context.</param>
+    /// <returns>A double representation of the JSON token value.</returns>
+    public override double Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Number) return reader.GetDouble();
+        if (reader.TokenType == JsonTokenType.String
+            && double.TryParse(reader.GetString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double val))
+        {
+            return val;
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Writes a double value to the JSON target stream.
+    /// </summary>
+    /// <param name="writer">The JSON writer instance.</param>
+    /// <param name="value">The double value to write.</param>
+    /// <param name="options">Serializer options in context.</param>
+    public override void Write(Utf8JsonWriter writer, double value, JsonSerializerOptions options)
     {
         writer.WriteNumberValue(value);
     }

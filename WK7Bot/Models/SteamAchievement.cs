@@ -34,4 +34,9 @@ public class SteamAchievement
     /// Gets or sets a value indicating whether the achievement is hidden on the Steam community site.
     /// </summary>
     public bool Hidden { get; set; }
+
+    /// <summary>
+    /// Gets or sets the global percentage of Steam players who unlocked this achievement (0 when unknown).
+    /// </summary>
+    public double PercentUnlocked { get; set; }
 }

@@ -609,6 +609,11 @@
             Gets or sets a value indicating whether the achievement is hidden on the Steam community site.
             </summary>
         </member>
+        <member name="P:WK7Bot.Models.SteamAchievement.PercentUnlocked">
+            <summary>
+            Gets or sets the global percentage of Steam players who unlocked this achievement (0 when unknown).
+            </summary>
+        </member>
         <member name="T:WK7Bot.Models.SteamRecentGame">
             <summary>
             Details recent gameplay duration and metadata for a specific Steam application.
@@ -632,6 +637,16 @@
         <member name="P:WK7Bot.Models.SteamRecentGame.PlaytimeForeverMinutes">
             <summary>
             Gets or sets the total lifetime minutes played on record.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamRecentGame.AchievementsUnlocked">
+            <summary>
+            Gets or sets the number of achievements unlocked for this game (0 when unknown).
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamRecentGame.AchievementsTotal">
+            <summary>
+            Gets or sets the total number of achievements defined for this game (0 when unknown).
             </summary>
         </member>
         <member name="T:WK7Bot.Models.SteamUserData">
@@ -664,9 +679,29 @@
             Gets or sets the Steam AppID of the active game being played.
             </summary>
         </member>
+        <member name="P:WK7Bot.Models.SteamUserData.SteamAvatarUrl">
+            <summary>
+            Gets or sets the absolute URL of the player's Steam avatar (full size), or null when unavailable.
+            </summary>
+        </member>
         <member name="P:WK7Bot.Models.SteamUserData.PlaytimeLastTwoWeeksMinutes">
             <summary>
-            Gets or sets the total play time in minutes across all games in the last 14 days.
+            Gets the total play time in minutes across all games in the last 14 days.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.PlaytimeDisplay">
+            <summary>
+            Gets the localized display representation of <see cref="P:WK7Bot.Models.SteamUserData.PlaytimeLastTwoWeeksMinutes"/> (e.g. "15,8 Std.", "45 Min.", "0 Std.").
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.CurrentGameAchievementsUnlocked">
+            <summary>
+            Gets or sets the number of achievements unlocked in the currently active game (0 when unknown).
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.CurrentGameAchievementsTotal">
+            <summary>
+            Gets or sets the total number of achievements defined for the currently active game (0 when unknown).
             </summary>
         </member>
         <member name="P:WK7Bot.Models.SteamUserData.RecentGames">
@@ -678,6 +713,13 @@
             <summary>
             Gets or sets the list of recently unlocked achievements for the currently active game.
             </summary>
+        </member>
+        <member name="M:WK7Bot.Models.SteamUserData.FormatPlaytime(System.Int32)">
+            <summary>
+            Formats a play time duration in minutes as a human-readable German string.
+            </summary>
+            <param name="minutes">The total number of minutes to format.</param>
+            <returns>A localized string such as "0 Std.", "45 Min." or "15,8 Std.".</returns>
         </member>
         <member name="T:WK7Bot.Models.UserPresenceEntity">
             <summary>
@@ -1926,6 +1968,11 @@
             Gets or sets the display persona name of the player.
             </summary>
         </member>
+        <member name="P:WK7Bot.Services.PlayerSummaryItem.AvatarFull">
+            <summary>
+            Gets or sets the absolute URL of the player's full-size Steam avatar.
+            </summary>
+        </member>
         <member name="P:WK7Bot.Services.PlayerSummaryItem.PersonaState">
             <summary>
             Gets or sets the numeric online status indicator.
@@ -2153,7 +2200,12 @@
         </member>
         <member name="P:WK7Bot.Services.SteamTopAchievementItem.Hidden">
             <summary>
-            Gets or sets a value indicating whether the achievement is hidden on the community site.
+            Gets or sets a value indicating whether the achievement is hidden on the Steam community site.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Services.SteamTopAchievementItem.PercentUnlocked">
+            <summary>
+            Gets or sets the global percentage of Steam players who unlocked this achievement, as a numeric string (e.g. "12.0").
             </summary>
         </member>
         <member name="T:WK7Bot.Services.FlexibleIntConverter">
@@ -2176,6 +2228,28 @@
             </summary>
             <param name="writer">The JSON writer instance.</param>
             <param name="value">The integer value to write.</param>
+            <param name="options">Serializer options in context.</param>
+        </member>
+        <member name="T:WK7Bot.Services.FlexibleDoubleConverter">
+            <summary>
+            Converts JSON numbers or string representations into a double value.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FlexibleDoubleConverter.Read(System.Text.Json.Utf8JsonReader@,System.Type,System.Text.Json.JsonSerializerOptions)">
+            <summary>
+            Reads and converts JSON token values to a double representation.
+            </summary>
+            <param name="reader">The JSON reader instance.</param>
+            <param name="typeToConvert">The target object type.</param>
+            <param name="options">Serializer options in context.</param>
+            <returns>A double representation of the JSON token value.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.FlexibleDoubleConverter.Write(System.Text.Json.Utf8JsonWriter,System.Double,System.Text.Json.JsonSerializerOptions)">
+            <summary>
+            Writes a double value to the JSON target stream.
+            </summary>
+            <param name="writer">The JSON writer instance.</param>
+            <param name="value">The double value to write.</param>
             <param name="options">Serializer options in context.</param>
         </member>
         <member name="T:WK7Bot.Services.FlexibleBoolConverter">

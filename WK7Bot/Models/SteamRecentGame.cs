@@ -24,4 +24,14 @@ public class SteamRecentGame
     /// Gets or sets the total lifetime minutes played on record.
     /// </summary>
     public int PlaytimeForeverMinutes { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of achievements unlocked for this game (0 when unknown).
+    /// </summary>
+    public int AchievementsUnlocked { get; set; }
+
+    /// <summary>
+    /// Gets or sets the total number of achievements defined for this game (0 when unknown).
+    /// </summary>
+    public int AchievementsTotal { get; set; }
 }

@@ -211,6 +211,119 @@ public class SteamServiceTests
     }
 
     [Fact]
+    public async Task GetSteamUserDataAsync_ComputesAchievementProgressPerGame()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+            if (url.Contains("GetPlayerSummaries"))
+            {
+                return Json("""
+                {
+                  "response": {
+                    "players": [
+                      {
+                        "steamid": "76561198012345678",
+                        "personaname": "ProgressUser",
+                        "personastate": 1,
+                        "avatarfull": "https://avatars.steamstatic.com/fake_full.jpg",
+                        "gameextrainfo": "Counter-Strike 2",
+                        "gameid": "730"
+                      }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            if (url.Contains("GetRecentlyPlayedGames"))
+            {
+                return Json("""
+                {
+                  "response": {
+                    "games": [
+                      { "appid": 730, "name": "Counter-Strike 2", "playtime_2weeks": 945, "playtime_forever": 12000 }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            if (url.Contains("GetPlayerAchievements"))
+            {
+                return Json("""
+                {
+                  "playerstats": {
+                    "success": true,
+                    "achievements": [
+                      { "apiname": "ach_1", "achieved": 1, "unlocktime": 1700000000, "name": "One", "description": "d" },
+                      { "apiname": "ach_2", "achieved": 1, "unlocktime": 1700000100, "name": "Two", "description": "d" }
+                    ]
+                  }
+                }
+                """);
+            }
+
+            if (url.Contains("GetSchemaForGame"))
+            {
+                return Json("""
+                {
+                  "game": {
+                    "availableGameStats": {
+                      "achievements": [
+                        { "name": "ach_1", "displayName": "One", "description": "d", "icon": "http://cdn/one.jpg", "hidden": 0 },
+                        { "name": "ach_2", "displayName": "Two", "description": "d", "icon": "http://cdn/two.jpg", "hidden": 0 },
+                        { "name": "ach_3", "displayName": "Three", "description": "d", "icon": "http://cdn/three.jpg", "hidden": 1 },
+                        { "name": "ach_4", "displayName": "Four", "description": "d", "icon": "http://cdn/four.jpg", "hidden": 0 },
+                        { "name": "ach_5", "displayName": "Five", "description": "d", "icon": "http://cdn/five.jpg", "hidden": 0 }
+                      ]
+                    }
+                  }
+                }
+                """);
+            }
+
+            return Json("{}");
+        });
+
+        var service = CreateService(handler);
+
+        var result = await service.GetSteamUserDataAsync(TestSteamId);
+
+        Assert.NotNull(result);
+        Assert.Equal("https://avatars.steamstatic.com/fake_full.jpg", result!.SteamAvatarUrl);
+        Assert.Equal(945, result.PlaytimeLastTwoWeeksMinutes);
+        Assert.Equal("15,8 Std.", result.PlaytimeDisplay);
+        Assert.Equal(2, result.CurrentGameAchievementsUnlocked);
+        Assert.Equal(5, result.CurrentGameAchievementsTotal);
+        Assert.Single(result.RecentGames);
+        Assert.Equal(2, result.RecentGames[0].AchievementsUnlocked);
+        Assert.Equal(5, result.RecentGames[0].AchievementsTotal);
+        Assert.Equal(2, result.RecentAchievements.Count);
+    }
+
+    [Theory]
+    [InlineData(0, "0 Std.")]
+    [InlineData(-5, "0 Std.")]
+    [InlineData(45, "45 Min.")]
+    [InlineData(59, "59 Min.")]
+    [InlineData(60, "1 Std.")]
+    [InlineData(90, "1,5 Std.")]
+    [InlineData(945, "15,8 Std.")]
+    public void SteamUserData_FormatPlaytime_ReturnsGermanDisplayString(int minutes, string expected)
+    {
+        Assert.Equal(expected, SteamUserData.FormatPlaytime(minutes));
+    }
+
+    [Fact]
+    public void SteamUserData_PlaytimeDisplay_TracksPlaytimeMinutes()
+    {
+        var data = new SteamUserData { PlaytimeLastTwoWeeksMinutes = 120 };
+
+        Assert.Equal("2 Std.", data.PlaytimeDisplay);
+    }
+
+    [Fact]
     public async Task GetSteamUserDataAsync_ReturnsUserData_WhenNoCurrentGame()
     {
         var handler = new StubHttpMessageHandler(request =>
@@ -676,6 +789,7 @@ public class SteamServiceTests
         var achievement = Assert.Single(result!.RecentAchievements);
         Assert.Equal("First Blood", achievement.Name);
         Assert.Null(achievement.UnlockTime);
+        Assert.Equal(12.0, achievement.PercentUnlocked);
     }
 
     [Fact]

@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WK7Bot")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+77e88b800a7205393812795b66bdc7e3ad65d4da")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+185fdf7be84efb3013e3cd6cbbad3401b52ff562")]
 [assembly: System.Reflection.AssemblyProductAttribute("WK7Bot")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WK7Bot")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
