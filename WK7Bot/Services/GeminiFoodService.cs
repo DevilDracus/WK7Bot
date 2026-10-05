@@ -98,9 +98,9 @@ public class GeminiFoodService : IGeminiFoodService
                         $"CRITICAL DIETARY RESTRICTIONS:\n" +
                         $"1. Tailor the recipe for individuals on dialysis or kidney transplant recipients taking immunosuppressants.\n" +
                         $"2. Keep Potassium (Kalium) moderate/controlled, Phosphorus as low as practical, and Sodium under strict limits.\n" +
-                        $"3. Strictly EXCLUDE: any raw or undercooked ingredients, raw sprouts, grapefruit, pomegranate, star fruit (Karambole), unpasteurized ingredients, AND ALL MOLD CHEESES (Schimmelkäse like Gorgonzola, Roquefort, Brie, Camembert are an absolute NO-GO).\n" +
+                        $"3. Strictly EXCLUDE: any raw or undercooked ingredients which cannot be cleaned thoroughly and washed with vinegar, raw sprouts, raw strawberries, grapefruit, pomegranate, star fruit (Karambole), AND ALL MOLD CHEESES (Schimmelkäse like Gorgonzola, Roquefort, Brie, Camembert are an absolute NO-GO).\n" +
                         $"4. Rohmilchkäse (raw milk cheese) is strictly prohibited unless it is thoroughly heated, cooked in a boiling sauce, or fully baked.\n" +
-                        $"5. Every ingredient must be fully cooked (boiled, baked, or fried through). No raw preparations: no raw salads and no fresh-fruit dishes — use fruits cooked instead (e.g., compote, stewed, or baked).\n" +
+                        $"5. Every ingredient should be fully cooked (boiled, baked, or fried through). In the case of raw salads they need to be thoroughly cleaned and washed with vinegar.\n" +
                         $"6. Prefer low-potassium ingredients and avoid obvious high-potassium items where possible (e.g., banana, potato, tomato paste, dried fruit, nuts). Even better: use preparation methods that leach potassium out of the ingredients (e.g., soak vegetables and boil them in plenty of water, then discard the water) and include those extra steps in the instructions.\n" +
                         $"OUTPUT REQUIREMENTS:\n" +
                         $"7. Generate exactly 4 servings and assign every applicable diet tag from this fixed list, using the exact English identifiers: low_potassium, low_phosphate, low_sodium, low_carb, protein_rich, high_fiber (omit tags that do not apply).\n" +
