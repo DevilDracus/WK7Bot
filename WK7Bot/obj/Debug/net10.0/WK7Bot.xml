@@ -134,6 +134,151 @@
             <param name="cancellationToken">Cancellation token to observe.</param>
             <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
         </member>
+        <member name="T:WK7Bot.Core.Utilities.FeedDeltaCalculator">
+            <summary>
+            Pure decision helpers for determining which RSS feed items are newly published
+            relative to a feed's stored baseline markers.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.FeedDeltaCalculator.HasBaseline(System.String,System.Nullable{System.DateTimeOffset})">
+            <summary>
+            Determines whether a feed already has a post-history baseline (GUID marker or published timestamp).
+            </summary>
+            <param name="lastItemGuid">The last processed item GUID, if any.</param>
+            <param name="lastPublishedDate">The publication timestamp of the last processed item, if any.</param>
+            <returns><see langword="true"/> when at least one baseline marker is present.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.FeedDeltaCalculator.IsItemNewer(System.String,System.Nullable{System.DateTimeOffset},System.String,System.Nullable{System.DateTimeOffset})">
+            <summary>
+            Decides whether a candidate feed item should be treated as newly published.
+            </summary>
+            <param name="itemGuid">The candidate item's GUID/id.</param>
+            <param name="itemPublishedDate">The candidate item's publication timestamp, if any.</param>
+            <param name="lastItemGuid">The feed's last processed item GUID, if any.</param>
+            <param name="lastPublishedDate">The feed's last processed publication timestamp, if any.</param>
+            <returns><see langword="true"/> when the item is newer than the recorded baseline.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.FeedDeltaCalculator.SelectNewestForBaseline``1(System.Collections.Generic.IReadOnlyList{``0},System.Func{``0,System.Nullable{System.DateTimeOffset}})">
+            <summary>
+            Selects the newest item (by publication date) suitable for seeding a first-poll baseline.
+            </summary>
+            <typeparam name="T">The item type.</typeparam>
+            <param name="items">Items to choose from.</param>
+            <param name="dateSelector">Extracts the publication timestamp from an item.</param>
+            <returns>The item with the greatest timestamp, or null when the list is empty.</returns>
+        </member>
+        <member name="T:WK7Bot.Core.Utilities.FeedTextFormatter">
+            <summary>
+            Pure text formatting helpers for RSS embed descriptions and truncation.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.FeedTextFormatter.HtmlTagRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>&lt;.*?&gt;</code><br/>
+            Options:<br/>
+            <code>RegexOptions.Singleline</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match '&lt;'.<br/>
+            ○ Match any character lazily any number of times.<br/>
+            ○ Match '&gt;'.<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.FeedTextFormatter.SanitizeFeedDescription(System.String,System.Int32)">
+            <summary>
+            Strips HTML tags, decodes HTML entities, trims whitespace, and truncates to <paramref name="maxLength"/>.
+            </summary>
+            <param name="rawDescription">Raw HTML or plain text from a feed item.</param>
+            <param name="maxLength">Maximum output length including the trailing ellipsis (default 500 for Discord embeds).</param>
+            <returns>Sanitized plain text suitable for Discord embed descriptions.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.FeedTextFormatter.TruncateWithEllipsis(System.String,System.Int32)">
+            <summary>
+            Truncates <paramref name="value"/> to <paramref name="maxLength"/> characters, appending an ellipsis when cut.
+            </summary>
+            <param name="value">The input text.</param>
+            <param name="maxLength">The maximum total length of the result (must be at least 3).</param>
+            <returns>The original string when it fits; otherwise a truncated string ending in "…"/"..."</returns>
+        </member>
+        <member name="T:WK7Bot.Core.Utilities.NameSanitizer">
+            <summary>
+            Shared name sanitization for Discord channel slugs and MQTT-safe identifiers.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.NameSanitizer.MqttUnsafeRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>[^a-z0-9_]</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match a character in the set [^0-9_a-z].<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.NameSanitizer.ToChannelSlug(System.String)">
+            <summary>
+            Converts a display name into a Discord-compliant channel slug (lowercase, spaces → hyphens).
+            </summary>
+            <param name="rawName">The raw display name.</param>
+            <returns>A lowercase, hyphenated channel name.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.NameSanitizer.ToMqttSafeName(System.String)">
+            <summary>
+            Converts an arbitrary name into an MQTT discovery-safe identifier (lowercase [a-z0-9_]).
+            </summary>
+            <param name="rawName">The raw name (e.g. Discord channel or username).</param>
+            <returns>A sanitized MQTT-safe name.</returns>
+        </member>
+        <member name="T:WK7Bot.Core.Utilities.WasteSummaryMapper">
+            <summary>
+            Maps raw ICS event summaries from Stadtreinigung Leipzig into user-friendly German display strings.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.WasteSummaryMapper.MapToFriendlyName(System.String)">
+            <summary>
+            Maps a raw calendar event summary to a localized, emoji-prefixed display label.
+            </summary>
+            <param name="rawSummary">The raw SUMMARY text from the ICS event (may be empty).</param>
+            <returns>A formatted German display string with emoji.</returns>
+        </member>
+        <member name="T:WK7Bot.Extensions.ServiceCollectionExtensions">
+            <summary>
+            Extension methods for configuring application services, data stores, and background workers modularly.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Extensions.ServiceCollectionExtensions.AddBotDatabase(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.String)">
+            <summary>
+            Registers Entity Framework Core SQLite database services.
+            </summary>
+            <param name="services">The service collection instance.</param>
+            <param name="connectionString">The SQLite database connection string.</param>
+            <returns>The service collection instance for method chaining.</returns>
+        </member>
+        <member name="M:WK7Bot.Extensions.ServiceCollectionExtensions.AddBotDiscordAndClients(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Registers Discord core socket clients, interaction frameworks, and API clients.
+            </summary>
+            <param name="services">The service collection instance.</param>
+            <returns>The service collection instance for method chaining.</returns>
+        </member>
+        <member name="M:WK7Bot.Extensions.ServiceCollectionExtensions.AddBotHostedServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Conditionally registers application background hosted services, allowing features to be toggled via configuration/MQTT flags.
+            </summary>
+            <param name="services">The service collection instance.</param>
+            <param name="configuration">The configuration provider.</param>
+            <returns>The service collection instance for method chaining.</returns>
+        </member>
+        <member name="M:WK7Bot.Extensions.ServiceCollectionExtensions.IsFeatureEnabled(Microsoft.Extensions.Configuration.IConfiguration,System.String)">
+            <summary>
+            Resolves a feature toggle from the Wk7Bot configuration section when present, otherwise from the root configuration.
+            </summary>
+            <param name="configuration">The configuration provider.</param>
+            <param name="featureKey">The snake_case feature key (e.g. rss_polling_enabled).</param>
+            <returns><see langword="true"/> when the feature is enabled or unset (defaults to enabled).</returns>
+        </member>
         <member name="T:WK7Bot.Infrastructure.Data.BotDbContext">
             <summary>
             Represents the primary Entity Framework Core database context for managing application entities.
@@ -227,25 +372,188 @@
             <param name="cancellationToken">Cancellation token to observe.</param>
             <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
         </member>
-        <member name="T:WK7Bot.Infrastructure.Extensions.InfrastructureServiceCollectionExtensions">
+        <member name="T:WK7Bot.Models.SteamAchievement">
             <summary>
-            Provides extension methods for registering infrastructure services, EF Core SQLite data access, and repository layers into the application service container.
+            Represents an achievement unlocked by the player within a Steam application.
             </summary>
         </member>
-        <member name="M:WK7Bot.Infrastructure.Extensions.InfrastructureServiceCollectionExtensions.AddInfrastructureServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+        <member name="P:WK7Bot.Models.SteamAchievement.ApiName">
             <summary>
-            Configures and registers the SQLite database context, auto-initialization, and repository dependencies.
+            Gets or sets the internal API identifier of the achievement.
             </summary>
-            <param name="services">The service collection instance being configured.</param>
-            <param name="configuration">The application configuration containing database connection settings.</param>
-            <returns>The modified service collection instance for chained method calls.</returns>
         </member>
-        <member name="M:WK7Bot.Infrastructure.Extensions.InfrastructureServiceCollectionExtensions.InitializeDatabaseAsync(System.IServiceProvider)">
+        <member name="P:WK7Bot.Models.SteamAchievement.Name">
             <summary>
-            Ensures the SQLite database file and required schema are created automatically on application startup.
+            Gets or sets the localized display title of the achievement.
             </summary>
-            <param name="serviceProvider">The root service provider instance used to create a service scope.</param>
-            <returns>A task representing the asynchronous database initialization operation.</returns>
+        </member>
+        <member name="P:WK7Bot.Models.SteamAchievement.Description">
+            <summary>
+            Gets or sets the localized description text explaining how the achievement was unlocked.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamAchievement.UnlockTime">
+            <summary>
+            Gets or sets the exact timestamp when the achievement was unlocked.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamAchievement.IconUrl">
+            <summary>
+            Gets or sets the absolute URL pointing to the achievement icon graphic.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Models.SteamRecentGame">
+            <summary>
+            Details recent gameplay duration and metadata for a specific Steam application.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamRecentGame.AppId">
+            <summary>
+            Gets or sets the unique Steam application identifier.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamRecentGame.Name">
+            <summary>
+            Gets or sets the display title of the game.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamRecentGame.PlaytimeTwoWeeksMinutes">
+            <summary>
+            Gets or sets the total minutes played in the last two weeks.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamRecentGame.PlaytimeForeverMinutes">
+            <summary>
+            Gets or sets the total lifetime minutes played on record.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Models.SteamUserData">
+            <summary>
+            Aggregates Steam profile status, play statistics, and achievement progress.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.SteamId">
+            <summary>
+            Gets or sets the unique 64-bit Steam ID identifier.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.PersonaName">
+            <summary>
+            Gets or sets the player's Steam persona display name.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.PersonaState">
+            <summary>
+            Gets or sets the current Steam online persona status.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.CurrentGameTitle">
+            <summary>
+            Gets or sets the name of the active game currently being played on Steam.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.CurrentGameAppId">
+            <summary>
+            Gets or sets the Steam AppID of the active game being played.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.PlaytimeLastTwoWeeksMinutes">
+            <summary>
+            Gets or sets the total play time in minutes across all games in the last 14 days.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.RecentGames">
+            <summary>
+            Gets or sets the collection of games played recently by the user.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.SteamUserData.RecentAchievements">
+            <summary>
+            Gets or sets the list of recently unlocked achievements for the currently active game.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Models.UserPresenceEntity">
+            <summary>
+            Represents the detailed presence state, activity details, and avatar assets of a Discord user for MQTT integration.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.UserPresenceEntity.Username">
+            <summary>
+            Gets or sets the Discord username.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.UserPresenceEntity.DiscordUserId">
+            <summary>
+            Gets or sets the unique Discord user identifier snowflake.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.UserPresenceEntity.Status">
+            <summary>
+            Gets or sets the current online status indicator such as Online, Idle, DoNotDisturb, or Offline.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.UserPresenceEntity.AvatarUrl">
+            <summary>
+            Gets or sets the direct CDN URL pointing to the user's active avatar image.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.UserPresenceEntity.GameName">
+            <summary>
+            Gets or sets the display name of the game or application currently being played.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.UserPresenceEntity.GameDetails">
+            <summary>
+            Gets or sets extended rich presence status or activity details provided by the active application.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.UserPresenceEntity.GameThumbnailUrl">
+            <summary>
+            Gets or sets the image asset URL for the active game thumbnail or rich presence artwork.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.UserPresenceEntity.LastUpdated">
+            <summary>
+            Gets or sets the UTC timestamp when the presence snapshot was captured and published.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.UserPresenceEntity.SteamData">
+            <summary>
+            Gets or sets the SteamUserData for the mapped discord user entity.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Modules.LeipzigWasteModule">
+            <summary>
+            Interaction module exposing slash commands for checking Leipzig waste collection schedules on demand.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Modules.LeipzigWasteModule.#ctor(WK7Bot.Services.Interfaces.ILeipzigWasteService)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Modules.LeipzigWasteModule"/> class.
+            </summary>
+            <param name="wasteService">The waste calendar service instance.</param>
+        </member>
+        <member name="M:WK7Bot.Modules.LeipzigWasteModule.CheckWasteAsync(System.Nullable{System.Int32},System.String)">
+            <summary>
+            Slash command handler executing real-time waste schedule lookups for a specific date or a relative range of days.
+            </summary>
+            <param name="days">Optional number of days ahead to check (e.g., 7 for the upcoming week).</param>
+            <param name="dateInput">Optional specific date in DD.MM.YYYY or YYYY-MM-DD format.</param>
+            <returns>A task representing the interaction response execution.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.LeipzigWasteModule.HandleSingleDateQueryAsync(System.String)">
+            <summary>
+            Parses a user-supplied date string and returns an ephemeral embed with collection details for that specific day.
+            </summary>
+            <param name="dateInput">Raw date string provided by the user in the interaction.</param>
+            <returns>A task representing the asynchronous followup interaction response.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.LeipzigWasteModule.HandleDateRangeQueryAsync(System.Int32)">
+            <summary>
+            Queries and constructs an ephemeral embed for a range of consecutive days starting from today.
+            </summary>
+            <param name="daysCount">The total number of consecutive days to process.</param>
+            <returns>A task representing the asynchronous followup interaction response.</returns>
         </member>
         <member name="T:WK7Bot.Modules.RssCommandsModule">
             <summary>
@@ -300,13 +608,6 @@
             <param name="categoryName">Name of the parent category.</param>
             <returns>The existing or newly created category channel.</returns>
         </member>
-        <member name="M:WK7Bot.Modules.RssCommandsModule.SanitizeChannelName(System.String)">
-            <summary>
-            Converts a display name into a Discord-compliant channel name string.
-            </summary>
-            <param name="rawName">The raw input name.</param>
-            <returns>A lowercase, hyphenated channel name string.</returns>
-        </member>
         <member name="T:WK7Bot.Modules.RssComponentModule">
             <summary>
             Handles UI component interactions such as select menus and buttons for RSS feed subscriptions.
@@ -331,7 +632,7 @@
             Provides general diagnostic slash commands for testing gateway latency and API connections.
             </summary>
         </member>
-        <member name="M:WK7Bot.Modules.SystemModule.#ctor(WK7Bot.Services.IHomeAssistantService)">
+        <member name="M:WK7Bot.Modules.SystemModule.#ctor(WK7Bot.Services.Interfaces.IHomeAssistantService)">
             <summary>
             Initializes a new instance of the <see cref="T:WK7Bot.Modules.SystemModule"/> class.
             </summary>
@@ -349,17 +650,196 @@
             </summary>
             <returns>A task representing the command execution operation.</returns>
         </member>
+        <member name="T:WK7Bot.Options.AlexaNotificationOptions">
+            <summary>
+            Configuration options for third-party Alexa notification integrations.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.AlexaNotificationOptions.TargetUserId">
+            <summary>
+            Gets or sets the target user identifier.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.AlexaNotificationOptions.ApiToken">
+            <summary>
+            Gets or sets the API token used for authenticating notification requests.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.AlexaNotificationOptions.ApiSecret">
+            <summary>
+            Gets or sets the shared secret key for notification signature validation.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.AlexaNotificationOptions.EndpointUrl">
+            <summary>
+            Gets or sets the target API endpoint URL.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Options.DiscordSteamMappingOptions">
+            <summary>
+            Defines a mapping configuration entry binding a Discord user ID to a 64-bit Steam ID.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.DiscordSteamMappingOptions.DiscordUserId">
+            <summary>
+            Gets or sets the target Discord user snowflake ID.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.DiscordSteamMappingOptions.SteamId">
+            <summary>
+            Gets or sets the associated 64-bit Steam ID.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Options.FeatureOptions">
+            <summary>
+            Toggles indicating enabled or disabled application feature modules.
+            All features default to enabled to match Home Assistant add-on defaults and registration-time defaults.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.FeatureOptions.RssPollingEnabled">
+            <summary>
+            Gets or sets a value indicating whether RSS feed background polling is enabled.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.FeatureOptions.HomeAssistantNotifierEnabled">
+            <summary>
+            Gets or sets a value indicating whether Home Assistant notification listener is enabled.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.FeatureOptions.LeipzigWasteEnabled">
+            <summary>
+            Gets or sets a value indicating whether Leipzig waste collection schedule tracking is enabled.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.FeatureOptions.AlexaNotificationsEnabled">
+            <summary>
+            Gets or sets a value indicating whether Alexa notification dispatching is enabled.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.FeatureOptions.DiscordPresenceMqttEnabled">
+            <summary>
+            Gets or sets a value indicating whether publishing Discord presence updates to MQTT is enabled.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.FeatureOptions.SteamPresenceEnabled">
+            <summary>
+            Gets or sets a value indicating whether Steam presence enrichment is enabled.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Options.Wk7BotOptions">
+            <summary>
+            Root configuration options for the WK7 Bot application.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Options.Wk7BotOptions.SectionName">
+            <summary>
+            Configuration section name inside appsettings.json or options.json.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.DiscordToken">
+            <summary>
+            Gets or sets the authentication token for the Discord bot account.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.MqttHost">
+            <summary>
+            Gets or sets the MQTT broker hostname or container address.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.MqttPort">
+            <summary>
+            Gets or sets the connection port for the MQTT broker.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.MqttUsername">
+            <summary>
+            Gets or sets the optional username for MQTT broker authentication.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.MqttPassword">
+            <summary>
+            Gets or sets the optional password for MQTT broker authentication.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.SteamApiKey">
+            <summary>
+            Gets or sets the Valve Steam Web API key.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.DiscordSteamMappings">
+            <summary>
+            Gets or sets the list of explicit Discord user ID to Steam ID mappings.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.DiscordDmUserIds">
+            <summary>
+            Gets or sets the target Discord user IDs configured for direct messaging notifications.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.AlexaNotification">
+            <summary>
+            Gets or sets the configuration options for Alexa notifications.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.Wk7BotOptions.Features">
+            <summary>
+            Gets or sets feature toggle flags for individual background services.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.AlexaMentionNotificationService">
+            <summary>
+            Hosted background service monitoring Discord gateway messages for target user mentions
+            and forwarding queued notifications to the getnotify.me Alexa API using HTTP Basic Authentication.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.AlexaMentionNotificationService.#ctor(Discord.WebSocket.DiscordSocketClient,System.Net.Http.HttpClient,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.AlexaMentionNotificationService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.AlexaMentionNotificationService"/> class.
+            </summary>
+            <param name="discordClient">The active Discord socket client instance.</param>
+            <param name="httpClient">The HTTP client instance for outbound REST API requests.</param>
+            <param name="options">The strongly-typed application configuration options.</param>
+            <param name="logger">The logger instance for operational diagnostics.</param>
+        </member>
+        <member name="M:WK7Bot.Services.AlexaMentionNotificationService.StartAsync(System.Threading.CancellationToken)">
+            <summary>
+            Binds the message received event handler to the Discord socket client when the background service starts if enabled.
+            </summary>
+            <param name="cancellationToken">Cancellation token monitored during application startup.</param>
+            <returns>A completed task representing startup initialization.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.AlexaMentionNotificationService.StopAsync(System.Threading.CancellationToken)">
+            <summary>
+            Unbinds the message received event handler from the Discord socket client when the service stops.
+            </summary>
+            <param name="cancellationToken">Cancellation token monitored during application shutdown.</param>
+            <returns>A completed task representing shutdown cleanup.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.AlexaMentionNotificationService.HandleMessageReceivedAsync(Discord.WebSocket.SocketMessage)">
+            <summary>
+            Evaluates incoming Discord socket messages to detect mentions of the configured target user ID.
+            </summary>
+            <param name="rawMessage">The raw incoming socket message received from the Discord gateway.</param>
+            <returns>A task representing the asynchronous message evaluation process.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.AlexaMentionNotificationService.SendAlexaNotificationAsync(System.String)">
+            <summary>
+            Dispatches the formatted notification payload to getnotify.me using HTTP Basic Authentication.
+            </summary>
+            <param name="notificationText">The formatted message content to be queued for Alexa.</param>
+            <returns>A task representing the asynchronous HTTP request operation.</returns>
+        </member>
         <member name="T:WK7Bot.Services.DiscordBotWorker">
             <summary>
             Manages the background connection lifecycle for the Discord bot client.
             </summary>
         </member>
-        <member name="M:WK7Bot.Services.DiscordBotWorker.#ctor(Discord.WebSocket.DiscordSocketClient,Microsoft.Extensions.Configuration.IConfiguration,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.DiscordBotWorker})">
+        <member name="M:WK7Bot.Services.DiscordBotWorker.#ctor(Discord.WebSocket.DiscordSocketClient,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.DiscordBotWorker})">
             <summary>
             Initializes a new instance of the <see cref="T:WK7Bot.Services.DiscordBotWorker"/> class with injected dependencies.
             </summary>
             <param name="client">The active Discord gateway socket client.</param>
-            <param name="configuration">Application configuration loaded from environment variables, user secrets, and JSON options.</param>
+            <param name="options">The strongly-typed application configuration options.</param>
             <param name="logger">The diagnostic logging service.</param>
         </member>
         <member name="M:WK7Bot.Services.DiscordBotWorker.ExecuteAsync(System.Threading.CancellationToken)">
@@ -371,7 +851,7 @@
         </member>
         <member name="M:WK7Bot.Services.DiscordBotWorker.GetDiscordToken">
             <summary>
-            Resolves the Discord bot token across multiple configuration sources including .NET User Secrets, Home Assistant options, and environment variables.
+            Resolves the Discord bot token, falling back to environment variables if unpopulated in strongly-typed options.
             </summary>
             <returns>The resolved Discord bot token string, or null if no valid token was found.</returns>
         </member>
@@ -382,13 +862,116 @@
             <param name="message">The incoming event payload containing severity, source, and message text.</param>
             <returns>A completed task representing the log forwarding operation.</returns>
         </member>
-        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.#ctor(Discord.WebSocket.DiscordSocketClient,MQTTnet.IMqttClient,Microsoft.Extensions.Configuration.IConfiguration)">
+        <member name="T:WK7Bot.Services.DiscordPresenceMqttService">
+            <summary>
+            Listens to Discord presence updates, extracts user status and activity artwork, and publishes unified user entities to Home Assistant via MQTT Discovery.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.#ctor(Discord.WebSocket.DiscordSocketClient,MQTTnet.IMqttClient,WK7Bot.Services.Interfaces.ISteamService,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.DiscordPresenceMqttService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.DiscordPresenceMqttService"/> class.
+            </summary>
+            <param name="discordClient">The active Discord socket client handling server connections.</param>
+            <param name="mqttClient">The connected MQTT client instance responsible for broker communication.</param>
+            <param name="steamService">The Steam service instance used to fetch Steam metadata.</param>
+            <param name="options">The strongly-typed application configuration options.</param>
+            <param name="logger">The logging service instance for operational diagnostics.</param>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.ExecuteAsync(System.Threading.CancellationToken)">
+            <summary>
+            Registers presence update handlers, connects the MQTT client, and maintains background execution.
+            </summary>
+            <param name="stoppingToken">Cancellation token monitored for background service termination.</param>
+            <returns>A task representing the asynchronous lifecycle of the service.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.ConnectMqttClientAsync(System.Threading.CancellationToken)">
+            <summary>
+            Establishes connection to the MQTT broker using application configuration settings.
+            </summary>
+            <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
+            <returns>A task tracking the asynchronous connection operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.OnDiscordReadyAsync">
+            <summary>
+            Performs an initial presence sweep for all cached guild users upon Discord client ready state.
+            </summary>
+            <returns>A task tracking asynchronous sweep processing.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.OnPresenceUpdatedAsync(Discord.WebSocket.SocketUser,Discord.WebSocket.SocketPresence,Discord.WebSocket.SocketPresence)">
+            <summary>
+            Processes incoming user presence changes and publishes updated state payloads to MQTT.
+            </summary>
+            <param name="user">The user whose presence state was updated.</param>
+            <param name="before">The user's prior presence snapshot.</param>
+            <param name="after">The user's current presence snapshot.</param>
+            <returns>A task tracking event processing and MQTT publishing operations.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.ProcessUserPresenceAsync(Discord.WebSocket.SocketUser,Discord.WebSocket.SocketPresence)">
+            <summary>
+            Extracts presence entity data, enriches Steam telemetry if enabled, ensures Home Assistant discovery registration, and publishes current state to MQTT.
+            </summary>
+            <param name="user">The socket user target.</param>
+            <param name="presence">The active presence object containing status and activities, if available.</param>
+            <returns>A task tracking discovery and state publishing operations.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.ExtractPresenceEntity(Discord.WebSocket.SocketUser,Discord.WebSocket.SocketPresence)">
+            <summary>
+            Transforms Discord user state into a structured entity model using either event presence or cached user state.
+            </summary>
+            <param name="user">The user object associated with the update event or guild sweep.</param>
+            <param name="presence">The optional user presence data from a presence update event.</param>
+            <returns>A populated user presence entity ready for JSON serialization.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.ResolveGameThumbnailUrl(Discord.RichGame)">
+            <summary>
+            Resolves direct URLs for game art or rich presence application assets.
+            </summary>
+            <param name="richGame">The rich presence game activity instance.</param>
+            <returns>The resolved image URL string, or null if no image asset is attached.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.BuildImageUrl(System.Nullable{System.UInt64},System.String)">
+            <summary>
+            Constructs a valid image URL for Discord Application assets.
+            </summary>
+            <param name="applicationId">The rich presence application ID.</param>
+            <param name="imageId">The image identifier from the asset.</param>
+            <returns>A formatted URL string pointing to the image payload.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.PublishHomeAssistantDiscoveryAsync(WK7Bot.Models.UserPresenceEntity)">
+            <summary>
+            Transmits a single Home Assistant MQTT Auto-Discovery configuration payload to dynamically register a unified user presence entity with all metadata attributes.
+            </summary>
+            <param name="entity">The presence entity instance containing user metadata.</param>
+            <returns>A task tracking asynchronous MQTT discovery publication.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.SendMqttDiscoveryPayloadAsync(System.String,System.Object)">
+            <summary>
+            Helper method for serializing and publishing individual discovery payload objects to the Home Assistant configuration topic.
+            </summary>
+            <param name="topic">The target discovery topic path.</param>
+            <param name="payloadObject">The object payload to serialize as JSON.</param>
+            <returns>A task tracking asynchronous publication.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.DiscordPresenceMqttService.PublishPresenceEntityAsync(WK7Bot.Models.UserPresenceEntity)">
+            <summary>
+            Serializes the presence entity, dynamically appends the entity_picture mapping for Home Assistant, and transmits it to the dedicated MQTT state topic.
+            </summary>
+            <param name="entity">The presence entity instance containing user data.</param>
+            <returns>A task tracking asynchronous MQTT publication.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.HomeAssistantNotifierService">
+            <summary>
+            Background service that bridges Discord text channels and direct messages with Home Assistant via MQTT Discovery and notification commands.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.#ctor(Discord.WebSocket.DiscordSocketClient,MQTTnet.IMqttClient,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.HomeAssistantNotifierService})">
             <summary>
             Initializes a new instance of the <see cref="T:WK7Bot.Services.HomeAssistantNotifierService"/> class with required dependencies.
             </summary>
-            <param name="discordClient">The active Discord socket client instance used for channel interactions.</param>
+            <param name="discordClient">The active Discord socket client instance used for channel and user interactions.</param>
             <param name="mqttClient">The active MQTT client instance used to communicate with Home Assistant.</param>
-            <param name="configuration">The configuration provider used to retrieve broker settings.</param>
+            <param name="options">The strongly-typed application configuration options.</param>
+            <param name="logger">The diagnostic logging service instance.</param>
         </member>
         <member name="M:WK7Bot.Services.HomeAssistantNotifierService.ExecuteAsync(System.Threading.CancellationToken)">
             <summary>
@@ -399,9 +982,9 @@
         </member>
         <member name="M:WK7Bot.Services.HomeAssistantNotifierService.OnReadyAsync">
             <summary>
-            Event handler executed when the Discord client achieves a ready state, initiating full channel discovery.
+            Event handler executed when the Discord client achieves a ready state, initiating full channel and user entity discovery.
             </summary>
-            <returns>A task representing the initial channel discovery operation.</returns>
+            <returns>A task representing the initial entity discovery operation.</returns>
         </member>
         <member name="M:WK7Bot.Services.HomeAssistantNotifierService.OnChannelCreatedAsync(Discord.WebSocket.SocketChannel)">
             <summary>
@@ -425,17 +1008,30 @@
             <param name="newChannel">The updated socket channel state.</param>
             <returns>A task representing the state synchronization operation.</returns>
         </member>
-        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.RegisterAllWritableChannelsAsync">
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.RegisterAllEntitiesAsync">
             <summary>
-            Iterates through all connected guilds and registers entities for text channels where send permissions are granted.
+            Iterates through all connected guilds and registers writable text channels alongside configured direct message user notification entities.
             </summary>
-            <returns>A task representing the bulk channel registration workflow.</returns>
+            <returns>A task representing the complete entity registration workflow.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.GetConfiguredDmUserIds">
+            <summary>
+            Retrieves the list of configured user IDs designated to receive private direct message notifications from configuration options.
+            </summary>
+            <returns>A collection of parsed ulong user identifiers.</returns>
         </member>
         <member name="M:WK7Bot.Services.HomeAssistantNotifierService.RegisterChannelNotificationEntityAsync(Discord.WebSocket.SocketTextChannel)">
             <summary>
             Registers a specific Discord text channel as a Home Assistant notification entity via MQTT Discovery.
             </summary>
             <param name="channel">The target text channel to expose as an MQTT entity.</param>
+            <returns>A task representing the publication of the discovery MQTT payload.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.RegisterUserDmNotificationEntityAsync(System.UInt64)">
+            <summary>
+            Registers a specific Discord user as a Home Assistant direct message notification entity via MQTT Discovery.
+            </summary>
+            <param name="userId">The target user Snowflake ID to expose as an MQTT entity.</param>
             <returns>A task representing the publication of the discovery MQTT payload.</returns>
         </member>
         <member name="M:WK7Bot.Services.HomeAssistantNotifierService.UnregisterChannelNotificationEntityAsync(Discord.WebSocket.SocketTextChannel)">
@@ -452,9 +1048,9 @@
             <param name="channel">The text channel to evaluate permissions against.</param>
             <returns>True if the bot can send messages in the channel; otherwise, false.</returns>
         </member>
-        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.ProcessIncomingMultiChannelNotificationAsync(MQTTnet.MqttApplicationMessageReceivedEventArgs)">
+        <member name="M:WK7Bot.Services.HomeAssistantNotifierService.ProcessIncomingNotificationAsync(MQTTnet.MqttApplicationMessageReceivedEventArgs)">
             <summary>
-            Extracts the target channel identifier from an incoming MQTT message topic and dispatches the message payload to Discord.
+            Extracts target channel or user identifiers from incoming MQTT message topics and dispatches the message payload to Discord.
             </summary>
             <param name="eventArgs">The received MQTT application message event arguments containing topic and payload data.</param>
             <returns>A task representing the message dispatch operation.</returns>
@@ -479,32 +1075,20 @@
             <param name="cancellationToken">Cancellation token to cancel the request execution.</param>
             <returns>The raw string payload returned by the Home Assistant API.</returns>
         </member>
-        <member name="T:WK7Bot.Services.IHomeAssistantService">
-            <summary>
-            Defines client operations for interacting with the Home Assistant REST API.
-            </summary>
-        </member>
-        <member name="M:WK7Bot.Services.IHomeAssistantService.GetApiStateAsync(System.String,System.Threading.CancellationToken)">
-            <summary>
-            Executes an HTTP GET request against the Home Assistant REST API via the Supervisor proxy connection.
-            </summary>
-            <param name="endpoint">The relative endpoint path to request from the REST API.</param>
-            <param name="cancellationToken">Cancellation token to cancel the request execution.</param>
-            <returns>The raw string payload returned by the Home Assistant API.</returns>
-        </member>
         <member name="T:WK7Bot.Services.InteractionHandlingService">
             <summary>
             Manages the registration of interaction modules and routes incoming Discord slash command interactions.
             </summary>
         </member>
-        <member name="M:WK7Bot.Services.InteractionHandlingService.#ctor(Discord.WebSocket.DiscordSocketClient,Discord.Interactions.InteractionService,System.IServiceProvider,Microsoft.Extensions.Configuration.IConfiguration,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.InteractionHandlingService})">
+        <member name="M:WK7Bot.Services.InteractionHandlingService.#ctor(Discord.WebSocket.DiscordSocketClient,Discord.Interactions.InteractionService,System.IServiceProvider,Microsoft.Extensions.Configuration.IConfiguration,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.InteractionHandlingService})">
             <summary>
             Initializes a new instance of the <see cref="T:WK7Bot.Services.InteractionHandlingService"/> class.
             </summary>
             <param name="client">The active Discord socket client instance.</param>
             <param name="interactionService">The interaction service responsible for handling commands.</param>
             <param name="services">The dependency injection service provider context.</param>
-            <param name="configuration">The application configuration instance.</param>
+            <param name="configuration">The application configuration instance used to retrieve target guild options.</param>
+            <param name="options">The strongly-typed application configuration options.</param>
             <param name="logger">The logging service instance.</param>
         </member>
         <member name="M:WK7Bot.Services.InteractionHandlingService.StartAsync(System.Threading.CancellationToken)">
@@ -534,21 +1118,131 @@
             <param name="interaction">The incoming socket interaction payload from Discord.</param>
             <returns>A task representing the asynchronous interaction execution operation.</returns>
         </member>
-        <member name="M:WK7Bot.Services.RssDashboardService.#ctor(WK7Bot.Infrastructure.Data.BotDbContext,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.RssDashboardService})">
+        <member name="T:WK7Bot.Services.Interfaces.IHomeAssistantService">
             <summary>
-            Initializes a new instance of the <see cref="T:WK7Bot.Services.RssDashboardService"/> class.
+            Defines client operations for interacting with the Home Assistant REST API.
             </summary>
-            <param name="dbContext">The database context for accessing RSS settings and feed records.</param>
-            <param name="logger">The logger instance for tracking operational events.</param>
         </member>
-        <member name="M:WK7Bot.Services.RssDashboardService.RefreshDashboardAsync(Discord.ITextChannel,System.Threading.CancellationToken)">
+        <member name="M:WK7Bot.Services.Interfaces.IHomeAssistantService.GetApiStateAsync(System.String,System.Threading.CancellationToken)">
             <summary>
-            Updates the existing RSS subscription dashboard message or creates a new one in the target channel if none exists.
-            Stores the resulting Channel ID and Message ID in the database.
+            Executes an HTTP GET request against the Home Assistant REST API via the Supervisor proxy connection.
             </summary>
-            <param name="channel">The text channel where the dashboard embed should reside.</param>
-            <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-            <returns>A task representing the asynchronous operation.</returns>
+            <param name="endpoint">The relative endpoint path to request from the REST API.</param>
+            <param name="cancellationToken">Cancellation token to cancel the request execution.</param>
+            <returns>The raw string payload returned by the Home Assistant API.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.Interfaces.ILeipzigWasteService">
+            <summary>
+            Service interface defining contract capabilities for parsing and fetching Leipzig waste collection schedules.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.Interfaces.ILeipzigWasteService.GetWasteTypesForDateAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Downloads and parses the ICS feed to retrieve waste collection summaries for a target calendar date.
+            </summary>
+            <param name="targetDate">The target date to evaluate against calendar events.</param>
+            <param name="cancellationToken">Cancellation token for network request execution.</param>
+            <returns>A list of user-friendly waste collection descriptions scheduled for the given date.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.Interfaces.ISteamService">
+            <summary>
+            Defines operations for requesting user profiles, activity stats, and achievements from the Steam Web API.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.Interfaces.ISteamService.GetSteamIdForDiscordUser(System.String)">
+            <summary>
+            Resolves the mapped 64-bit Steam ID for a given Discord user ID from options.
+            </summary>
+            <param name="discordUserId">The target Discord user snowflake ID string.</param>
+            <returns>The mapped 64-bit Steam ID, or null if no mapping exists.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.Interfaces.ISteamService.GetSteamUserDataAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Fetches player summary data, recent game playtimes, and active game achievements for a specific Steam ID.
+            </summary>
+            <param name="steamId">The 64-bit Steam ID of the user.</param>
+            <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
+            <returns>A populated <see cref="T:WK7Bot.Models.SteamUserData"/> model or null if fetching fails.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.LeipzigWasteBackgroundService">
+            <summary>
+            Background service that periodically checks for Leipzig waste collections,
+            posting daily confirmation notifications and weekly collection overviews to a dedicated Discord channel.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.#ctor(Discord.WebSocket.DiscordSocketClient,WK7Bot.Services.Interfaces.ILeipzigWasteService,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.LeipzigWasteBackgroundService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.LeipzigWasteBackgroundService"/> class.
+            </summary>
+            <param name="discordClient">The connected Discord socket client instance.</param>
+            <param name="wasteService">The Leipzig waste schedule parser service.</param>
+            <param name="options">The strongly-typed application configuration options.</param>
+            <param name="logger">The logger instance for background execution diagnostics.</param>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.ExecuteAsync(System.Threading.CancellationToken)">
+            <summary>
+            Runs the schedule loop, evaluating daily checks every morning at 08:00 AM and weekly overviews on Mondays at 09:00 AM.
+            </summary>
+            <param name="stoppingToken">Cancellation token monitored for background service shutdown.</param>
+            <returns>A task representing the background execution process.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.CheckAndSendWasteNotificationsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Queries yesterday's waste collections via the waste service and sends Discord notification embeds.
+            </summary>
+            <param name="cancellationToken">Cancellation token for network operations.</param>
+            <returns>A task representing the asynchronous notification process.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.SendWeeklyWasteOverviewAsync(System.Threading.CancellationToken)">
+            <summary>
+            Queries collection dates for the upcoming 7 days starting from Monday and sends a weekly overview embed to target Discord channels.
+            </summary>
+            <param name="cancellationToken">Cancellation token for network operations.</param>
+            <returns>A task representing the asynchronous weekly overview process.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.BuildWasteNotificationEmbed(System.Collections.Generic.List{System.String},System.DateTime)">
+            <summary>
+            Constructs a structured Discord Embed confirming the waste pickup from the previous day.
+            </summary>
+            <param name="wasteTypes">The list of waste collection types that were picked up yesterday.</param>
+            <param name="date">The date on which the collection occurred.</param>
+            <returns>The constructed embed ready for channel broadcast.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.BuildWeeklyOverviewEmbedAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Constructs a structured Discord Embed summarizing upcoming waste collections for the next 7 days in the style of the interaction module.
+            </summary>
+            <param name="startDate">The starting Monday date for the weekly overview evaluation.</param>
+            <param name="cancellationToken">Cancellation token for calendar queries.</param>
+            <returns>A task returning the constructed weekly overview embed.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteBackgroundService.GetOrCreateWasteChannelAsync(Discord.WebSocket.SocketGuild)">
+            <summary>
+            Checks for an existing waste notification channel in the guild or creates a new read-only channel.
+            </summary>
+            <param name="guild">The target guild where channel existence is evaluated.</param>
+            <returns>A task representing the asynchronous channel creation or retrieval operation, returning the text channel instance.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.LeipzigWasteService">
+            <summary>
+            Implementation of the waste service responsible for retrieving and mapping ICS feed data.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteService.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Configuration.IConfiguration,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.LeipzigWasteService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.LeipzigWasteService"/> class.
+            </summary>
+            <param name="httpClient">The HTTP client instance for requesting remote web resources.</param>
+            <param name="configuration">The configuration provider containing application settings.</param>
+            <param name="logger">The logger instance for diagnostics and execution logging.</param>
+        </member>
+        <member name="M:WK7Bot.Services.LeipzigWasteService.GetWasteTypesForDateAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Downloads and parses the ICS feed to retrieve waste collection summaries for a target calendar date.
+            </summary>
+            <param name="targetDate">The target date to evaluate against calendar events.</param>
+            <param name="cancellationToken">Cancellation token for network request execution.</param>
+            <returns>A list of user-friendly waste collection descriptions scheduled for the given date.</returns>
         </member>
         <member name="T:WK7Bot.Services.RssParserService">
             <summary>
@@ -564,30 +1258,25 @@
         <member name="M:WK7Bot.Services.RssParserService.FetchNewItemsAsync(WK7Bot.Core.Entities.RssFeed,System.Threading.CancellationToken)">
             <summary>
             Fetches the feed from the specified URL and retrieves new items published after the last recorded state.
+            When the feed has no baseline markers yet (first poll), the newest item is recorded on the entity
+            without being returned, so historical backlog is never posted to Discord.
             </summary>
             <param name="feed">The database entity containing feed configuration and historical tracking state.</param>
             <param name="cancellationToken">Token to monitor for cancellation requests.</param>
             <returns>A list of newly published feed items ordered by publication date ascending.</returns>
-        </member>
-        <member name="M:WK7Bot.Services.RssParserService.IsItemNewer(CodeHollow.FeedReader.FeedItem,WK7Bot.Core.Entities.RssFeed)">
-            <summary>
-            Determines whether an individual feed item is newer than the recorded feed state.
-            </summary>
-            <param name="item">The candidate feed item retrieved from the feed.</param>
-            <param name="feed">The current feed entity stored in the database.</param>
-            <returns><see langword="true"/> if the item has not been posted previously; otherwise, <see langword="false"/>.</returns>
         </member>
         <member name="T:WK7Bot.Services.RssPollingBackgroundService">
             <summary>
             Background service that periodically polls registered RSS feeds and broadcasts updates to Discord.
             </summary>
         </member>
-        <member name="M:WK7Bot.Services.RssPollingBackgroundService.#ctor(System.IServiceProvider,Discord.WebSocket.DiscordSocketClient,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.RssPollingBackgroundService})">
+        <member name="M:WK7Bot.Services.RssPollingBackgroundService.#ctor(System.IServiceProvider,Discord.WebSocket.DiscordSocketClient,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.RssPollingBackgroundService})">
             <summary>
             Initializes a new instance of the <see cref="T:WK7Bot.Services.RssPollingBackgroundService"/> class.
             </summary>
             <param name="serviceProvider">The service provider to create database scopes.</param>
             <param name="discordClient">The active Discord client instance.</param>
+            <param name="options">The strongly-typed application configuration options.</param>
             <param name="logger">The logger instance for operational tracking.</param>
         </member>
         <member name="M:WK7Bot.Services.RssPollingBackgroundService.OnDiscordClientReadyAsync">
@@ -619,12 +1308,84 @@
             <param name="item">The newly retrieved feed item.</param>
             <returns>A task representing the send operation.</returns>
         </member>
-        <member name="M:WK7Bot.Services.RssPollingBackgroundService.CleanDescription(System.String)">
+        <member name="T:WK7Bot.Services.SteamService">
             <summary>
-            Strips HTML tags and truncates the feed summary to fit within Discord embed constraints.
+            Communicates with Valve Steam Web API endpoints to fetch player profiles, recent activity, and enriched achievement metrics.
             </summary>
-            <param name="rawDescription">The raw HTML or plain text description from the RSS feed.</param>
-            <returns>A sanitized string suitable for display in a Discord embed description.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Caching.Memory.IMemoryCache,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.SteamService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.SteamService"/> class.
+            </summary>
+            <param name="httpClient">The HTTP client instance configured for Steam requests.</param>
+            <param name="cache">The memory cache instance used to cache game achievement schemas.</param>
+            <param name="options">The strongly-typed application options instance containing credentials and mappings.</param>
+            <param name="logger">The logging service instance for operational diagnostics.</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when any required dependency is null.</exception>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.GetSteamIdForDiscordUser(System.String)">
+            <summary>
+            Resolves the configured Steam ID for a specified Discord user snowflake ID.
+            </summary>
+            <param name="discordUserId">The target Discord user ID.</param>
+            <returns>The mapped 64-bit Steam ID, or null if no mapping exists.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.GetSteamUserDataAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Fetches player summary data, recent game playtimes, and enriched active game achievements for a specific Steam ID.
+            </summary>
+            <param name="steamId">The 64-bit Steam ID of the user.</param>
+            <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
+            <returns>A populated <see cref="T:WK7Bot.Models.SteamUserData"/> model, or null if retrieval fails.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.GetEnrichedAchievementsAsync(System.String,System.UInt32,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves player achievements for a specified game and merges icon image URLs obtained from the Steam Game Schema API.
+            </summary>
+            <param name="steamId">The unique 64-bit Steam identifier of the target user.</param>
+            <param name="appId">The unique application identifier for the target game.</param>
+            <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+            <returns>A collection of enriched <see cref="T:WK7Bot.Models.SteamAchievement"/> instances containing achievement info, timestamps, and icon URLs.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.FetchPlayerSummaryAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Requests player summary state including display name, online status, and current active game.
+            </summary>
+            <param name="steamId">The 64-bit Steam ID target.</param>
+            <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
+            <returns>An initialized <see cref="T:WK7Bot.Models.SteamUserData"/> container populated with summary metadata, or null if request fails.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.EnrichRecentGamesAsync(WK7Bot.Models.SteamUserData,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves recent game play times for the user over the prior 14 days.
+            </summary>
+            <param name="userData">The user data model to populate with recent game statistics.</param>
+            <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
+            <returns>A task tracking the asynchronous operation.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.GetGameSchemaAsync(System.UInt32,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves game achievement schema mappings from the Steam Web API or cache, linking API names to unlocked icon URLs.
+            </summary>
+            <param name="appId">The unique application identifier for the game.</param>
+            <param name="cancellationToken">A token to monitor for operation cancellation.</param>
+            <returns>A dictionary mapping achievement API names to their respective absolute icon URLs.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.GetPlayerAchievementsAsync(System.String,System.UInt32,System.Threading.CancellationToken)">
+            <summary>
+            Requests player achievement progress and unlock timestamps from the Steam Web API.
+            </summary>
+            <param name="steamId">The 64-bit Steam ID of the user.</param>
+            <param name="appId">The application identifier for the game.</param>
+            <param name="cancellationToken">A token to monitor for operation cancellation.</param>
+            <returns>A list of player achievements populated with API names, titles, descriptions, and unlock times.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SteamService.MapPersonaState(System.Int32)">
+            <summary>
+            Converts numeric Steam persona state values to human-readable status labels.
+            </summary>
+            <param name="stateCode">The integer status code returned by the Steam API.</param>
+            <returns>A string representation of the user's online state.</returns>
         </member>
         <member name="T:Program">
             <summary>
@@ -642,6 +1403,77 @@
             </summary>
             <param name="app">The running web application instance providing service resolution access.</param>
             <returns>A task representing the asynchronous database startup operation.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.HtmlTagRegex_0">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the HtmlTagRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.HtmlTagRegex_0.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.HtmlTagRegex_0.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.HtmlTagRegex_0.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.HtmlTagRegex_0.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.HtmlTagRegex_0.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.HtmlTagRegex_0.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.HtmlTagRegex_0.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.HtmlTagRegex_0.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.MqttUnsafeRegex_1">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the MqttUnsafeRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.MqttUnsafeRegex_1.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MqttUnsafeRegex_1.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.MqttUnsafeRegex_1.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MqttUnsafeRegex_1.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.MqttUnsafeRegex_1.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MqttUnsafeRegex_1.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MqttUnsafeRegex_1.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.Utilities">
+            <summary>Helper methods used by generated <see cref="T:System.Text.RegularExpressions.Regex"/>-derived implementations.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout">
+            <summary>Default timeout value set in <see cref="T:System.AppContext"/>, or <see cref="F:System.Text.RegularExpressions.Regex.InfiniteMatchTimeout"/> if none was set.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_hasTimeout">
+            <summary>Whether <see cref="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout"/> is non-infinite.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_ascii_FF0300000080FEFFFF07">
+            <summary>Supports searching for characters in or not in "0123456789_abcdefghijklmnopqrstuvwxyz".</summary>
         </member>
     </members>
 </doc>

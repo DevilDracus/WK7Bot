@@ -9,9 +9,9 @@ using MQTTnet;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
 
 /// <summary>
@@ -70,8 +70,11 @@ public class HomeAssistantNotifierService : BackgroundService
 
         try
         {
-            await _mqttClient.ConnectAsync(optionsBuilder.Build(), stoppingToken);
-            _logger.LogInformation("Successfully connected Home Assistant Notifier to MQTT broker at {Host}:{Port}", mqttHost, mqttPort);
+            if (!_mqttClient.IsConnected)
+            {
+                await _mqttClient.ConnectAsync(optionsBuilder.Build(), stoppingToken);
+                _logger.LogInformation("Successfully connected Home Assistant Notifier to MQTT broker at {Host}:{Port}", mqttHost, mqttPort);
+            }
         }
         catch (Exception ex)
         {
@@ -198,7 +201,7 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <returns>A task representing the publication of the discovery MQTT payload.</returns>
     private async Task RegisterChannelNotificationEntityAsync(SocketTextChannel channel)
     {
-        var sanitizedChannelName = Regex.Replace(channel.Name.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+        var sanitizedChannelName = NameSanitizer.ToMqttSafeName(channel.Name);
         var uniqueId = $"wk7_notify_{sanitizedChannelName}_{channel.Id}";
         var discoveryTopic = $"homeassistant/notify/{uniqueId}/config";
         var commandTopic = $"homeassistant/notify/wk7_{channel.Id}/set";
@@ -242,7 +245,7 @@ public class HomeAssistantNotifierService : BackgroundService
         }
 
         var username = user?.Username ?? userId.ToString();
-        var sanitizedUsername = Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+        var sanitizedUsername = NameSanitizer.ToMqttSafeName(username);
         
         var uniqueId = $"wk7_notify_dm_{sanitizedUsername}_{userId}";
         var discoveryTopic = $"homeassistant/notify/{uniqueId}/config";
@@ -280,7 +283,7 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <returns>A task representing the publication of the MQTT deletion payload.</returns>
     private async Task UnregisterChannelNotificationEntityAsync(SocketTextChannel channel)
     {
-        var sanitizedChannelName = Regex.Replace(channel.Name.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+        var sanitizedChannelName = NameSanitizer.ToMqttSafeName(channel.Name);
         var uniqueId = $"wk7_notify_{sanitizedChannelName}_{channel.Id}";
         var discoveryTopic = $"homeassistant/notify/{uniqueId}/config";
 

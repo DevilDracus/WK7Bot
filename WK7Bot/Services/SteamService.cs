@@ -58,7 +58,7 @@ public class SteamService : ISteamService
     }
 
     /// <summary>
-    /// Fetches player summary data, recent game playtimes, and enriched active game achievements for a specific Steam ID.
+    /// Fetches player summary data, recent game playtimes, and enriched active or recently played game achievements for a specific Steam ID.
     /// </summary>
     /// <param name="steamId">The 64-bit Steam ID of the user.</param>
     /// <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
@@ -83,14 +83,28 @@ public class SteamService : ISteamService
 
             await EnrichRecentGamesAsync(userData, cancellationToken);
 
+            var combinedAchievements = new List<SteamAchievement>();
+
             if (userData.CurrentGameAppId.HasValue)
             {
-                var achievements = await GetEnrichedAchievementsAsync(steamId, userData.CurrentGameAppId.Value, cancellationToken);
-                userData.RecentAchievements = achievements
-                    .OrderByDescending(a => a.UnlockTime)
-                    .Take(5)
-                    .ToList();
+                var activeAchievements = await GetEnrichedAchievementsAsync(steamId, userData.CurrentGameAppId.Value, cancellationToken);
+                combinedAchievements.AddRange(activeAchievements);
             }
+
+            if (combinedAchievements.Count == 0 && userData.RecentGames.Count > 0)
+            {
+                foreach (var recentGame in userData.RecentGames.Take(3))
+                {
+                    var recentAchievements = await GetEnrichedAchievementsAsync(steamId, recentGame.AppId, cancellationToken);
+                    combinedAchievements.AddRange(recentAchievements);
+                }
+            }
+
+            userData.RecentAchievements = combinedAchievements
+                .Where(a => a.UnlockTime.HasValue)
+                .OrderByDescending(a => a.UnlockTime)
+                .Take(5)
+                .ToList();
 
             return userData;
         }
@@ -102,12 +116,12 @@ public class SteamService : ISteamService
     }
 
     /// <summary>
-    /// Retrieves player achievements for a specified game and merges icon image URLs obtained from the Steam Game Schema API.
+    /// Retrieves player achievements for a specified game and merges human-readable titles, descriptions, and icon image URLs from the Steam Game Schema API.
     /// </summary>
     /// <param name="steamId">The unique 64-bit Steam identifier of the target user.</param>
     /// <param name="appId">The unique application identifier for the target game.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A collection of enriched <see cref="SteamAchievement"/> instances containing achievement info, timestamps, and icon URLs.</returns>
+    /// <returns>A collection of enriched <see cref="SteamAchievement"/> instances containing achievement metadata, timestamps, and icon URLs.</returns>
     public async Task<IReadOnlyList<SteamAchievement>> GetEnrichedAchievementsAsync(
         string steamId,
         uint appId,
@@ -122,14 +136,27 @@ public class SteamService : ISteamService
 
             await Task.WhenAll(schemaTask, playerAchievementsTask);
 
-            var schemaIcons = schemaTask.Result;
+            var schemaMap = schemaTask.Result;
             var playerAchievements = playerAchievementsTask.Result;
 
             foreach (var achievement in playerAchievements)
             {
-                if (schemaIcons.TryGetValue(achievement.ApiName, out var iconUrl))
+                if (schemaMap.TryGetValue(achievement.ApiName, out var schemaItem))
                 {
-                    achievement.IconUrl = iconUrl;
+                    if (!string.IsNullOrWhiteSpace(schemaItem.Icon))
+                    {
+                        achievement.IconUrl = schemaItem.Icon;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(schemaItem.DisplayName))
+                    {
+                        achievement.Name = schemaItem.DisplayName;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(schemaItem.Description))
+                    {
+                        achievement.Description = schemaItem.Description;
+                    }
                 }
             }
 
@@ -151,9 +178,16 @@ public class SteamService : ISteamService
     private async Task<SteamUserData?> FetchPlayerSummaryAsync(string steamId, CancellationToken cancellationToken)
     {
         string url = $"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key={_options.SteamApiKey}&steamids={steamId}";
-        var response = await _httpClient.GetFromJsonAsync<SteamPlayerSummariesResponse>(url, cancellationToken);
 
-        var player = response?.Response?.Players?.FirstOrDefault();
+        using var response = await _httpClient.GetAsync(url, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<SteamPlayerSummariesResponse>(cancellationToken: cancellationToken);
+
+        var player = result?.Response?.Players?.FirstOrDefault();
         if (player == null)
         {
             return null;
@@ -188,9 +222,16 @@ public class SteamService : ISteamService
     private async Task EnrichRecentGamesAsync(SteamUserData userData, CancellationToken cancellationToken)
     {
         string url = $"https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/?key={_options.SteamApiKey}&steamid={userData.SteamId}&format=json";
-        var response = await _httpClient.GetFromJsonAsync<SteamRecentlyPlayedGamesResponse>(url, cancellationToken);
 
-        var games = response?.Response?.Games;
+        using var response = await _httpClient.GetAsync(url, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<SteamRecentlyPlayedGamesResponse>(cancellationToken: cancellationToken);
+
+        var games = result?.Response?.Games;
         if (games == null || games.Count == 0)
         {
             return;
@@ -214,33 +255,49 @@ public class SteamService : ISteamService
     }
 
     /// <summary>
-    /// Retrieves game achievement schema mappings from the Steam Web API or cache, linking API names to unlocked icon URLs.
+    /// Retrieves game achievement schema metadata from the Steam Web API or cache, mapping API names to display names, descriptions, and icon URLs.
     /// </summary>
     /// <param name="appId">The unique application identifier for the game.</param>
     /// <param name="cancellationToken">A token to monitor for operation cancellation.</param>
-    /// <returns>A dictionary mapping achievement API names to their respective absolute icon URLs.</returns>
-    private async Task<IReadOnlyDictionary<string, string>> GetGameSchemaAsync(uint appId, CancellationToken cancellationToken)
+    /// <returns>A dictionary mapping achievement API names to their schema definition containing display properties.</returns>
+    private async Task<IReadOnlyDictionary<string, SchemaAchievementItem>> GetGameSchemaAsync(uint appId, CancellationToken cancellationToken)
     {
-        var cacheKey = $"steam_schema_achievements_{appId}";
+        var cacheKey = $"steam_schema_achievements_v2_{appId}";
 
         return await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
 
-            string url = $"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={_options.SteamApiKey}&appid={appId}";
-            var response = await _httpClient.GetFromJsonAsync<SteamSchemaResponse>(url, cancellationToken);
-
-            var achievements = response?.Game?.AvailableGameStats?.Achievements;
-            if (achievements == null)
+            try
             {
-                return new Dictionary<string, string>();
-            }
+                string url = $"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={_options.SteamApiKey}&appid={appId}&l=english";
+                using var response = await _httpClient.GetAsync(url, cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new Dictionary<string, SchemaAchievementItem>();
+                }
 
-            return achievements.ToDictionary(
-                a => a.Name,
-                a => a.Icon,
-                StringComparer.OrdinalIgnoreCase);
-        }) ?? new Dictionary<string, string>();
+                var schemaResponse = await response.Content.ReadFromJsonAsync<SteamSchemaResponse>(cancellationToken: cancellationToken);
+
+                var achievements = schemaResponse?.Game?.AvailableGameStats?.Achievements;
+                if (achievements == null || achievements.Count == 0)
+                {
+                    return new Dictionary<string, SchemaAchievementItem>();
+                }
+
+                return achievements
+                    .GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.First(),
+                        StringComparer.OrdinalIgnoreCase);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to retrieve game schema for AppId {AppId}", appId);
+                return new Dictionary<string, SchemaAchievementItem>();
+            }
+        }) ?? new Dictionary<string, SchemaAchievementItem>();
     }
 
     /// <summary>
@@ -249,20 +306,28 @@ public class SteamService : ISteamService
     /// <param name="steamId">The 64-bit Steam ID of the user.</param>
     /// <param name="appId">The application identifier for the game.</param>
     /// <param name="cancellationToken">A token to monitor for operation cancellation.</param>
-    /// <returns>A list of player achievements populated with API names, titles, descriptions, and unlock times.</returns>
+    /// <returns>A list of unlocked player achievements populated with API names, titles, descriptions, and unlock times.</returns>
     private async Task<List<SteamAchievement>> GetPlayerAchievementsAsync(string steamId, uint appId, CancellationToken cancellationToken)
     {
         string url = $"https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?key={_options.SteamApiKey}&steamid={steamId}&appid={appId}&l=english";
-        var response = await _httpClient.GetFromJsonAsync<SteamPlayerAchievementsResponse>(url, cancellationToken);
 
-        var playerStats = response?.PlayerStats?.Achievements;
-        if (playerStats == null)
+        using var response = await _httpClient.GetAsync(url, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Steam API returned status code {StatusCode} for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId})", response.StatusCode, appId, steamId);
+            return new List<SteamAchievement>();
+        }
+
+        var achievementResponse = await response.Content.ReadFromJsonAsync<SteamPlayerAchievementsResponse>(cancellationToken: cancellationToken);
+
+        var playerStats = achievementResponse?.PlayerStats;
+        if (playerStats == null || !playerStats.Success || playerStats.Achievements == null)
         {
             return new List<SteamAchievement>();
         }
 
         var results = new List<SteamAchievement>();
-        foreach (var item in playerStats.Where(a => a.Achieved == 1))
+        foreach (var item in playerStats.Achievements.Where(a => a.Achieved == 1))
         {
             DateTimeOffset? unlockDateTime = item.UnlockTime > 0
                 ? DateTimeOffset.FromUnixTimeSeconds(item.UnlockTime)
@@ -380,6 +445,12 @@ internal class SchemaAchievementItem
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
 
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
+
     [JsonPropertyName("icon")]
     public string Icon { get; set; } = string.Empty;
 }
@@ -392,8 +463,20 @@ internal class SteamPlayerAchievementsResponse
 
 internal class PlayerStatsData
 {
+    [JsonPropertyName("steamID")]
+    public string? SteamId { get; set; }
+
+    [JsonPropertyName("gameName")]
+    public string? GameName { get; set; }
+
     [JsonPropertyName("achievements")]
     public List<PlayerAchievementItem>? Achievements { get; set; }
+
+    [JsonPropertyName("success")]
+    public bool Success { get; set; } = true;
+
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
 }
 
 internal class PlayerAchievementItem

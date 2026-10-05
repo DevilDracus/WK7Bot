@@ -1,6 +1,8 @@
 ﻿using System.Globalization;
 using Discord;
 using Discord.WebSocket;
+using Microsoft.Extensions.Options;
+using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
 
 namespace WK7Bot.Services;
@@ -14,6 +16,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
     private const string TargetChannelName = "🗑️leipzig-waste";
     private readonly DiscordSocketClient _discordClient;
     private readonly ILeipzigWasteService _wasteService;
+    private readonly Wk7BotOptions _options;
     private readonly ILogger<LeipzigWasteBackgroundService> _logger;
 
     private DateTime _lastDailyNotificationDate = DateTime.MinValue;
@@ -24,15 +27,18 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// </summary>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="wasteService">The Leipzig waste schedule parser service.</param>
+    /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public LeipzigWasteBackgroundService(
         DiscordSocketClient discordClient,
         ILeipzigWasteService wasteService,
+        IOptions<Wk7BotOptions> options,
         ILogger<LeipzigWasteBackgroundService> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _wasteService = wasteService ?? throw new ArgumentNullException(nameof(wasteService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
     /// <summary>
@@ -42,6 +48,12 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// <returns>A task representing the background execution process.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!_options.Features.LeipzigWasteEnabled)
+        {
+            _logger.LogInformation("Leipzig waste background service is disabled via feature options.");
+            return;
+        }
+
         _logger.LogInformation("Starting Leipzig Waste Background Service scheduler loop.");
 
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));

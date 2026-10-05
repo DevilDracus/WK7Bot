@@ -2,6 +2,7 @@
 using Discord.Interactions;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
 
 namespace WK7Bot.Modules;
 
@@ -37,6 +38,13 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
     {
         await DeferAsync();
 
+        var existing = await _repository.GetFeedByNameAsync(name);
+        if (existing != null)
+        {
+            await FollowupAsync($"A feed named '{name}' already exists. Choose a different name or remove the existing feed first.", ephemeral: true);
+            return;
+        }
+
         var guild = Context.Guild;
         var category = await GetOrCreateCategoryAsync(guild, CategoryName);
         var role = await guild.CreateRoleAsync(
@@ -46,7 +54,7 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             isHoisted: false,
             isMentionable: true);
 
-        var channel = await guild.CreateTextChannelAsync(SanitizeChannelName(name), properties =>
+        var channel = await guild.CreateTextChannelAsync(NameSanitizer.ToChannelSlug(name), properties =>
         {
             properties.CategoryId = category.Id;
             properties.Topic = $"RSS feed for {name}. Use the subscription dashboard to manage notifications.";
@@ -230,15 +238,5 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
         }
 
         return await guild.CreateCategoryAsync(categoryName);
-    }
-
-    /// <summary>
-    /// Converts a display name into a Discord-compliant channel name string.
-    /// </summary>
-    /// <param name="rawName">The raw input name.</param>
-    /// <returns>A lowercase, hyphenated channel name string.</returns>
-    private string SanitizeChannelName(string rawName)
-    {
-        return rawName.ToLowerInvariant().Replace(' ', '-');
     }
 }

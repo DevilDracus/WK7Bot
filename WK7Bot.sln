@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WK7Bot", "WK7Bot\WK7Bot.csproj", "{E2B279A3-E464-450A-AC2A-953EA55C1273}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WK7Bot.Tests", "WK7Bot.Tests\WK7Bot.Tests.csproj", "{7F3C9A1D-4B2E-4E8F-9C6A-1D5E8B7F2A44}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{E2B279A3-E464-450A-AC2A-953EA55C1273}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E2B279A3-E464-450A-AC2A-953EA55C1273}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E2B279A3-E464-450A-AC2A-953EA55C1273}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7F3C9A1D-4B2E-4E8F-9C6A-1D5E8B7F2A44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F3C9A1D-4B2E-4E8F-9C6A-1D5E8B7F2A44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7F3C9A1D-4B2E-4E8F-9C6A-1D5E8B7F2A44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7F3C9A1D-4B2E-4E8F-9C6A-1D5E8B7F2A44}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

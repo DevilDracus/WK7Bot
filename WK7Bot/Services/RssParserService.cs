@@ -1,5 +1,6 @@
 ﻿using CodeHollow.FeedReader;
 using WK7Bot.Core.Entities;
+using WK7Bot.Core.Utilities;
 
 namespace WK7Bot.Services;
 
@@ -21,6 +22,8 @@ public class RssParserService
 
     /// <summary>
     /// Fetches the feed from the specified URL and retrieves new items published after the last recorded state.
+    /// When the feed has no baseline markers yet (first poll), the newest item is recorded on the entity
+    /// without being returned, so historical backlog is never posted to Discord.
     /// </summary>
     /// <param name="feed">The database entity containing feed configuration and historical tracking state.</param>
     /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
@@ -37,9 +40,29 @@ public class RssParserService
                 .OrderBy(item => item.PublishingDate)
                 .ToList();
 
+            if (sortedItems.Count == 0)
+            {
+                return newItems;
+            }
+
+            var hasBaseline = FeedDeltaCalculator.HasBaseline(feed.LastItemGuid, feed.LastPublishedDate);
+            if (!hasBaseline)
+            {
+                // First poll: seed the baseline from the newest item so the entire
+                // feed history is not treated as "new" and spammed to Discord.
+                var newest = FeedDeltaCalculator.SelectNewestForBaseline(sortedItems, i => i.PublishingDate);
+                if (newest != null)
+                {
+                    feed.LastItemGuid = newest.Id;
+                    feed.LastPublishedDate = newest.PublishingDate;
+                }
+
+                return newItems;
+            }
+
             foreach (var item in sortedItems)
             {
-                if (IsItemNewer(item, feed))
+                if (FeedDeltaCalculator.IsItemNewer(item.Id, item.PublishingDate, feed.LastItemGuid, feed.LastPublishedDate))
                 {
                     newItems.Add(item);
                 }
@@ -51,26 +74,5 @@ public class RssParserService
         }
 
         return newItems;
-    }
-
-    /// <summary>
-    /// Determines whether an individual feed item is newer than the recorded feed state.
-    /// </summary>
-    /// <param name="item">The candidate feed item retrieved from the feed.</param>
-    /// <param name="feed">The current feed entity stored in the database.</param>
-    /// <returns><see langword="true"/> if the item has not been posted previously; otherwise, <see langword="false"/>.</returns>
-    private bool IsItemNewer(FeedItem item, RssFeed feed)
-    {
-        if (!string.IsNullOrEmpty(feed.LastItemGuid) && item.Id == feed.LastItemGuid)
-        {
-            return false;
-        }
-
-        if (feed.LastPublishedDate.HasValue && item.PublishingDate.HasValue)
-        {
-            return item.PublishingDate.Value > feed.LastPublishedDate.Value.UtcDateTime;
-        }
-
-        return true;
     }
 }

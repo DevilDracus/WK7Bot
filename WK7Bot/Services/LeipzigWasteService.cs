@@ -1,4 +1,5 @@
 ﻿using Ical.Net;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;
 
 namespace WK7Bot.Services;
@@ -51,6 +52,10 @@ public class LeipzigWasteService : ILeipzigWasteService
             response.EnsureSuccessStatusCode();
 
             var contentString = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            // Strip UTF-8 BOM and leading whitespace before validating the ICS envelope.
+            contentString = contentString.TrimStart('\uFEFF', ' ', '\t', '\r', '\n');
+
             if (!contentString.StartsWith("BEGIN:VCALENDAR", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning("Retrieved payload from Leipzig waste endpoint does not appear to be a valid ICS calendar stream.");
@@ -58,12 +63,18 @@ public class LeipzigWasteService : ILeipzigWasteService
             }
 
             var calendar = Calendar.Load(contentString);
+            if (calendar?.Events == null)
+            {
+                return detectedWasteTypes;
+            }
 
             foreach (var calendarEvent in calendar.Events)
             {
-                if (calendarEvent.Start.Value.Date == targetDate.Date)
+                var startDate = calendarEvent?.Start?.Value;
+                if (startDate.HasValue && startDate.Value.Date == targetDate.Date)
                 {
-                    var friendlyName = MapWasteSummaryToFriendlyName(calendarEvent.Summary);
+                    var rawSummary = calendarEvent?.Summary ?? string.Empty;
+                    var friendlyName = WasteSummaryMapper.MapToFriendlyName(rawSummary);
                     detectedWasteTypes.Add(friendlyName);
                 }
             }
@@ -74,32 +85,5 @@ public class LeipzigWasteService : ILeipzigWasteService
         }
 
         return detectedWasteTypes;
-    }
-
-    /// <summary>
-    /// Maps raw ICS event summaries into user-friendly German display strings with matching emojis.
-    /// </summary>
-    /// <param name="rawSummary">The raw text summary extracted from the calendar event.</param>
-    /// <returns>A formatted string with emoji formatting for display.</returns>
-    private static string MapWasteSummaryToFriendlyName(string rawSummary)
-    {
-        if (rawSummary.Contains("Restabfall", StringComparison.OrdinalIgnoreCase) || rawSummary.Contains("schwarz", StringComparison.OrdinalIgnoreCase))
-        {
-            return "⬛ Schwarze Tonne (Restabfall)";
-        }
-        if (rawSummary.Contains("Papier", StringComparison.OrdinalIgnoreCase) || rawSummary.Contains("blau", StringComparison.OrdinalIgnoreCase))
-        {
-            return "🟦 Blaue Tonne (Pappe & Papier)";
-        }
-        if (rawSummary.Contains("Wertstoff", StringComparison.OrdinalIgnoreCase) || rawSummary.Contains("gelb", StringComparison.OrdinalIgnoreCase))
-        {
-            return "🟨 Gelbe Tonne / Gelber Sack (Wertstoffe)";
-        }
-        if (rawSummary.Contains("Bio", StringComparison.OrdinalIgnoreCase) || rawSummary.Contains("braun", StringComparison.OrdinalIgnoreCase))
-        {
-            return "🟫 Braune Tonne (Biogut)";
-        }
-
-        return $"🗑️ {rawSummary}";
     }
 }

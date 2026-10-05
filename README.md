@@ -12,18 +12,21 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 
 ### Discord Integration & Slash Commands
 - **`Discord.Interactions` framework** built on `Discord.Net` with reflection-based command module auto-registration (`InteractionHandlingService`).
-- **Guild & global commands** – a `TestGuildId` setting enables instant guild-scoped registration for development; otherwise commands register globally.
+- **Guild & global commands** – a `Discord:TestGuildId` (or root `TestGuildId`) setting enables instant guild-scoped registration for development; otherwise commands register globally.
 - **Interactive UI** – select menus and role management for RSS subscription dashboards.
+- **Duplicate protection** – `/rss add` rejects a name that already exists before creating channels/roles.
 
 ### RSS Feed Syndication
 - `RssPollingBackgroundService` polls configured feeds every 5 minutes and publishes rich embeds to dedicated per-feed channels.
-- Duplicate suppression via `LastItemGuid` / `LastPublishedDate` tracking.
+- **First-poll baseline seeding** – when a feed has never been polled, the newest item is recorded silently; the historical backlog is *not* posted to Discord.
+- Duplicate suppression via `LastItemGuid` / `LastPublishedDate` tracking (pure logic in `FeedDeltaCalculator`).
 - `/rss` commands to add/remove feeds (auto-creating a role + private read-only channel) and post a subscription dashboard.
 - Interactive select menu (`RssComponentModule`) for users to subscribe/unsubscribe.
+- Descriptions are HTML-stripped, entity-decoded, and truncated to 500 characters (`FeedTextFormatter`).
 
 ### Leipzig Waste Collection Reminders
-- Downloads and parses `.ics` calendar streams from *Stadtreinigung Leipzig*.
-- Maps waste categories (*Restabfall*, *Papier*, *Wertstoffe*, *Biogut*) to German display labels and color-coded visuals.
+- Downloads and parses `.ics` calendar streams from *Stadtreinigung Leipzig* (UTF-8 BOM and leading whitespace tolerated).
+- Maps waste categories (*Restabfall*, *Papier*, *Wertstoffe*, *Biogut*) to German display labels and color-coded visuals (`WasteSummaryMapper`).
 - Daily confirmation + Monday weekly overview reminders (`LeipzigWasteBackgroundService`) in a `🗑️leipzig-waste` channel.
 - On-demand lookups via the `/check-waste` slash command.
 
@@ -41,10 +44,11 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 ## Technology Stack
 
 - **Framework:** .NET 10 (C# 14)
-- **Discord:** `Discord.Net`, `Discord.Addons.Hosting`, `Discord.Interactions`
+- **Discord:** `Discord.Net`, `Discord.Interactions`
 - **Persistence:** Entity Framework Core with SQLite (stored at `/data/wk7bot.db` in the Add-On)
 - **Messaging:** `MQTTnet`, HTTP client pipelines
 - **Parsing:** `CodeHollow.FeedReader`, `Ical.Net`
+- **Testing:** xUnit, Moq, EF Core InMemory
 - **Deployment:** Docker, Home Assistant Supervisor Add-On
 
 ## Project Structure
@@ -55,15 +59,19 @@ WK7Bot
 │   ├── Entities
 │   │   ├── RssDashboardSetting.cs
 │   │   └── RssFeed.cs
-│   └── Interfaces
-│       └── IRssRepository.cs
+│   ├── Interfaces
+│   │   └── IRssRepository.cs
+│   └── Utilities
+│       ├── FeedDeltaCalculator.cs           # Pure RSS baseline/new-item decisions
+│       ├── FeedTextFormatter.cs             # HTML strip + truncation for embeds
+│       ├── NameSanitizer.cs                 # Channel slugs + MQTT-safe names
+│       └── WasteSummaryMapper.cs            # ICS summary → German display label
 ├── Extensions
-│   └── ServiceCollectionExtensions.cs      # DI wiring for DB, Discord, HTTP clients, hosted services
+│   └── ServiceCollectionExtensions.cs       # DI wiring for DB, Discord, HTTP clients, hosted services
 ├── Infrastructure
-│   ├── Data
-│   │   ├── BotDbContext.cs
-│   │   └── RssRepository.cs
-│   └── Extensions
+│   └── Data
+│       ├── BotDbContext.cs
+│       └── RssRepository.cs
 ├── Models
 │   ├── SteamAchievement.cs
 │   ├── SteamRecentGame.cs
@@ -77,7 +85,7 @@ WK7Bot
 ├── Options
 │   ├── AlexaNotificationOptions.cs
 │   ├── DiscordSteamMappingOptions.cs
-│   ├── FeatureOptions.cs
+│   ├── FeatureOptions.cs                    # All toggles default to enabled
 │   └── Wk7BotOptions.cs
 ├── Services
 │   ├── Interfaces
@@ -92,40 +100,53 @@ WK7Bot
 │   ├── InteractionHandlingService.cs
 │   ├── LeipzigWasteBackgroundService.cs
 │   ├── LeipzigWasteService.cs
-│   ├── RssDashboardService.cs
 │   ├── RssParserService.cs
 │   ├── RssPollingBackgroundService.cs
 │   └── SteamService.cs
 ├── Program.cs                               # Host bootstrap, options binding, /health endpoint
 ├── appsettings.json
 ├── appsettings.Development.json
-├── config.yaml                               # Home Assistant Add-On configuration
+├── config.yaml                              # Home Assistant Add-On configuration
 ├── Dockerfile
 └── WK7Bot.csproj
+
+WK7Bot.Tests                                 # xUnit test project (included in WK7Bot.sln)
+├── FeedDeltaCalculatorTests.cs
+├── FeedTextFormatterTests.cs
+├── FormattingUtilityTests.cs
+├── LeipzigWasteServiceTests.cs
+├── NameSanitizerTests.cs
+├── OptionsBindingTests.cs
+├── RssRepositoryTests.cs
+├── ServiceCollectionExtensionsTests.cs
+├── SteamServiceTests.cs
+└── WasteSummaryMapperTests.cs
 ```
 
 ## Slash Commands
 
 | Command | Description | Permission |
 | --- | --- | --- |
-| `/rss add <name> <url>` | Registers a feed, creates a role + private read-only channel | `ManageChannels` |
+| `/rss add <name> <url>` | Registers a feed, creates a role + private read-only channel (rejects duplicate names) | `ManageChannels` |
 | `/rss remove <name>` | Removes a feed and cleans up its channel + role | `ManageChannels` |
 | `/rss dashboard` | Posts the interactive subscription select menu | `ManageRoles` |
-| `/check-waste [days] [datum]` | Queries Leipzig waste collection dates | everyone |
+| `/check-waste [days] [datum]` | Queries Leipzig waste collection dates (`DD.MM.YYYY` or `YYYY-MM-DD`) | everyone |
 | `/ping` | Gateway latency test | everyone |
 | `/ha-status` | Tests Home Assistant Supervisor API connectivity | everyone |
 
 ## Hosted Services
 
-| Hosted Service | Purpose |
-| --- | --- |
-| `DiscordBotWorker` | Logs in and connects the Discord gateway, forwards `Discord.Net` logs |
-| `InteractionHandlingService` | Auto-registers command modules and routes slash command interactions |
-| `RssPollingBackgroundService` | Polls RSS feeds and posts update embeds to Discord |
-| `HomeAssistantNotifierService` | Bridges MQTT notify commands to Discord channels / DMs |
-| `LeipzigWasteBackgroundService` | Sends daily and weekly waste collection reminders |
-| `AlexaMentionNotificationService` | Forwards target-user mentions to the Alexa notification API |
-| `DiscordPresenceMqttService` | Publishes Discord presence snapshots to MQTT for Home Assistant |
+| Hosted Service | Purpose | Feature flag |
+| --- | --- | --- |
+| `DiscordBotWorker` | Logs in and connects the Discord gateway, forwards `Discord.Net` logs | always on |
+| `InteractionHandlingService` | Auto-registers command modules and routes slash command interactions | always on |
+| `RssPollingBackgroundService` | Polls RSS feeds and posts update embeds to Discord | `rss_polling_enabled` |
+| `HomeAssistantNotifierService` | Bridges MQTT notify commands to Discord channels / DMs | `home_assistant_notifier_enabled` |
+| `LeipzigWasteBackgroundService` | Sends daily and weekly waste collection reminders | `leipzig_waste_enabled` |
+| `AlexaMentionNotificationService` | Forwards target-user mentions to the Alexa notification API | `alexa_notifications_enabled` |
+| `DiscordPresenceMqttService` | Publishes Discord presence snapshots to MQTT for Home Assistant | `discord_presence_mqtt_enabled` |
+
+Feature flags are resolved from the `Wk7Bot:features` section when present (appsettings.json), otherwise from root-level `features` (Home Assistant `options.json`). Services re-check the bound options at runtime, so disabling a flag always takes effect.
 
 ## Configuration
 
@@ -199,7 +220,15 @@ features:
 }
 ```
 
-Secrets may also be supplied via environments variables (`DISCORD_BOT_TOKEN`, `SUPERVISOR_TOKEN`, etc.) or .NET user secrets.
+Secrets may also be supplied via environment variables (`DISCORD_BOT_TOKEN`, `SUPERVISOR_TOKEN`, etc.) or .NET user secrets.
+
+### Important environment variables
+
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `DISCORD_BOT_TOKEN` | `DiscordBotWorker` | Fallback token when `discord_token` is empty |
+| `SUPERVISOR_TOKEN` | `HomeAssistantService` | Bearer token for Supervisor-proxied HA API |
+| `ASPNETCORE_ENVIRONMENT` | Host | Set to `Development` for local runs |
 
 ## Getting Started
 
@@ -221,6 +250,18 @@ Secrets may also be supplied via environments variables (`DISCORD_BOT_TOKEN`, `S
 
 HTTPS development profile is also available (`https://localhost:7066`).
 
+> **Note:** The default SQLite path is `/data/wk7bot.db`. On Windows local development, override `ConnectionStrings:DefaultConnection` to a writable path (e.g. `Data Source=wk7bot.db`) unless you run with privileges to create `C:\data`.
+
+### Running Tests
+
+```bash
+dotnet test WK7Bot.sln
+# or
+dotnet test WK7Bot.Tests/WK7Bot.Tests.csproj
+```
+
+The suite covers Steam API mapping, RSS repository CRUD (EF InMemory), ICS parsing (including BOM), feature-flag registration, options binding, and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`).
+
 ### Docker
 
 ```bash
@@ -237,6 +278,18 @@ docker run -d \
    [![Add repository to Home Assistant][repository-badge]][repository-url]
 2. Search for **WK7Bot** in the Add-On Store.
 3. Configure your tokens in the Add-On **Configuration** tab and click **Start**.
+
+## Health & Operations
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /health` | Returns `200 OK` with `WK7 Bot is healthy.` when the process is up |
+
+Logs from `Discord.Net` are forwarded into the ASP.NET logging pipeline and appear in the add-on log.
+
+## Refactoring Backlog
+
+A tracked list of improvement candidates with unique IDs lives in [REFACTORINGS.md](REFACTORINGS.md). RF-001 through RF-005 have been implemented (pure utility extraction + dead-code removal) and are covered by the test suite.
 
 ## License & Copyright
 

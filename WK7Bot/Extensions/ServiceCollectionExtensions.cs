@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Infrastructure.Data;
+using WK7Bot.Options;
 using WK7Bot.Services;
 using WK7Bot.Services.Interfaces;
 
@@ -70,32 +71,57 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<InteractionHandlingService>();
         services.AddHostedService<DiscordBotWorker>();
 
-        // Feature flags (can be driven by configuration values updated via MQTT/options.json)
-        if (configuration.GetValue<bool>("features:rss_polling_enabled", true))
+        // Feature flags. Prefer the Wk7Bot section (appsettings.json); fall back to the
+        // root level (Home Assistant options.json / config.yaml). Services also re-check
+        // bound IOptions at runtime as a second line of defense.
+        if (IsFeatureEnabled(configuration, "rss_polling_enabled"))
         {
             services.AddHostedService<RssPollingBackgroundService>();
         }
 
-        if (configuration.GetValue<bool>("features:home_assistant_notifier_enabled", true))
+        if (IsFeatureEnabled(configuration, "home_assistant_notifier_enabled"))
         {
             services.AddHostedService<HomeAssistantNotifierService>();
         }
 
-        if (configuration.GetValue<bool>("features:leipzig_waste_enabled", true))
+        if (IsFeatureEnabled(configuration, "leipzig_waste_enabled"))
         {
             services.AddHostedService<LeipzigWasteBackgroundService>();
         }
 
-        if (configuration.GetValue<bool>("features:alexa_notifications_enabled", true))
+        if (IsFeatureEnabled(configuration, "alexa_notifications_enabled"))
         {
             services.AddHostedService<AlexaMentionNotificationService>();
         }
-        
-        if (configuration.GetValue<bool>("features:discord_presence_mqtt_enabled", true))
+
+        if (IsFeatureEnabled(configuration, "discord_presence_mqtt_enabled"))
         {
             services.AddHostedService<DiscordPresenceMqttService>();
         }
 
         return services;
+    }
+
+    /// <summary>
+    /// Resolves a feature toggle from the Wk7Bot configuration section when present, otherwise from the root configuration.
+    /// </summary>
+    /// <param name="configuration">The configuration provider.</param>
+    /// <param name="featureKey">The snake_case feature key (e.g. rss_polling_enabled).</param>
+    /// <returns><see langword="true"/> when the feature is enabled or unset (defaults to enabled).</returns>
+    private static bool IsFeatureEnabled(IConfiguration configuration, string featureKey)
+    {
+        var wk7Features = configuration.GetSection($"{Wk7BotOptions.SectionName}:features");
+        if (wk7Features.Exists())
+        {
+            return wk7Features.GetValue(featureKey, true);
+        }
+
+        var rootFeatures = configuration.GetSection("features");
+        if (rootFeatures.Exists())
+        {
+            return rootFeatures.GetValue(featureKey, true);
+        }
+
+        return true;
     }
 }

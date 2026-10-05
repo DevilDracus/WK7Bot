@@ -1,7 +1,10 @@
 ﻿using Discord;
 using Discord.WebSocket;
+using Microsoft.Extensions.Options;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
+using WK7Bot.Options;
 
 namespace WK7Bot.Services;
 
@@ -12,6 +15,7 @@ public class RssPollingBackgroundService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly DiscordSocketClient _discordClient;
+    private readonly Wk7BotOptions _options;
     private readonly ILogger<RssPollingBackgroundService> _logger;
     private bool _isClientReady;
 
@@ -20,15 +24,18 @@ public class RssPollingBackgroundService : BackgroundService
     /// </summary>
     /// <param name="serviceProvider">The service provider to create database scopes.</param>
     /// <param name="discordClient">The active Discord client instance.</param>
+    /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for operational tracking.</param>
     public RssPollingBackgroundService(
         IServiceProvider serviceProvider,
         DiscordSocketClient discordClient,
+        IOptions<Wk7BotOptions> options,
         ILogger<RssPollingBackgroundService> logger)
     {
         _serviceProvider = serviceProvider;
         _discordClient = discordClient;
         _logger = logger;
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
 
         _discordClient.Ready += OnDiscordClientReadyAsync;
     }
@@ -50,6 +57,12 @@ public class RssPollingBackgroundService : BackgroundService
     /// <returns>A task representing the background processing lifecycle.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!_options.Features.RssPollingEnabled)
+        {
+            _logger.LogInformation("RSS polling service is disabled via feature options.");
+            return;
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -68,7 +81,14 @@ public class RssPollingBackgroundService : BackgroundService
                 _logger.LogError(ex, "An unhandled exception occurred during RSS polling loop execution.");
             }
 
-            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+            try
+            {
+                await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
     }
 
@@ -87,9 +107,20 @@ public class RssPollingBackgroundService : BackgroundService
 
         foreach (var feed in feeds)
         {
+            var hadBaseline = feed.LastPublishedDate.HasValue || !string.IsNullOrEmpty(feed.LastItemGuid);
             var newItems = await parser.FetchNewItemsAsync(feed, cancellationToken);
+            var baselineSeeded = !hadBaseline
+                && (feed.LastPublishedDate.HasValue || !string.IsNullOrEmpty(feed.LastItemGuid));
+
             if (!newItems.Any())
             {
+                // Persist a freshly seeded baseline so the history is never re-posted.
+                if (baselineSeeded)
+                {
+                    feed.LastPolledAt = DateTimeOffset.UtcNow;
+                    await repository.UpdateFeedAsync(feed, cancellationToken);
+                }
+
                 continue;
             }
 
@@ -129,30 +160,12 @@ public class RssPollingBackgroundService : BackgroundService
         var embedBuilder = new EmbedBuilder()
             .WithTitle(item.Title)
             .WithUrl(sanitizedUrl)
-            .WithDescription(CleanDescription(item.Description))
+            .WithDescription(FeedTextFormatter.SanitizeFeedDescription(item.Description))
             .WithColor(Color.Blue)
             .WithFooter(text: feed.Name)
             .WithTimestamp(item.PublishingDate ?? DateTimeOffset.UtcNow);
 
         var mentionText = $"<@&{feed.RoleId}>";
         await channel.SendMessageAsync(text: mentionText, embed: embedBuilder.Build());
-    }
-
-    /// <summary>
-    /// Strips HTML tags and truncates the feed summary to fit within Discord embed constraints.
-    /// </summary>
-    /// <param name="rawDescription">The raw HTML or plain text description from the RSS feed.</param>
-    /// <returns>A sanitized string suitable for display in a Discord embed description.</returns>
-    private string CleanDescription(string rawDescription)
-    {
-        if (string.IsNullOrWhiteSpace(rawDescription))
-        {
-            return string.Empty;
-        }
-
-        var sanitized = System.Text.RegularExpressions.Regex.Replace(rawDescription, "<.*?>", string.Empty);
-        sanitized = System.Net.WebUtility.HtmlDecode(sanitized).Trim();
-
-        return sanitized.Length > 500 ? string.Concat(sanitized.AsSpan(0, 497), "...") : sanitized;
     }
 }
