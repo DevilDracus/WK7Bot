@@ -40,7 +40,8 @@ public class ServiceCollectionExtensionsTests
                 ["Wk7Bot:features:leipzig_waste_enabled"] = "false",
                 ["Wk7Bot:features:alexa_notifications_enabled"] = "false",
                 ["Wk7Bot:features:discord_presence_mqtt_enabled"] = "false",
-                ["Wk7Bot:features:spontan_treff_enabled"] = "false"
+                ["Wk7Bot:features:spontan_treff_enabled"] = "false",
+                ["Wk7Bot:features:dwd_warning_enabled"] = "false"
             })
             .Build();
 
@@ -53,6 +54,7 @@ public class ServiceCollectionExtensionsTests
         Assert.DoesNotContain(typeof(Services.AlexaMentionNotificationService), types);
         Assert.DoesNotContain(typeof(Services.DiscordPresenceMqttService), types);
         Assert.DoesNotContain(typeof(Services.SpontanTreffExpiryService), types);
+        Assert.DoesNotContain(typeof(Services.DwdWarningBackgroundService), types);
     }
 
     [Fact]
@@ -64,7 +66,8 @@ public class ServiceCollectionExtensionsTests
             {
                 ["features:rss_polling_enabled"] = "false",
                 ["features:discord_presence_mqtt_enabled"] = "false",
-                ["features:spontan_treff_enabled"] = "false"
+                ["features:spontan_treff_enabled"] = "false",
+                ["features:dwd_warning_enabled"] = "false"
             })
             .Build();
 
@@ -74,6 +77,7 @@ public class ServiceCollectionExtensionsTests
         Assert.DoesNotContain(typeof(Services.RssPollingBackgroundService), types);
         Assert.DoesNotContain(typeof(Services.DiscordPresenceMqttService), types);
         Assert.DoesNotContain(typeof(Services.SpontanTreffExpiryService), types);
+        Assert.DoesNotContain(typeof(Services.DwdWarningBackgroundService), types);
         Assert.Contains(typeof(Services.HomeAssistantNotifierService), types);
     }
 
@@ -94,6 +98,7 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(typeof(Services.FoodPublisherService), types);
         Assert.Contains(typeof(Services.SpontanTreffExpiryService), types);
         Assert.Contains(typeof(Services.WeekendDigestBackgroundService), types);
+        Assert.Contains(typeof(Services.DwdWarningBackgroundService), types);
     }
 
     [Fact]
@@ -175,6 +180,7 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.IRssRepository));
         Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.IWasteDispatchRepository));
         Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.ISpontanTreffRepository));
+        Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.IWarningDispatchRepository));
     }
 
     [Fact]
@@ -184,5 +190,14 @@ public class ServiceCollectionExtensionsTests
         services.AddBotDiscordAndClients();
 
         Assert.Contains(services, d => d.ServiceType == typeof(Services.Interfaces.IWeekendEventSource));
+    }
+
+    [Fact]
+    public void AddBotDiscordAndClients_RegistersDwdWarningServiceClient()
+    {
+        var services = new ServiceCollection();
+        services.AddBotDiscordAndClients();
+
+        Assert.Contains(services, d => d.ServiceType == typeof(Services.Interfaces.IDwdWarningService));
     }
 }

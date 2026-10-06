@@ -32,6 +32,11 @@ public class BotDbContext : DbContext
     public DbSet<WasteDispatchLog> WasteDispatchLogs => Set<WasteDispatchLog>();
 
     /// <summary>
+    /// Gets or sets the database set for tracking already dispatched DWD warnings.
+    /// </summary>
+    public DbSet<WarningDispatchLog> WarningDispatchLogs => Set<WarningDispatchLog>();
+
+    /// <summary>
     /// Gets or sets the database set for spontaneous meetups ("Spontan-Treff").
     /// </summary>
     public DbSet<SpontanTreff> SpontanTreffs => Set<SpontanTreff>();
@@ -69,6 +74,13 @@ public class BotDbContext : DbContext
             entity.ToTable("WasteDispatchLogs");
             entity.HasKey(e => new { e.Kind, e.GuildId, e.SentOn });
             entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
+        });
+
+        modelBuilder.Entity<WarningDispatchLog>(entity =>
+        {
+            entity.ToTable("WarningDispatchLogs");
+            entity.HasKey(e => new { e.WarningId, e.GuildId });
+            entity.Property(e => e.WarningId).IsRequired().HasMaxLength(160);
         });
 
         modelBuilder.Entity<SpontanTreff>(entity =>

@@ -74,6 +74,12 @@ public class Wk7BotOptions
     public AlexaNotificationOptions AlexaNotification { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets the configuration options for the local DWD rain and storm warning feature.
+    /// </summary>
+    [ConfigurationKeyName("dwd_warning")]
+    public DwdWarningOptions DwdWarning { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets feature toggle flags for individual background services.
     /// </summary>
     [ConfigurationKeyName("features")]

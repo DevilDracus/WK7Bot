@@ -60,4 +60,10 @@ public class FeatureOptions
     /// </summary>
     [ConfigurationKeyName("weekend_digest_enabled")]
     public bool WeekendDigestEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether local DWD rain and storm warnings are polled and posted.
+    /// </summary>
+    [ConfigurationKeyName("dwd_warning_enabled")]
+    public bool DwdWarningEnabled { get; set; } = true;
 }

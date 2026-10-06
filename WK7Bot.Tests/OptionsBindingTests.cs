@@ -18,6 +18,7 @@ public class OptionsBindingTests
         Assert.True(features.DiscordPresenceMqttEnabled);
         Assert.True(features.SteamPresenceEnabled);
         Assert.True(features.FoodServiceEnabled);
+        Assert.True(features.DwdWarningEnabled);
     }
 
     [Fact]
@@ -42,7 +43,14 @@ public class OptionsBindingTests
                 ["Wk7Bot:alexa_notification:endpoint_url"] = "https://api.example.com/notify",
                 ["Wk7Bot:features:rss_polling_enabled"] = "false",
                 ["Wk7Bot:features:steam_presence_enabled"] = "false",
-                ["Wk7Bot:features:food_service_enabled"] = "false"
+                ["Wk7Bot:features:food_service_enabled"] = "false",
+                ["Wk7Bot:features:dwd_warning_enabled"] = "false",
+                ["Wk7Bot:dwd_warning:postal_code"] = "04205",
+                ["Wk7Bot:dwd_warning:latitude"] = "51.34",
+                ["Wk7Bot:dwd_warning:longitude"] = "12.36",
+                ["Wk7Bot:dwd_warning:lead_minutes"] = "45",
+                ["Wk7Bot:dwd_warning:area_names:0"] = "Stadt Leipzig",
+                ["Wk7Bot:dwd_warning:events:0"] = "HAGEL"
             })
             .Build();
 
@@ -72,6 +80,14 @@ public class OptionsBindingTests
         Assert.True(options.Features.HomeAssistantNotifierEnabled);
         Assert.False(options.Features.SteamPresenceEnabled);
         Assert.False(options.Features.FoodServiceEnabled);
+        Assert.False(options.Features.DwdWarningEnabled);
+
+        Assert.Equal("04205", options.DwdWarning.PostalCode);
+        Assert.Equal(51.34, options.DwdWarning.Latitude, 3);
+        Assert.Equal(12.36, options.DwdWarning.Longitude, 3);
+        Assert.Equal(45, options.DwdWarning.LeadMinutes);
+        Assert.Equal("Stadt Leipzig", Assert.Single(options.DwdWarning.AreaNames));
+        Assert.Equal("HAGEL", Assert.Single(options.DwdWarning.Events));
     }
 
     [Fact]
@@ -83,7 +99,8 @@ public class OptionsBindingTests
                 ["discord_token"] = "root-token",
                 ["mqtt_host"] = "core-mosquitto",
                 ["features:leipzig_waste_enabled"] = "false",
-                ["features:food_service_enabled"] = "false"
+                ["features:food_service_enabled"] = "false",
+                ["dwd_warning:postal_code"] = "04103"
             })
             .Build();
 
@@ -94,6 +111,7 @@ public class OptionsBindingTests
         Assert.Equal("core-mosquitto", options.MqttHost);
         Assert.False(options.Features.LeipzigWasteEnabled);
         Assert.False(options.Features.FoodServiceEnabled);
+        Assert.Equal("04103", options.DwdWarning.PostalCode);
     }
 
     [Fact]
@@ -118,6 +136,14 @@ public class OptionsBindingTests
         Assert.Empty(options.DiscordDmUserIds);
         Assert.NotNull(options.AlexaNotification);
         Assert.NotNull(options.Features);
+        Assert.NotNull(options.DwdWarning);
+        Assert.Equal(string.Empty, options.DwdWarning.PostalCode);
+        Assert.Equal(0, options.DwdWarning.Latitude);
+        Assert.Equal(0, options.DwdWarning.Longitude);
+        Assert.Equal(30, options.DwdWarning.LeadMinutes);
+        Assert.Empty(options.DwdWarning.AreaNames);
+        Assert.Empty(options.DwdWarning.Events);
+        Assert.Contains("STARKREGEN", options.DwdWarning.EffectiveEvents());
     }
 
     [Fact]
@@ -136,5 +162,32 @@ public class OptionsBindingTests
         Assert.Null(options.ApiToken);
         Assert.Null(options.ApiSecret);
         Assert.Null(options.EndpointUrl);
+    }
+
+    [Fact]
+    public void DwdWarningOptions_Defaults()
+    {
+        var options = new DwdWarningOptions();
+
+        Assert.Equal(string.Empty, options.PostalCode);
+        Assert.False(options.HasPostalCode());
+        Assert.Equal(0, options.Latitude);
+        Assert.Equal(0, options.Longitude);
+        Assert.False(options.HasCoordinates());
+        Assert.Equal(30, options.LeadMinutes);
+        Assert.Empty(options.AreaNames);
+        Assert.Empty(options.Events);
+        Assert.Equal(10, options.EffectiveEvents().Count);
+        Assert.Contains("STARKREGEN", options.EffectiveEvents());
+        Assert.Contains("HEAVY_RAIN", options.EffectiveEvents());
+    }
+
+    [Fact]
+    public void DwdWarningOptions_HasPostalCode_And_Coordinates_ReflectConfiguredValues()
+    {
+        var options = new DwdWarningOptions { PostalCode = "04205", Latitude = 51.34 };
+
+        Assert.True(options.HasPostalCode());
+        Assert.True(options.HasCoordinates());
     }
 }

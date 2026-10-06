@@ -1,4 +1,5 @@
-﻿using Discord;
+﻿using System.Net;
+using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRssRepository, RssRepository>();
         services.AddScoped<IWasteDispatchRepository, WasteDispatchRepository>();
         services.AddScoped<ISpontanTreffRepository, SpontanTreffRepository>();
+        services.AddScoped<IWarningDispatchRepository, WarningDispatchRepository>();
         return services;
     }
 
@@ -61,6 +63,13 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IWeekendEventSource, LeipzigWeekendEventSource>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddHttpClient<IDwdWarningService, DwdWarningService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
         });
         services.AddHttpClient<AlexaMentionNotificationService>();
 
@@ -124,6 +133,11 @@ public static class ServiceCollectionExtensions
         if (IsFeatureEnabled(configuration, "weekend_digest_enabled"))
         {
             services.AddHostedService<WeekendDigestBackgroundService>();
+        }
+
+        if (IsFeatureEnabled(configuration, "dwd_warning_enabled"))
+        {
+            services.AddHostedService<DwdWarningBackgroundService>();
         }
 
         return services;

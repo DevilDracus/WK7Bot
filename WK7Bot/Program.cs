@@ -82,7 +82,22 @@ public static class DatabaseInitializationExtensions
             """);
 
         await dbContext.Database.ExecuteSqlRawAsync(CreateSpontanTreffSql);
+        await dbContext.Database.ExecuteSqlRawAsync(CreateWarningDispatchLogsSql);
     }
+
+    /// <summary>
+    /// Raw DDL for the DWD warning dispatch table so databases created before the feature pick it up as well.
+    /// Mirrored by <c>WarningDispatchRepositoryTests</c>, which replays this exact startup sequence.
+    /// </summary>
+    public const string CreateWarningDispatchLogsSql =
+        """
+        CREATE TABLE IF NOT EXISTS WarningDispatchLogs (
+            WarningId TEXT    NOT NULL,
+            GuildId   INTEGER NOT NULL,
+            SentAt    TEXT    NOT NULL,
+            PRIMARY KEY (WarningId, GuildId)
+        );
+        """;
 
     /// <summary>
     /// Raw DDL for the spontaneous meetup tables so databases created before the feature pick them up as well.
