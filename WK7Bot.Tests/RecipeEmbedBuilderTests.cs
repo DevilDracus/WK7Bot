@@ -73,15 +73,22 @@ public class RecipeEmbedBuilderTests
     }
 
     [Fact]
-    public void BuildGenerated_TruncatesOversizedFieldValue()
+    public void BuildGenerated_ChunksOversizedField_WithoutLosingContent()
     {
         var recipe = CreateRecipe();
         recipe.Ingredients = new List<string> { new('x', 2000) };
 
         var embed = RecipeEmbedBuilder.BuildGenerated(recipe, "footer");
 
-        var field = embed.Fields.Single(f => f.Name == "🛒 Ingredients");
-        Assert.Equal(1024, field.Value.Length);
-        Assert.EndsWith("...", field.Value);
+        var fields = embed.Fields
+            .Where(f => f.Name.StartsWith("🛒 Ingredients", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Equal(2, fields.Length);
+        Assert.All(fields, f => Assert.True(f.Value.Length <= 1024));
+        Assert.Equal(1024, fields[0].Value.Length);
+
+        // Chunking replaces truncation: every character of the original section survives.
+        Assert.Equal("• " + new string('x', 2000), string.Concat(fields.Select(f => f.Value)));
     }
 }

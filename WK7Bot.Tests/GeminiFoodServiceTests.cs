@@ -65,6 +65,18 @@ public class GeminiFoodServiceTests
     }
     """;
 
+    private const string StepsDroppedFormattedRecipeJson = """
+    {
+      "title": "Pfannkuchen (bereinigt)",
+      "description": "Klassischer Pfannkuchenteig aus der Pfanne.",
+      "prep_time": "10 Minuten",
+      "cook_time": "15 Minuten",
+      "servings": 4,
+      "ingredients": ["200 g Mehl", "300 ml Milch", "2 Eier"],
+      "instructions": ["Teig rühren"]
+    }
+    """;
+
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
@@ -386,6 +398,25 @@ public class GeminiFoodServiceTests
 
         var result = await service.FormatRecipeAsync(ScrapedRecipe());
 
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task FormatRecipeAsync_ReturnsNull_WhenFormattedRecipeDropsSteps()
+    {
+        var handler = new StubHttpMessageHandler(_ => Json(Envelope(StepsDroppedFormattedRecipeJson)));
+        var service = CreateService(handler);
+
+        var scraped = ScrapedRecipe();
+        scraped.Instructions = new List<string>
+        {
+            "Teig rühren",
+            "In der Pfanne goldbraun backen"
+        };
+
+        var result = await service.FormatRecipeAsync(scraped);
+
+        // The caller falls back to the untouched scrape instead of posting a recipe with lost steps.
         Assert.Null(result);
     }
 

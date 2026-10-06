@@ -79,6 +79,7 @@ public class WebRecipeSearchServiceTests
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+        private readonly object _sync = new();
 
         public StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         {
@@ -91,8 +92,12 @@ public class WebRecipeSearchServiceTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            RequestUrls.Add(request.RequestUri!.ToString());
+            lock (_sync)
+            {
+                CallCount++;
+                RequestUrls.Add(request.RequestUri!.ToString());
+            }
+
             return Task.FromResult(_responder(request));
         }
     }
@@ -153,7 +158,8 @@ public class WebRecipeSearchServiceTests
         Assert.Equal(string.Empty, recipe.TransplantSafetyNotes);
         Assert.Equal(string.Empty, recipe.ImageUrl);
 
-        Assert.Equal(2, handler.CallCount);
+        // Search page plus both candidate pages (the next candidate is prefetched in parallel).
+        Assert.Equal(3, handler.CallCount);
         Assert.DoesNotContain(handler.RequestUrls, u => u.Contains("y.js"));
         Assert.Contains("Pfannkuchen", handler.RequestUrls[0]);
         Assert.Contains("html.duckduckgo.com", handler.RequestUrls[0]);
@@ -282,7 +288,9 @@ public class WebRecipeSearchServiceTests
         Assert.NotNull(recipe);
         Assert.Equal("Käsespätzle", recipe!.Title);
         Assert.Equal("https://www.chefkoch.de/rezepte/111111/erstes-rezept.html", recipe.SourceUrl);
-        Assert.Equal(3, handler.CallCount);
+
+        // Search page + Chefkoch listing + all three listing candidates (prefetched in parallel).
+        Assert.Equal(5, handler.CallCount);
     }
 
     [Fact]
@@ -351,10 +359,11 @@ public class WebRecipeSearchServiceTests
         Assert.NotNull(recipe);
         Assert.Equal("Käsespätzle", recipe!.Title);
 
-        Assert.Equal(2, handler.CallCount);
-        Assert.Contains("example.org", handler.RequestUrls[1]);
+        // Search page plus both candidates (the listing page is prefetched alongside the recipe page).
+        Assert.Equal(3, handler.CallCount);
+        Assert.Contains(handler.RequestUrls, u => u.Contains("example.org"));
+        Assert.Contains(handler.RequestUrls, u => u.Contains("chefkoch.de/rs/"));
         Assert.DoesNotContain(handler.RequestUrls, u => u.Contains("youtube.com"));
-        Assert.DoesNotContain(handler.RequestUrls, u => u.Contains("chefkoch.de"));
     }
 
     [Fact]
@@ -383,8 +392,10 @@ public class WebRecipeSearchServiceTests
 
         Assert.NotNull(recipe);
         Assert.Equal("https://example.com/rezept/c.html", recipe!.SourceUrl);
-        Assert.Equal(2, handler.CallCount);
-        Assert.EndsWith("/c.html", handler.RequestUrls[1]);
+
+        // Search page plus all three candidates (downloaded in parallel, evaluated from the rolled start).
+        Assert.Equal(4, handler.CallCount);
+        Assert.Contains(handler.RequestUrls, u => u.EndsWith("/c.html"));
     }
 
     [Fact]
@@ -442,7 +453,7 @@ public class WebRecipeSearchServiceTests
         Assert.NotNull(second);
         Assert.NotNull(third);
 
-        // Two requests per call (search page + first candidate page), even once every candidate has been served.
-        Assert.Equal(6, handler.CallCount);
+        // Three requests per call (search page + both candidate pages), even once every candidate has been served.
+        Assert.Equal(9, handler.CallCount);
     }
 }

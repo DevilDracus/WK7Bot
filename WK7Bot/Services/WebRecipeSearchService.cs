@@ -34,6 +34,16 @@ public class WebRecipeSearchService : IRecipeSearchService
     private const int CandidateStartWindow = 4;
 
     /// <summary>
+    /// How many candidate pages are downloaded in parallel while their results are evaluated in candidate order.
+    /// </summary>
+    private const int ConcurrentFetchLimit = 3;
+
+    /// <summary>
+    /// How long a failing/challenged primary search provider is skipped before it is tried again.
+    /// </summary>
+    private static readonly TimeSpan PrimarySearchCooldown = TimeSpan.FromMinutes(10);
+
+    /// <summary>
     /// Rolling memory of the most recently served source URLs, used to avoid handing out the same recipe over and over.
     /// </summary>
     private const string RecentRecipeCacheKey = "recipe:search:recently-served";
@@ -97,6 +107,7 @@ public class WebRecipeSearchService : IRecipeSearchService
     private readonly IRandomSource _random;
     private readonly IMemoryCache? _recentRecipeCache;
     private readonly object _recentRecipeLock = new();
+    private DateTime _primarySearchBlockedUntilUtc = DateTime.MinValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebRecipeSearchService"/> class.
@@ -136,9 +147,32 @@ public class WebRecipeSearchService : IRecipeSearchService
             return null;
         }
 
-        var searchHtml = await FetchAsync($"{SearchEndpoint}?q={Uri.EscapeDataString(query.Trim() + SearchQuerySuffix)}", cancellationToken)
-            .ConfigureAwait(false);
+        string? searchHtml = null;
+        bool skippedPrimarySearch = DateTime.UtcNow < _primarySearchBlockedUntilUtc;
+        if (skippedPrimarySearch)
+        {
+            _logger.LogDebug("Skipping the DuckDuckGo search (recent failure cooldown) for query '{Query}'.", query);
+        }
+        else
+        {
+            searchHtml = await FetchAsync(
+                    $"{SearchEndpoint}?q={Uri.EscapeDataString(query.Trim() + SearchQuerySuffix)}",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         var searchAvailable = searchHtml != null && !IsChallengePage(searchHtml);
+
+        if (searchAvailable)
+        {
+            _primarySearchBlockedUntilUtc = DateTime.MinValue;
+        }
+        else if (!skippedPrimarySearch)
+        {
+            // Do not hammer a provider that just failed or served a challenge page.
+            _primarySearchBlockedUntilUtc = DateTime.UtcNow.Add(PrimarySearchCooldown);
+            _logger.LogWarning("DuckDuckGo search did not respond for query '{Query}'. Falling back to Chefkoch.", query);
+        }
 
         if (searchAvailable)
         {
@@ -151,10 +185,6 @@ public class WebRecipeSearchService : IRecipeSearchService
                 RememberRecipe(fromSearch.SourceUrl);
                 return fromSearch;
             }
-        }
-        else
-        {
-            _logger.LogWarning("DuckDuckGo search did not respond for query '{Query}'. Falling back to Chefkoch.", query);
         }
 
         var listingHtml = await FetchAsync(BuildChefkochSearchUrl(query), cancellationToken).ConfigureAwait(false);
@@ -311,28 +341,65 @@ public class WebRecipeSearchService : IRecipeSearchService
 
     /// <summary>
     /// Walks candidate recipe pages in order and returns the first one that exposes parseable recipe data.
+    /// Up to <see cref="ConcurrentFetchLimit"/> pages are downloaded in parallel while their results are still
+    /// evaluated in candidate order, so one slow page no longer serialises the whole lookup.
     /// </summary>
     private async Task<RenalRecipeData?> TryParseFirstRecipeAsync(IReadOnlyList<string> candidateUrls, CancellationToken cancellationToken)
     {
-        foreach (var candidateUrl in candidateUrls)
+        var pending = new Dictionary<int, Task<string?>>();
+
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var pageHtml = await FetchAsync(candidateUrl, cancellationToken).ConfigureAwait(false);
-            if (pageHtml == null || IsChallengePage(pageHtml))
+            for (int i = 0; i < candidateUrls.Count; i++)
             {
-                continue;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
 
-            var recipe = ParseRecipe(pageHtml, candidateUrl);
-            if (recipe != null)
-            {
-                _logger.LogInformation("Parsed recipe '{Title}' from {SourceUrl}.", recipe.Title, candidateUrl);
-                return recipe;
+                int prefetchUntil = Math.Min(i + ConcurrentFetchLimit, candidateUrls.Count);
+                for (int j = i; j < prefetchUntil; j++)
+                {
+                    if (!pending.ContainsKey(j))
+                    {
+                        pending[j] = FetchAsync(candidateUrls[j], cancellationToken);
+                    }
+                }
+
+                var pageHtml = await pending[i].ConfigureAwait(false);
+                pending.Remove(i);
+
+                if (pageHtml == null || IsChallengePage(pageHtml))
+                {
+                    continue;
+                }
+
+                var recipe = ParseRecipe(pageHtml, candidateUrls[i]);
+                if (recipe != null)
+                {
+                    _logger.LogInformation("Parsed recipe '{Title}' from {SourceUrl}.", recipe.Title, candidateUrls[i]);
+                    return recipe;
+                }
             }
+        }
+        finally
+        {
+            ReleasePendingFetches(pending);
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Lets downloads that are no longer needed finish in the background without surfacing unobserved exceptions.
+    /// </summary>
+    private static void ReleasePendingFetches(Dictionary<int, Task<string?>> pending)
+    {
+        foreach (var task in pending.Values)
+        {
+            _ = task.ContinueWith(
+                static faulted => _ = faulted.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
     }
 
     /// <summary>

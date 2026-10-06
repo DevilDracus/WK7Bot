@@ -338,6 +338,16 @@
             field limits, optional diet/safety sections, and the source disclaimer of web-searched recipes in one place.
             </summary>
         </member>
+        <member name="F:WK7Bot.Core.Utilities.RecipeEmbedBuilder.EmbedLengthLimit">
+            <summary>
+            Discord's total embed length limit (title + description + footer + all field names and values).
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.RecipeEmbedBuilder.EmbedLengthSafety">
+            <summary>
+            Head-room kept below <see cref="F:WK7Bot.Core.Utilities.RecipeEmbedBuilder.EmbedLengthLimit"/> so the embed is never rejected by Discord.
+            </summary>
+        </member>
         <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.BuildGenerated(WK7Bot.Models.RenalRecipeData,System.String)">
             <summary>
             Builds the embed for a Gemini generated, renal screened recipe.
@@ -357,7 +367,22 @@
         </member>
         <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.Build(WK7Bot.Models.RenalRecipeData,System.String,Discord.Color,System.String,System.Boolean)">
             <summary>
-            Shared embed assembly for both recipe sources.
+            Shared embed assembly for both recipe sources. Long sections (ingredients, steps) are split across several
+            fields so no content is ever dropped; the remaining budget is capped so the embed stays inside Discord's
+            total length limit.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.AddChunkedField(Discord.EmbedBuilder,System.String,System.String,System.Int32)">
+            <summary>
+            Adds a field value, split across as many fields as needed to stay within Discord's per-field limit, and stops
+            with a pointer to the source once the embed-wide budget is exhausted.
+            </summary>
+            <returns>The number of characters consumed from <paramref name="budget"/> (field names included).</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.SplitValue(System.String,System.Int32)">
+            <summary>
+            Splits a field value into chunks of at most <paramref name="limit"/> characters, preferring line breaks so
+            numbered steps and ingredient lines stay intact.
             </summary>
         </member>
         <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.BuildDescription(WK7Bot.Models.RenalRecipeData)">
@@ -370,9 +395,10 @@
             Builds the disclaimer shown for recipes that originate from an unverified web source.
             </summary>
         </member>
-        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.Truncate(System.String)">
+        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.Truncate(System.String,System.Int32)">
             <summary>
-            Cuts a field value to Discord's 1024 character limit, appending an ellipsis when truncated.
+            Cuts a value to Discord's character limit for its slot (field value or description), appending an ellipsis
+            when truncated. Used only for single-line values; recipe lists are chunked instead of truncated.
             </summary>
         </member>
         <member name="T:WK7Bot.Core.Utilities.SeasonalTermPicker">
@@ -2563,6 +2589,16 @@
             How many of the top-ranked candidates take part in the randomised start; the tail keeps its relevance order.
             </summary>
         </member>
+        <member name="F:WK7Bot.Services.WebRecipeSearchService.ConcurrentFetchLimit">
+            <summary>
+            How many candidate pages are downloaded in parallel while their results are evaluated in candidate order.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Services.WebRecipeSearchService.PrimarySearchCooldown">
+            <summary>
+            How long a failing/challenged primary search provider is skipped before it is tried again.
+            </summary>
+        </member>
         <member name="F:WK7Bot.Services.WebRecipeSearchService.RecentRecipeCacheKey">
             <summary>
             Rolling memory of the most recently served source URLs, used to avoid handing out the same recipe over and over.
@@ -2632,6 +2668,13 @@
         <member name="M:WK7Bot.Services.WebRecipeSearchService.TryParseFirstRecipeAsync(System.Collections.Generic.IReadOnlyList{System.String},System.Threading.CancellationToken)">
             <summary>
             Walks candidate recipe pages in order and returns the first one that exposes parseable recipe data.
+            Up to <see cref="F:WK7Bot.Services.WebRecipeSearchService.ConcurrentFetchLimit"/> pages are downloaded in parallel while their results are still
+            evaluated in candidate order, so one slow page no longer serialises the whole lookup.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ReleasePendingFetches(System.Collections.Generic.Dictionary{System.Int32,System.Threading.Tasks.Task{System.String}})">
+            <summary>
+            Lets downloads that are no longer needed finish in the background without surfacing unobserved exceptions.
             </summary>
         </member>
         <member name="M:WK7Bot.Services.WebRecipeSearchService.IsChallengePage(System.String)">

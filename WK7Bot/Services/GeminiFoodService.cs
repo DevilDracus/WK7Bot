@@ -176,7 +176,7 @@ public class GeminiFoodService : IGeminiFoodService
 
         string prompt = "Below is a recipe scraped from a website (JSON). Re-format it into the schema you are given.\n" +
                         "RULES:\n" +
-                        "1. FAITHFUL: keep the same dish. Never invent, drop or translate ingredients or steps. Keep the original language (usually German).\n" +
+                        "1. FAITHFUL: keep the same dish. Never invent, drop, merge or translate ingredients or steps. Keep the original language (usually German) and return EVERY step of the original list, in the same order.\n" +
                         "2. STRUCTURE: one ingredient per list entry, starting with quantity and unit when given (e.g. \"200 g Mehl\"). Split run-on text into one short, ordered step per entry.\n" +
                         "3. TITLE: keep it, but trim site-specific suffixes such as an author name after \"von\". DESCRIPTION: one or two short sentences summarising the dish.\n" +
                         "4. TIMES: short German strings such as \"20 Minuten\"; use an empty string when unknown. SERVINGS: the portion count, 0 when unknown.\n" +
@@ -207,6 +207,25 @@ public class GeminiFoodService : IGeminiFoodService
             || formatted.Instructions is not { Count: > 0 })
         {
             _logger.LogWarning("Gemini returned an unusable formatted recipe (title/ingredients/steps missing).");
+            return null;
+        }
+
+        // Formatting must never lose content: if Gemini dropped steps or ingredients, keep the raw scrape instead.
+        if (recipe.Instructions.Count > 0 && formatted.Instructions.Count < recipe.Instructions.Count)
+        {
+            _logger.LogWarning(
+                "Gemini kept only {Formatted} of {Original} steps while formatting; posting the raw recipe instead.",
+                formatted.Instructions.Count,
+                recipe.Instructions.Count);
+            return null;
+        }
+
+        if (recipe.Ingredients.Count > 0 && formatted.Ingredients.Count < recipe.Ingredients.Count)
+        {
+            _logger.LogWarning(
+                "Gemini kept only {Formatted} of {Original} ingredients while formatting; posting the raw recipe instead.",
+                formatted.Ingredients.Count,
+                recipe.Ingredients.Count);
             return null;
         }
 

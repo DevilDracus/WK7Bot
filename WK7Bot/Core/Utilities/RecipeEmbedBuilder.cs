@@ -15,6 +15,19 @@ public static class RecipeEmbedBuilder
     private const int FieldValueLimit = 1024;
 
     /// <summary>
+    /// Discord's total embed length limit (title + description + footer + all field names and values).
+    /// </summary>
+    private const int EmbedLengthLimit = 6000;
+
+    /// <summary>
+    /// Head-room kept below <see cref="EmbedLengthLimit"/> so the embed is never rejected by Discord.
+    /// </summary>
+    private const int EmbedLengthSafety = 150;
+
+    private const string OverflowHint =
+        "… zu lang für Discord – das vollständige Rezept steht hinter dem Link am Titel bzw. in der Quelle.";
+
+    /// <summary>
     /// Builds the embed for a Gemini generated, renal screened recipe.
     /// </summary>
     /// <param name="recipe">The generated recipe payload.</param>
@@ -34,48 +47,67 @@ public static class RecipeEmbedBuilder
         => Build(recipe, $"🍽️ {recipe.Title}", Color.DarkOrange, footer, includeDisclaimer: true);
 
     /// <summary>
-    /// Shared embed assembly for both recipe sources.
+    /// Shared embed assembly for both recipe sources. Long sections (ingredients, steps) are split across several
+    /// fields so no content is ever dropped; the remaining budget is capped so the embed stays inside Discord's
+    /// total length limit.
     /// </summary>
     private static Embed Build(RenalRecipeData recipe, string title, Color color, string footer, bool includeDisclaimer)
     {
         ArgumentNullException.ThrowIfNull(recipe);
 
+        // Hard Discord limits for the fixed slots; recipe lists are chunked instead of truncated.
+        var safeTitle = Truncate(title, 256);
+        var safeFooter = Truncate(footer ?? string.Empty, 2048);
+        var description = Truncate(BuildDescription(recipe), 4096);
         var builder = new EmbedBuilder()
-            .WithTitle(title)
-            .WithDescription(BuildDescription(recipe))
+            .WithTitle(safeTitle)
+            .WithDescription(description)
             .WithColor(color);
+
+        // Sections that are added after the variable-length ones are measured up front so the recipe text can
+        // never crowd out the diet/safety/disclaimer fields.
+        var dietTags = recipe.DietTags ?? new List<string>();
+        var formattedTags = dietTags.Count > 0 ? DietTagFormatter.Format(dietTags) : string.Empty;
+        var safetyNotes = string.IsNullOrWhiteSpace(recipe.TransplantSafetyNotes)
+            ? string.Empty
+            : recipe.TransplantSafetyNotes!;
+        var seasonalIngredients = string.Join(", ", recipe.SeasonalIngredientsUsed ?? new List<string>());
+        var disclaimer = includeDisclaimer ? BuildDisclaimer(recipe.SourceUrl) : string.Empty;
+
+        int budget = EmbedLengthLimit - EmbedLengthSafety
+            - safeTitle.Length
+            - description.Length
+            - safeFooter.Length
+            - formattedTags.Length
+            - safetyNotes.Length
+            - seasonalIngredients.Length
+            - disclaimer.Length;
 
         var ingredients = FormatIngredients(recipe.Ingredients);
         if (ingredients.Length > 0)
         {
-            builder.AddField("🛒 Ingredients", Truncate(ingredients), false);
+            budget -= AddChunkedField(builder, "🛒 Ingredients", ingredients, budget);
         }
 
         var instructions = FormatInstructions(recipe.Instructions);
         if (instructions.Length > 0)
         {
-            builder.AddField("👨‍🍳 Preparation Steps", Truncate(instructions), false);
+            budget -= AddChunkedField(builder, "👨‍🍳 Preparation Steps", instructions, budget);
         }
 
-        var dietTags = recipe.DietTags ?? new List<string>();
-        if (dietTags.Count > 0)
+        if (formattedTags.Length > 0)
         {
-            var formattedTags = DietTagFormatter.Format(dietTags);
-            if (formattedTags.Length > 0)
-            {
-                builder.AddField("🏷️ Diet Tags", formattedTags, false);
-            }
+            builder.AddField("🏷️ Diet Tags", formattedTags, false);
         }
 
-        if (!string.IsNullOrWhiteSpace(recipe.TransplantSafetyNotes))
+        if (safetyNotes.Length > 0)
         {
-            builder.AddField("🛡️ Safety & Renal Notes", recipe.TransplantSafetyNotes, false);
+            builder.AddField("🛡️ Safety & Renal Notes", safetyNotes, false);
         }
 
-        var seasonalIngredients = recipe.SeasonalIngredientsUsed ?? new List<string>();
-        if (seasonalIngredients.Count > 0)
+        if (seasonalIngredients.Length > 0)
         {
-            builder.AddField("🌿 Saisonale Zutaten", Truncate(string.Join(", ", seasonalIngredients)), false);
+            builder.AddField("🌿 Saisonale Zutaten", seasonalIngredients, false);
         }
 
         if (includeDisclaimer)
@@ -90,16 +122,112 @@ public static class RecipeEmbedBuilder
                 builder.WithThumbnailUrl(recipe.ImageUrl);
             }
 
-            builder.AddField("⚠️ Hinweis", BuildDisclaimer(recipe.SourceUrl), false);
+            builder.AddField("⚠️ Hinweis", disclaimer, false);
         }
 
-        if (!string.IsNullOrWhiteSpace(footer))
+        if (!string.IsNullOrWhiteSpace(safeFooter))
         {
-            builder.WithFooter(footer);
+            builder.WithFooter(safeFooter);
         }
 
         builder.WithCurrentTimestamp();
         return builder.Build();
+    }
+
+    /// <summary>
+    /// Adds a field value, split across as many fields as needed to stay within Discord's per-field limit, and stops
+    /// with a pointer to the source once the embed-wide budget is exhausted.
+    /// </summary>
+    /// <returns>The number of characters consumed from <paramref name="budget"/> (field names included).</returns>
+    private static int AddChunkedField(EmbedBuilder builder, string name, string value, int budget)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return 0;
+        }
+
+        var chunks = SplitValue(value, FieldValueLimit);
+        if (chunks.Count == 0)
+        {
+            return 0;
+        }
+
+        if (chunks.Count == 1)
+        {
+            builder.AddField(name, chunks[0], false);
+            return name.Length + chunks[0].Length;
+        }
+
+        int consumed = 0;
+        for (int i = 0; i < chunks.Count; i++)
+        {
+            string fieldName = $"{name} ({i + 1}/{chunks.Count})";
+            int cost = fieldName.Length + chunks[i].Length;
+            if (cost > budget - consumed)
+            {
+                string hintName = "⚠️ Rezept gekürzt";
+                int hintCost = hintName.Length + OverflowHint.Length;
+                if (hintCost <= budget - consumed)
+                {
+                    builder.AddField(hintName, OverflowHint, false);
+                    consumed += hintCost;
+                }
+
+                return consumed;
+            }
+
+            builder.AddField(fieldName, chunks[i], false);
+            consumed += cost;
+        }
+
+        return consumed;
+    }
+
+    /// <summary>
+    /// Splits a field value into chunks of at most <paramref name="limit"/> characters, preferring line breaks so
+    /// numbered steps and ingredient lines stay intact.
+    /// </summary>
+    private static IReadOnlyList<string> SplitValue(string value, int limit)
+    {
+        var chunks = new List<string>();
+        var current = new List<string>();
+        int currentLength = 0;
+
+        void Flush()
+        {
+            if (current.Count == 0)
+            {
+                return;
+            }
+
+            chunks.Add(string.Join("\n", current));
+            current.Clear();
+            currentLength = 0;
+        }
+
+        foreach (var rawLine in value.Split('\n'))
+        {
+            var line = rawLine;
+            while (line.Length > limit)
+            {
+                Flush();
+                chunks.Add(line[..limit]);
+                line = line[limit..];
+            }
+
+            int added = line.Length + (current.Count > 0 ? 1 : 0);
+            if (currentLength + added > limit)
+            {
+                Flush();
+                added = line.Length;
+            }
+
+            current.Add(line);
+            currentLength += added;
+        }
+
+        Flush();
+        return chunks;
     }
 
     /// <summary>
@@ -153,8 +281,9 @@ public static class RecipeEmbedBuilder
         => string.Join("\n", instructions.Where(i => !string.IsNullOrWhiteSpace(i)).Select((inst, idx) => $"{idx + 1}. {inst}"));
 
     /// <summary>
-    /// Cuts a field value to Discord's 1024 character limit, appending an ellipsis when truncated.
+    /// Cuts a value to Discord's character limit for its slot (field value or description), appending an ellipsis
+    /// when truncated. Used only for single-line values; recipe lists are chunked instead of truncated.
     /// </summary>
-    private static string Truncate(string value)
-        => value.Length > FieldValueLimit ? value[..(FieldValueLimit - 3)] + "..." : value;
+    private static string Truncate(string value, int limit)
+        => value.Length > limit ? value[..(limit - 3)] + "..." : value;
 }
