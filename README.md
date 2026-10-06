@@ -395,6 +395,8 @@ docker run -d \
 2. Search for **WK7Bot** in the Add-On Store.
 3. Configure your tokens in the Add-On **Configuration** tab and click **Start**.
 
+Installs and updates pull the pre-built image `ghcr.io/devildracus/wk7bot:<version>` instead of compiling .NET on the device, so a Raspberry Pi 4 only downloads the container (architectures `aarch64` and `amd64`). To release a new version, bump `version:` in `WK7Bot/config.yaml` and push — the build workflow skips publishing while that version tag already exists.
+
 ## Health & Operations
 
 | Endpoint | Description |
@@ -406,6 +408,8 @@ Logs from `Discord.Net` are forwarded into the ASP.NET logging pipeline and appe
 ## Continuous Integration
 
 `.github/workflows/tests.yml` restores, builds, and runs the xUnit suite with the .NET 10 SDK on every push and pull request to `main`, `master`, and `develop`; the `trx` test results are uploaded as a build artifact. The status badge at the top of this README reflects the latest run, so a red badge means the suite is failing on GitHub Actions (locally: `dotnet test WK7Bot.sln`).
+
+`.github/workflows/builder.yaml` builds the add-on container for `amd64` and `aarch64` with the Home Assistant [builder actions](https://github.com/home-assistant/builder) on every push that touches `WK7Bot/**`, pushes the per-architecture images plus a multi-arch manifest to `ghcr.io/devildracus/wk7bot` tagged with the `version` from `WK7Bot/config.yaml` (plus `latest`), and skips publishing when that version tag already exists. The GHCR package must be set to **public** once (GitHub → Packages → `wk7bot` → Change visibility) so the Supervisor can pull it anonymously.
 
 ## License & Copyright
 
