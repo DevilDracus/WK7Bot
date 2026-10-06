@@ -117,7 +117,10 @@ WK7Bot
 │       ├── RecipeEmbedBuilder.cs            # Shared recipe embeds (search link/disclaimer vs. generated)
 │       ├── SeasonalTermPicker.cs            # Weighted random seasonal-term selection
 │       ├── SpontanTreffMessageBuilder.cs     # Shared meetup embed + button rendering, custom IDs
-│       └── WasteSummaryMapper.cs            # ICS summary → German display label
+│       ├── WasteSummaryMapper.cs            # ICS summary → German display label
+│       ├── WeekendDigestCurator.cs          # Market-first Fri–Sun pick ranking with day spread
+│       ├── WeekendDigestMessageBuilder.cs   # Weekend digest embed + native poll rendering
+│       └── WeekendEventParser.cs            # leipzig.de event-card HTML → WeekendEvent list
 ├── Extensions
 │   └── ServiceCollectionExtensions.cs       # DI wiring for DB, Discord, HTTP clients, hosted services
 ├── Infrastructure
@@ -131,7 +134,8 @@ WK7Bot
 │   ├── SteamAchievement.cs
 │   ├── SteamRecentGame.cs
 │   ├── SteamUserData.cs
-│   └── UserPresenceEntity.cs
+│   ├── UserPresenceEntity.cs
+│   └── WeekendEvent.cs                      # Parsed leipzig.de listing (title, date, time, location, topic, URL)
 ├── Modules
 │   ├── FoodModule.cs                         # /recipe, /recipe-generate, /recipe-seasonal and /seasonal-produce slash commands
 │   ├── LeipzigWasteModule.cs
@@ -152,7 +156,8 @@ WK7Bot
 │   │   ├── ILeipzigWasteService.cs
 │   │   ├── IRandomSource.cs                 # Injectable randomness for selection logic
 │   │   ├── IRecipeSearchService.cs          # Web recipe lookup contract
-│   │   └── ISteamService.cs
+│   │   ├── ISteamService.cs
+│   │   └── IWeekendEventSource.cs           # leipzig.de weekend + month listing fetch contract
 │   ├── AlexaMentionNotificationService.cs
 │   ├── DiscordBotWorker.cs
 │   ├── DiscordPresenceMqttService.cs
@@ -163,13 +168,15 @@ WK7Bot
 │   ├── InteractionHandlingService.cs
 │   ├── LeipzigWasteBackgroundService.cs
 │   ├── LeipzigWasteService.cs
+│   ├── LeipzigWeekendEventSource.cs         # leipzig.de weekend + month fetch, URL dedupe, Fri–Sun filter
 │   ├── RssParserService.cs
 │   ├── RssPollingBackgroundService.cs
 │   ├── SpontanTreffExpiryService.cs        # Closes overdue meetups and strips their buttons
 │   ├── SteamDataCache.cs                     # 60s per-user Steam fetch cooldown
 │   ├── SteamService.cs
 │   ├── SystemRandomSource.cs                 # Random.Shared-backed IRandomSource
-│   └── WebRecipeSearchService.cs            # DuckDuckGo search + Chefkoch fallback + JSON-LD recipe parsing
+│   ├── WebRecipeSearchService.cs            # DuckDuckGo search + Chefkoch fallback + JSON-LD recipe parsing
+│   └── WeekendDigestBackgroundService.cs    # Thursday 14:15 digest → #📅wochenende (poll, retry budget)
 ├── Program.cs                               # Host bootstrap, options binding, /health endpoint
 ├── appsettings.json
 ├── appsettings.Development.json
@@ -186,6 +193,7 @@ WK7Bot.Tests                                 # xUnit test project (included in W
 ├── GeminiFoodServiceTests.cs                # Gemini envelope parsing, fallback, retries
 ├── LeipzigWasteBackgroundServiceTests.cs    # Restart dedupe, daily/weekly kinds, partial-failure retry
 ├── LeipzigWasteServiceTests.cs              # ICS parsing, mapping, feed download caching
+├── LeipzigWeekendEventSourceTests.cs        # Two-page fetch, dedupe, Fri–Sun filter, both-pages-fail throw
 ├── NameSanitizerTests.cs
 ├── OptionsBindingTests.cs
 ├── RecipeEmbedBuilderTests.cs               # Shared recipe embed sections, disclaimer, truncation
@@ -202,7 +210,11 @@ WK7Bot.Tests                                 # xUnit test project (included in W
 ├── StubRandomSource.cs                       # Deterministic IRandomSource for tests
 ├── WasteDispatchRepositoryTests.cs           # Dispatch state persistence (EF InMemory)
 ├── WasteSummaryMapperTests.cs
-└── WebRecipeSearchServiceTests.cs           # Search-result extraction, JSON-LD parsing, skip paths, Chefkoch fallback & provider-unavailable
+├── WebRecipeSearchServiceTests.cs           # Search-result extraction, JSON-LD parsing, skip paths, Chefkoch fallback & provider-unavailable
+├── WeekendDigestBackgroundServiceTests.cs   # Thursday schedule, retries, build-once cache, dispatch dedupe, channel creation
+├── WeekendDigestCuratorTests.cs             # Market-first ranking, day spread, venue dedupe, pick shortfalls
+├── WeekendDigestMessageBuilderTests.cs      # Embed fields, poll answers/duration, Discord length limits
+└── WeekendEventParserTests.cs               # Card markup, date/time forms, entities, malformed cards
 ```
 
 ## Slash Commands
@@ -236,6 +248,7 @@ All food commands are ephemeral while the lookup runs, post the result embed int
 | `DiscordPresenceMqttService` | Publishes Discord presence snapshots to MQTT for Home Assistant | `discord_presence_mqtt_enabled` |
 | `FoodPublisherService` | Posts the monthly produce calendar (Gemini) and the weekly seasonal web recipe to `#🍎food` | `food_service_enabled` |
 | `SpontanTreffExpiryService` | Closes overdue spontaneous meetups and removes their buttons every minute | `spontan_treff_enabled` |
+| `WeekendDigestBackgroundService` | Posts the Thursday 14:15 weekend digest with a native voting poll to `#📅wochenende` | `weekend_digest_enabled` |
 
 Feature flags are resolved from the `Wk7Bot:features` section when present (appsettings.json), otherwise from root-level `features` (Home Assistant `options.json`). Services re-check the bound options at runtime, so disabling a flag always takes effect.
 
@@ -272,6 +285,7 @@ features:
   steam_presence_enabled: true
   food_service_enabled: true
   spontan_treff_enabled: true
+  weekend_digest_enabled: true
 ```
 
 ### `appsettings.json` (same keys under `Wk7Bot`)
@@ -311,7 +325,8 @@ features:
       "discord_presence_mqtt_enabled": true,
       "steam_presence_enabled": true,
       "food_service_enabled": true,
-      "spontan_treff_enabled": true
+      "spontan_treff_enabled": true,
+      "weekend_digest_enabled": true
     }
   }
 }
@@ -359,7 +374,7 @@ dotnet test WK7Bot.sln
 dotnet test WK7Bot.Tests/WK7Bot.Tests.csproj
 ```
 
-The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled` and `spontan_treff_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, search vs. generate paths, error paths, via Moq), the web recipe search service (DuckDuckGo result extraction incl. ad skipping, JSON-LD `Recipe` parsing, candidate-skip and failure paths, bot-challenge detection with the Chefkoch fallback provider, the provider-unavailable exception, randomised candidate starting points and the recently-served preference — against a stubbed HTTP handler), the weighted `SeasonalTermPicker` (category weights, distinct terms, empty pools), the shared recipe embed builder (source link, disclaimer, empty-section skipping, 1024-char truncation), the Spontan-Treff feature (embed/button rendering and field limits, the slash command with validation, `@everyone`-forbidden fallback and error paths, the button handler with toggle/undo/switch plus expired/closed/malformed rejection and real `InteractionService` custom-ID matching, the expiry sweep incl. edit-failure isolation and idempotency, and repository CRUD together with the raw SQLite startup DDL replayed for both fresh and pre-existing databases), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`). Randomised behaviour is driven by a scripted `StubRandomSource`, so these tests never flake.
+The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled`, `spontan_treff_enabled` and `weekend_digest_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, search vs. generate paths, error paths, via Moq), the web recipe search service (DuckDuckGo result extraction incl. ad skipping, JSON-LD `Recipe` parsing, candidate-skip and failure paths, bot-challenge detection with the Chefkoch fallback provider, the provider-unavailable exception, randomised candidate starting points and the recently-served preference — against a stubbed HTTP handler), the weighted `SeasonalTermPicker` (category weights, distinct terms, empty pools), the shared recipe embed builder (source link, disclaimer, empty-section skipping, 1024-char truncation), the Spontan-Treff feature (embed/button rendering and field limits, the slash command with validation, `@everyone`-forbidden fallback and error paths, the button handler with toggle/undo/switch plus expired/closed/malformed rejection and real `InteractionService` custom-ID matching, the expiry sweep incl. edit-failure isolation and idempotency, and repository CRUD together with the raw SQLite startup DDL replayed for both fresh and pre-existing databases), the weekend digest (leipzig.de event-card parsing with all date/time forms and HTML entities, the dual weekend/month page merge with URL dedupe and the both-pages-failure throw, market-weighted curation with Friday→Sunday day spread and venue dedupe, embed/poll rendering incl. Discord's 300/55/256/1024-char limits and the Sunday-23:59 poll duration clamp, and the Thursday 14:15 scheduler with its 15-minute retry budget, zero-event short-circuit, build-once fetch cache, missing-channel skip and restart-safe dispatch — via a testable subclass and EF InMemory), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`). Randomised behaviour is driven by a scripted `StubRandomSource`, so these tests never flake.
 
 ### Docker
 
