@@ -1,6 +1,6 @@
 # WK7Bot
 
-A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, RSS feed syndication, web-searched and AI-generated seasonal food and renal-safe recipes, and local utility schedule automation into a unified, extensible background framework.
+A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, RSS feed syndication, web-searched and AI-generated seasonal food and renal-safe recipes, spontaneous meetup coordination, and local utility schedule automation into a unified, extensible background framework.
 
 [![Run Unit Tests](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml/badge.svg)](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml)
 [![Add repository to Home Assistant][repository-badge]][repository-url]
@@ -14,7 +14,7 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 ### Discord Integration & Slash Commands
 - **`Discord.Interactions` framework** built on `Discord.Net` with reflection-based command module auto-registration (`InteractionHandlingService`).
 - **Guild & global commands** – a `Discord:TestGuildId` (or root `TestGuildId`) setting enables instant guild-scoped registration for development; otherwise commands register globally.
-- **Interactive UI** – select menus and role management for RSS subscription dashboards.
+- **Interactive UI** – select menus and role management for RSS subscription dashboards, plus one-tap go/pass buttons for spontaneous meetups.
 - **Duplicate protection** – `/rss add` rejects a name that already exists before creating channels/roles.
 
 ### RSS Feed Syndication
@@ -32,6 +32,16 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - **Restart-safe deduplication** – every daily/weekly dispatch per guild is recorded in the `WasteDispatchLogs` table (`WasteDispatchRepository`), so restarting the bot never re-sends today's messages; guilds whose send failed are retried on the next tick, while successful guilds stay suppressed.
 - **ICS download caching** – a successfully validated calendar is cached for 1 hour (`IMemoryCache`), so weekly overviews and multi-day `/check-waste` ranges reuse one HTTP download instead of fetching the feed per date; failures are never cached.
 - On-demand lookups via the `/check-waste` slash command.
+
+### Spontan-Treff (Spontaneous Meetups)
+- `/spontan-treff plan:<text> [ort:<text>] [minuten:<1-1440>]` posts a short-lived meetup with an **`@everyone` ping** into the dedicated `#🎉spontan-treff` channel (created automatically when missing, same pattern as `#🍎food` and `#🗑️leipzig-waste`).
+- The embed carries two one-tap buttons — **✅ Auf dem Weg** and **🚫 Absagen** — whose custom IDs are `spontan-treff:go:<id>` / `spontan-treff:pass:<id>` and are handled by `SpontanTreffComponentModule`.
+- **Tap-again-to-undo** – tapping the same button removes the answer, tapping the other one switches sides; every state change re-renders the shared embed (`SpontanTreffMessageBuilder`) so both answer lists stay accurate.
+- **Fixed open window** – 30 minutes by default, overridable with `minuten` (1–1440); the footer shows `Offen bis HH:mm Uhr` while open and `Beendet • lief bis …` afterwards.
+- **`SpontanTreffExpiryService`** sweeps every minute, marks overdue meetups as closed and edits their message so the buttons disappear (late taps are rejected); each meetup is handled independently, so a deleted Discord message only skips its own edit.
+- **Ping fallback** – when the bot may not mention `@everyone` (`403 Forbidden`), the meetup is posted as a plain message instead of failing.
+- Meetups and answers persist in the `SpontanTreffs` / `SpontanTreffResponses` tables (created by `EnsureCreated` *and* by the raw startup DDL in `Program.cs`, so existing databases pick them up too).
+- Gated by the `spontan_treff_enabled` feature flag (the expiry service is the only hosted component; the slash command itself is always registered).
 
 ### Steam Rich Presence Enrichment
 - Maps Discord user IDs to Steam IDs (`DiscordSteamMappings`).
@@ -82,11 +92,14 @@ WK7Bot
 │   ├── Entities
 │   │   ├── RssDashboardSetting.cs
 │   │   ├── RssFeed.cs
+│   │   ├── SpontanTreff.cs                     # Short-lived meetup with go/pass button answers
+│   │   ├── SpontanTreffResponse.cs             # Per-user "on my way" / "pass" answer (composite key)
 │   │   └── WasteDispatchLog.cs                # Persisted per-guild waste dispatch records
 │   ├── Exceptions
 │   │   └── RecipeSearchUnavailableException.cs # Both recipe search providers failed to respond
 │   ├── Interfaces
 │   │   ├── IRssRepository.cs
+│   │   ├── ISpontanTreffRepository.cs
 │   │   └── IWasteDispatchRepository.cs
 │   └── Utilities
 │       ├── DietTagFormatter.cs                # Diet-tag identifiers → German embed labels
@@ -95,6 +108,7 @@ WK7Bot
 │       ├── NameSanitizer.cs                 # Channel slugs + MQTT-safe names
 │       ├── RecipeEmbedBuilder.cs            # Shared recipe embeds (search link/disclaimer vs. generated)
 │       ├── SeasonalTermPicker.cs            # Weighted random seasonal-term selection
+│       ├── SpontanTreffMessageBuilder.cs     # Shared meetup embed + button rendering, custom IDs
 │       └── WasteSummaryMapper.cs            # ICS summary → German display label
 ├── Extensions
 │   └── ServiceCollectionExtensions.cs       # DI wiring for DB, Discord, HTTP clients, hosted services
@@ -102,6 +116,7 @@ WK7Bot
 │   └── Data
 │       ├── BotDbContext.cs
 │       ├── RssRepository.cs
+│       ├── SpontanTreffRepository.cs
 │       └── WasteDispatchRepository.cs
 ├── Models
 │   ├── FoodModels.cs                         # Seasonal produce + renal recipe models (Gemini schema)
@@ -114,6 +129,8 @@ WK7Bot
 │   ├── LeipzigWasteModule.cs
 │   ├── RssCommandsModule.cs
 │   ├── RssComponentModule.cs
+│   ├── SpontanTreffComponentModule.cs      # Button handler for go/pass answers (toggle/undo)
+│   ├── SpontanTreffModule.cs               # /spontan-treff slash command
 │   └── SystemModule.cs
 ├── Options
 │   ├── AlexaNotificationOptions.cs
@@ -140,6 +157,7 @@ WK7Bot
 │   ├── LeipzigWasteService.cs
 │   ├── RssParserService.cs
 │   ├── RssPollingBackgroundService.cs
+│   ├── SpontanTreffExpiryService.cs        # Closes overdue meetups and strips their buttons
 │   ├── SteamDataCache.cs                     # 60s per-user Steam fetch cooldown
 │   ├── SteamService.cs
 │   ├── SystemRandomSource.cs                 # Random.Shared-backed IRandomSource
@@ -166,6 +184,11 @@ WK7Bot.Tests                                 # xUnit test project (included in W
 ├── RssRepositoryTests.cs
 ├── ServiceCollectionExtensionsTests.cs
 ├── SeasonalTermPickerTests.cs                # Weighted category picks, distinct terms, empty pools
+├── SpontanTreffComponentModuleTests.cs       # Button toggle/undo/switch, rejection paths, custom-ID matching
+├── SpontanTreffExpiryServiceTests.cs         # Expiry sweep, edit-failure isolation, idempotency
+├── SpontanTreffMessageBuilderTests.cs        # Embed/button rendering, field limits, closed states
+├── SpontanTreffModuleTests.cs                # /spontan-treff posts, ping fallback, validation paths
+├── SpontanTreffRepositoryTests.cs            # CRUD + SQLite DDL replay of the startup sequence
 ├── SteamDataCacheTests.cs                    # Cooldown caching, TTL expiry, null caching
 ├── SteamServiceTests.cs                      # API mapping, retry/backoff, schema cache, log assertions
 ├── StubRandomSource.cs                       # Deterministic IRandomSource for tests
@@ -186,6 +209,7 @@ WK7Bot.Tests                                 # xUnit test project (included in W
 | `/recipe-seasonal [query]` | Searches for a recipe seeded with two randomly weighted seasonal ingredients and posts it with a source link to `#🍎food` | everyone |
 | `/recipe-generate` | Generates a seasonal renal & transplant-safe recipe and posts it to `#🍎food` | everyone |
 | `/seasonal-produce [month]` | Posts the seasonal fruit/vegetable/herb/nut calendar (month 1-12, default: current) to `#🍎food` | everyone |
+| `/spontan-treff <plan> [ort] [minuten]` | Announces a meetup with an `@everyone` ping and go/pass buttons in `#🎉spontan-treff` (open 1-1440 min, default 30) | everyone |
 | `/ping` | Gateway latency test | everyone |
 | `/ha-status` | Tests Home Assistant Supervisor API connectivity | everyone |
 
@@ -203,6 +227,7 @@ All food commands are ephemeral while the lookup runs, post the result embed int
 | `AlexaMentionNotificationService` | Forwards target-user mentions to the Alexa notification API | `alexa_notifications_enabled` |
 | `DiscordPresenceMqttService` | Publishes Discord presence snapshots to MQTT for Home Assistant | `discord_presence_mqtt_enabled` |
 | `FoodPublisherService` | Posts the monthly produce calendar (Gemini) and the weekly seasonal web recipe to `#🍎food` | `food_service_enabled` |
+| `SpontanTreffExpiryService` | Closes overdue spontaneous meetups and removes their buttons every minute | `spontan_treff_enabled` |
 
 Feature flags are resolved from the `Wk7Bot:features` section when present (appsettings.json), otherwise from root-level `features` (Home Assistant `options.json`). Services re-check the bound options at runtime, so disabling a flag always takes effect.
 
@@ -238,6 +263,7 @@ features:
   discord_presence_mqtt_enabled: true
   steam_presence_enabled: true
   food_service_enabled: true
+  spontan_treff_enabled: true
 ```
 
 ### `appsettings.json` (same keys under `Wk7Bot`)
@@ -276,7 +302,8 @@ features:
       "alexa_notifications_enabled": true,
       "discord_presence_mqtt_enabled": true,
       "steam_presence_enabled": true,
-      "food_service_enabled": true
+      "food_service_enabled": true,
+      "spontan_treff_enabled": true
     }
   }
 }
@@ -324,7 +351,7 @@ dotnet test WK7Bot.sln
 dotnet test WK7Bot.Tests/WK7Bot.Tests.csproj
 ```
 
-The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, search vs. generate paths, error paths, via Moq), the web recipe search service (DuckDuckGo result extraction incl. ad skipping, JSON-LD `Recipe` parsing, candidate-skip and failure paths, bot-challenge detection with the Chefkoch fallback provider, the provider-unavailable exception, randomised candidate starting points and the recently-served preference — against a stubbed HTTP handler), the weighted `SeasonalTermPicker` (category weights, distinct terms, empty pools), the shared recipe embed builder (source link, disclaimer, empty-section skipping, 1024-char truncation), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`). Randomised behaviour is driven by a scripted `StubRandomSource`, so these tests never flake.
+The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled` and `spontan_treff_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, search vs. generate paths, error paths, via Moq), the web recipe search service (DuckDuckGo result extraction incl. ad skipping, JSON-LD `Recipe` parsing, candidate-skip and failure paths, bot-challenge detection with the Chefkoch fallback provider, the provider-unavailable exception, randomised candidate starting points and the recently-served preference — against a stubbed HTTP handler), the weighted `SeasonalTermPicker` (category weights, distinct terms, empty pools), the shared recipe embed builder (source link, disclaimer, empty-section skipping, 1024-char truncation), the Spontan-Treff feature (embed/button rendering and field limits, the slash command with validation, `@everyone`-forbidden fallback and error paths, the button handler with toggle/undo/switch plus expired/closed/malformed rejection and real `InteractionService` custom-ID matching, the expiry sweep incl. edit-failure isolation and idempotency, and repository CRUD together with the raw SQLite startup DDL replayed for both fresh and pre-existing databases), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`). Randomised behaviour is driven by a scripted `StubRandomSource`, so these tests never flake.
 
 ### Docker
 
