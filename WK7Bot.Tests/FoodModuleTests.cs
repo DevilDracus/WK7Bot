@@ -5,6 +5,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using WK7Bot.Core.Exceptions;
 using WK7Bot.Models;
 using WK7Bot.Modules;
 using WK7Bot.Services.Interfaces;
@@ -24,8 +25,12 @@ public class FoodModuleTests
         public List<string> Followups { get; } = new();
         public Embed? PostedEmbed { get; private set; }
 
-        public TestFoodModule(IGeminiFoodService geminiFoodService, ITextChannel? channel)
-            : base(geminiFoodService, NullLogger<FoodModule>.Instance)
+        public TestFoodModule(
+            IGeminiFoodService geminiFoodService,
+            IRecipeSearchService recipeSearchService,
+            ITextChannel? channel,
+            IRandomSource? randomSource = null)
+            : base(geminiFoodService, recipeSearchService, NullLogger<FoodModule>.Instance, randomSource)
         {
             _channel = channel;
         }
@@ -60,9 +65,18 @@ public class FoodModuleTests
         }
     }
 
-    private static TestFoodModule CreateModule(IGeminiFoodService service, ITextChannel? channel, string username = "Tester")
+    private static TestFoodModule CreateModule(
+        IGeminiFoodService service,
+        ITextChannel? channel,
+        IRecipeSearchService? searchService = null,
+        string username = "Tester",
+        IRandomSource? randomSource = null)
     {
-        var module = new TestFoodModule(service, channel);
+        var module = new TestFoodModule(
+            service,
+            searchService ?? new Mock<IRecipeSearchService>().Object,
+            channel,
+            randomSource ?? new StubRandomSource());
 
         var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
         SetUser(context, username);
@@ -147,19 +161,41 @@ public class FoodModuleTests
     [Fact]
     public void Constructor_Throws_WhenDependenciesAreNull()
     {
-        Assert.Throws<ArgumentNullException>(() => new FoodModule(null!, NullLogger<FoodModule>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new FoodModule(new Mock<IGeminiFoodService>().Object, null!));
+        Assert.Throws<ArgumentNullException>(() => new FoodModule(
+            null!, new Mock<IRecipeSearchService>().Object, NullLogger<FoodModule>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new FoodModule(
+            new Mock<IGeminiFoodService>().Object, null!, NullLogger<FoodModule>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new FoodModule(
+            new Mock<IGeminiFoodService>().Object, new Mock<IRecipeSearchService>().Object, null!));
     }
 
     [Fact]
-    public void RecipeCommand_IsExposedAsSlashCommand()
+    public void RecipeSearchCommand_IsExposedAsSlashCommand()
+    {
+        var attribute = typeof(FoodModule)
+            .GetMethod(nameof(FoodModule.SearchRecipeAsync))!
+            .GetCustomAttribute<SlashCommandAttribute>();
+
+        Assert.NotNull(attribute);
+        Assert.Equal("recipe", attribute!.Name);
+        Assert.Contains("🍎food", attribute.Description);
+
+        var queryParameter = typeof(FoodModule)
+            .GetMethod(nameof(FoodModule.SearchRecipeAsync))!
+            .GetParameters()[0];
+        Assert.Equal("query", queryParameter.GetCustomAttribute<SummaryAttribute>()?.Name);
+        Assert.False(queryParameter.HasDefaultValue);
+    }
+
+    [Fact]
+    public void RecipeGenerateCommand_IsExposedAsSlashCommand()
     {
         var attribute = typeof(FoodModule)
             .GetMethod(nameof(FoodModule.GenerateRecipeAsync))!
             .GetCustomAttribute<SlashCommandAttribute>();
 
         Assert.NotNull(attribute);
-        Assert.Equal("recipe", attribute!.Name);
+        Assert.Equal("recipe-generate", attribute!.Name);
         Assert.Contains("🍎food", attribute.Description);
     }
 
@@ -224,6 +260,7 @@ public class FoodModuleTests
         Assert.Contains(embed.Fields, f => f.Name == "👨‍🍳 Preparation Steps" && f.Value.Contains("1. Gemüse schneiden"));
         Assert.Contains(embed.Fields, f => f.Name == "🏷️ Diet Tags" && f.Value.Contains("Kaliumarm") && f.Value.Contains("Kohlenhydratarm"));
         Assert.Contains(embed.Fields, f => f.Name == "🛡️ Safety & Renal Notes" && f.Value.Contains("Vollständig durchgaren."));
+        Assert.DoesNotContain(embed.Fields, f => f.Name == "⚠️ Hinweis");
         Assert.NotNull(embed.Footer);
         Assert.Contains("@Tester", embed.Footer!.Value.Text);
 
@@ -244,6 +281,357 @@ public class FoodModuleTests
 
         var followup = Assert.Single(module.Followups);
         Assert.Contains("unexpected error", followup);
+        Assert.Null(module.PostedEmbed);
+    }
+
+    [Fact]
+    public async Task SearchRecipeAsync_PostsEmbedWithSourceLink_WhenSearchSucceeds()
+    {
+        var recipe = CreateRecipe();
+        recipe.SourceUrl = "https://www.chefkoch.de/rezepte/pfannkuchen.html";
+        recipe.DietTags = new List<string>();
+        recipe.TransplantSafetyNotes = string.Empty;
+
+        var gemini = new Mock<IGeminiFoodService>();
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync("Pfannkuchen", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(recipe);
+
+        var module = CreateModule(gemini.Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchRecipeAsync("Pfannkuchen");
+
+        Assert.Equal(1, module.DeferCallCount);
+        gemini.Verify(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()), Times.Once);
+        var embed = module.PostedEmbed;
+        Assert.NotNull(embed);
+        Assert.Equal("🍽️ Gemüseauflauf", embed!.Title);
+        Assert.Equal(recipe.SourceUrl, embed.Url?.ToString());
+        Assert.Contains(embed.Fields, f => f.Name == "🛒 Ingredients" && f.Value.Contains("• Zucchini"));
+        Assert.Contains(embed.Fields, f => f.Name == "⚠️ Hinweis" && f.Value.Contains(recipe.SourceUrl));
+        Assert.DoesNotContain(embed.Fields, f => f.Name == "🏷️ Diet Tags");
+        Assert.DoesNotContain(embed.Fields, f => f.Name == "🛡️ Safety & Renal Notes");
+        Assert.NotNull(embed.Footer);
+        Assert.Contains("@Tester", embed.Footer!.Value.Text);
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("Recipe found", followup);
+        Assert.Contains(FoodChannelMention, followup);
+    }
+
+    [Fact]
+    public async Task SearchRecipeAsync_ReportsFailure_WhenNoRecipeFound()
+    {
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RenalRecipeData?)null);
+
+        var module = CreateModule(new Mock<IGeminiFoodService>().Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchRecipeAsync("gibbnichts");
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("No parseable recipe", followup);
+        Assert.Contains("/recipe-generate", followup);
+        Assert.Null(module.PostedEmbed);
+    }
+
+    [Fact]
+    public async Task SearchRecipeAsync_ReportsMissingChannel_WhenFoodChannelIsAbsent()
+    {
+        var search = new Mock<IRecipeSearchService>();
+        var module = CreateModule(new Mock<IGeminiFoodService>().Object, channel: null, search.Object);
+
+        await module.SearchRecipeAsync("Pfannkuchen");
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("Could not find the channel", followup);
+        Assert.Null(module.PostedEmbed);
+        search.Verify(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SearchRecipeAsync_RejectsBlankQuery()
+    {
+        var search = new Mock<IRecipeSearchService>();
+        var module = CreateModule(new Mock<IGeminiFoodService>().Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchRecipeAsync("   ");
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("Please provide a search query", followup);
+        Assert.Null(module.PostedEmbed);
+        search.Verify(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SearchRecipeAsync_ReportsUnexpectedError_WhenSearchThrows()
+    {
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("network down"));
+
+        var module = CreateModule(new Mock<IGeminiFoodService>().Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchRecipeAsync("Pfannkuchen");
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("unexpected error", followup);
+        Assert.Null(module.PostedEmbed);
+    }
+
+    [Fact]
+    public async Task SearchRecipeAsync_ReportsUnavailable_WhenSearchProvidersAreBlocked()
+    {
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new RecipeSearchUnavailableException("No recipe search provider responded."));
+
+        var module = CreateModule(new Mock<IGeminiFoodService>().Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchRecipeAsync("Pfannkuchen");
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("temporarily unavailable", followup);
+        Assert.Contains("/recipe-generate", followup);
+        Assert.Null(module.PostedEmbed);
+    }
+
+    [Fact]
+    public async Task SearchRecipeAsync_PostsGeminiFormattedRecipe_WhenFormattingSucceeds()
+    {
+        var raw = CreateRecipe();
+        raw.SourceUrl = "https://www.chefkoch.de/rezepte/123/pfannkuchen.html";
+
+        var formatted = CreateRecipe();
+        formatted.Title = "Sauber formatierter Titel";
+        formatted.Ingredients = new List<string> { "200 g Mehl", "300 ml Milch" };
+        formatted.SourceUrl = raw.SourceUrl;
+        formatted.DietTags = new List<string>();
+        formatted.TransplantSafetyNotes = string.Empty;
+
+        var gemini = new Mock<IGeminiFoodService>();
+        gemini.Setup(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(formatted);
+
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(raw);
+
+        var module = CreateModule(gemini.Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchRecipeAsync("Pfannkuchen");
+
+        gemini.Verify(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        var embed = module.PostedEmbed;
+        Assert.NotNull(embed);
+        Assert.Equal("🍽️ Sauber formatierter Titel", embed!.Title);
+        Assert.Equal(raw.SourceUrl, embed.Url?.ToString());
+        Assert.Contains(embed.Fields, f => f.Name == "🛒 Ingredients" && f.Value.Contains("300 ml Milch"));
+        Assert.Contains(embed.Fields, f => f.Name == "⚠️ Hinweis" && f.Value.Contains(raw.SourceUrl));
+    }
+
+    [Fact]
+    public async Task SearchRecipeAsync_PostsRawRecipe_WhenFormattingFails()
+    {
+        var raw = CreateRecipe();
+        raw.SourceUrl = "https://www.chefkoch.de/rezepte/123/pfannkuchen.html";
+
+        var gemini = new Mock<IGeminiFoodService>();
+        gemini.Setup(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("gemini down"));
+
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(raw);
+
+        var module = CreateModule(gemini.Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchRecipeAsync("Pfannkuchen");
+
+        var embed = module.PostedEmbed;
+        Assert.NotNull(embed);
+        Assert.Equal($"🍽️ {raw.Title}", embed!.Title);
+        Assert.Equal(raw.SourceUrl, embed.Url?.ToString());
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("Recipe found", followup);
+    }
+
+    [Fact]
+    public void RecipeSeasonalCommand_IsExposedAsSlashCommand()
+    {
+        var method = typeof(FoodModule).GetMethod(nameof(FoodModule.SearchSeasonalRecipeAsync))!;
+        var attribute = method.GetCustomAttribute<SlashCommandAttribute>();
+
+        Assert.NotNull(attribute);
+        Assert.Equal("recipe-seasonal", attribute!.Name);
+        Assert.Contains("🍎food", attribute.Description);
+
+        var queryParameter = method.GetParameters()[0];
+        Assert.Equal("query", queryParameter.GetCustomAttribute<SummaryAttribute>()?.Name);
+        Assert.True(queryParameter.HasDefaultValue);
+    }
+
+    [Fact]
+    public async Task SearchSeasonalRecipeAsync_PostsRecipeSeededWithSeasonalProduce()
+    {
+        var gemini = new Mock<IGeminiFoodService>();
+        gemini.Setup(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateProduce());
+        gemini.Setup(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()))
+            .Returns((RenalRecipeData input, CancellationToken _) => Task.FromResult<RenalRecipeData?>(input));
+
+        var recipe = CreateRecipe();
+        recipe.SourceUrl = "https://www.chefkoch.de/rezepte/42/saison.html";
+        recipe.DietTags = new List<string>();
+        recipe.TransplantSafetyNotes = string.Empty;
+
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(recipe);
+
+        var module = CreateModule(gemini.Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchSeasonalRecipeAsync();
+
+        search.Verify(
+            s => s.SearchWebRecipeAsync(
+                It.Is<string>(q => q.Contains("Zucchini") && q.Contains("Aprikose")),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        gemini.Verify(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        var embed = module.PostedEmbed;
+        Assert.NotNull(embed);
+        Assert.Equal($"🍽️ {recipe.Title}", embed!.Title);
+        Assert.Contains(embed.Fields, f => f.Name == "🌿 Saisonale Zutaten" && f.Value.Contains("Zucchini") && f.Value.Contains("Aprikose"));
+        Assert.Contains(embed.Fields, f => f.Name == "⚠️ Hinweis" && f.Value.Contains(recipe.SourceUrl));
+        Assert.NotNull(embed.Footer);
+        Assert.Contains("Saisonale Zutaten:", embed.Footer!.Value.Text);
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("Seasonal recipe", followup);
+        Assert.Contains(FoodChannelMention, followup);
+    }
+
+    [Fact]
+    public async Task SearchSeasonalRecipeAsync_AppendsSeasonalTerm_WhenQueryIsGiven()
+    {
+        var gemini = new Mock<IGeminiFoodService>();
+        gemini.Setup(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateProduce());
+
+        var recipe = CreateRecipe();
+        recipe.SourceUrl = "https://www.chefkoch.de/rezepte/42/saison.html";
+
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(recipe);
+
+        var module = CreateModule(gemini.Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchSeasonalRecipeAsync("Pfannkuchen");
+
+        search.Verify(
+            s => s.SearchWebRecipeAsync(
+                It.Is<string>(q => q.StartsWith("Pfannkuchen") && (q.Contains("Zucchini") || q.Contains("Aprikose"))),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        Assert.NotNull(module.PostedEmbed);
+    }
+
+    [Fact]
+    public async Task SearchSeasonalRecipeAsync_UsesInjectedRandomness_ForSeasonalTerms()
+    {
+        var gemini = new Mock<IGeminiFoodService>();
+        gemini.Setup(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateProduce());
+
+        var recipe = CreateRecipe();
+        recipe.SourceUrl = "https://www.chefkoch.de/rezepte/42/saison.html";
+
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(recipe);
+
+        var module = CreateModule(
+            gemini.Object,
+            CreateFoodChannel(),
+            search.Object,
+            randomSource: new StubRandomSource(9));
+
+        await module.SearchSeasonalRecipeAsync();
+
+        // Roll 9 of 10 total weight points picks the nut, the second roll 0 the heaviest vegetable.
+        search.Verify(
+            s => s.SearchWebRecipeAsync(
+                It.Is<string>(q => q.Contains("Walnuss") && q.Contains("Zucchini")),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        var embed = module.PostedEmbed;
+        Assert.NotNull(embed);
+        Assert.Contains(embed!.Fields, f => f.Name == "🌿 Saisonale Zutaten" && f.Value.Contains("Walnuss"));
+    }
+
+    [Fact]
+    public async Task SearchSeasonalRecipeAsync_ReportsFailure_WhenProduceUnavailable()
+    {
+        var gemini = new Mock<IGeminiFoodService>();
+        gemini.Setup(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SeasonalFoodData?)null);
+
+        var search = new Mock<IRecipeSearchService>();
+        var module = CreateModule(gemini.Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchSeasonalRecipeAsync();
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("seasonal produce", followup);
+        Assert.Null(module.PostedEmbed);
+        search.Verify(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SearchSeasonalRecipeAsync_ReportsFailure_WhenNoRecipeFound()
+    {
+        var gemini = new Mock<IGeminiFoodService>();
+        gemini.Setup(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateProduce());
+
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RenalRecipeData?)null);
+
+        var module = CreateModule(gemini.Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchSeasonalRecipeAsync();
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("No parseable recipe", followup);
+        Assert.Null(module.PostedEmbed);
+        gemini.Verify(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SearchSeasonalRecipeAsync_ReportsUnavailable_WhenSearchProvidersAreBlocked()
+    {
+        var gemini = new Mock<IGeminiFoodService>();
+        gemini.Setup(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateProduce());
+
+        var search = new Mock<IRecipeSearchService>();
+        search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new RecipeSearchUnavailableException("No recipe search provider responded."));
+
+        var module = CreateModule(gemini.Object, CreateFoodChannel(), search.Object);
+
+        await module.SearchSeasonalRecipeAsync();
+
+        var followup = Assert.Single(module.Followups);
+        Assert.Contains("temporarily unavailable", followup);
+        Assert.Contains("/recipe-generate", followup);
         Assert.Null(module.PostedEmbed);
     }
 

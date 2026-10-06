@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddBotDiscordAndClients(this IServiceCollection services)
     {
         services.AddMemoryCache();
+        services.AddSingleton<IRandomSource, SystemRandomSource>();
         services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
         {
             GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildMembers | GatewayIntents.GuildPresences,
@@ -52,6 +53,10 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
         services.AddHttpClient<ISteamService, SteamService>();
         services.AddHttpClient<IGeminiFoodService, GeminiFoodService>();
+        services.AddHttpClient<IRecipeSearchService, WebRecipeSearchService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
         services.AddHttpClient<AlexaMentionNotificationService>();
 
         services.AddTransient<RssParserService>();

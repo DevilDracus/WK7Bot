@@ -25,4 +25,15 @@ public interface IGeminiFoodService
     /// <param name="cancellationToken">A token to monitor for task cancellation.</param>
     /// <returns>A structured <see cref="RenalRecipeData"/> instance containing diet tags and instructions, or null if processing fails.</returns>
     Task<RenalRecipeData?> GetWeeklyRenalRecipeAsync(DateTime dateTime, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-shapes an externally sourced (scraped) recipe into the bot's canonical recipe format: cleaned one-per-line
+    /// ingredients, split cooking steps, normalised times and servings. The input content is kept faithful - nothing
+    /// is invented, translated or medically assessed, so diet tags and safety notes stay empty. On success the
+    /// original <see cref="RenalRecipeData.SourceUrl"/> and <see cref="RenalRecipeData.ImageUrl"/> are carried over.
+    /// </summary>
+    /// <param name="recipe">The parsed recipe to normalise.</param>
+    /// <param name="cancellationToken">A token to monitor for task cancellation.</param>
+    /// <returns>The formatted recipe, or <see langword="null"/> when formatting is unavailable or unusable (the caller then falls back to the raw recipe).</returns>
+    Task<RenalRecipeData?> FormatRecipeAsync(RenalRecipeData recipe, CancellationToken cancellationToken = default);
 }

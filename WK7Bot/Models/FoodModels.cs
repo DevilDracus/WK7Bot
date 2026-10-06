@@ -103,4 +103,17 @@ public class RenalRecipeData
     /// </summary>
     [JsonPropertyName("transplant_safety_notes")]
     public string TransplantSafetyNotes { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the canonical web URL the recipe was parsed from when it originated from an online recipe
+    /// search instead of Gemini generation. Empty for generated recipes.
+    /// </summary>
+    [JsonPropertyName("source_url")]
+    public string SourceUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets an optional hero image URL published by the recipe site. Empty when unavailable.
+    /// </summary>
+    [JsonPropertyName("image_url")]
+    public string ImageUrl { get; set; } = string.Empty;
 }

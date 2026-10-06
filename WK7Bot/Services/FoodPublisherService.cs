@@ -3,6 +3,7 @@
 namespace WK7Bot.Services;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,12 +18,15 @@ using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>
-/// Background worker service executing scheduled dispatches for monthly seasonal produce lists and weekly renal recipes into Discord.
+/// Background worker service executing scheduled dispatches for monthly seasonal produce lists and the weekly seasonal
+/// web recipe into Discord.
 /// </summary>
 public class FoodPublisherService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IGeminiFoodService _geminiFoodService;
+    private readonly IRecipeSearchService _recipeSearchService;
+    private readonly IRandomSource _randomSource;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<FoodPublisherService> _logger;
 
@@ -36,18 +40,24 @@ public class FoodPublisherService : BackgroundService
     /// </summary>
     /// <param name="discordClient">The Discord socket client connection instance.</param>
     /// <param name="geminiFoodService">The Gemini AI food and recipe service dependency.</param>
+    /// <param name="recipeSearchService">The web recipe search service used for the weekly seasonal recipe.</param>
     /// <param name="options">Application options instance.</param>
     /// <param name="logger">Logger instance.</param>
+    /// <param name="randomSource">Randomness used to pick the seasonal search terms; defaults to <see cref="SystemRandomSource"/>.</param>
     public FoodPublisherService(
         DiscordSocketClient discordClient,
         IGeminiFoodService geminiFoodService,
+        IRecipeSearchService recipeSearchService,
         IOptions<Wk7BotOptions> options,
-        ILogger<FoodPublisherService> logger)
+        ILogger<FoodPublisherService> logger,
+        IRandomSource? randomSource = null)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _geminiFoodService = geminiFoodService ?? throw new ArgumentNullException(nameof(geminiFoodService));
+        _recipeSearchService = recipeSearchService ?? throw new ArgumentNullException(nameof(recipeSearchService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _randomSource = randomSource ?? new SystemRandomSource();
     }
 
     /// <summary>
@@ -148,37 +158,84 @@ public class FoodPublisherService : BackgroundService
     }
 
     /// <summary>
-    /// Queries renal recipe data and posts the embedded payload to the target Discord channel.
+    /// Finds a seasonal web recipe (seeded with randomly weighted seasonal produce, formatted via Gemini) and posts it
+    /// to the target channel. When the search yields nothing, the previously used Gemini-generated recipe is posted
+    /// instead so the weekly slot is never empty.
     /// </summary>
     private async Task PublishWeeklyRecipeAsync(DateTime now, CancellationToken cancellationToken)
     {
         var channel = ResolveTargetChannel();
         if (channel == null) return;
 
-        _logger.LogInformation("Generating weekly renal/dialysis recipe for {Date}", now.ToShortDateString());
+        _logger.LogInformation("Searching a seasonal web recipe for {Date}", now.ToShortDateString());
 
-        var recipe = await _geminiFoodService.GetWeeklyRenalRecipeAsync(now, cancellationToken);
-        if (recipe == null) return;
+        var seasonalTerms = SeasonalTermPicker.Pick(
+            await _geminiFoodService.GetSeasonalProduceAsync(now, cancellationToken),
+            _randomSource);
 
-        var dietTags = DietTagFormatter.Format(recipe.DietTags);
+        var recipe = seasonalTerms.Count > 0
+            ? await SearchSeasonalRecipeAsync(string.Join(" ", seasonalTerms), seasonalTerms, cancellationToken)
+            : null;
 
-        string ingredientsFormatted = string.Join("\n", recipe.Ingredients.Select(i => $"• {i}"));
-        string instructionsFormatted = string.Join("\n", recipe.Instructions.Select((inst, idx) => $"{idx + 1}. {inst}"));
+        if (recipe != null)
+        {
+            var embed = RecipeEmbedBuilder.BuildSearched(
+                recipe,
+                $"Automatisch veröffentlicht • Saisonale Zutaten: {string.Join(", ", seasonalTerms)}");
 
-        var embed = new EmbedBuilder()
-            .WithTitle($"🥗 Recipe of the Week: {recipe.Title}")
-            .WithDescription($"{recipe.Description}\n\n⏱️ **Prep Time:** {recipe.PrepTime} | 🍳 **Cook Time:** {recipe.CookTime} | 🍽️ **Servings:** {recipe.Servings}")
-            .WithColor(Color.Teal)
-            .AddField("🛒 Ingredients", ingredientsFormatted.Length > 1024 ? ingredientsFormatted[..1021] + "..." : ingredientsFormatted, false)
-            .AddField("👨‍🍳 Preparation Steps", instructionsFormatted.Length > 1024 ? instructionsFormatted[..1021] + "..." : instructionsFormatted, false)
-            .AddField("🏷️ Diet Tags", dietTags, false)
-            .AddField("🛡️ Safety & Renal Notes", recipe.TransplantSafetyNotes, false)
-            .WithFooter("Tailored for Dialysis & Kidney Transplant Safety")
-            .WithCurrentTimestamp()
-            .Build();
+            await channel.SendMessageAsync(embed: embed);
+            _lastWeeklyRecipePostDate = now;
+            return;
+        }
 
-        await channel.SendMessageAsync(embed: embed);
+        _logger.LogWarning(
+            "No seasonal web recipe found for {Date}; falling back to a Gemini-generated recipe.",
+            now.ToShortDateString());
+
+        var generated = await _geminiFoodService.GetWeeklyRenalRecipeAsync(now, cancellationToken);
+        if (generated == null) return;
+
+        await channel.SendMessageAsync(
+            embed: RecipeEmbedBuilder.BuildGenerated(generated, "Tailored for Dialysis & Kidney Transplant Safety"));
         _lastWeeklyRecipePostDate = now;
+    }
+
+    /// <summary>
+    /// Runs the web search for the given seasonal query and normalises the parsed recipe via Gemini (best effort).
+    /// </summary>
+    /// <returns>The recipe with its seasonal ingredients stamped on, or <see langword="null"/> when nothing was found.</returns>
+    private async Task<RenalRecipeData?> SearchSeasonalRecipeAsync(
+        string searchQuery,
+        IReadOnlyList<string> seasonalTerms,
+        CancellationToken cancellationToken)
+    {
+        var recipe = await _recipeSearchService.SearchWebRecipeAsync(searchQuery, cancellationToken);
+        if (recipe == null)
+        {
+            return null;
+        }
+
+        recipe.SeasonalIngredientsUsed = seasonalTerms.ToList();
+
+        try
+        {
+            var formatted = await _geminiFoodService.FormatRecipeAsync(recipe, cancellationToken);
+            if (formatted != null)
+            {
+                recipe = formatted;
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Gemini recipe formatting failed; publishing the raw parsed recipe instead.");
+        }
+
+        recipe.SeasonalIngredientsUsed = seasonalTerms.ToList();
+        return recipe;
     }
 
     /// <summary>

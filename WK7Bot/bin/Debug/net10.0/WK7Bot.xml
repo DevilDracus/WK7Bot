@@ -110,6 +110,26 @@
             Kind for the Monday morning weekly overview posted after 09:00.
             </summary>
         </member>
+        <member name="T:WK7Bot.Core.Exceptions.RecipeSearchUnavailableException">
+            <summary>
+            Thrown when every recipe search provider (DuckDuckGo HTML search and the Chefkoch fallback) failed to respond,
+            e.g. because the search endpoint serves a bot challenge or returns HTTP errors. This is distinct from a
+            <see langword="null"/> result, which simply means the providers answered but no parseable recipe was found.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Exceptions.RecipeSearchUnavailableException.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Core.Exceptions.RecipeSearchUnavailableException"/> class.
+            </summary>
+            <param name="message">The error message describing why the providers failed.</param>
+        </member>
+        <member name="M:WK7Bot.Core.Exceptions.RecipeSearchUnavailableException.#ctor(System.String,System.Exception)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Core.Exceptions.RecipeSearchUnavailableException"/> class.
+            </summary>
+            <param name="message">The error message describing why the providers failed.</param>
+            <param name="innerException">The underlying provider failure.</param>
+        </member>
         <member name="T:WK7Bot.Core.Interfaces.IRssRepository">
             <summary>
             Defines data access operations for managing RSS feeds and dashboard configuration state.
@@ -311,6 +331,91 @@
             </summary>
             <param name="rawName">The raw name (e.g. Discord channel or username).</param>
             <returns>A sanitized MQTT-safe name.</returns>
+        </member>
+        <member name="T:WK7Bot.Core.Utilities.RecipeEmbedBuilder">
+            <summary>
+            Builds the Discord recipe embeds shared by the <c>/recipe</c> commands and the scheduled food publisher, keeping
+            field limits, optional diet/safety sections, and the source disclaimer of web-searched recipes in one place.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.BuildGenerated(WK7Bot.Models.RenalRecipeData,System.String)">
+            <summary>
+            Builds the embed for a Gemini generated, renal screened recipe.
+            </summary>
+            <param name="recipe">The generated recipe payload.</param>
+            <param name="footer">The footer text shown under the embed.</param>
+            <returns>The resulting embed.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.BuildSearched(WK7Bot.Models.RenalRecipeData,System.String)">
+            <summary>
+            Builds the embed for a recipe parsed from the web, linking back to its source page and carrying a disclaimer
+            that the recipe was not screened for dialysis or transplant safety.
+            </summary>
+            <param name="recipe">The searched recipe payload; must expose <see cref="P:WK7Bot.Models.RenalRecipeData.SourceUrl"/>.</param>
+            <param name="footer">The footer text shown under the embed.</param>
+            <returns>The resulting embed.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.Build(WK7Bot.Models.RenalRecipeData,System.String,Discord.Color,System.String,System.Boolean)">
+            <summary>
+            Shared embed assembly for both recipe sources.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.BuildDescription(WK7Bot.Models.RenalRecipeData)">
+            <summary>
+            Composes the embed description including whichever timing and serving details are available.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.BuildDisclaimer(System.String)">
+            <summary>
+            Builds the disclaimer shown for recipes that originate from an unverified web source.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.RecipeEmbedBuilder.Truncate(System.String)">
+            <summary>
+            Cuts a field value to Discord's 1024 character limit, appending an ellipsis when truncated.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Core.Utilities.SeasonalTermPicker">
+            <summary>
+            Picks the seasonal produce terms used to seed recipe searches. Categories are sampled randomly with a weighted
+            roulette so repeated picks explore the whole seasonal range, with vegetables most likely, then fruits, herbs and
+            finally nuts.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.SeasonalTermPicker.VegetableWeight">
+            <summary>Relative weight of a vegetable term.</summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.SeasonalTermPicker.FruitWeight">
+            <summary>Relative weight of a fruit term.</summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.SeasonalTermPicker.HerbWeight">
+            <summary>Relative weight of a herb term.</summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.SeasonalTermPicker.NutWeight">
+            <summary>Relative weight of a nut term.</summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.SeasonalTermPicker.Pick(WK7Bot.Models.SeasonalFoodData,WK7Bot.Services.Interfaces.IRandomSource)">
+            <summary>
+            Randomly picks up to two distinct seasonal terms from the given produce.
+            </summary>
+            <param name="produce">The seasonal produce, or <see langword="null"/> when it could not be loaded.</param>
+            <param name="randomSource">The randomness used for the weighted pick.</param>
+            <returns>Up to two distinct ingredient names, or an empty list when no produce is available.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.SeasonalTermPicker.AddCategory(System.Collections.Generic.List{WK7Bot.Core.Utilities.SeasonalTermPicker.WeightedTerm},System.Collections.Generic.IEnumerable{System.String},System.Int32)">
+            <summary>
+            Appends a category's terms to the weighted candidate pool, skipping blank entries and duplicates across categories.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Core.Utilities.SeasonalTermPicker.WeightedTerm">
+            <summary>
+            A seasonal term paired with the relative likelihood of it being picked.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.SeasonalTermPicker.WeightedTerm.#ctor(System.String,System.Int32)">
+            <summary>
+            A seasonal term paired with the relative likelihood of it being picked.
+            </summary>
         </member>
         <member name="T:WK7Bot.Core.Utilities.WasteSummaryMapper">
             <summary>
@@ -574,6 +679,17 @@
             Gets or sets crucial food safety and medical diet notes (e.g., thorough cooking, grapefruit/pomegranate avoidance).
             </summary>
         </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.SourceUrl">
+            <summary>
+            Gets or sets the canonical web URL the recipe was parsed from when it originated from an online recipe
+            search instead of Gemini generation. Empty for generated recipes.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Models.RenalRecipeData.ImageUrl">
+            <summary>
+            Gets or sets an optional hero image URL published by the recipe site. Empty when unavailable.
+            </summary>
+        </member>
         <member name="T:WK7Bot.Models.SteamAchievement">
             <summary>
             Represents an achievement unlocked by the player within a Steam application.
@@ -776,12 +892,14 @@
             Provides slash command interactions for food, seasonal produce, and renal-friendly weekly recipes.
             </summary>
         </member>
-        <member name="M:WK7Bot.Modules.FoodModule.#ctor(WK7Bot.Services.Interfaces.IGeminiFoodService,Microsoft.Extensions.Logging.ILogger{WK7Bot.Modules.FoodModule})">
+        <member name="M:WK7Bot.Modules.FoodModule.#ctor(WK7Bot.Services.Interfaces.IGeminiFoodService,WK7Bot.Services.Interfaces.IRecipeSearchService,Microsoft.Extensions.Logging.ILogger{WK7Bot.Modules.FoodModule},WK7Bot.Services.Interfaces.IRandomSource)">
             <summary>
             Initializes a new instance of the <see cref="T:WK7Bot.Modules.FoodModule"/> class.
             </summary>
             <param name="geminiFoodService">The Gemini food service instance.</param>
+            <param name="recipeSearchService">The web recipe search service instance.</param>
             <param name="logger">The logger instance.</param>
+            <param name="randomSource">The randomness used to pick seasonal terms; defaults to <see cref="T:WK7Bot.Services.SystemRandomSource"/>.</param>
         </member>
         <member name="M:WK7Bot.Modules.FoodModule.FindFoodChannel">
             <summary>
@@ -797,6 +915,22 @@
             <param name="embed">The embed to publish.</param>
             <returns>A task that completes once the message has been sent.</returns>
         </member>
+        <member name="M:WK7Bot.Modules.FoodModule.SearchRecipeAsync(System.String)">
+            <summary>
+            Searches the web for a recipe matching the query, parses the structured recipe data of the best candidate and
+            posts it together with a link to the original source into the #🍎food channel.
+            </summary>
+            <param name="query">The free text search query (e.g. "Pfannkuchen").</param>
+            <returns>A task tracking the asynchronous command execution.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.FoodModule.SearchSeasonalRecipeAsync(System.String)">
+            <summary>
+            Looks up a web recipe seeded with the current season's produce (vegetables and fruits), parses it, normalises
+            it via Gemini and posts it together with a link to the original source into the #🍎food channel.
+            </summary>
+            <param name="query">Optional dish hint (e.g. "Pfannkuchen"); one seasonal ingredient is appended so the search stays seasonal.</param>
+            <returns>A task tracking the asynchronous command execution.</returns>
+        </member>
         <member name="M:WK7Bot.Modules.FoodModule.GenerateRecipeAsync">
             <summary>
             Generates a renal and transplant-friendly recipe based on current seasonal produce and posts it to the #🍎food channel.
@@ -809,6 +943,19 @@
             </summary>
             <param name="monthInput">Optional month number (1-12). Defaults to the current month if omitted.</param>
             <returns>A task tracking the asynchronous command execution.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.FoodModule.FormatWithGeminiAsync(WK7Bot.Models.RenalRecipeData)">
+            <summary>
+            Normalises a scraped recipe with Gemini so it matches the bot's embed format. Formatting is best effort:
+            when Gemini is unavailable, fails, or returns unusable data, the raw parsed recipe is used instead.
+            </summary>
+            <param name="recipe">The parsed recipe to normalise.</param>
+            <returns>The formatted recipe, or the unchanged input when formatting is unavailable.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.FoodModule.CleanTerms(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>
+            Normalises a produce category into a distinct, non-empty term list.
+            </summary>
         </member>
         <member name="T:WK7Bot.Modules.LeipzigWasteModule">
             <summary>
@@ -1258,17 +1405,20 @@
         </member>
         <member name="T:WK7Bot.Services.FoodPublisherService">
             <summary>
-            Background worker service executing scheduled dispatches for monthly seasonal produce lists and weekly renal recipes into Discord.
+            Background worker service executing scheduled dispatches for monthly seasonal produce lists and the weekly seasonal
+            web recipe into Discord.
             </summary>
         </member>
-        <member name="M:WK7Bot.Services.FoodPublisherService.#ctor(Discord.WebSocket.DiscordSocketClient,WK7Bot.Services.Interfaces.IGeminiFoodService,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.FoodPublisherService})">
+        <member name="M:WK7Bot.Services.FoodPublisherService.#ctor(Discord.WebSocket.DiscordSocketClient,WK7Bot.Services.Interfaces.IGeminiFoodService,WK7Bot.Services.Interfaces.IRecipeSearchService,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.FoodPublisherService},WK7Bot.Services.Interfaces.IRandomSource)">
             <summary>
             Initializes a new instance of the <see cref="T:WK7Bot.Services.FoodPublisherService"/> class.
             </summary>
             <param name="discordClient">The Discord socket client connection instance.</param>
             <param name="geminiFoodService">The Gemini AI food and recipe service dependency.</param>
+            <param name="recipeSearchService">The web recipe search service used for the weekly seasonal recipe.</param>
             <param name="options">Application options instance.</param>
             <param name="logger">Logger instance.</param>
+            <param name="randomSource">Randomness used to pick the seasonal search terms; defaults to <see cref="T:WK7Bot.Services.SystemRandomSource"/>.</param>
         </member>
         <member name="M:WK7Bot.Services.FoodPublisherService.ExecuteAsync(System.Threading.CancellationToken)">
             <summary>
@@ -1294,8 +1444,16 @@
         </member>
         <member name="M:WK7Bot.Services.FoodPublisherService.PublishWeeklyRecipeAsync(System.DateTime,System.Threading.CancellationToken)">
             <summary>
-            Queries renal recipe data and posts the embedded payload to the target Discord channel.
+            Finds a seasonal web recipe (seeded with randomly weighted seasonal produce, formatted via Gemini) and posts it
+            to the target channel. When the search yields nothing, the previously used Gemini-generated recipe is posted
+            instead so the weekly slot is never empty.
             </summary>
+        </member>
+        <member name="M:WK7Bot.Services.FoodPublisherService.SearchSeasonalRecipeAsync(System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Runs the web search for the given seasonal query and normalises the parsed recipe via Gemini (best effort).
+            </summary>
+            <returns>The recipe with its seasonal ingredients stamped on, or <see langword="null"/> when nothing was found.</returns>
         </member>
         <member name="M:WK7Bot.Services.FoodPublisherService.ResolveTargetChannel">
             <summary>
@@ -1331,6 +1489,16 @@
             <param name="dateTime">The target date used to determine seasonal ingredients.</param>
             <param name="cancellationToken">A token to monitor for task cancellation.</param>
             <returns>A structured <see cref="T:WK7Bot.Models.RenalRecipeData"/> instance containing diet tags and instructions, or null if processing fails.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.GeminiFoodService.FormatRecipeAsync(WK7Bot.Models.RenalRecipeData,System.Threading.CancellationToken)">
+            <summary>
+            Re-shapes a scraped recipe into the canonical recipe format via Gemini structured output, preserving the
+            original source link and never adding diet tags or medical notes.
+            </summary>
+            <param name="recipe">The parsed recipe to normalise.</param>
+            <param name="cancellationToken">A token to monitor for task cancellation.</param>
+            <returns>The formatted recipe, or <see langword="null"/> when the API key is missing, the call fails, or the
+            structured answer is unusable.</returns>
         </member>
         <member name="M:WK7Bot.Services.GeminiFoodService.RequestGeminiStructuredOutputAsync``1(System.String,System.Text.Json.Nodes.JsonObject,System.Threading.CancellationToken)">
             <summary>
@@ -1522,6 +1690,17 @@
             <param name="cancellationToken">A token to monitor for task cancellation.</param>
             <returns>A structured <see cref="T:WK7Bot.Models.RenalRecipeData"/> instance containing diet tags and instructions, or null if processing fails.</returns>
         </member>
+        <member name="M:WK7Bot.Services.Interfaces.IGeminiFoodService.FormatRecipeAsync(WK7Bot.Models.RenalRecipeData,System.Threading.CancellationToken)">
+            <summary>
+            Re-shapes an externally sourced (scraped) recipe into the bot's canonical recipe format: cleaned one-per-line
+            ingredients, split cooking steps, normalised times and servings. The input content is kept faithful - nothing
+            is invented, translated or medically assessed, so diet tags and safety notes stay empty. On success the
+            original <see cref="P:WK7Bot.Models.RenalRecipeData.SourceUrl"/> and <see cref="P:WK7Bot.Models.RenalRecipeData.ImageUrl"/> are carried over.
+            </summary>
+            <param name="recipe">The parsed recipe to normalise.</param>
+            <param name="cancellationToken">A token to monitor for task cancellation.</param>
+            <returns>The formatted recipe, or <see langword="null"/> when formatting is unavailable or unusable (the caller then falls back to the raw recipe).</returns>
+        </member>
         <member name="T:WK7Bot.Services.Interfaces.IHomeAssistantService">
             <summary>
             Defines client operations for interacting with the Home Assistant REST API.
@@ -1547,6 +1726,38 @@
             <param name="targetDate">The target date to evaluate against calendar events.</param>
             <param name="cancellationToken">Cancellation token for network request execution.</param>
             <returns>A list of user-friendly waste collection descriptions scheduled for the given date.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.Interfaces.IRandomSource">
+            <summary>
+            Supplies pseudo-random numbers so randomized behaviour (recipe candidate selection, seasonal produce picking)
+            can be steered deterministically from tests.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.Interfaces.IRandomSource.Next(System.Int32)">
+            <summary>
+            Returns a non-negative random integer that is less than <paramref name="maxExclusive"/>.
+            </summary>
+            <param name="maxExclusive">The exclusive upper bound (must be positive).</param>
+            <returns>A value in <c>[0, maxExclusive)</c>.</returns>
+        </member>
+        <member name="T:WK7Bot.Services.Interfaces.IRecipeSearchService">
+            <summary>
+            Provides keyword based recipe lookup by searching the web and parsing structured recipe metadata (schema.org
+            JSON-LD) published by recipe sites. Unlike <see cref="T:WK7Bot.Services.Interfaces.IGeminiFoodService"/>, results are not generated and not
+            screened for dialysis or transplant safety.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.Interfaces.IRecipeSearchService.SearchWebRecipeAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Searches the web for a recipe matching the free text query and parses the first candidate page that
+            exposes structured recipe data.
+            </summary>
+            <param name="query">The free text search query (e.g. <c>Pfannkuchen</c>).</param>
+            <param name="cancellationToken">A token to monitor for task cancellation.</param>
+            <returns>
+            A <see cref="T:WK7Bot.Models.RenalRecipeData"/> carrying the parsed recipe with <c>SourceUrl</c> and <c>ImageUrl</c> set,
+            or <see langword="null"/> when no candidate exposes parseable recipe data.
+            </returns>
         </member>
         <member name="T:WK7Bot.Services.Interfaces.ISteamService">
             <summary>
@@ -2329,6 +2540,205 @@
         <member name="P:WK7Bot.Services.PlayerAchievementItem.IsAchieved">
             <summary>
             Gets a value indicating whether the achievement has been unlocked by the player.
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Services.SystemRandomSource">
+            <summary>
+            Production randomness backed by <see cref="P:System.Random.Shared"/>, which is safe for concurrent use.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.SystemRandomSource.Next(System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="T:WK7Bot.Services.WebRecipeSearchService">
+            <summary>
+            Looks up recipes on the public web by querying the keyless DuckDuckGo HTML endpoint (falling back to the Chefkoch
+            search when DuckDuckGo serves a bot challenge or fails) and parsing schema.org <c>application/ld+json</c>
+            <c>Recipe</c> blocks from the resulting pages. The originating page URL is preserved as
+            <see cref="P:WK7Bot.Models.RenalRecipeData.SourceUrl"/> so embeds can link back to the original source.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Services.WebRecipeSearchService.CandidateStartWindow">
+            <summary>
+            How many of the top-ranked candidates take part in the randomised start; the tail keeps its relevance order.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Services.WebRecipeSearchService.RecentRecipeCacheKey">
+            <summary>
+            Rolling memory of the most recently served source URLs, used to avoid handing out the same recipe over and over.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Services.WebRecipeSearchService.ListingMarkers">
+            <summary>
+            URL fragments that identify search/category pages (they never expose a single parseable recipe).
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Services.WebRecipeSearchService.BlockedHostMarkers">
+            <summary>
+            Hosts that never publish schema.org recipe data and would only waste fetch attempts.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Services.WebRecipeSearchService.ChefkochRecipeUrlRegex">
+            <summary>
+            Matches Chefkoch recipe page URLs (absolute or root-relative), always carrying a numeric recipe id.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.WebRecipeSearchService},WK7Bot.Services.Interfaces.IRandomSource,Microsoft.Extensions.Caching.Memory.IMemoryCache)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.WebRecipeSearchService"/> class.
+            </summary>
+            <param name="httpClient">The HTTP client used for search and recipe page requests.</param>
+            <param name="logger">The logger instance.</param>
+            <param name="randomSource">The randomness used to vary candidate selection; defaults to <see cref="T:WK7Bot.Services.SystemRandomSource"/>.</param>
+            <param name="recentRecipeCache">
+            Optional cache remembering the most recently served recipes; when <see langword="null"/>, candidates are only
+            randomised and never filtered.
+            </param>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.SearchWebRecipeAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Searches the web for a recipe matching the free text query and parses the first candidate page exposing
+            structured recipe data. DuckDuckGo HTML search is the primary provider; when it is blocked (bot challenge,
+            HTTP error) or yields no parseable recipe, the Chefkoch search is used as fallback.
+            </summary>
+            <param name="query">The free text search query.</param>
+            <param name="cancellationToken">A token to monitor for task cancellation.</param>
+            <returns>The parsed recipe with source metadata, or <see langword="null"/> when nothing could be parsed.</returns>
+            <exception cref="T:WK7Bot.Core.Exceptions.RecipeSearchUnavailableException">Thrown when neither search provider responded.</exception>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.SelectCandidates(System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>
+            Orders the candidate pages so repeated searches do not keep hitting the same recipe: candidates that were not
+            served recently are tried first, and within each group the starting point is randomised with a bias towards the
+            better-ranked results (so relevance is not thrown away entirely).
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.OrderCandidates(System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>
+            Picks a random start index inside the top-ranked candidates (weighting earlier results higher) and walks the
+            list cyclically from there, so every top candidate has a chance to be tried first.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.WasRecentlyServed(System.String)">
+            <summary>
+            Determines whether the given source URL was served recently and should be avoided for now.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.RememberRecipe(System.String)">
+            <summary>
+            Remembers a served source URL so subsequent searches prefer other recipes.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.TryParseFirstRecipeAsync(System.Collections.Generic.IReadOnlyList{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Walks candidate recipe pages in order and returns the first one that exposes parseable recipe data.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.IsChallengePage(System.String)">
+            <summary>
+            Detects bot-challenge pages (e.g. DuckDuckGo's "select all squares containing a duck" interstitial).
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.BuildChefkochSearchUrl(System.String)">
+            <summary>
+            Builds the Chefkoch recipe-search URL used as fallback provider.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ExtractChefkochRecipeUrls(System.String)">
+            <summary>
+            Extracts the recipe page URLs published by a Chefkoch search result page (structured ItemList data and
+            embedded links), de-duplicated by recipe id.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.FetchAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Fetches a URL as text, returning <see langword="null"/> for transport failures or non-OK status codes.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ExtractCandidateUrls(System.String)">
+            <summary>
+            Extracts the result page URLs from a DuckDuckGo HTML results document, unwrapping redirect links.
+            Real recipe pages are tried before search/category listings, while the original ranking is kept inside
+            each group; sponsored links, blocked hosts and duplicates are dropped.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.LooksLikeListing(System.String)">
+            <summary>
+            Heuristically identifies search/category pages that never expose a single parseable recipe.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.IsBlockedHost(System.String)">
+            <summary>
+            Determines whether a host is known to never publish schema.org recipe data.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ResolveResultUrl(System.String)">
+            <summary>
+            Decodes a DuckDuckGo redirect target (or plain absolute link) into a fetchable HTTP(S) URL.
+            Returns <see langword="null"/> for DuckDuckGo ad/tracking links that carry no redirect target.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ParseRecipe(System.String,System.String)">
+            <summary>
+            Parses the first schema.org <c>Recipe</c> node found in the JSON-LD blocks of a page.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ParseJsonLdRecipe(System.String,System.String)">
+            <summary>
+            Maps a single JSON-LD document onto <see cref="T:WK7Bot.Models.RenalRecipeData"/>, returning <see langword="null"/> when the
+            document contains no usable recipe node.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.EnumerateRecipeNodes(System.Text.Json.JsonElement)">
+            <summary>
+            Enumerates the candidate objects of a JSON-LD document that may describe a recipe.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.MapRecipeNode(System.Text.Json.JsonElement,System.String)">
+            <summary>
+            Converts a JSON-LD object typed as <c>Recipe</c> into a recipe payload, or <see langword="null"/> when the
+            object is not a recipe or lacks the ingredients and instructions a post needs.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.HasType(System.Text.Json.JsonElement,System.String)">
+            <summary>
+            Determines whether a JSON-LD node declares the given schema.org type (string or array form, URL or prefix form).
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ReadString(System.Text.Json.JsonElement,System.String)">
+            <summary>
+            Reads a scalar property (string or number), also accepting arrays such as schema.org
+            <c>recipeYield</c> (<c>["4", "4 Portionen"]</c>) by taking the first usable entry.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ReadStringList(System.Text.Json.JsonElement,System.String)">
+            <summary>
+            Reads a schema.org text property that may be a single string or an array of strings.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ReadInstructions(System.Text.Json.JsonElement)">
+            <summary>
+            Flattens <c>recipeInstructions</c> (string, HowToStep array or nested HowToSection lists) into plain steps.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ResolveImageUrl(System.Text.Json.JsonElement)">
+            <summary>
+            Resolves the first usable https hero image URL of a recipe node.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.FormatDuration(System.String)">
+            <summary>
+            Formats an ISO 8601 duration (e.g. <c>PT1H30M</c>) as a German display string (e.g. <c>1 Std. 30 Min.</c>).
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.ParseServings(System.String)">
+            <summary>
+            Extracts the first integer of a schema.org yield string such as <c>4 Portionen</c>.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.WebRecipeSearchService.CleanText(System.String)">
+            <summary>
+            Strips markup, decodes HTML entities and collapses whitespace in scraped text.
             </summary>
         </member>
         <member name="T:Program">

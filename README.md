@@ -1,7 +1,8 @@
 # WK7Bot
 
-A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, RSS feed syndication, AI-generated seasonal food and renal-safe recipes, and local utility schedule automation into a unified, extensible background framework.
+A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, RSS feed syndication, web-searched and AI-generated seasonal food and renal-safe recipes, and local utility schedule automation into a unified, extensible background framework.
 
+[![Run Unit Tests](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml/badge.svg)](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml)
 [![Add repository to Home Assistant][repository-badge]][repository-url]
 
 ## Overview
@@ -45,8 +46,13 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 ### AI Food & Recipe Automation (Google Gemini)
 - `GeminiFoodService` calls the Google Gemini `generateContent` API using JSON-schema structured output to produce German-language seasonal produce lists and dialysis / kidney-transplant-safe weekly recipes.
 - **Model fallback & resilience** – a primary model is tried first and a lite fallback model second; transient `429`/`503` responses are retried with exponential backoff, and a missing `gemini_api_key` short-circuits before any HTTP call.
-- `/recipe` and `/seasonal-produce` post rich embeds (ingredients, steps, qualitative diet tags such as *Kaliumarm*/*Phosphatarm*, renal safety notes, German month names) to the `#🍎food` channel.
-- `FoodPublisherService` publishes automatically: the monthly produce calendar on the 1st at 09:00 and the weekly recipe on Thursdays at 15:30.
+- **Web recipe search (default)** – `/recipe query:<text>` queries DuckDuckGo's keyless HTML endpoint (no API key, no config), then downloads the top candidate pages and parses their schema.org `application/ld+json` `Recipe` metadata: title, description, ISO 8601 prep/cook times (`PT1H30M` → `1 Std. 30 Min.`), yield (`["4", "4 Portionen"]` → `4`), ingredients, flattened `HowToStep`/`HowToSection` steps, and the hero image. Sponsored links without a redirect target and pages without structured recipe data are skipped automatically.
+- **Provider fallback** – DuckDuckGo sometimes answers with an HTTP 202 bot-challenge page. That is detected explicitly, and the search falls back to the Chefkoch search result page (`chefkoch.de/rs/s0/…`), whose published recipe URLs (structured `ItemList` data plus listing links, de-duplicated by recipe id) go through the very same JSON-LD parsing. Only when *both* providers fail does the service throw `RecipeSearchUnavailableException`, which `/recipe` and `/recipe-seasonal` report as "temporarily unavailable … use `/recipe-generate`".
+- **Randomised variety** – the same query does not keep returning the same dish: the starting point inside the top-ranked candidates is randomised (earlier results stay more likely), and the 12 most recently served source URLs (2-day memory, `IMemoryCache`) are tried last. Randomness goes through the injectable `IRandomSource` (`SystemRandomSource` in production), so tests can steer it deterministically.
+- **Weighted seasonal picks** – `SeasonalTermPicker` samples two distinct terms from the whole seasonal pool with a weighted roulette (vegetables ×4, fruits ×3, herbs ×2, nuts ×1), so `/recipe-seasonal` and the weekly post explore herbs and nuts too instead of always starting with the first vegetables.
+- **Source link & disclaimer** – the searched embed links its title back to the original page (`Embed.Url`), shows the source URL in the embed, and carries a `⚠️ Hinweis` field stating the recipe was *not* screened for dialysis / transplant safety. Gemini-generated embeds keep the diet tags and renal safety notes instead.
+- `/recipe-generate`, `/recipe`, `/recipe-seasonal` and `/seasonal-produce` post rich embeds to the `#🍎food` channel; both recipe embeds are built by the shared `RecipeEmbedBuilder` (field limits, optional sections, timestamps). Searched recipes get a format-only Gemini pass (`FormatRecipeAsync`) that restructures title/times/ingredients without inventing renal diet tags, and falls back to the raw parsed recipe when Gemini is unavailable.
+- `FoodPublisherService` publishes automatically: the monthly produce calendar on the 1st at 09:00 (Gemini) and a **seasonal web recipe** on Thursdays at 15:30 — the same weighted seasonal search + Gemini formatting as `/recipe-seasonal`, falling back to the previously used Gemini-generated recipe when the search yields nothing.
 - Gated by the `food_service_enabled` feature flag.
 
 ### Home Assistant & MQTT Integration
@@ -62,7 +68,8 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - **Discord:** `Discord.Net`, `Discord.Interactions`
 - **Persistence:** Entity Framework Core with SQLite (stored at `/data/wk7bot.db` in the Add-On)
 - **Messaging:** `MQTTnet`, HTTP client pipelines
-- **Parsing:** `CodeHollow.FeedReader`, `Ical.Net`
+- **Parsing:** `CodeHollow.FeedReader`, `Ical.Net`, schema.org JSON-LD recipe blocks (`System.Text.Json`)
+- **Web search:** DuckDuckGo HTML endpoint (keyless) for `/recipe`, with the Chefkoch search as fallback provider
 - **AI:** Google Gemini `generateContent` (structured JSON schema, primary + fallback model)
 - **Testing:** xUnit, Moq, EF Core InMemory
 - **Deployment:** Docker, Home Assistant Supervisor Add-On
@@ -76,6 +83,8 @@ WK7Bot
 │   │   ├── RssDashboardSetting.cs
 │   │   ├── RssFeed.cs
 │   │   └── WasteDispatchLog.cs                # Persisted per-guild waste dispatch records
+│   ├── Exceptions
+│   │   └── RecipeSearchUnavailableException.cs # Both recipe search providers failed to respond
 │   ├── Interfaces
 │   │   ├── IRssRepository.cs
 │   │   └── IWasteDispatchRepository.cs
@@ -84,6 +93,8 @@ WK7Bot
 │       ├── FeedDeltaCalculator.cs           # Pure RSS baseline/new-item decisions
 │       ├── FeedTextFormatter.cs             # HTML strip + truncation for embeds
 │       ├── NameSanitizer.cs                 # Channel slugs + MQTT-safe names
+│       ├── RecipeEmbedBuilder.cs            # Shared recipe embeds (search link/disclaimer vs. generated)
+│       ├── SeasonalTermPicker.cs            # Weighted random seasonal-term selection
 │       └── WasteSummaryMapper.cs            # ICS summary → German display label
 ├── Extensions
 │   └── ServiceCollectionExtensions.cs       # DI wiring for DB, Discord, HTTP clients, hosted services
@@ -99,7 +110,7 @@ WK7Bot
 │   ├── SteamUserData.cs
 │   └── UserPresenceEntity.cs
 ├── Modules
-│   ├── FoodModule.cs                         # /recipe and /seasonal-produce slash commands
+│   ├── FoodModule.cs                         # /recipe, /recipe-generate, /recipe-seasonal and /seasonal-produce slash commands
 │   ├── LeipzigWasteModule.cs
 │   ├── RssCommandsModule.cs
 │   ├── RssComponentModule.cs
@@ -114,11 +125,13 @@ WK7Bot
 │   │   ├── IGeminiFoodService.cs
 │   │   ├── IHomeAssistantService.cs
 │   │   ├── ILeipzigWasteService.cs
+│   │   ├── IRandomSource.cs                 # Injectable randomness for selection logic
+│   │   ├── IRecipeSearchService.cs          # Web recipe lookup contract
 │   │   └── ISteamService.cs
 │   ├── AlexaMentionNotificationService.cs
 │   ├── DiscordBotWorker.cs
 │   ├── DiscordPresenceMqttService.cs
-│   ├── FoodPublisherService.cs               # Scheduled Gemini posts to #🍎food
+│   ├── FoodPublisherService.cs               # Scheduled produce calendar + seasonal web recipe posts to #🍎food
 │   ├── GeminiFoodService.cs                  # Gemini REST client with model fallback
 │   ├── HomeAssistantNotifierService.cs
 │   ├── HomeAssistantService.cs
@@ -128,7 +141,9 @@ WK7Bot
 │   ├── RssParserService.cs
 │   ├── RssPollingBackgroundService.cs
 │   ├── SteamDataCache.cs                     # 60s per-user Steam fetch cooldown
-│   └── SteamService.cs
+│   ├── SteamService.cs
+│   ├── SystemRandomSource.cs                 # Random.Shared-backed IRandomSource
+│   └── WebRecipeSearchService.cs            # DuckDuckGo search + Chefkoch fallback + JSON-LD recipe parsing
 ├── Program.cs                               # Host bootstrap, options binding, /health endpoint
 ├── appsettings.json
 ├── appsettings.Development.json
@@ -147,12 +162,16 @@ WK7Bot.Tests                                 # xUnit test project (included in W
 ├── LeipzigWasteServiceTests.cs              # ICS parsing, mapping, feed download caching
 ├── NameSanitizerTests.cs
 ├── OptionsBindingTests.cs
+├── RecipeEmbedBuilderTests.cs               # Shared recipe embed sections, disclaimer, truncation
 ├── RssRepositoryTests.cs
 ├── ServiceCollectionExtensionsTests.cs
+├── SeasonalTermPickerTests.cs                # Weighted category picks, distinct terms, empty pools
 ├── SteamDataCacheTests.cs                    # Cooldown caching, TTL expiry, null caching
 ├── SteamServiceTests.cs                      # API mapping, retry/backoff, schema cache, log assertions
+├── StubRandomSource.cs                       # Deterministic IRandomSource for tests
 ├── WasteDispatchRepositoryTests.cs           # Dispatch state persistence (EF InMemory)
-└── WasteSummaryMapperTests.cs
+├── WasteSummaryMapperTests.cs
+└── WebRecipeSearchServiceTests.cs           # Search-result extraction, JSON-LD parsing, skip paths, Chefkoch fallback & provider-unavailable
 ```
 
 ## Slash Commands
@@ -163,12 +182,14 @@ WK7Bot.Tests                                 # xUnit test project (included in W
 | `/rss remove <name>` | Removes a feed and cleans up its channel + role | `ManageChannels` |
 | `/rss dashboard` | Posts the interactive subscription select menu | `ManageRoles` |
 | `/check-waste [days] [datum]` | Queries Leipzig waste collection dates (`DD.MM.YYYY` or `YYYY-MM-DD`) | everyone |
-| `/recipe` | Generates a seasonal renal & transplant-safe recipe and posts it to `#🍎food` | everyone |
+| `/recipe query:<text>` | Searches the web for a recipe, parses its structured data and posts it with a source link to `#🍎food` | everyone |
+| `/recipe-seasonal [query]` | Searches for a recipe seeded with two randomly weighted seasonal ingredients and posts it with a source link to `#🍎food` | everyone |
+| `/recipe-generate` | Generates a seasonal renal & transplant-safe recipe and posts it to `#🍎food` | everyone |
 | `/seasonal-produce [month]` | Posts the seasonal fruit/vegetable/herb/nut calendar (month 1-12, default: current) to `#🍎food` | everyone |
 | `/ping` | Gateway latency test | everyone |
 | `/ha-status` | Tests Home Assistant Supervisor API connectivity | everyone |
 
-Both food commands are ephemeral while Gemini is queried, post the result embed into `#🍎food`, and report a clear error when the channel or the Gemini API key is missing.
+All food commands are ephemeral while the lookup runs, post the result embed into `#🍎food`, and report a clear error when the channel or the Gemini API key is missing. `/recipe` and `/recipe-seasonal` need no API key of their own (a Gemini key only improves formatting): when no candidate page exposes parseable recipe data they say so and point at `/recipe-generate`, and when every search provider is blocked (bot challenge / HTTP errors) they report that the search is temporarily unavailable instead of pretending there were no results.
 
 ## Hosted Services
 
@@ -181,7 +202,7 @@ Both food commands are ephemeral while Gemini is queried, post the result embed 
 | `LeipzigWasteBackgroundService` | Sends daily and weekly waste collection reminders | `leipzig_waste_enabled` |
 | `AlexaMentionNotificationService` | Forwards target-user mentions to the Alexa notification API | `alexa_notifications_enabled` |
 | `DiscordPresenceMqttService` | Publishes Discord presence snapshots to MQTT for Home Assistant | `discord_presence_mqtt_enabled` |
-| `FoodPublisherService` | Posts the monthly produce calendar and weekly recipe to `#🍎food` via Gemini | `food_service_enabled` |
+| `FoodPublisherService` | Posts the monthly produce calendar (Gemini) and the weekly seasonal web recipe to `#🍎food` | `food_service_enabled` |
 
 Feature flags are resolved from the `Wk7Bot:features` section when present (appsettings.json), otherwise from root-level `features` (Home Assistant `options.json`). Services re-check the bound options at runtime, so disabling a flag always takes effect.
 
@@ -198,7 +219,7 @@ mqtt_port: 1883
 mqtt_username: ""
 mqtt_password: ""
 steam_api_key: ""
-gemini_api_key: ""                             # Google AI Studio key for /recipe and /seasonal-produce
+gemini_api_key: ""                             # Google AI Studio key: seasonal produce, generated recipes, recipe formatting
 discord_steam_mappings:
   - discord_user_id: "123456789012345678"
     steam_id: "76561198000000000"
@@ -303,7 +324,7 @@ dotnet test WK7Bot.sln
 dotnet test WK7Bot.Tests/WK7Bot.Tests.csproj
 ```
 
-The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, error paths, via Moq), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`).
+The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, search vs. generate paths, error paths, via Moq), the web recipe search service (DuckDuckGo result extraction incl. ad skipping, JSON-LD `Recipe` parsing, candidate-skip and failure paths, bot-challenge detection with the Chefkoch fallback provider, the provider-unavailable exception, randomised candidate starting points and the recently-served preference — against a stubbed HTTP handler), the weighted `SeasonalTermPicker` (category weights, distinct terms, empty pools), the shared recipe embed builder (source link, disclaimer, empty-section skipping, 1024-char truncation), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`). Randomised behaviour is driven by a scripted `StubRandomSource`, so these tests never flake.
 
 ### Docker
 
@@ -334,7 +355,7 @@ Logs from `Discord.Net` are forwarded into the ASP.NET logging pipeline and appe
 
 ## Continuous Integration
 
-`.github/workflows/tests.yml` restores, builds, and runs the xUnit suite with the .NET 10 SDK on every push and pull request to `main`, `master`, and `develop`; the `trx` test results are uploaded as a build artifact.
+`.github/workflows/tests.yml` restores, builds, and runs the xUnit suite with the .NET 10 SDK on every push and pull request to `main`, `master`, and `develop`; the `trx` test results are uploaded as a build artifact. The status badge at the top of this README reflects the latest run, so a red badge means the suite is failing on GitHub Actions (locally: `dotnet test WK7Bot.sln`).
 
 ## License & Copyright
 

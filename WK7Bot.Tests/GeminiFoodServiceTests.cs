@@ -38,6 +38,33 @@ public class GeminiFoodServiceTests
     }
     """;
 
+    private const string FormattedRecipeJson = """
+    {
+      "title": "Pfannkuchen (bereinigt)",
+      "description": "Klassischer Pfannkuchenteig aus der Pfanne.",
+      "prep_time": "10 Minuten",
+      "cook_time": "15 Minuten",
+      "servings": 4,
+      "ingredients": ["200 g Mehl", "300 ml Milch", "2 Eier"],
+      "instructions": ["Teig rühren", "In der Pfanne goldbraun backen"],
+      "diet_tags": ["low_carb"],
+      "transplant_safety_notes": "Nicht bewertet.",
+      "seasonal_ingredients_used": ["Zucchini"]
+    }
+    """;
+
+    private const string UnusableFormattedRecipeJson = """
+    {
+      "title": "Ohne Inhalt",
+      "description": "",
+      "prep_time": "",
+      "cook_time": "",
+      "servings": 0,
+      "ingredients": [],
+      "instructions": []
+    }
+    """;
+
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
@@ -303,5 +330,89 @@ public class GeminiFoodServiceTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             service.GetSeasonalProduceAsync(new DateTime(2026, 7, 1), cancellation.Token));
+    }
+
+    private static RenalRecipeData ScrapedRecipe() => new()
+    {
+        Title = "Pfannkuchen roh vom Scraper",
+        Ingredients = new List<string> { "200 g Mehl und 300 ml Milch und 2 Eier" },
+        Instructions = new List<string> { "Alles in eine Schüssel geben und verrühren und dann in der Pfanne backen." },
+        SourceUrl = "https://www.chefkoch.de/rezepte/123/pfannkuchen.html",
+        ImageUrl = "https://images.example.com/pfannkuchen.jpg"
+    };
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task FormatRecipeAsync_ReturnsNull_WhenApiKeyMissing(string? apiKey)
+    {
+        var handler = new StubHttpMessageHandler(_ => Json("{}"));
+        var service = CreateService(handler, apiKey);
+
+        var result = await service.FormatRecipeAsync(ScrapedRecipe());
+
+        Assert.Null(result);
+        Assert.Equal(0, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task FormatRecipeAsync_ParsesFormattedRecipe_AndKeepsProvenanceWithoutMedicalClaims()
+    {
+        var handler = new StubHttpMessageHandler(_ => Json(Envelope(FormattedRecipeJson)));
+        var service = CreateService(handler);
+        var scraped = ScrapedRecipe();
+
+        var result = await service.FormatRecipeAsync(scraped);
+
+        Assert.NotNull(result);
+        Assert.Equal("Pfannkuchen (bereinigt)", result!.Title);
+        Assert.Equal(new[] { "200 g Mehl", "300 ml Milch", "2 Eier" }, result.Ingredients);
+        Assert.Equal(new[] { "Teig rühren", "In der Pfanne goldbraun backen" }, result.Instructions);
+        Assert.Equal(4, result.Servings);
+
+        Assert.Equal(scraped.SourceUrl, result.SourceUrl);
+        Assert.Equal(scraped.ImageUrl, result.ImageUrl);
+        Assert.Empty(result.DietTags);
+        Assert.Equal(string.Empty, result.TransplantSafetyNotes);
+        Assert.Empty(result.SeasonalIngredientsUsed);
+    }
+
+    [Fact]
+    public async Task FormatRecipeAsync_ReturnsNull_WhenStructuredOutputIsUnusable()
+    {
+        var handler = new StubHttpMessageHandler(_ => Json(Envelope(UnusableFormattedRecipeJson)));
+        var service = CreateService(handler);
+
+        var result = await service.FormatRecipeAsync(ScrapedRecipe());
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task FormatRecipeAsync_SendsScrapedRecipeAndSchemaWithoutDietTags()
+    {
+        var handler = new StubHttpMessageHandler(_ => Json(Envelope(FormattedRecipeJson)));
+        var service = CreateService(handler);
+
+        await service.FormatRecipeAsync(ScrapedRecipe());
+
+        var payload = Assert.Single(handler.Payloads);
+        Assert.Contains("Re-format it into the schema", payload);
+        Assert.Contains("FAITHFUL", payload);
+        Assert.Contains("200 g Mehl und 300 ml Milch und 2 Eier", payload);
+        Assert.Contains("\"responseSchema\"", payload);
+        Assert.Contains("\"instructions\"", payload);
+        Assert.DoesNotContain("\"diet_tags\"", payload);
+        Assert.DoesNotContain("transplant_safety_notes", payload);
+    }
+
+    [Fact]
+    public async Task FormatRecipeAsync_Throws_WhenRecipeIsNull()
+    {
+        var handler = new StubHttpMessageHandler(_ => Json("{}"));
+        var service = CreateService(handler);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => service.FormatRecipeAsync(null!));
     }
 }

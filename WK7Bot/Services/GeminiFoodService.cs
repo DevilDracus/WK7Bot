@@ -146,6 +146,81 @@ public class GeminiFoodService : IGeminiFoodService
     }
 
     /// <summary>
+    /// Re-shapes a scraped recipe into the canonical recipe format via Gemini structured output, preserving the
+    /// original source link and never adding diet tags or medical notes.
+    /// </summary>
+    /// <param name="recipe">The parsed recipe to normalise.</param>
+    /// <param name="cancellationToken">A token to monitor for task cancellation.</param>
+    /// <returns>The formatted recipe, or <see langword="null"/> when the API key is missing, the call fails, or the
+    /// structured answer is unusable.</returns>
+    public async Task<RenalRecipeData?> FormatRecipeAsync(RenalRecipeData recipe, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(recipe);
+
+        if (string.IsNullOrWhiteSpace(_options.GeminiApiKey))
+        {
+            _logger.LogWarning("Gemini API key is missing. Skipping recipe formatting.");
+            return null;
+        }
+
+        var scrapedRecipe = new JsonObject
+        {
+            ["title"] = recipe.Title,
+            ["description"] = recipe.Description,
+            ["prep_time"] = recipe.PrepTime,
+            ["cook_time"] = recipe.CookTime,
+            ["servings"] = recipe.Servings,
+            ["ingredients"] = new JsonArray(recipe.Ingredients.Select(i => (JsonNode?)JsonValue.Create(i)).ToArray()),
+            ["instructions"] = new JsonArray(recipe.Instructions.Select(i => (JsonNode?)JsonValue.Create(i)).ToArray())
+        };
+
+        string prompt = "Below is a recipe scraped from a website (JSON). Re-format it into the schema you are given.\n" +
+                        "RULES:\n" +
+                        "1. FAITHFUL: keep the same dish. Never invent, drop or translate ingredients or steps. Keep the original language (usually German).\n" +
+                        "2. STRUCTURE: one ingredient per list entry, starting with quantity and unit when given (e.g. \"200 g Mehl\"). Split run-on text into one short, ordered step per entry.\n" +
+                        "3. TITLE: keep it, but trim site-specific suffixes such as an author name after \"von\". DESCRIPTION: one or two short sentences summarising the dish.\n" +
+                        "4. TIMES: short German strings such as \"20 Minuten\"; use an empty string when unknown. SERVINGS: the portion count, 0 when unknown.\n" +
+                        "5. Do NOT add diet tags, safety notes, seasonal claims or any medical/dietary advice - formatting only.\n\n" +
+                        $"Recipe JSON:\n{scrapedRecipe.ToJsonString()}";
+
+        var jsonSchema = new JsonObject
+        {
+            ["type"] = "OBJECT",
+            ["properties"] = new JsonObject
+            {
+                ["title"] = new JsonObject { ["type"] = "STRING" },
+                ["description"] = new JsonObject { ["type"] = "STRING" },
+                ["prep_time"] = new JsonObject { ["type"] = "STRING" },
+                ["cook_time"] = new JsonObject { ["type"] = "STRING" },
+                ["servings"] = new JsonObject { ["type"] = "INTEGER" },
+                ["ingredients"] = new JsonObject { ["type"] = "ARRAY", ["items"] = new JsonObject { ["type"] = "STRING" } },
+                ["instructions"] = new JsonObject { ["type"] = "ARRAY", ["items"] = new JsonObject { ["type"] = "STRING" } }
+            },
+            ["required"] = new JsonArray { "title", "description", "prep_time", "cook_time", "servings", "ingredients", "instructions" }
+        };
+
+        var formatted = await RequestGeminiStructuredOutputAsync<RenalRecipeData>(prompt, jsonSchema, cancellationToken);
+
+        if (formatted == null
+            || string.IsNullOrWhiteSpace(formatted.Title)
+            || formatted.Ingredients is not { Count: > 0 }
+            || formatted.Instructions is not { Count: > 0 })
+        {
+            _logger.LogWarning("Gemini returned an unusable formatted recipe (title/ingredients/steps missing).");
+            return null;
+        }
+
+        // Formatting must never carry provenance away or introduce unverified medical claims.
+        formatted.SourceUrl = recipe.SourceUrl;
+        formatted.ImageUrl = recipe.ImageUrl;
+        formatted.SeasonalIngredientsUsed = new List<string>();
+        formatted.DietTags = new List<string>();
+        formatted.TransplantSafetyNotes = string.Empty;
+
+        return formatted;
+    }
+
+    /// <summary>
     /// Submits a structured JSON generation payload to Gemini with automatic model fallback and retries on 503/429 errors.
     /// </summary>
     private async Task<T?> RequestGeminiStructuredOutputAsync<T>(string prompt, JsonObject responseSchema, CancellationToken cancellationToken)
