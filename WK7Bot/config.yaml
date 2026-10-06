@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.50"
+version: "1.0.51"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 init: false
@@ -39,13 +39,13 @@ options:
     weekend_digest_enabled: true
     dwd_warning_enabled: true
   dwd_warning:
-    postal_code: "04205"
-    latitude: 51.34
-    longitude: 12.36
-    lead_minutes: 30
+    postal_code: "01234"
+    latitude: 00.00
+    longitude: 00.00
+    lead_minutes: 00
     area_names:
-      - "Stadt Leipzig"
-      - "Leipzig"
+      - "City Name"
+      - "City"
     events:
       - "STARKREGEN"
       - "HAGEL"
