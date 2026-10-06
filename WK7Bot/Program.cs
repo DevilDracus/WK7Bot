@@ -80,5 +80,35 @@ public static class DatabaseInitializationExtensions
                 PRIMARY KEY (Kind, GuildId, SentOn)
             );
             """);
+
+        await dbContext.Database.ExecuteSqlRawAsync(CreateSpontanTreffSql);
     }
+
+    /// <summary>
+    /// Raw DDL for the spontaneous meetup tables so databases created before the feature pick them up as well.
+    /// Mirrored by <c>SpontanTreffRepositoryTests</c>, which replays this exact startup sequence.
+    /// </summary>
+    public const string CreateSpontanTreffSql =
+        """
+        CREATE TABLE IF NOT EXISTS SpontanTreffs (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            GuildId       INTEGER NOT NULL,
+            ChannelId     INTEGER NOT NULL,
+            MessageId     INTEGER NOT NULL,
+            OrganizerId   INTEGER NOT NULL,
+            OrganizerName TEXT    NOT NULL,
+            Plan          TEXT    NOT NULL,
+            Location      TEXT    NULL,
+            CreatedAt     TEXT    NOT NULL,
+            ExpiresAt     TEXT    NOT NULL,
+            Closed        INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS SpontanTreffResponses (
+            MeetupId    INTEGER NOT NULL,
+            UserId      INTEGER NOT NULL,
+            Going       INTEGER NOT NULL,
+            RespondedAt TEXT    NOT NULL,
+            PRIMARY KEY (MeetupId, UserId)
+        );
+        """;
 }

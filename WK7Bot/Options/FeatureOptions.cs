@@ -48,4 +48,10 @@ public class FeatureOptions
     /// </summary>
     [ConfigurationKeyName("food_service_enabled")]
     public bool FoodServiceEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether expired spontaneous meetups ("Spontan-Treff") are closed automatically.
+    /// </summary>
+    [ConfigurationKeyName("spontan_treff_enabled")]
+    public bool SpontanTreffEnabled { get; set; } = true;
 }

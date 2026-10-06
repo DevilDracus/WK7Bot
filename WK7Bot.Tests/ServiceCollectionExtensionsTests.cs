@@ -39,7 +39,8 @@ public class ServiceCollectionExtensionsTests
                 ["Wk7Bot:features:home_assistant_notifier_enabled"] = "false",
                 ["Wk7Bot:features:leipzig_waste_enabled"] = "false",
                 ["Wk7Bot:features:alexa_notifications_enabled"] = "false",
-                ["Wk7Bot:features:discord_presence_mqtt_enabled"] = "false"
+                ["Wk7Bot:features:discord_presence_mqtt_enabled"] = "false",
+                ["Wk7Bot:features:spontan_treff_enabled"] = "false"
             })
             .Build();
 
@@ -51,6 +52,7 @@ public class ServiceCollectionExtensionsTests
         Assert.DoesNotContain(typeof(Services.LeipzigWasteBackgroundService), types);
         Assert.DoesNotContain(typeof(Services.AlexaMentionNotificationService), types);
         Assert.DoesNotContain(typeof(Services.DiscordPresenceMqttService), types);
+        Assert.DoesNotContain(typeof(Services.SpontanTreffExpiryService), types);
     }
 
     [Fact]
@@ -61,7 +63,8 @@ public class ServiceCollectionExtensionsTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["features:rss_polling_enabled"] = "false",
-                ["features:discord_presence_mqtt_enabled"] = "false"
+                ["features:discord_presence_mqtt_enabled"] = "false",
+                ["features:spontan_treff_enabled"] = "false"
             })
             .Build();
 
@@ -70,6 +73,7 @@ public class ServiceCollectionExtensionsTests
         var types = HostedServiceTypes(services).ToList();
         Assert.DoesNotContain(typeof(Services.RssPollingBackgroundService), types);
         Assert.DoesNotContain(typeof(Services.DiscordPresenceMqttService), types);
+        Assert.DoesNotContain(typeof(Services.SpontanTreffExpiryService), types);
         Assert.Contains(typeof(Services.HomeAssistantNotifierService), types);
     }
 
@@ -88,6 +92,7 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(typeof(Services.AlexaMentionNotificationService), types);
         Assert.Contains(typeof(Services.DiscordPresenceMqttService), types);
         Assert.Contains(typeof(Services.FoodPublisherService), types);
+        Assert.Contains(typeof(Services.SpontanTreffExpiryService), types);
     }
 
     [Fact]
@@ -134,5 +139,6 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(services, d => d.ServiceType.Name.Contains("BotDbContext"));
         Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.IRssRepository));
         Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.IWasteDispatchRepository));
+        Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.ISpontanTreffRepository));
     }
 }

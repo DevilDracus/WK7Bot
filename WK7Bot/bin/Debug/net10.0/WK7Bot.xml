@@ -74,6 +74,91 @@
             Gets or sets the timestamp when the feed was last polled.
             </summary>
         </member>
+        <member name="T:WK7Bot.Core.Entities.SpontanTreff">
+            <summary>
+            A short-lived spontaneous meetup ("Spontan-Treff") that is announced with on-my-way and pass buttons.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.Id">
+            <summary>
+            Gets or sets the database identifier used inside the button custom IDs.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.GuildId">
+            <summary>
+            Gets or sets the Discord guild the meetup was created in.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.ChannelId">
+            <summary>
+            Gets or sets the Discord channel that contains the meetup message.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.MessageId">
+            <summary>
+            Gets or sets the Discord message ID of the interactive meetup message; zero until it has been posted.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.OrganizerId">
+            <summary>
+            Gets or sets the Discord user ID of the organizer who created the meetup.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.OrganizerName">
+            <summary>
+            Gets or sets the display name of the organizer at creation time.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.Plan">
+            <summary>
+            Gets or sets the free-text plan, e.g. "Kurzer Abendspaziergang".
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.Location">
+            <summary>
+            Gets or sets the optional meeting point, e.g. "Innenhof".
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.CreatedAt">
+            <summary>
+            Gets or sets the local time the meetup was created.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.ExpiresAt">
+            <summary>
+            Gets or sets the local time after which the meetup is closed and the buttons stop working.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreff.Closed">
+            <summary>
+            Gets or sets a value indicating whether the meetup was closed before its expiry (organizer or background service).
+            </summary>
+        </member>
+        <member name="T:WK7Bot.Core.Entities.SpontanTreffResponse">
+            <summary>
+            Stores a single user's answer ("on my way" or "pass") for a spontaneous meetup.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreffResponse.MeetupId">
+            <summary>
+            Gets or sets the identifier of the meetup the answer belongs to.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreffResponse.UserId">
+            <summary>
+            Gets or sets the Discord user ID of the member who answered.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreffResponse.Going">
+            <summary>
+            Gets or sets a value indicating whether the member is on their way; <see langword="false"/> means they passed.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Core.Entities.SpontanTreffResponse.RespondedAt">
+            <summary>
+            Gets or sets the local time the answer was given (or last changed).
+            </summary>
+        </member>
         <member name="T:WK7Bot.Core.Entities.WasteDispatchLog">
             <summary>
             Records that a waste notification of a given kind was already dispatched to a guild on a specific date,
@@ -189,6 +274,83 @@
             </summary>
             <param name="cancellationToken">Cancellation token to observe.</param>
             <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
+        </member>
+        <member name="T:WK7Bot.Core.Interfaces.ISpontanTreffRepository">
+            <summary>
+            Defines data access operations for spontaneous meetups ("Spontan-Treff") and their button answers.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.ISpontanTreffRepository.AddAsync(WK7Bot.Core.Entities.SpontanTreff,System.Threading.CancellationToken)">
+            <summary>
+            Stores a new meetup and assigns its database identifier.
+            </summary>
+            <param name="meetup">The meetup to persist.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>The persisted meetup including its generated identifier.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.ISpontanTreffRepository.SetMessageAsync(System.Int32,System.UInt64,System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Stores the channel and message location of a meetup once it has been posted.
+            </summary>
+            <param name="meetupId">The meetup identifier.</param>
+            <param name="channelId">The channel containing the meetup message.</param>
+            <param name="messageId">The interactive meetup message identifier.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.ISpontanTreffRepository.GetAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves a meetup by its identifier.
+            </summary>
+            <param name="meetupId">The meetup identifier.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>The matching meetup, or <see langword="null"/> when it does not exist.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.ISpontanTreffRepository.GetResponsesAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves all answers for a meetup ordered by response time.
+            </summary>
+            <param name="meetupId">The meetup identifier.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>The stored answers of the meetup.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.ISpontanTreffRepository.GetResponseAsync(System.Int32,System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves the answer a single user gave for a meetup.
+            </summary>
+            <param name="meetupId">The meetup identifier.</param>
+            <param name="userId">The Discord user identifier.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>The stored answer, or <see langword="null"/> when the user has not answered yet.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.ISpontanTreffRepository.SetResponseAsync(WK7Bot.Core.Entities.SpontanTreffResponse,System.Threading.CancellationToken)">
+            <summary>
+            Inserts or replaces the answer of a user for a meetup.
+            </summary>
+            <param name="response">The answer to persist.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.ISpontanTreffRepository.RemoveResponseAsync(System.Int32,System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Removes a stored answer so the user is neither counted as attending nor as passed.
+            </summary>
+            <param name="meetupId">The meetup identifier.</param>
+            <param name="userId">The Discord user identifier.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.ISpontanTreffRepository.CloseAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Marks a meetup as closed so it is never processed by the expiry sweep again.
+            </summary>
+            <param name="meetupId">The meetup identifier.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+        </member>
+        <member name="M:WK7Bot.Core.Interfaces.ISpontanTreffRepository.GetExpiredAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves all meetups whose deadline has passed and that are not closed yet.
+            </summary>
+            <param name="now">The current local time.</param>
+            <param name="cancellationToken">Cancellation token to observe.</param>
+            <returns>The meetups waiting to be expired.</returns>
         </member>
         <member name="T:WK7Bot.Core.Interfaces.IWasteDispatchRepository">
             <summary>
@@ -443,6 +605,73 @@
             A seasonal term paired with the relative likelihood of it being picked.
             </summary>
         </member>
+        <member name="T:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder">
+            <summary>
+            Builds the embed and button components for spontaneous meetups ("Spontan-Treff") shared by the slash command,
+            the button handler and the expiry background service, so every caller renders the exact same message state.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.CustomIdPrefix">
+            <summary>
+            Prefix of every button custom ID owned by this feature; matched by the component interaction handler.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.GoAction">
+            <summary>
+            Button action for "on my way".
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.PassAction">
+            <summary>
+            Button action for passing.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.FieldValueLimit">
+            <summary>
+            Discord's per-field character limit.
+            </summary>
+        </member>
+        <member name="F:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.FieldValueBudget">
+            <summary>
+            Head-room kept below <see cref="F:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.FieldValueLimit"/> so the "plus N more" suffix always fits.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.IsActive(WK7Bot.Core.Entities.SpontanTreff,System.DateTime)">
+            <summary>
+            Determines whether a meetup still accepts answers at the given point in time.
+            </summary>
+            <param name="meetup">The meetup to check.</param>
+            <param name="now">The current local time.</param>
+            <returns><see langword="true"/> while the meetup is neither closed nor expired.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.BuildCustomId(System.String,System.Int32)">
+            <summary>
+            Builds the button custom ID for an action, e.g. <c>spontan-treff:go:7</c>.
+            </summary>
+            <param name="action">One of <see cref="F:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.GoAction"/> or <see cref="F:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.PassAction"/>.</param>
+            <param name="meetupId">The meetup identifier.</param>
+            <returns>The custom ID handed to Discord.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.Build(WK7Bot.Core.Entities.SpontanTreff,System.Collections.Generic.IReadOnlyList{WK7Bot.Core.Entities.SpontanTreffResponse},System.DateTime)">
+            <summary>
+            Renders the meetup embed plus its buttons; once the meetup is over the component row is empty, which removes
+            the buttons when the message is edited.
+            </summary>
+            <param name="meetup">The meetup to render.</param>
+            <param name="responses">The stored answers of the meetup.</param>
+            <param name="now">The current local time used for the remaining-time text.</param>
+            <returns>The embed and the message components of the current state.</returns>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.BuildDescription(WK7Bot.Core.Entities.SpontanTreff,System.Boolean,System.DateTime)">
+            <summary>
+            Composes the embed description including plan, optional meeting point, organizer and remaining time.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Core.Utilities.SpontanTreffMessageBuilder.FormatMentions(System.Collections.Generic.IReadOnlyList{System.UInt64})">
+            <summary>
+            Renders user mentions as a bullet-less list, staying inside Discord's field value limit.
+            </summary>
+        </member>
         <member name="T:WK7Bot.Core.Utilities.WasteSummaryMapper">
             <summary>
             Maps raw ICS event summaries from Stadtreinigung Leipzig into user-friendly German display strings.
@@ -517,6 +746,16 @@
             Gets or sets the database set for tracking already dispatched waste notifications.
             </summary>
         </member>
+        <member name="P:WK7Bot.Infrastructure.Data.BotDbContext.SpontanTreffs">
+            <summary>
+            Gets or sets the database set for spontaneous meetups ("Spontan-Treff").
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Infrastructure.Data.BotDbContext.SpontanTreffResponses">
+            <summary>
+            Gets or sets the database set for the button answers given to spontaneous meetups.
+            </summary>
+        </member>
         <member name="M:WK7Bot.Infrastructure.Data.BotDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <summary>
             Configures entity mappings, database constraints, and table schemas during model construction.
@@ -588,6 +827,44 @@
             </summary>
             <param name="cancellationToken">Cancellation token to observe.</param>
             <returns>A tuple containing the channel ID and message ID, or null if not set.</returns>
+        </member>
+        <member name="T:WK7Bot.Infrastructure.Data.SpontanTreffRepository">
+            <summary>
+            Entity Framework Core implementation of the spontaneous meetup repository data access contract.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.#ctor(WK7Bot.Infrastructure.Data.BotDbContext)">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Infrastructure.Data.SpontanTreffRepository"/> class.
+            </summary>
+            <param name="dbContext">The database context instance.</param>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.AddAsync(WK7Bot.Core.Entities.SpontanTreff,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.SetMessageAsync(System.Int32,System.UInt64,System.UInt64,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.GetAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.GetResponsesAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.GetResponseAsync(System.Int32,System.UInt64,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.SetResponseAsync(WK7Bot.Core.Entities.SpontanTreffResponse,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.RemoveResponseAsync(System.Int32,System.UInt64,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.CloseAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:WK7Bot.Infrastructure.Data.SpontanTreffRepository.GetExpiredAsync(System.DateTime,System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="T:WK7Bot.Infrastructure.Data.WasteDispatchRepository">
             <summary>
@@ -1088,6 +1365,90 @@
             <param name="selectedValues">An array of string values selected by the user from the multi-select menu.</param>
             <returns>A task representing the asynchronous interaction handling operation.</returns>
         </member>
+        <member name="T:WK7Bot.Modules.SpontanTreffComponentModule">
+            <summary>
+            Handles the "on my way" and "pass" buttons of spontaneous meetups, toggling the stored answer and re-rendering
+            the meetup message so everyone sees the current state.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Modules.SpontanTreffComponentModule.#ctor(WK7Bot.Core.Interfaces.ISpontanTreffRepository,Microsoft.Extensions.Logging.ILogger{WK7Bot.Modules.SpontanTreffComponentModule})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Modules.SpontanTreffComponentModule"/> class.
+            </summary>
+            <param name="repository">The repository used for meetup and answer persistence.</param>
+            <param name="logger">The logger instance.</param>
+        </member>
+        <member name="M:WK7Bot.Modules.SpontanTreffComponentModule.EditMeetupMessageAsync(WK7Bot.Core.Entities.SpontanTreff,Discord.Embed,Discord.MessageComponent)">
+            <summary>
+            Re-renders the meetup message after an answer changed.
+            </summary>
+            <param name="meetup">The meetup whose message is updated.</param>
+            <param name="embed">The refreshed embed.</param>
+            <param name="components">The refreshed button row.</param>
+            <returns>A task that completes once the message has been edited.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.SpontanTreffComponentModule.HandleResponseAsync(System.String)">
+            <summary>
+            Applies or removes a single user's answer for a meetup. Tapping the same button again undoes the answer,
+            tapping the other button switches sides.
+            </summary>
+            <param name="payload">The custom ID suffix, e.g. <c>go:7</c>.</param>
+            <returns>A task tracking the asynchronous interaction handling.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.SpontanTreffComponentModule.TryParsePayload(System.String,System.String@,System.Int32@)">
+            <summary>
+            Splits the button custom ID suffix into the action and the meetup identifier.
+            </summary>
+            <param name="payload">The custom ID suffix, e.g. <c>go:7</c>.</param>
+            <param name="action">The parsed action.</param>
+            <param name="meetupId">The parsed meetup identifier.</param>
+            <returns><see langword="true"/> when the payload is well-formed.</returns>
+        </member>
+        <member name="T:WK7Bot.Modules.SpontanTreffModule">
+            <summary>
+            Provides the <c>/spontan-treff</c> slash command that announces a last-minute hangout with one-click
+            "on my way" / "pass" buttons in the dedicated meetup channel.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Modules.SpontanTreffModule.#ctor(WK7Bot.Core.Interfaces.ISpontanTreffRepository,Microsoft.Extensions.Logging.ILogger{WK7Bot.Modules.SpontanTreffModule})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Modules.SpontanTreffModule"/> class.
+            </summary>
+            <param name="repository">The repository used for meetup and answer persistence.</param>
+            <param name="logger">The logger instance.</param>
+        </member>
+        <member name="M:WK7Bot.Modules.SpontanTreffModule.GetOrCreateTreffChannelAsync">
+            <summary>
+            Resolves the <c>#🎉spontan-treff</c> channel inside the originating guild and creates it when missing.
+            </summary>
+            <returns>The target channel, or <see langword="null"/> when the guild is unavailable or creation is forbidden.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.SpontanTreffModule.PostToTreffChannelAsync(Discord.ITextChannel,System.String,Discord.Embed,Discord.MessageComponent)">
+            <summary>
+            Publishes the interactive meetup message to the target channel.
+            </summary>
+            <param name="channel">The channel that receives the meetup.</param>
+            <param name="text">The message content, usually the @everyone ping.</param>
+            <param name="embed">The meetup embed.</param>
+            <param name="components">The button row.</param>
+            <returns>The posted message.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.SpontanTreffModule.CreateAsync(System.String,System.String,System.Int32)">
+            <summary>
+            Creates a spontaneous meetup, announces it with an @everyone ping in <c>#🎉spontan-treff</c> and opens it
+            for one-click answers until the requested deadline.
+            </summary>
+            <param name="plan">What is happening, e.g. "Kurzer Abendspaziergang".</param>
+            <param name="ort">Optional meeting point, e.g. "Innenhof".</param>
+            <param name="minuten">How many minutes the meetup stays open; defaults to 30.</param>
+            <returns>A task tracking the asynchronous command execution.</returns>
+        </member>
+        <member name="M:WK7Bot.Modules.SpontanTreffModule.PostMeetupAsync(Discord.ITextChannel,Discord.Embed,Discord.MessageComponent)">
+            <summary>
+            Posts the meetup with the @everyone ping, falling back to a plain message when the bot is not allowed to
+            mention everyone in that channel.
+            </summary>
+        </member>
         <member name="T:WK7Bot.Modules.SystemModule">
             <summary>
             Provides general diagnostic slash commands for testing gateway latency and API connections.
@@ -1189,6 +1550,11 @@
         <member name="P:WK7Bot.Options.FeatureOptions.FoodServiceEnabled">
             <summary>
             Gets or sets a value indicating whether the monthly seasonal food and weekly recipe background service is enabled.
+            </summary>
+        </member>
+        <member name="P:WK7Bot.Options.FeatureOptions.SpontanTreffEnabled">
+            <summary>
+            Gets or sets a value indicating whether expired spontaneous meetups ("Spontan-Treff") are closed automatically.
             </summary>
         </member>
         <member name="T:WK7Bot.Options.Wk7BotOptions">
@@ -2012,6 +2378,46 @@
             <param name="item">The newly retrieved feed item.</param>
             <returns>A task representing the send operation.</returns>
         </member>
+        <member name="T:WK7Bot.Services.SpontanTreffExpiryService">
+            <summary>
+            Background service that closes spontaneous meetups once their deadline passed: the meetup is marked as closed
+            and its message is re-rendered without buttons so late taps are visibly over.
+            </summary>
+        </member>
+        <member name="M:WK7Bot.Services.SpontanTreffExpiryService.#ctor(System.IServiceProvider,Discord.WebSocket.DiscordSocketClient,Microsoft.Extensions.Options.IOptions{WK7Bot.Options.Wk7BotOptions},Microsoft.Extensions.Logging.ILogger{WK7Bot.Services.SpontanTreffExpiryService})">
+            <summary>
+            Initializes a new instance of the <see cref="T:WK7Bot.Services.SpontanTreffExpiryService"/> class.
+            </summary>
+            <param name="serviceProvider">The service provider used to create database scopes.</param>
+            <param name="discordClient">The connected Discord socket client instance.</param>
+            <param name="options">The strongly-typed application configuration options.</param>
+            <param name="logger">The logger instance for background execution diagnostics.</param>
+        </member>
+        <member name="M:WK7Bot.Services.SpontanTreffExpiryService.ExecuteAsync(System.Threading.CancellationToken)">
+            <summary>
+            Runs the expiry loop, sweeping every minute for meetups whose deadline has passed.
+            </summary>
+            <param name="stoppingToken">Cancellation token monitored for background service shutdown.</param>
+            <returns>A task representing the background execution process.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SpontanTreffExpiryService.SweepAsync(System.DateTime,System.Threading.CancellationToken)">
+            <summary>
+            Closes every meetup whose deadline has passed. Each meetup is handled independently so a single deleted
+            Discord message does not block the remaining sweep.
+            </summary>
+            <param name="now">The current local date and time.</param>
+            <param name="stoppingToken">Cancellation token for network and database operations.</param>
+            <returns>A task representing the asynchronous sweep.</returns>
+        </member>
+        <member name="M:WK7Bot.Services.SpontanTreffExpiryService.EditMeetupMessageAsync(WK7Bot.Core.Entities.SpontanTreff,Discord.Embed,Discord.MessageComponent)">
+            <summary>
+            Removes the buttons from an expired meetup message and marks it as over. Virtual for testability.
+            </summary>
+            <param name="meetup">The meetup whose message is closed.</param>
+            <param name="embed">The closed state embed.</param>
+            <param name="components">The empty component row that removes the buttons.</param>
+            <returns>A task that completes once the message has been edited.</returns>
+        </member>
         <member name="T:WK7Bot.Services.SteamDataCache">
             <summary>
             Caches <see cref="T:WK7Bot.Models.SteamUserData"/> lookups per Steam ID for a short time-to-live so rapid Discord presence
@@ -2800,6 +3206,12 @@
             </summary>
             <param name="app">The running web application instance providing service resolution access.</param>
             <returns>A task representing the asynchronous database startup operation.</returns>
+        </member>
+        <member name="F:DatabaseInitializationExtensions.CreateSpontanTreffSql">
+            <summary>
+            Raw DDL for the spontaneous meetup tables so databases created before the feature pick them up as well.
+            Mirrored by <c>SpontanTreffRepositoryTests</c>, which replays this exact startup sequence.
+            </summary>
         </member>
         <member name="T:System.Text.RegularExpressions.Generated.HtmlTagRegex_0">
             <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the HtmlTagRegex method.</summary>

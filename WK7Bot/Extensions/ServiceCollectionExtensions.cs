@@ -29,6 +29,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IRssRepository, RssRepository>();
         services.AddScoped<IWasteDispatchRepository, WasteDispatchRepository>();
+        services.AddScoped<ISpontanTreffRepository, SpontanTreffRepository>();
         return services;
     }
 
@@ -109,6 +110,11 @@ public static class ServiceCollectionExtensions
         if (IsFeatureEnabled(configuration, "food_service_enabled"))
         {
             services.AddHostedService<FoodPublisherService>();
+        }
+
+        if (IsFeatureEnabled(configuration, "spontan_treff_enabled"))
+        {
+            services.AddHostedService<SpontanTreffExpiryService>();
         }
 
         return services;

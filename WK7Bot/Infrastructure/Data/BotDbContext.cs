@@ -32,6 +32,16 @@ public class BotDbContext : DbContext
     public DbSet<WasteDispatchLog> WasteDispatchLogs => Set<WasteDispatchLog>();
 
     /// <summary>
+    /// Gets or sets the database set for spontaneous meetups ("Spontan-Treff").
+    /// </summary>
+    public DbSet<SpontanTreff> SpontanTreffs => Set<SpontanTreff>();
+
+    /// <summary>
+    /// Gets or sets the database set for the button answers given to spontaneous meetups.
+    /// </summary>
+    public DbSet<SpontanTreffResponse> SpontanTreffResponses => Set<SpontanTreffResponse>();
+
+    /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
     /// <param name="modelBuilder">The builder instance used to define entity structure and keys.</param>
@@ -59,6 +69,21 @@ public class BotDbContext : DbContext
             entity.ToTable("WasteDispatchLogs");
             entity.HasKey(e => new { e.Kind, e.GuildId, e.SentOn });
             entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
+        });
+
+        modelBuilder.Entity<SpontanTreff>(entity =>
+        {
+            entity.ToTable("SpontanTreffs");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.OrganizerName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Plan).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Location).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<SpontanTreffResponse>(entity =>
+        {
+            entity.ToTable("SpontanTreffResponses");
+            entity.HasKey(e => new { e.MeetupId, e.UserId });
         });
     }
 }

@@ -37,6 +37,7 @@ options:
     discord_presence_mqtt_enabled: true
     steam_presence_enabled: true
     food_service_enabled: true
+    spontan_treff_enabled: true
 schema:
   discord_token: str
   mqtt_host: str
@@ -63,6 +64,7 @@ schema:
     discord_presence_mqtt_enabled: bool
     steam_presence_enabled: bool
     food_service_enabled: bool
+    spontan_treff_enabled: bool
 hassio_api: true
 homeassistant_api: true
 hassio_role: "default"
