@@ -58,6 +58,10 @@ public static class ServiceCollectionExtensions
         {
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+        services.AddHttpClient<IWeekendEventSource, LeipzigWeekendEventSource>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
         services.AddHttpClient<AlexaMentionNotificationService>();
 
         services.AddTransient<RssParserService>();
@@ -115,6 +119,11 @@ public static class ServiceCollectionExtensions
         if (IsFeatureEnabled(configuration, "spontan_treff_enabled"))
         {
             services.AddHostedService<SpontanTreffExpiryService>();
+        }
+
+        if (IsFeatureEnabled(configuration, "weekend_digest_enabled"))
+        {
+            services.AddHostedService<WeekendDigestBackgroundService>();
         }
 
         return services;

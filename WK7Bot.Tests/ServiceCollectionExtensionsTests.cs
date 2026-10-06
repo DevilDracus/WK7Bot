@@ -93,6 +93,7 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(typeof(Services.DiscordPresenceMqttService), types);
         Assert.Contains(typeof(Services.FoodPublisherService), types);
         Assert.Contains(typeof(Services.SpontanTreffExpiryService), types);
+        Assert.Contains(typeof(Services.WeekendDigestBackgroundService), types);
     }
 
     [Fact]
@@ -130,6 +131,40 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddBotHostedServices_DisablesWeekendDigest_FromWk7BotSection()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Wk7Bot:features:weekend_digest_enabled"] = "false"
+            })
+            .Build();
+
+        services.AddBotHostedServices(configuration);
+
+        var types = HostedServiceTypes(services).ToList();
+        Assert.DoesNotContain(typeof(Services.WeekendDigestBackgroundService), types);
+    }
+
+    [Fact]
+    public void AddBotHostedServices_DisablesWeekendDigest_FromRootSection_HomeAssistantStyle()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["features:weekend_digest_enabled"] = "false"
+            })
+            .Build();
+
+        services.AddBotHostedServices(configuration);
+
+        var types = HostedServiceTypes(services).ToList();
+        Assert.DoesNotContain(typeof(Services.WeekendDigestBackgroundService), types);
+    }
+
+    [Fact]
     public void AddBotDatabase_RegistersDbContextAndRepository()
     {
         var services = new ServiceCollection();
@@ -140,5 +175,14 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.IRssRepository));
         Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.IWasteDispatchRepository));
         Assert.Contains(services, d => d.ServiceType == typeof(Core.Interfaces.ISpontanTreffRepository));
+    }
+
+    [Fact]
+    public void AddBotDiscordAndClients_RegistersWeekendEventSourceClient()
+    {
+        var services = new ServiceCollection();
+        services.AddBotDiscordAndClients();
+
+        Assert.Contains(services, d => d.ServiceType == typeof(Services.Interfaces.IWeekendEventSource));
     }
 }

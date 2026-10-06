@@ -54,4 +54,10 @@ public class FeatureOptions
     /// </summary>
     [ConfigurationKeyName("spontan_treff_enabled")]
     public bool SpontanTreffEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the weekly Leipzig weekend digest with voting poll is posted.
+    /// </summary>
+    [ConfigurationKeyName("weekend_digest_enabled")]
+    public bool WeekendDigestEnabled { get; set; } = true;
 }

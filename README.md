@@ -1,6 +1,6 @@
 # WK7Bot
 
-A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, RSS feed syndication, web-searched and AI-generated seasonal food and renal-safe recipes, spontaneous meetup coordination, and local utility schedule automation into a unified, extensible background framework.
+A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, RSS feed syndication, web-searched and AI-generated seasonal food and renal-safe recipes, spontaneous meetup coordination, a weekly Leipzig weekend culture digest with voting polls, and local utility schedule automation into a unified, extensible background framework.
 
 [![Run Unit Tests](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml/badge.svg)](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml)
 [![Add repository to Home Assistant][repository-badge]][repository-url]
@@ -42,6 +42,14 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - **Ping fallback** – when the bot may not mention `@everyone` (`403 Forbidden`), the meetup is posted as a plain message instead of failing.
 - Meetups and answers persist in the `SpontanTreffs` / `SpontanTreffResponses` tables (created by `EnsureCreated` *and* by the raw startup DDL in `Program.cs`, so existing databases pick them up too).
 - Gated by the `spontan_treff_enabled` feature flag (the expiry service is the only hosted component; the slash command itself is always registered).
+
+### Leipzig Weekend & Culture Digest
+- `WeekendDigestBackgroundService` posts every **Thursday at 14:15** the digest for the upcoming weekend into the dedicated `#📅wochenende` channel (created automatically when missing, same pattern as `#🍎food` and `#🗑️leipzig-waste`).
+- **Two listing sources** – the leipzig.de weekend page (rich Saturday/Sunday coverage) and the month overview page of the target Friday (which carries the Friday events the weekend page omits); both share the same `event-card` markup and are parsed by `WeekendEventParser`, merged, deduplicated by URL and reduced to events overlapping Friday–Sunday. When *no* page can be fetched the attempt fails and is retried instead of silently posting an empty digest.
+- **Market-first curation** – `WeekendDigestCurator` ranks candidates by the requested market keywords (*Wochenmarkt*, *Flohmarkt*, *Nachtmarkt*, *Abendmarkt*, *Straßenmarkt*, *Street Food*, *Trödelmarkt*, … plus topic bonuses for *Messen*/*Markt*), prefers one pick per day ordered Friday → Sunday, never repeats a venue and falls back to fewer than three picks when candidates run out.
+- **Native Discord poll** – `WeekendDigestMessageBuilder` renders one embed field per pick (day label, time, location, topic, source link) plus a three-answer poll ("Wohin gehen wir am Wochenende?") whose duration covers the time until Sunday 23:59 (clamped to Discord's 1–168 h window); poll answers honour Discord's 55-char limit, embed fields their 256/1024-char limits, and a single-pick week posts without a poll.
+- **Restart-safe dedup** – each Thursday's dispatch per guild is recorded in the existing `WasteDispatchLogs` table (dispatch kind `weekend_digest`), so restarting the bot never re-posts the digest; failed fetches/postings retry at 15-minute intervals (at most 4 attempts per Thursday), a zero-event weekend is marked handled without posting, partial failures retry only the guilds that did not receive the message, and a build-once cache keeps retries and additional guilds from re-fetching leipzig.de.
+- Gated by the `weekend_digest_enabled` feature flag.
 
 ### Steam Rich Presence Enrichment
 - Maps Discord user IDs to Steam IDs (`DiscordSteamMappings`).
