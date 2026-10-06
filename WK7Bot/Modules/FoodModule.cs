@@ -130,7 +130,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     /// <param name="query">Optional dish hint (e.g. "Pfannkuchen"); one seasonal ingredient is appended so the search stays seasonal.</param>
     /// <returns>A task tracking the asynchronous command execution.</returns>
-    [SlashCommand("recipe-seasonal", "Finds a web recipe using this season's produce, normalises it and posts it with its source link to #🍎food.")]
+    [SlashCommand("recipe-seasonal", "Finds a web recipe using this season's produce and posts it with its source link to #🍎food.")]
     public async Task SearchSeasonalRecipeAsync(
         [Summary("query", "Optional dish hint, e.g. \"Pfannkuchen\". Leave empty for a purely seasonal search.")] string? query = null)
     {
