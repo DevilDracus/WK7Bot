@@ -314,13 +314,13 @@ features:
   weekend_digest_enabled: true
   dwd_warning_enabled: true
 dwd_warning:
-  postal_code: "04205"                          # 5-digit German postal code to watch
-  latitude: 51.34                               # Used for point-in-polygon matching (polygon warnings)
-  longitude: 12.36
-  lead_minutes: 30                              # Post a warning when onset is at most this far ahead
+  postal_code: "01234"                          # 5-digit German postal code to watch
+  latitude: 00.00                               # Used for point-in-polygon matching (polygon warnings)
+  longitude: 00.00
+  lead_minutes: 00                              # Post a warning when onset is at most this far ahead
   area_names:                                   # Fallback labels when a warning carries no polygon
-    - "Stadt Leipzig"
-    - "Leipzig"
+    - "City Name"
+    - "City"
   events:                                       # Matched case-insensitively (umlauts/separators normalised)
     - "STARKREGEN"
     - "HAGEL"
