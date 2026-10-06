@@ -376,11 +376,11 @@ dwd_warning:
       "dwd_warning_enabled": true
     },
     "dwd_warning": {
-      "postal_code": "04205",
-      "latitude": 51.34,
-      "longitude": 12.36,
-      "lead_minutes": 30,
-      "area_names": [ "Stadt Leipzig", "Leipzig" ],
+      "postal_code": "01234",
+      "latitude": 00.00,
+      "longitude": 00.00,
+      "lead_minutes": 00,
+      "area_names": [ "City Name", "City" ],
       "events": [ "STARKREGEN", "HAGEL", "GEWITTER", "STURM", "BÖEN", "BOEEN", "HEAVY_RAIN", "HAIL", "THUNDER", "STORM" ]
     }
   }
