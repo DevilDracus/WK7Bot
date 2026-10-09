@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -199,8 +199,10 @@ public class SteamService : ISteamService
 
             await Task.WhenAll(schemaTask, playerAchievementsTask);
 
-            var schemaMap = schemaTask.Result;
-            var playerAchievements = playerAchievementsTask.Result;
+            // Await the tasks again instead of reading .Result: Task.Result would wrap a failure in
+            // an AggregateException and bypass the OperationCanceledException filter below.
+            var schemaMap = await schemaTask;
+            var playerAchievements = await playerAchievementsTask;
 
             foreach (var achievement in playerAchievements)
             {
@@ -620,7 +622,6 @@ public class SteamService : ISteamService
     }
 }
 
-#region JSON DTO Models
 
 /// <summary>
 /// Root container model for the Steam GetPlayerSummaries Web API response.
@@ -1142,4 +1143,3 @@ internal class PlayerAchievementItem
     public bool IsAchieved => Achieved == 1;
 }
 
-#endregion

@@ -38,26 +38,17 @@ public class SpontanTreffModule : InteractionModuleBase<SocketInteractionContext
     /// Resolves the <c>#🎉spontan-treff</c> channel inside the originating guild and creates it when missing.
     /// </summary>
     /// <returns>The target channel, or <see langword="null"/> when the guild is unavailable or creation is forbidden.</returns>
-    protected virtual async Task<ITextChannel?> GetOrCreateTreffChannelAsync()
+    protected virtual Task<ITextChannel?> GetOrCreateTreffChannelAsync()
     {
         var guild = Context.Guild;
-        if (guild == null)
-        {
-            return null;
-        }
-
-        try
-        {
-            return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
-            {
-                properties.Topic = "Kurzfristige Treffen: Auf dem Weg oder Absagen mit einem Klick.";
-            });
-        }
-        catch (HttpException ex)
-        {
-            _logger.LogWarning(ex, "Could not create the #{Channel} channel.", TargetChannelName);
-            return null;
-        }
+        return guild is null
+            ? Task.FromResult<ITextChannel?>(null)
+            : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
+                guild,
+                Context.Client.CurrentUser.Id,
+                TargetChannelName,
+                "Kurzfristige Treffen: Auf dem Weg oder Absagen mit einem Klick.",
+                _logger);
     }
 
     /// <summary>
@@ -126,12 +117,31 @@ public class SpontanTreffModule : InteractionModuleBase<SocketInteractionContext
 
             var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, new List<SpontanTreffResponse>(), DateTime.Now);
 
-            var message = await PostMeetupAsync(targetChannel, embed, components);
-            await _repository.SetMessageAsync(meetup.Id, targetChannel.Id, message.Id);
+            try
+            {
+                var message = await PostMeetupAsync(targetChannel, embed, components);
+                await _repository.SetMessageAsync(meetup.Id, targetChannel.Id, message.Id);
 
-            await FollowupAsync(
-                $"✅ Spontan-Treff gepostet in {targetChannel.Mention}: [Zum Treff](https://discord.com/channels/{meetup.GuildId}/{targetChannel.Id}/{message.Id})",
-                ephemeral: true);
+                await FollowupAsync(
+                    $"✅ Spontan-Treff gepostet in {targetChannel.Mention}: [Zum Treff](https://discord.com/channels/{meetup.GuildId}/{targetChannel.Id}/{message.Id})",
+                    ephemeral: true);
+            }
+            catch
+            {
+                // The meetup was persisted before the post; leaving it behind would strand a row
+                // without a message for the expiry sweep to trip over every minute. Cleanup is
+                // best effort: a failing cleanup must not replace the original error.
+                try
+                {
+                    await _repository.RemoveAsync(meetup.Id);
+                }
+                catch (Exception cleanupEx)
+                {
+                    _logger.LogError(cleanupEx, "Could not remove the orphaned Spontan-Treff {MeetupId} after the post failed.", meetup.Id);
+                }
+
+                throw;
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -1,7 +1,7 @@
 namespace WK7Bot.Services;
 
+using System.Globalization;
 using Discord;
-using Discord.Net;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Utilities;
@@ -94,7 +94,7 @@ public class ErrorNotificationDispatcher : BackgroundService
                     }
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
@@ -103,7 +103,16 @@ public class ErrorNotificationDispatcher : BackgroundService
                 _logger.LogWarning(ex, "Unexpected failure while dispatching error notifications.");
             }
 
-            await Task.Delay(PollInterval, stoppingToken);
+            try
+            {
+                await Task.Delay(PollInterval, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Shutdown: leaving the delay unguarded would let the OCE escape ExecuteAsync and
+                // stop the whole host instead of just this service.
+                break;
+            }
         }
     }
 
@@ -173,7 +182,7 @@ public class ErrorNotificationDispatcher : BackgroundService
     protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
         => AutomaticTargetResolver.Resolve(
             _options.Servers,
-            "error_notifications",
+            FeatureKeys.RoutedFeatures.ErrorNotifications,
             _discordClient.Guilds.Select(g => g.Id),
             _logger);
 
@@ -182,29 +191,17 @@ public class ErrorNotificationDispatcher : BackgroundService
     /// </summary>
     /// <param name="guildId">The target guild where channel existence is evaluated.</param>
     /// <returns>The text channel instance, or <see langword="null"/> when the guild cannot be resolved or the channel cannot be created.</returns>
-    protected virtual async Task<ITextChannel?> GetOrCreateErrorChannelAsync(ulong guildId)
+    protected virtual Task<ITextChannel?> GetOrCreateErrorChannelAsync(ulong guildId)
     {
         var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
-        {
-            return null;
-        }
-
-        try
-        {
-            return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
-            {
-                properties.Topic = ChannelTopic;
-                ChannelResolver.ApplyDefaultChannelPermissions(properties, guild, _discordClient.CurrentUser.Id, allowReactions: false);
-            });
-        }
-        catch (HttpException ex)
-        {
-            // A persistent Manage-Channels permission problem must not escalate into the error
-            // queue on every delivery; the direct-message fallback covers the report.
-            _logger.LogWarning(ex, "Could not find or create the #{Channel} channel.", TargetChannelName);
-            return null;
-        }
+        return guild is null
+            ? Task.FromResult<ITextChannel?>(null)
+            : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
+                guild,
+                _discordClient.CurrentUser.Id,
+                TargetChannelName,
+                ChannelTopic,
+                _logger);
     }
 
     /// <summary>
@@ -262,11 +259,20 @@ public class ErrorNotificationDispatcher : BackgroundService
     /// <summary>
     /// Builds the mention prefix of a channel post: every configured notification user is pinged,
     /// so a report in the shared channel reaches the same people as the direct message would.
+    /// Unparseable entries are skipped instead of being posted as a broken literal mention.
     /// </summary>
     /// <param name="userIds">The configured notification user IDs.</param>
-    /// <returns>The mention text, or an empty string when no users are configured.</returns>
+    /// <returns>The mention text, or an empty string when none of the IDs is usable.</returns>
     internal static string BuildChannelPing(IReadOnlyCollection<string> userIds)
-        => userIds.Count == 0
-            ? string.Empty
-            : string.Join(' ', userIds.Select(id => $"<@{id}>"));
+    {
+        // NumberStyles.None rejects whitespace, signs and group separators, so a malformed config
+        // entry cannot become a literal "<@…>" mention in the channel (the DM path is more lenient
+        // by design, but a broken ping is visible to the whole channel).
+        var mentions = userIds
+            .Where(id => ulong.TryParse(id, NumberStyles.None, CultureInfo.InvariantCulture, out _))
+            .Select(id => $"<@{id.Trim()}>")
+            .ToList();
+
+        return mentions.Count == 0 ? string.Empty : string.Join(' ', mentions);
+    }
 }

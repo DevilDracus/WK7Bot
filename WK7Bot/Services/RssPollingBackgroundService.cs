@@ -195,18 +195,43 @@ public class RssPollingBackgroundService : BackgroundService
             return;
         }
 
-        if (_discordClient.GetChannel(feed.ChannelId) is ITextChannel channel)
+        if (_discordClient.GetChannel(feed.ChannelId) is not ITextChannel channel)
         {
-            foreach (var item in newItems)
+            // The configured channel is gone (or no longer a text channel). Stamp the attempt so the
+            // feed is not re-downloaded on every tick, but keep the baseline so nothing is lost once
+            // the channel exists again.
+            _logger.LogWarning(
+                "RSS feed '{FeedName}' targets channel {ChannelId}, which is not a text channel; skipping this cycle.",
+                feed.Name,
+                feed.ChannelId);
+            feed.LastPolledAt = DateTimeOffset.UtcNow;
+            await repository.UpdateFeedAsync(feed, cancellationToken);
+            return;
+        }
+
+        foreach (var item in newItems)
+        {
+            try
             {
                 await SendFeedEmbedAsync(channel, feed, item);
+
+                // Advance the baseline per item so a failure on a later item does not re-post the
+                // items that already went out. The values are persisted once after the loop, so a
+                // hard crash mid-batch can still re-post the delivered items.
                 feed.LastItemGuid = item.Id;
                 feed.LastPublishedDate = item.PublishingDate;
             }
-
-            feed.LastPolledAt = DateTimeOffset.UtcNow;
-            await repository.UpdateFeedAsync(feed, cancellationToken);
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Stop the batch without advancing past this item, so the failed item and every
+                // item after it are retried on the next cycle instead of being dropped.
+                _logger.LogError(ex, "Could not post item '{ItemTitle}' of feed '{FeedName}'; it is retried on the next cycle.", item.Title, feed.Name);
+                break;
+            }
         }
+
+        feed.LastPolledAt = DateTimeOffset.UtcNow;
+        await repository.UpdateFeedAsync(feed, cancellationToken);
     }
 
     /// <summary>

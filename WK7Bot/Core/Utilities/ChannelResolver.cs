@@ -5,7 +5,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
+using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Shared find-or-create resolution for feature channels so every feature looks its channel up the
@@ -22,7 +24,7 @@ public static class ChannelResolver
     /// <param name="channelName">The channel name to look up (case-insensitive).</param>
     /// <param name="configure">Applied only on creation (topic, permission overwrites, category, ...).</param>
     /// <returns>The existing or newly created text channel.</returns>
-    public static async Task<ITextChannel> GetOrCreateChannelAsync(
+    private static async Task<ITextChannel> GetOrCreateChannelAsync(
         SocketGuild guild,
         string channelName,
         Action<TextChannelProperties> configure)
@@ -48,7 +50,7 @@ public static class ChannelResolver
     /// <param name="guild">The guild the channel belongs to (source of the @everyone role).</param>
     /// <param name="botUserId">The bot's own user ID.</param>
     /// <param name="allowReactions">Whether @everyone may additionally add reactions.</param>
-    public static void ApplyDefaultChannelPermissions(
+    private static void ApplyDefaultChannelPermissions(
         TextChannelProperties properties,
         SocketGuild guild,
         ulong botUserId,
@@ -72,5 +74,43 @@ public static class ChannelResolver
                 embedLinks: PermValue.Allow
             ))
         };
+    }
+
+    /// <summary>
+    /// Resolves a feature channel inside a guild, creating it when missing, and converts a Discord
+    /// permission failure into a warning so a missing Manage-Channels permission cannot escalate into
+    /// the error-notification pipeline on every poll or dispatch.
+    /// </summary>
+    /// <param name="guild">The guild that should own the channel.</param>
+    /// <param name="botUserId">The bot's own user ID (granted read/write on creation).</param>
+    /// <param name="channelName">The feature channel name to look up or create.</param>
+    /// <param name="topic">Topic applied when the channel is created.</param>
+    /// <param name="logger">Logger that receives the warning when creation is forbidden.</param>
+    /// <param name="allowReactions">Whether @everyone may additionally add reactions.</param>
+    /// <returns>The existing or newly created channel, or <see langword="null"/> when creation failed.</returns>
+    public static async Task<ITextChannel?> TryGetOrCreateFeatureChannelAsync(
+        SocketGuild guild,
+        ulong botUserId,
+        string channelName,
+        string topic,
+        ILogger logger,
+        bool allowReactions = false)
+    {
+        ArgumentNullException.ThrowIfNull(guild);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        try
+        {
+            return await GetOrCreateChannelAsync(guild, channelName, properties =>
+            {
+                properties.Topic = topic;
+                ApplyDefaultChannelPermissions(properties, guild, botUserId, allowReactions);
+            });
+        }
+        catch (HttpException ex)
+        {
+            logger.LogWarning(ex, "Could not find or create the #{Channel} channel.", channelName);
+            return null;
+        }
     }
 }

@@ -1,7 +1,6 @@
-﻿namespace WK7Bot.Services;
+namespace WK7Bot.Services;
 
 using System;
-using System.Globalization;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
@@ -86,7 +86,7 @@ public class GeminiFoodService : IGeminiFoodService
             return null;
         }
 
-        string monthName = dateTime.ToString("MMMM", CultureInfo.GetCultureInfo("de-DE"));
+        string monthName = dateTime.GermanMonthName();
         string prompt = $"Provide a complete list of seasonal produce for the month of {monthName} in Central Europe (Germany/Leipzig region). " +
                        $"Categorize every item strictly into fruits, vegetables, herbs, and nuts.\n" + 
                        $"IMPORTANT: Use the GERMAN names for fruits, vegetables, herbs and nuts!";
@@ -122,7 +122,7 @@ public class GeminiFoodService : IGeminiFoodService
             return null;
         }
 
-        string monthName = dateTime.ToString("MMMM", CultureInfo.GetCultureInfo("de-DE"));
+        string monthName = dateTime.GermanMonthName();
         string prompt = $"Create a delicious recipe for the month of {monthName} using local Central European seasonal produce (Germany/Leipzig region), featuring at least one seasonal fruit or vegetable. " +
                         $"CRITICAL DIETARY RESTRICTIONS:\n" +
                         $"1. Tailor the recipe for individuals on dialysis or kidney transplant recipients taking immunosuppressants.\n" +

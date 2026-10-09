@@ -210,6 +210,27 @@ public class SpontanTreffRepositoryTests : IDisposable
         await AssertRoundTripAsync(context);
     }
 
+    [Fact]
+    public async Task RemoveAsync_DeletesMeetupAndAnswers_AndIgnoresUnknownId()
+    {
+        var meetup = await _repository.AddAsync(NewMeetup());
+        await _repository.SetResponseAsync(new SpontanTreffResponse
+        {
+            MeetupId = meetup.Id,
+            UserId = 42,
+            Going = true,
+            RespondedAt = new DateTime(2026, 10, 6, 18, 5, 0)
+        });
+
+        await _repository.RemoveAsync(meetup.Id);
+
+        Assert.Null(await _repository.GetAsync(meetup.Id));
+        Assert.Empty(await _repository.GetResponsesAsync(meetup.Id));
+
+        // An unknown identifier must stay a no-op.
+        await _repository.RemoveAsync(meetup.Id + 999);
+    }
+
     private static async Task AssertRoundTripAsync(BotDbContext context)
     {
         var repository = new SpontanTreffRepository(context);

@@ -16,6 +16,14 @@ public interface ISpontanTreffRepository
     Task<SpontanTreff> AddAsync(SpontanTreff meetup, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Removes a meetup that could not be posted, including its stored answers.
+    /// </summary>
+    /// <param name="meetupId">The meetup identifier.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous removal.</returns>
+    Task RemoveAsync(int meetupId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Stores the channel and message location of a meetup once it has been posted.
     /// </summary>
     /// <param name="meetupId">The meetup identifier.</param>

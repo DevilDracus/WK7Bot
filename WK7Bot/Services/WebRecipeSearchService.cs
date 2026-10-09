@@ -165,8 +165,7 @@ public class WebRecipeSearchService : IRecipeSearchService
         {
             searchHtml = await FetchAsync(
                     $"{SearchEndpoint}?q={Uri.EscapeDataString(query.Trim() + SearchQuerySuffix)}",
-                    cancellationToken)
-                .ConfigureAwait(false);
+                    cancellationToken);
         }
 
         var searchAvailable = searchHtml != null && !IsChallengePage(searchHtml);
@@ -186,8 +185,8 @@ public class WebRecipeSearchService : IRecipeSearchService
         {
             var fromSearch = await TryParseFirstRecipeAsync(
                     SelectCandidates(ExtractCandidateUrls(searchHtml!)),
-                    cancellationToken)
-                .ConfigureAwait(false);
+                    cancellationToken);
+
             if (fromSearch != null)
             {
                 RememberRecipe(fromSearch.SourceUrl);
@@ -195,7 +194,7 @@ public class WebRecipeSearchService : IRecipeSearchService
             }
         }
 
-        var listingHtml = await FetchAsync(BuildChefkochSearchUrl(query), cancellationToken).ConfigureAwait(false);
+        var listingHtml = await FetchAsync(BuildChefkochSearchUrl(query), cancellationToken);
         if (listingHtml == null || IsChallengePage(listingHtml))
         {
             if (!searchAvailable)
@@ -208,8 +207,8 @@ public class WebRecipeSearchService : IRecipeSearchService
 
         var fromListing = await TryParseFirstRecipeAsync(
                 SelectCandidates(ExtractChefkochRecipeUrls(listingHtml)),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
+
         if (fromListing != null)
         {
             RememberRecipe(fromListing.SourceUrl);
@@ -390,7 +389,7 @@ public class WebRecipeSearchService : IRecipeSearchService
                     }
                 }
 
-                var pageHtml = await pending[i].ConfigureAwait(false);
+                var pageHtml = await pending[i];
                 pending.Remove(i);
 
                 if (pageHtml == null || IsChallengePage(pageHtml))
@@ -496,14 +495,14 @@ public class WebRecipeSearchService : IRecipeSearchService
             request.Headers.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
             request.Headers.TryAddWithoutValidation("Accept-Language", "de-DE,de;q=0.9,en;q=0.8");
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
             if (response.StatusCode != HttpStatusCode.OK)
             {
                 _logger.LogWarning("Recipe lookup request to {Url} failed with status {StatusCode}.", url, response.StatusCode);
                 return null;
             }
 
-            return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            return await response.Content.ReadAsStringAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

@@ -1,7 +1,8 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Logging;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;
 
 namespace WK7Bot.Modules;
@@ -117,7 +118,7 @@ public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext
             {
                 0 => "Heute",
                 1 => "Morgen",
-                _ => targetDate.ToString("dddd", new CultureInfo("de-DE"))
+                _ => targetDate.GermanDayName()
             };
 
             var formattedText = collections.Count > 0

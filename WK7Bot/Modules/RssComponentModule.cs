@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
@@ -48,20 +48,28 @@ public class RssComponentModule : InteractionModuleBase<SocketInteractionContext
             var allFeedRoleIds = feeds.Select(f => f.RoleId).ToHashSet();
 
             var selectedSet = new HashSet<ulong>();
+            var staleMenu = false;
+
             foreach (var value in selectedValues ?? Array.Empty<string>())
             {
-                if (!ulong.TryParse(value, out var roleId))
+                var parsed = ulong.TryParse(value, out var roleId);
+                if (!parsed || !allFeedRoleIds.Contains(roleId))
                 {
-                    await FollowupAsync("❌ Die Auswahl konnte nicht verarbeitet werden. Bitte öffne das Abo-Menü mit `/rss dashboard` neu.", ephemeral: true);
-                    return;
+                    // A non-numeric value or a role that is not a (current) feed role means the menu
+                    // is out of date.
+                    staleMenu = true;
+                    continue;
                 }
 
-                // Only roles the bot actually manages may be granted, so a stale dashboard whose
-                // refresh failed cannot assign arbitrary server roles.
-                if (allFeedRoleIds.Contains(roleId))
-                {
-                    selectedSet.Add(roleId);
-                }
+                selectedSet.Add(roleId);
+            }
+
+            if (staleMenu)
+            {
+                // Applying a stale menu would silently drop existing subscriptions, so keep the
+                // current roles untouched and ask for a fresh menu instead.
+                await FollowupAsync("⚠️ Dieses Abo-Menü ist veraltet. Bitte öffne ein neues mit `/rss dashboard`.", ephemeral: true);
+                return;
             }
 
             var rolesToAdd = selectedSet
@@ -88,7 +96,7 @@ public class RssComponentModule : InteractionModuleBase<SocketInteractionContext
         {
             await FollowupAsync("❌ Die Rollen konnten nicht aktualisiert werden: Dem Bot fehlt die Berechtigung oder seine Rolle steht in der Hierarchie unter den RSS-Rollen. Bitte verschiebe die Bot-Rolle über die RSS-Rollen (Servereinstellungen > Rollen).", ephemeral: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Component failures must reach the error pipeline, not just the clicking user.
             _logger.LogError(ex, "Error occurred while handling an RSS subscription select-menu interaction.");

@@ -1,5 +1,3 @@
-﻿using System.Globalization;
-
 namespace WK7Bot.Services;
 
 using System;
@@ -7,13 +5,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Entities;
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Options;
@@ -35,38 +33,36 @@ public class FoodPublisherService : BackgroundService
 
     private const string TargetChannelName = "🍎food";
 
-    /// <summary>Earliest time of day the monthly produce post may go out (09:00).</summary>
+    /// <summary>
+    /// Earliest time of day the monthly produce post may go out (09:00).
+    /// </summary>
     private static readonly TimeSpan MonthlyWindowOpen = TimeSpan.FromHours(9);
 
-    /// <summary>Earliest time of day the weekly recipe post may go out (15:30, the original anchor).</summary>
+    /// <summary>
+    /// Earliest time of day the weekly recipe post may go out (15:30, the original anchor).
+    /// </summary>
     private static readonly TimeSpan WeeklyWindowOpen = new(15, 30, 0);
 
-    /// <summary>Failed attempts are spaced five minutes apart inside the publish window.</summary>
+    /// <summary>
+    /// Failed attempts are spaced five minutes apart inside the publish window.
+    /// </summary>
     private static readonly TimeSpan AttemptRetryDelay = TimeSpan.FromMinutes(5);
 
-    /// <summary>How many failed attempts a slot makes before giving up for the current period.</summary>
+    /// <summary>
+    /// How many failed attempts a slot makes before giving up for the current period.
+    /// </summary>
     private const int MaxAttemptsPerWindow = 10;
 
-    /// <summary>Dispatch records older than this are pruned after each successful post.</summary>
+    /// <summary>
+    /// Dispatch records older than this are pruned after each successful post.
+    /// </summary>
     private static readonly TimeSpan DispatchRetention = TimeSpan.FromDays(90);
 
-    /// <summary>Month and year of the last completed monthly produce slot, or <see langword="null"/> when none ran.</summary>
-    private DateTime? _lastMonthlyPostDate;
+    /// <summary>Retry bookkeeping for the monthly produce slot.</summary>
+    private readonly FoodSlotState _monthlySlot = new();
 
-    /// <summary>Date of the last completed weekly recipe slot, or <see langword="null"/> when none ran.</summary>
-    private DateTime? _lastWeeklyRecipePostDate;
-
-    /// <summary>Next allowed monthly attempt time; <see cref="DateTime.MinValue"/> means "immediately".</summary>
-    private DateTime _nextMonthlyAttempt = DateTime.MinValue;
-
-    /// <summary>Next allowed weekly attempt time; <see cref="DateTime.MinValue"/> means "immediately".</summary>
-    private DateTime _nextWeeklyAttempt = DateTime.MinValue;
-
-    /// <summary>Failed monthly attempts inside the current window.</summary>
-    private int _monthlyAttempts;
-
-    /// <summary>Failed weekly attempts inside the current slot.</summary>
-    private int _weeklyAttempts;
+    /// <summary>Retry bookkeeping for the weekly recipe slot.</summary>
+    private readonly FoodSlotState _weeklySlot = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FoodPublisherService"/> class.
@@ -136,7 +132,14 @@ public class FoodPublisherService : BackgroundService
                 _logger.LogError(ex, "Error encountered while checking or executing food background jobs.");
             }
 
-            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            try
+            {
+                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
     }
 
@@ -150,16 +153,11 @@ public class FoodPublisherService : BackgroundService
         if (now.Day != 1) return false;
         if (now.TimeOfDay < MonthlyWindowOpen) return false;
 
-        // Compare year AND month: a process that stays up for over a year must still post the
+        // The year is compared as well: a process that stays up for over a year must still post the
         // same calendar month of every later year.
-        if (_lastMonthlyPostDate.HasValue
-            && _lastMonthlyPostDate.Value.Year == now.Year
-            && _lastMonthlyPostDate.Value.Month == now.Month)
-        {
-            return false;
-        }
+        if (_monthlySlot.CompletedInMonth(now)) return false;
 
-        return now >= _nextMonthlyAttempt;
+        return now >= _monthlySlot.NextAttempt;
     }
 
     /// <summary>
@@ -170,10 +168,16 @@ public class FoodPublisherService : BackgroundService
     {
         if (now.DayOfWeek != DayOfWeek.Thursday) return false;
         if (now.TimeOfDay < WeeklyWindowOpen) return false;
-        if (_lastWeeklyRecipePostDate.HasValue && _lastWeeklyRecipePostDate.Value.Date == now.Date) return false;
+        if (_weeklySlot.LastPost?.Date == now.Date) return false;
 
-        return now >= _nextWeeklyAttempt;
+        return now >= _weeklySlot.NextAttempt;
     }
+
+    /// <summary>
+    /// Returns the retry bookkeeping of the slot identified by its dispatch kind.
+    /// </summary>
+    private FoodSlotState SlotFor(string kind)
+        => kind == FoodDispatchKinds.WeeklyRecipe ? _weeklySlot : _monthlySlot;
 
     /// <summary>
     /// Runs one slot attempt with success/attempt bookkeeping so transient failures retry every
@@ -206,40 +210,28 @@ public class FoodPublisherService : BackgroundService
             _logger.LogError(ex, "{Slot} publication attempt failed.", slotLabel);
         }
 
-        ref var attempts = ref _monthlyAttempts;
-        ref var nextAttempt = ref _nextMonthlyAttempt;
-        ref var lastPost = ref _lastMonthlyPostDate;
-        if (kind == FoodDispatchKinds.WeeklyRecipe)
-        {
-            attempts = ref _weeklyAttempts;
-            nextAttempt = ref _nextWeeklyAttempt;
-            lastPost = ref _lastWeeklyRecipePostDate;
-        }
+        var slot = SlotFor(kind);
 
         if (succeeded)
         {
-            lastPost = now;
-            attempts = 0;
-            nextAttempt = DateTime.MinValue;
+            slot.Complete(now);
             await PersistSentAsync(kind, now, cancellationToken);
             return;
         }
 
-        attempts++;
-        if (attempts >= MaxAttemptsPerWindow)
+        slot.Attempts++;
+        if (slot.Attempts >= MaxAttemptsPerWindow)
         {
             _logger.LogError(
                 "Giving up on the {Slot} post for {SlotKey:dd.MM.yyyy} after {Attempts} failed attempts.",
                 slotLabel,
                 now.Date,
-                attempts);
-            lastPost = now;
-            attempts = 0;
-            nextAttempt = DateTime.MinValue;
+                slot.Attempts);
+            slot.Complete(now);
         }
         else
         {
-            nextAttempt = now.Add(AttemptRetryDelay);
+            slot.NextAttempt = now.Add(AttemptRetryDelay);
         }
     }
 
@@ -258,28 +250,15 @@ public class FoodPublisherService : BackgroundService
         var channel = ResolveTargetChannel();
         if (channel == null) return false;
 
-        _logger.LogInformation("Generating monthly seasonal produce list for {Month}", now.ToString("MMMM"));
+        _logger.LogInformation("Generating monthly seasonal produce list for {Month:MM/yyyy}.", now);
 
         var produce = await _geminiFoodService.GetSeasonalProduceAsync(now, cancellationToken);
         if (produce == null) return false;
 
-        string monthName = DateTime.Today.ToString("MMMM", CultureInfo.GetCultureInfo("de-DE"));
-        string fruitsFormatted = produce.Fruits.Count > 0 ? string.Join(", ", produce.Fruits) : "Keine angegeben";
-        string vegetablesFormatted = produce.Vegetables.Count > 0 ? string.Join(", ", produce.Vegetables) : "Keine angegeben";
-        string herbsFormatted = produce.Herbs.Count > 0 ? string.Join(", ", produce.Herbs) : "Keine angegeben";
-        string nutsFormatted = produce.Nuts.Count > 0 ? string.Join(", ", produce.Nuts) : "Keine angegeben";
-
-        var embed = new EmbedBuilder()
-            .WithTitle(EmbedText.Title($"🌱 Saisonkalender: {produce.Month ?? monthName}"))
-            .WithDescription(EmbedText.Description($"Übersicht der regionalen Saisonprodukte (Zentraleuropa / Leipzig-Region) für **{monthName}**."))
-            .WithColor(Color.Green)
-            .AddField("🍎 Obst", EmbedText.Field(fruitsFormatted), false)
-            .AddField("🥕 Gemüse", EmbedText.Field(vegetablesFormatted), false)
-            .AddField("🌿 Kräuter", EmbedText.Field(herbsFormatted), false)
-            .AddField("🌰 Nüsse", EmbedText.Field(nutsFormatted), false)
-            .WithFooter($"Sent by WK7 Bot • Regionale Saisonware")
-            .WithCurrentTimestamp()
-            .Build();
+        var embed = SeasonalProduceEmbedBuilder.Build(
+            produce,
+            now.GermanMonthName(),
+            "Gesendet vom WK7 Bot • Regionale Saisonware");
 
         await channel.SendMessageAsync(embed: embed);
         return true;
@@ -342,7 +321,7 @@ public class FoodPublisherService : BackgroundService
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var repository = scope.ServiceProvider.GetRequiredService<Core.Interfaces.IFoodDispatchRepository>();
+            var repository = scope.ServiceProvider.GetRequiredService<IFoodDispatchRepository>();
 
             await repository.MarkSentAsync(kind, now.Date, cancellationToken);
             await repository.PruneAsync(now.Date - DispatchRetention, cancellationToken);
@@ -366,7 +345,7 @@ public class FoodPublisherService : BackgroundService
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var repository = scope.ServiceProvider.GetRequiredService<Core.Interfaces.IFoodDispatchRepository>();
+            var repository = scope.ServiceProvider.GetRequiredService<IFoodDispatchRepository>();
             return await repository.HasSentAsync(kind, now.Date, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -428,7 +407,7 @@ public class FoodPublisherService : BackgroundService
     {
         var targetGuildIds = AutomaticTargetResolver.Resolve(
             _options.Servers,
-            "food_service",
+            FeatureKeys.RoutedFeatures.FoodService,
             _discordClient.Guilds.Select(g => g.Id),
             _logger);
 
@@ -443,11 +422,49 @@ public class FoodPublisherService : BackgroundService
                 continue;
             }
 
-            var channel = guild.TextChannels.FirstOrDefault(c => string.Equals(c.Name, TargetChannelName, StringComparison.OrdinalIgnoreCase));
-            if (channel != null) return channel;
+            var channel = guild.FindTextChannel(TargetChannelName);
+            if (channel is SocketTextChannel textChannel) return textChannel;
         }
 
         _logger.LogWarning("Target channel '{ChannelName}' could not be resolved in any target server.", TargetChannelName);
         return null;
+    }
+
+    /// <summary>
+    /// Retry bookkeeping for one publish slot: how many attempts the current period consumed, when
+    /// the next attempt may run, and the timestamp of the last completed (or given-up) period.
+    /// </summary>
+    private sealed class FoodSlotState
+    {
+        /// <summary>Gets or sets the failed attempts consumed inside the current period.</summary>
+        public int Attempts { get; set; }
+
+        /// <summary>Gets or sets the next allowed attempt time; <see cref="DateTime.MinValue"/> means "immediately".</summary>
+        public DateTime NextAttempt { get; set; } = DateTime.MinValue;
+
+        /// <summary>Gets or sets the timestamp of the last completed or given-up period.</summary>
+        public DateTime? LastPost { get; set; }
+
+        /// <summary>
+        /// Determines whether the monthly period containing <paramref name="now"/> was already
+        /// completed. The year is compared as well so a long-running process still posts the same
+        /// calendar month of every later year.
+        /// </summary>
+        /// <param name="now">The current local time.</param>
+        /// <returns><see langword="true"/> when the month is already handled.</returns>
+        public bool CompletedInMonth(DateTime now)
+            => LastPost is { } last && last.Year == now.Year && last.Month == now.Month;
+
+        /// <summary>
+        /// Marks the current period as handled: it suppresses the slot until the next period and
+        /// resets the attempt counter.
+        /// </summary>
+        /// <param name="now">The current local time.</param>
+        public void Complete(DateTime now)
+        {
+            LastPost = now;
+            Attempts = 0;
+            NextAttempt = DateTime.MinValue;
+        }
     }
 }

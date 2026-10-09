@@ -1,4 +1,4 @@
-﻿using WK7Bot.Core.Entities;
+using WK7Bot.Core.Entities;
 
 namespace WK7Bot.Core.Interfaces;
 

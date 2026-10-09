@@ -119,7 +119,7 @@ public class SpontanTreffModuleTests
         var module = new TestSpontanTreffModule(fixture.Repository, channel, denyPingOnce);
 
         var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
-        SetUser(context, username, userId);
+        DiscordTestDoubles.SetUser(context, username, userId);
         ((IInteractionModuleBase)module).SetContext(context);
 
         return module;
@@ -127,55 +127,6 @@ public class SpontanTreffModuleTests
 
     private static ITextChannel CreateChannel(ulong id = 777)
         => Mock.Of<ITextChannel>(c => c.Id == id && c.Mention == ChannelMention);
-
-    private static void SetUser(SocketInteractionContext context, string username, ulong id)
-    {
-        var userField = FindField(context.GetType(), "<User>k__BackingField")
-            ?? throw new InvalidOperationException("SocketInteractionContext user backing field not found.");
-        userField.SetValue(context, CreateUser(username, id));
-    }
-
-    private static FieldInfo? FindField(Type type, string fieldName)
-    {
-        while (type != null)
-        {
-            var field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-            if (field != null)
-            {
-                return field;
-            }
-
-            type = type.BaseType!;
-        }
-
-        return null;
-    }
-
-    private static SocketUser CreateUser(string username, ulong id)
-    {
-        var userType = typeof(SocketUser).Assembly.GetType("Discord.WebSocket.SocketGlobalUser")
-            ?? throw new InvalidOperationException("Discord.WebSocket.SocketGlobalUser type not found.");
-
-        var user = (SocketUser)RuntimeHelpers.GetUninitializedObject(userType);
-        SetPropertyOrField(user, userType, "Username", username);
-        SetPropertyOrField(user, userType, "Id", id);
-
-        return user;
-    }
-
-    private static void SetPropertyOrField(object target, Type type, string name, object value)
-    {
-        var property = type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (property?.SetMethod != null)
-        {
-            property.SetValue(target, value);
-            return;
-        }
-
-        var field = FindField(type, $"<{name}>k__BackingField")
-            ?? throw new InvalidOperationException($"{type.Name} {name} backing field not found.");
-        field.SetValue(target, value);
-    }
 
     private static List<ButtonComponent> Buttons(MessageComponent component)
         => component.Components
@@ -296,7 +247,7 @@ public class SpontanTreffModuleTests
         var throwing = new ThrowingModule(fixture.Repository);
 
         var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
-        SetUser(context, "Tester", 42);
+        DiscordTestDoubles.SetUser(context, "Tester", 42);
         ((IInteractionModuleBase)throwing).SetContext(context);
 
         await throwing.CreateAsync("Kaffee?");

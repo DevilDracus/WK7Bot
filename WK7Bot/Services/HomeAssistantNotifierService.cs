@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Services;
+namespace WK7Bot.Services;
 
 using Discord;
 using Discord.WebSocket;
@@ -128,72 +128,34 @@ public class HomeAssistantNotifierService : BackgroundService
     /// Event handler executed when the Discord client achieves a ready state, initiating full channel and user entity discovery.
     /// </summary>
     /// <returns>A task representing the initial entity discovery operation.</returns>
-    private async Task OnReadyAsync()
-    {
-        try
-        {
-            await RegisterAllEntitiesAsync();
-        }
-        catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
-        {
-            // Host shutdown during registration.
-        }
-        catch (Exception ex)
-        {
-            // Registration runs again on the next MQTT connect, so a failure here must not escape the event.
-            _logger.LogError(ex, "Entity registration after Discord ready failed; it will retry on the next MQTT connect.");
-        }
-    }
+    private Task OnReadyAsync()
+        => GuardEventAsync(
+            RegisterAllEntitiesAsync,
+            "Entity registration after Discord ready failed; it will retry on the next MQTT connect.");
 
     /// <summary>
     /// Event handler executed when a new channel is created within a Discord guild.
     /// </summary>
     /// <param name="channel">The newly created socket channel instance.</param>
     /// <returns>A task representing the conditional entity registration.</returns>
-    private async Task OnChannelCreatedAsync(SocketChannel channel)
-    {
-        if (channel is SocketTextChannel textChannel && IsWritable(textChannel))
-        {
-            try
-            {
-                await RegisterChannelNotificationEntityAsync(textChannel);
-            }
-            catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
-            {
-                // Host shutdown during registration.
-            }
-            catch (Exception ex)
-            {
-                // Registration re-runs on the next MQTT connect; an escaping exception would only
-                // disturb Discord.Net's gateway event dispatch.
-                _logger.LogError(ex, "Registering the notification entity for a newly created channel failed; it is re-registered on the next MQTT connect.");
-            }
-        }
-    }
+    private Task OnChannelCreatedAsync(SocketChannel channel)
+        => channel is SocketTextChannel textChannel && IsWritable(textChannel)
+            ? GuardEventAsync(
+                () => RegisterChannelNotificationEntityAsync(textChannel),
+                "Registering the notification entity for a newly created channel failed; it is re-registered on the next MQTT connect.")
+            : Task.CompletedTask;
 
     /// <summary>
     /// Event handler executed when an existing channel is deleted from a Discord guild.
     /// </summary>
     /// <param name="channel">The deleted socket channel instance.</param>
     /// <returns>A task representing the entity removal operation.</returns>
-    private async Task OnChannelDestroyedAsync(SocketChannel channel)
-    {
-        if (channel is SocketTextChannel textChannel)
-        {
-            try
-            {
-                await UnregisterChannelNotificationEntityAsync(textChannel);
-            }
-            catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
-            {
-                // Host shutdown during unregistration.
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unregistering the notification entity for a deleted channel failed; it is re-registered on the next MQTT connect.");
-            }
-        }
-    }
+    private Task OnChannelDestroyedAsync(SocketChannel channel)
+        => channel is SocketTextChannel textChannel
+            ? GuardEventAsync(
+                () => UnregisterChannelNotificationEntityAsync(textChannel),
+                "Unregistering the notification entity for a deleted channel failed; it is re-registered on the next MQTT connect.")
+            : Task.CompletedTask;
 
     /// <summary>
     /// Event handler executed when a channel's metadata or permissions are updated.
@@ -201,29 +163,36 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <param name="oldChannel">The previous socket channel state.</param>
     /// <param name="newChannel">The updated socket channel state.</param>
     /// <returns>A task representing the state synchronization operation.</returns>
-    private async Task OnChannelUpdatedAsync(SocketChannel oldChannel, SocketChannel newChannel)
+    private Task OnChannelUpdatedAsync(SocketChannel oldChannel, SocketChannel newChannel)
+        => newChannel is SocketTextChannel textChannel
+            ? GuardEventAsync(
+                () => IsWritable(textChannel)
+                    ? RegisterChannelNotificationEntityAsync(textChannel)
+                    : UnregisterChannelNotificationEntityAsync(textChannel),
+                "Synchronizing the notification entity of an updated channel failed; it is re-registered on the next MQTT connect.")
+            : Task.CompletedTask;
+
+    /// <summary>
+    /// Runs a Discord or MQTT event action, converting a failure into a single stable log entry so it
+    /// cannot escape into Discord.Net's gateway event dispatch. Shutdown cancellation is swallowed
+    /// (the host is going away anyway).
+    /// </summary>
+    /// <param name="action">The event action to run.</param>
+    /// <param name="failureMessage">Stable log text shared by every failure of this action, so the error-DM throttle collapses them.</param>
+    /// <returns>A task representing the guarded action.</returns>
+    private async Task GuardEventAsync(Func<Task> action, string failureMessage)
     {
-        if (newChannel is SocketTextChannel textChannel)
+        try
         {
-            try
-            {
-                if (IsWritable(textChannel))
-                {
-                    await RegisterChannelNotificationEntityAsync(textChannel);
-                }
-                else
-                {
-                    await UnregisterChannelNotificationEntityAsync(textChannel);
-                }
-            }
-            catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
-            {
-                // Host shutdown during synchronization.
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Synchronizing the notification entity of an updated channel failed; it is re-registered on the next MQTT connect.");
-            }
+            await action();
+        }
+        catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
+        {
+            // Host shutdown while the action was running.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, failureMessage);
         }
     }
 
@@ -231,7 +200,7 @@ public class HomeAssistantNotifierService : BackgroundService
     /// Iterates through all connected guilds and registers writable text channels alongside configured direct message user notification entities.
     /// </summary>
     /// <returns>A task representing the complete entity registration workflow.</returns>
-    public async Task RegisterAllEntitiesAsync()
+    private async Task RegisterAllEntitiesAsync()
     {
         if (!_mqttClient.IsConnected)
         {
@@ -324,13 +293,7 @@ public class HomeAssistantNotifierService : BackgroundService
 
         var jsonPayload = JsonSerializer.Serialize(discoveryPayload);
 
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic(discoveryTopic)
-            .WithPayload(jsonPayload)
-            .WithRetainFlag()
-            .Build();
-
-        await _mqttClient.PublishAsync(message);
+        await _mqttClient.PublishRetainedAsync(discoveryTopic, jsonPayload);
     }
 
     /// <summary>
@@ -369,13 +332,7 @@ public class HomeAssistantNotifierService : BackgroundService
 
         var jsonPayload = JsonSerializer.Serialize(discoveryPayload);
 
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic(discoveryTopic)
-            .WithPayload(jsonPayload)
-            .WithRetainFlag()
-            .Build();
-
-        await _mqttClient.PublishAsync(message);
+        await _mqttClient.PublishRetainedAsync(discoveryTopic, jsonPayload);
     }
 
     /// <summary>
@@ -389,13 +346,7 @@ public class HomeAssistantNotifierService : BackgroundService
         var uniqueId = $"wk7_notify_{sanitizedChannelName}_{channel.Id}";
         var discoveryTopic = $"homeassistant/notify/{uniqueId}/config";
 
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic(discoveryTopic)
-            .WithPayload(Array.Empty<byte>())
-            .WithRetainFlag()
-            .Build();
-
-        await _mqttClient.PublishAsync(message);
+        await _mqttClient.PublishRetainedAsync(discoveryTopic, Array.Empty<byte>());
     }
 
     /// <summary>

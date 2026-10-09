@@ -21,7 +21,7 @@ WK7Bot runs as a standalone container or as a native Home Assistant Supervisor A
 - While no server ID is configured, posts go to every guild (previous behaviour) and a warning is logged. Command-driven posts (`/rss`, `/recipe*`, `/spontan-treff`, HA notify) are unaffected.
 
 ### RSS feed syndication
-- Polls configured feeds every 5 minutes; the first poll records the newest item silently instead of flooding the channel with backlog.
+- Polls every feed at its own interval (`RefreshIntervalMinutes`, default 15 minutes, a 1-minute loop tick checks what is due); the first poll records the newest item silently instead of flooding the channel with backlog.
 - Duplicate suppression via `LastItemGuid` / `LastPublishedDate` (`FeedDeltaCalculator`); descriptions are HTML-stripped, entity-decoded and truncated (`FeedTextFormatter`).
 - `/rss add|remove|dashboard` manage feeds with auto-created role + private read-only channel; users subscribe via the interactive select menu (`RssComponentModule`).
 
@@ -125,80 +125,82 @@ Feature flags resolve from the `Wk7Bot:features` section (appsettings.json), oth
 ```text
 WK7Bot
 ├── Core
-│   ├── Entities
-│   │   ├── FoodDispatchLog.cs               # Persisted per-guild food dispatch records
-│   │   ├── RssDashboardSetting.cs
-│   │   ├── RssFeed.cs
-│   │   ├── SpontanTreff.cs                  # Short-lived meetup with go/pass button answers
-│   │   ├── SpontanTreffResponse.cs          # Per-user answer (composite key)
-│   │   ├── WarningDispatchLog.cs            # Per-guild DWD warning dispatch records
-│   │   └── WasteDispatchLog.cs              # Persisted per-guild waste/weekend digest records
+│   ├── Entities                             # Dispatch logs, feeds, meetups (+ their kind constants)
 │   ├── Exceptions
-│   │   └── RecipeSearchUnavailableException.cs
-│   ├── Interfaces                          # Repository contracts for all persistence
-│   ├── Utilities
-│   │   ├── AutomaticTargetResolver.cs      # Feature → WK7 server / bot test server routing
-│   │   ├── CapWarningParser.cs             # CAP XML → warning model, polygon + event matching
-│   │   ├── ChannelResolver.cs              # Shared feature-channel find-or-create + permissions
-│   │   ├── DietTagFormatter.cs             # Diet-tag identifiers → German embed labels
-│   │   ├── DwdWarningMessageBuilder.cs
-│   │   ├── EmbedText.cs                    # Discord embed limits + shared truncation
-│   │   ├── ErrorEmbedBuilder.cs
-│   │   ├── FeedDeltaCalculator.cs          # Pure RSS baseline/new-item decisions
-│   │   ├── FeedTextFormatter.cs            # HTML strip + truncation for embeds
-│   │   ├── NameSanitizer.cs
-│   │   ├── RecipeEmbedBuilder.cs           # Shared recipe embeds (search vs. generated)
-│   │   ├── SeasonalTermPicker.cs           # Weighted random seasonal-term selection
-│   │   ├── SpontanTreffMessageBuilder.cs
-│   │   ├── WasteSummaryMapper.cs           # ICS summary → German display label
-│   │   ├── WeekendDigestCurator.cs         # Market-first Fri–Sun pick ranking
-│   │   ├── WeekendDigestMessageBuilder.cs
-│   │   └── WeekendEventParser.cs           # leipzig.de event-card HTML → WeekendEvent list
-│   ├── Extensions
-│   │   └── ServiceCollectionExtensions.cs  # DI wiring for DB, Discord, HTTP clients, hosted services
-│   ├── Infrastructure
-│   │   └── Data
-│   │       ├── BotDbContext.cs
-│   │       ├── DatabaseWriteGuard.cs      # Classifies duplicate-key write failures for idempotent dispatch
-│   │       ├── FoodDispatchRepository.cs
-│   │       ├── RssRepository.cs
-│   │       ├── SpontanTreffRepository.cs
-│   │       ├── WarningDispatchRepository.cs
-│   │       └── WasteDispatchRepository.cs
-│   ├── Models                              # Steam/Battle.net payloads, CapWarning, FoodModels, WeekendEvent
-│   ├── Modules                             # Interaction modules (Food, LeipzigWaste, Rss*, SpontanTreff*, System)
-│   ├── Options                             # Strongly-typed options incl. feature flags + server routing
-│   ├── Services
-│   │   ├── Interfaces                      # Fetch contracts for external APIs
-│   │   ├── AlexaMentionNotificationService.cs
-│   │   ├── BattleNetDataCache.cs            # 60s per-refresh-token fetch cooldown
-│   │   ├── BattleNetService.cs              # OAuth refresh flow + userinfo/WoW/Diablo profile reads
-│   │   ├── DiscordBotWorker.cs
-│   │   ├── DiscordErrorLoggerProvider.cs
-│   │   ├── DiscordPresenceMqttService.cs
-│   │   ├── DwdWarningBackgroundService.cs   # 2-minute DWD poll → #⛈️weather-warnings
-│   │   ├── DwdWarningService.cs
-│   │   ├── ErrorNotificationDispatcher.cs
-│   │   ├── ErrorNotificationQueue.cs        # Bounded buffer with signature throttle
-│   │   ├── FoodPublisherService.cs
-│   │   ├── GeminiFoodService.cs
-│   │   ├── HomeAssistantNotifierService.cs
-│   │   ├── HomeAssistantService.cs
-│   │   ├── InteractionHandlingService.cs
-│   │   ├── LeipzigWasteBackgroundService.cs
-│   │   ├── LeipzigWasteService.cs
-│   │   ├── LeipzigWeekendEventSource.cs
-│   │   ├── MqttConnectionCoordinator.cs    # Shared MQTT connect/reconnect handling
-│   │   ├── RssParserService.cs
-│   │   ├── RssPollingBackgroundService.cs
-│   │   ├── SpontanTreffExpiryService.cs
-│   │   ├── SteamDataCache.cs                # 60s per-user Steam fetch cooldown
-│   │   ├── SteamService.cs
-│   │   ├── SystemRandomSource.cs           # Random.Shared-backed IRandomSource
-│   │   ├── WebRecipeSearchService.cs       # DuckDuckGo + Chefkoch + JSON-LD recipe parsing
-│   │   └── WeekendDigestBackgroundService.cs
-│   └── Program.cs                           # Host bootstrap, options binding, schema init, global error hooks
-└── WK7Bot.Tests/                            # xUnit + Moq suite mirroring the source structure
+│   ├── Interfaces                           # Repository and service contracts
+│   └── Utilities
+│       ├── AutomaticTargetResolver.cs       # Feature → WK7 server / bot test server routing
+│       ├── CapWarningParser.cs              # CAP XML → warning model, polygon + event matching
+│       ├── ChannelResolver.cs               # Shared feature-channel find-or-create + permissions
+│       ├── DateTimeFormatExtensions.cs      # Shared de-DE month/day/time formatting
+│       ├── DiscordClientExtensions.cs       # Channel lookup, guild-user sweep
+│       ├── DietTagFormatter.cs              # Diet-tag identifiers → German embed labels
+│       ├── DwdWarningMessageBuilder.cs
+│       ├── EmbedText.cs                     # Discord embed limits + shared truncation
+│       ├── ErrorEmbedBuilder.cs
+│       ├── FeedDeltaCalculator.cs           # Pure RSS baseline/new-item decisions
+│       ├── FeedTextFormatter.cs             # HTML strip + truncation for embeds
+│       ├── MqttClientExtensions.cs          # Retained MQTT publish helper
+│       ├── NameSanitizer.cs
+│       ├── RecipeEmbedBuilder.cs            # Shared recipe embeds (search vs. generated)
+│       ├── SeasonalProduceEmbedBuilder.cs   # Monthly produce calendar embed
+│       ├── SeasonalTermPicker.cs            # Weighted random seasonal-term selection
+│       ├── SingleFlightCache.cs             # TTL cache collapsing concurrent misses into one fetch
+│       ├── SpontanTreffMessageBuilder.cs
+│       ├── WasteSummaryMapper.cs            # ICS summary → German display label
+│       ├── WeekendDigestCurator.cs          # Market-first Fri–Sun pick ranking
+│       ├── WeekendDigestMessageBuilder.cs
+│       └── WeekendEventParser.cs            # leipzig.de event-card HTML → WeekendEvent list
+├── Extensions
+│   └── ServiceCollectionExtensions.cs       # DI wiring for DB, Discord, HTTP clients, hosted services
+├── Infrastructure
+│   └── Data
+│       ├── BotDbContext.cs
+│       ├── DatabaseWriteGuard.cs            # Classifies duplicate-key write failures for idempotent dispatch
+│       ├── FoodDispatchRepository.cs
+│       ├── RssRepository.cs
+│       ├── SpontanTreffRepository.cs
+│       ├── WarningDispatchRepository.cs
+│       └── WasteDispatchRepository.cs
+├── Models                                  # Steam/Battle.net payloads, CapWarning, FoodModels, WeekendEvent
+├── Modules                                 # Interaction modules (Food, LeipzigWaste, Rss*, SpontanTreff*, System)
+├── Options                                 # FeatureKeys, Wk7BotOptions, feature flags, server routing
+├── Services
+│   ├── Interfaces                           # Fetch contracts for external APIs
+│   ├── AlexaMentionNotificationService.cs
+│   ├── BattleNetDataCache.cs                # 60s per-refresh-token fetch cooldown
+│   ├── BattleNetService.cs                  # OAuth refresh flow + userinfo/WoW/Diablo profile reads
+│   ├── DiscordBotWorker.cs
+│   ├── DiscordErrorLoggerProvider.cs
+│   ├── DiscordPresenceMqttService.cs
+│   ├── DwdWarningBackgroundService.cs       # 2-minute DWD poll → #⛈️weather-warnings
+│   ├── DwdWarningService.cs
+│   ├── ErrorNotificationDispatcher.cs       # Reports → #🤖WK7Errors❗ (DM fallback)
+│   ├── ErrorNotificationQueue.cs            # Bounded buffer with signature throttle
+│   ├── FoodPublisherService.cs
+│   ├── GeminiFoodService.cs
+│   ├── HomeAssistantNotifierService.cs
+│   ├── HomeAssistantService.cs
+│   ├── InteractionHandlingService.cs
+│   ├── LeipzigWasteBackgroundService.cs
+│   ├── LeipzigWasteService.cs
+│   ├── LeipzigWeekendEventSource.cs
+│   ├── MqttConnectionCoordinator.cs        # Shared MQTT connect/reconnect handling
+│   ├── RssParserService.cs
+│   ├── RssPollingBackgroundService.cs
+│   ├── SpontanTreffExpiryService.cs
+│   ├── SteamDataCache.cs                    # 60s per-user Steam fetch cooldown
+│   ├── SteamService.cs
+│   ├── SystemRandomSource.cs               # Random.Shared-backed IRandomSource
+│   ├── WebRecipeSearchService.cs           # DuckDuckGo + Chefkoch + JSON-LD recipe parsing
+│   └── WeekendDigestBackgroundService.cs
+├── Program.cs                               # Host bootstrap, options binding, schema init, global error hooks
+├── appsettings.json / appsettings.Development.json
+├── config.yaml                              # Home Assistant Add-On configuration
+├── Dockerfile
+└── WK7Bot.csproj
+
+WK7Bot.Tests/                                 # xUnit + Moq suite mirroring the source structure
 ```
 
 ## Configuration

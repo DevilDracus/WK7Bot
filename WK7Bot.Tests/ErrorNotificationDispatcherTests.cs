@@ -22,4 +22,12 @@ public class ErrorNotificationDispatcherTests
         Assert.Equal(string.Empty, ErrorNotificationDispatcher.BuildChannelPing(Array.Empty<string>()));
         Assert.Equal(string.Empty, ErrorNotificationDispatcher.BuildChannelPing(new List<string>()));
     }
+
+    [Fact]
+    public void BuildChannelPing_SkipsMalformedEntriesInsteadOfPingingThem()
+    {
+        var ping = ErrorNotificationDispatcher.BuildChannelPing(new[] { "not-a-user", "123456789012345678", "+456", "" });
+
+        Assert.Equal("<@123456789012345678>", ping);
+    }
 }

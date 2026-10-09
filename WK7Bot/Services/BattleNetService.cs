@@ -717,7 +717,6 @@ public partial class BattleNetService : IBattleNetService
     private static partial Regex CharacterProfileUrlRegex();
 }
 
-#region JSON DTO Models
 
 /// <summary>
 /// Root container model for the Battle.net OAuth token response.
@@ -995,4 +994,4 @@ internal class BattleNetDiabloHeroEntry
     public bool Dead { get; set; }
 }
 
-#endregion
+

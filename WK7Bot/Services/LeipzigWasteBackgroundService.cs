@@ -1,6 +1,4 @@
-﻿using System.Globalization;
 using Discord;
-using Discord.Net;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Entities;
@@ -226,7 +224,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
     protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
         => AutomaticTargetResolver.Resolve(
             _options.Servers,
-            "leipzig_waste",
+            FeatureKeys.RoutedFeatures.LeipzigWaste,
             _discordClient.Guilds.Select(g => g.Id),
             _logger);
 
@@ -256,7 +254,6 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// <returns>A task returning the constructed weekly overview embed.</returns>
     private async Task<Embed?> BuildWeeklyOverviewEmbedAsync(DateTime startDate, CancellationToken cancellationToken)
     {
-        var germanCulture = new CultureInfo("de-DE");
         var endDate = startDate.AddDays(6);
 
         var embedBuilder = new EmbedBuilder()
@@ -282,7 +279,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
             var dayLabel = i switch
             {
                 0 => "Heute (Montag)",
-                _ => targetDate.ToString("dddd", germanCulture)
+                _ => targetDate.GermanDayName()
             };
 
             var formattedText = string.Join("\n• ", collections);
@@ -303,29 +300,18 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// </summary>
     /// <param name="guildId">The target guild where channel existence is evaluated.</param>
     /// <returns>The text channel instance, or <see langword="null"/> when the guild cannot be resolved.</returns>
-    protected virtual async Task<ITextChannel?> GetOrCreateWasteChannelAsync(ulong guildId)
+    protected virtual Task<ITextChannel?> GetOrCreateWasteChannelAsync(ulong guildId)
     {
         var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
-        {
-            return null;
-        }
-
-        try
-        {
-            return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
-            {
-                properties.Topic = "Benachrichtigungen und Bestätigungen zur Stadtreinigung Leipzig Müllabholung.";
-                ChannelResolver.ApplyDefaultChannelPermissions(properties, guild, _discordClient.CurrentUser.Id, allowReactions: true);
-            });
-        }
-        catch (HttpException ex)
-        {
-            // A persistent Manage-Channels permission problem must not escalate to the error-DM
-            // queue on every poll tick; the dispatch is skipped and retried on the next one.
-            _logger.LogWarning(ex, "Could not find or create the #{Channel} channel.", TargetChannelName);
-            return null;
-        }
+        return guild is null
+            ? Task.FromResult<ITextChannel?>(null)
+            : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
+                guild,
+                _discordClient.CurrentUser.Id,
+                TargetChannelName,
+                "Benachrichtigungen und Bestätigungen zur Stadtreinigung Leipzig Müllabholung.",
+                _logger,
+                allowReactions: true);
     }
 
     /// <summary>

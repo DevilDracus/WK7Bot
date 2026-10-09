@@ -1,5 +1,3 @@
-﻿using System.Globalization;
-
 namespace WK7Bot.Modules;
 
 using System;
@@ -50,8 +48,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     /// <returns>The matching text channel, or <see langword="null"/> when the guild or channel is unavailable.</returns>
     protected virtual ITextChannel? FindFoodChannel()
-        => Context.Guild?.TextChannels
-            .FirstOrDefault(c => string.Equals(c.Name, TargetChannelName, StringComparison.OrdinalIgnoreCase));
+        => Context.Guild.FindTextChannel(TargetChannelName);
 
     /// <summary>
     /// Publishes the generated embed to the target food channel.
@@ -117,7 +114,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
                 "❌ Die Rezeptsuche ist vorübergehend nicht verfügbar (der Suchanbieter blockiert Anfragen). Bitte versuche es in wenigen Minuten erneut oder nutze `/recipe-generate`.",
                 ephemeral: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing the /recipe search command.");
             await FollowupAsync("❌ Bei der Rezeptsuche ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
@@ -168,7 +165,8 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
                 return;
             }
 
-            recipe.SeasonalIngredientsUsed = seasonalTerms.ToList();
+            // The Gemini formatting pass returns a fresh object, so the seasonal metadata is stamped
+            // once after formatting instead of before and after it.
             recipe = await FormatWithGeminiAsync(recipe);
             recipe.SeasonalIngredientsUsed = seasonalTerms.ToList();
 
@@ -187,7 +185,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
                 "❌ Die Rezeptsuche ist vorübergehend nicht verfügbar (der Suchanbieter blockiert Anfragen). Bitte versuche es in wenigen Minuten erneut oder nutze `/recipe-generate`.",
                 ephemeral: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing the /recipe-seasonal slash command.");
             await FollowupAsync("❌ Bei der Suche nach einem saisonalen Rezept ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
@@ -227,13 +225,13 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
             await PostToFoodChannelAsync(targetChannel, embed);
             await FollowupAsync($"✅ Rezept erfolgreich erstellt und in {targetChannel.Mention} veröffentlicht!", ephemeral: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /recipe-generate slash command.");
             await FollowupAsync("❌ Bei der Rezepterstellung ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
         }
     }
-    
+
     /// <summary>
     /// Generates seasonal produce information for a specified month (or current month) and posts it to the #🍎food channel.
     /// </summary>
@@ -276,28 +274,15 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
                 return;
             }
 
-            string monthName = targetDate.ToString("MMMM", CultureInfo.GetCultureInfo("de-DE"));
-            string fruitsFormatted = produceData.Fruits.Count > 0 ? string.Join(", ", produceData.Fruits) : "Keine angegeben";
-            string vegetablesFormatted = produceData.Vegetables.Count > 0 ? string.Join(", ", produceData.Vegetables) : "Keine angegeben";
-            string herbsFormatted = produceData.Herbs.Count > 0 ? string.Join(", ", produceData.Herbs) : "Keine angegeben";
-            string nutsFormatted = produceData.Nuts.Count > 0 ? string.Join(", ", produceData.Nuts) : "Keine angegeben";
-
-            var embed = new EmbedBuilder()
-                .WithTitle(EmbedText.Title($"🌱 Saisonkalender: {produceData.Month ?? monthName}"))
-                .WithDescription($"Übersicht der regionalen Saisonprodukte (Zentraleuropa / Leipzig-Region) für **{monthName}**.")
-                .WithColor(Color.Green)
-                .AddField("🍎 Obst", EmbedText.Field(fruitsFormatted), false)
-                .AddField("🥕 Gemüse", EmbedText.Field(vegetablesFormatted), false)
-                .AddField("🌿 Kräuter", EmbedText.Field(herbsFormatted), false)
-                .AddField("🌰 Nüsse", EmbedText.Field(nutsFormatted), false)
-                .WithFooter($"Angefragt von @{Context.User.Username} • Regionale Saisonware")
-                .WithCurrentTimestamp()
-                .Build();
+            var embed = SeasonalProduceEmbedBuilder.Build(
+                produceData,
+                targetDate.GermanMonthName(),
+                $"Angefragt von @{Context.User.Username} • Regionale Saisonware");
 
             await PostToFoodChannelAsync(targetChannel, embed);
-            await FollowupAsync($"✅ Saisonale Übersicht für **{monthName}** erfolgreich in {targetChannel.Mention} veröffentlicht!", ephemeral: true);
+            await FollowupAsync($"✅ Saisonale Übersicht für **{produceData.Month ?? targetDate.GermanMonthName()}** erfolgreich in {targetChannel.Mention} veröffentlicht!", ephemeral: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /seasonal-produce slash command.");
             await FollowupAsync("❌ Bei der Erstellung der saisonalen Übersicht ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);

@@ -29,6 +29,27 @@ public class SpontanTreffRepository : ISpontanTreffRepository
     }
 
     /// <inheritdoc/>
+    public async Task RemoveAsync(int meetupId, CancellationToken cancellationToken = default)
+    {
+        var meetup = await _dbContext.SpontanTreffs
+            .FirstOrDefaultAsync(m => m.Id == meetupId, cancellationToken);
+
+        if (meetup == null)
+        {
+            return;
+        }
+
+        // The raw schema has no foreign key cascade, so the answers are removed explicitly.
+        var responses = await _dbContext.SpontanTreffResponses
+            .Where(r => r.MeetupId == meetupId)
+            .ToListAsync(cancellationToken);
+
+        _dbContext.SpontanTreffResponses.RemoveRange(responses);
+        _dbContext.SpontanTreffs.Remove(meetup);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task SetMessageAsync(int meetupId, ulong channelId, ulong messageId, CancellationToken cancellationToken = default)
     {
         var meetup = await _dbContext.SpontanTreffs.FindAsync(new object[] { meetupId }, cancellationToken);

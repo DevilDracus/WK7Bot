@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
@@ -141,18 +142,9 @@ public class DiscordPresenceMqttService : BackgroundService
     /// <returns>A task tracking the refresh sweep.</returns>
     private async Task RefreshMappedPresenceAsync()
     {
-        foreach (var guild in _discordClient.Guilds)
-        {
-            foreach (var user in guild.Users)
-            {
-                if (user.IsBot || !HasExternalMapping(user))
-                {
-                    continue;
-                }
-
-                await ProcessUserPresenceAsync(user, null, forceRefresh: true);
-            }
-        }
+        await _discordClient.ForEachGuildUserAsync(
+            HasExternalMapping,
+            user => ProcessUserPresenceAsync(user, null, forceRefresh: true));
     }
 
     /// <summary>
@@ -405,13 +397,7 @@ public class DiscordPresenceMqttService : BackgroundService
     {
         string payloadJson = JsonSerializer.Serialize(payloadObject, new JsonSerializerOptions { WriteIndented = false });
 
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic(topic)
-            .WithPayload(payloadJson)
-            .WithRetainFlag(true)
-            .Build();
-
-        await _mqttClient.PublishAsync(message);
+        await _mqttClient.PublishRetainedAsync(topic, payloadJson);
     }
 
     /// <summary>
@@ -463,13 +449,7 @@ public class DiscordPresenceMqttService : BackgroundService
             WriteIndented = false
         });
 
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic(topic)
-            .WithPayload(payload)
-            .WithRetainFlag(true)
-            .Build();
-
-        await _mqttClient.PublishAsync(message);
+        await _mqttClient.PublishRetainedAsync(topic, payload);
         _logger.LogDebug("Published presence state for {Username} to MQTT topic {Topic}", entity.Username, topic);
     }
 }

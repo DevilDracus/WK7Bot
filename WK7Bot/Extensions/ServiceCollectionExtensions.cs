@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
@@ -52,14 +52,14 @@ public static class ServiceCollectionExtensions
         }));
 
         services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
-        
-services.AddHttpClient<IHomeAssistantService, HomeAssistantService>(client =>
-{
-    // The Supervisor proxy is a local service: a request still pending after this window is
-    // treated as unreachable instead of hanging for the HttpClient default of 100 seconds.
-    client.Timeout = TimeSpan.FromSeconds(10);
-});
-services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
+
+        services.AddHttpClient<IHomeAssistantService, HomeAssistantService>(client =>
+        {
+            // The Supervisor proxy is a local service: a request still pending after this window is
+            // treated as unreachable instead of hanging for the HttpClient default of 100 seconds.
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
+        services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
         services.AddHttpClient<ISteamService, SteamService>();
         services.AddHttpClient<IBattleNetService, BattleNetService>();
         services.AddHttpClient<IGeminiFoodService, GeminiFoodService>();
@@ -78,7 +78,12 @@ services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
         {
             AutomaticDecompression = DecompressionMethods.All
         });
-        services.AddHttpClient<AlexaMentionNotificationService>();
+        services.AddHttpClient<AlexaMentionNotificationService>(client =>
+        {
+            // The notification dispatch runs detached from the gateway handler, so bound the wait
+            // instead of keeping the request open for the HttpClient default of 100 seconds.
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
 
         services.AddTransient<RssParserService>();
 
@@ -106,22 +111,22 @@ services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
         // Feature flags. Prefer the Wk7Bot section (appsettings.json); fall back to the
         // root level (Home Assistant options.json / config.yaml). Services also re-check
         // bound IOptions at runtime as a second line of defense.
-        if (IsFeatureEnabled(configuration, "rss_polling_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.RssPolling))
         {
             services.AddHostedService<RssPollingBackgroundService>();
         }
 
-        if (IsFeatureEnabled(configuration, "home_assistant_notifier_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.HomeAssistantNotifier))
         {
             services.AddHostedService<HomeAssistantNotifierService>();
         }
 
-        if (IsFeatureEnabled(configuration, "leipzig_waste_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.LeipzigWaste))
         {
             services.AddHostedService<LeipzigWasteBackgroundService>();
         }
 
-        if (IsFeatureEnabled(configuration, "alexa_notifications_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.AlexaNotifications))
         {
             // Reuse the typed-client instance from AddBotDiscordAndClients instead of registering the
             // type a second time: the typed registration is the only one that supplies the HttpClient,
@@ -130,32 +135,32 @@ services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
             services.AddHostedService(sp => sp.GetRequiredService<AlexaMentionNotificationService>());
         }
 
-        if (IsFeatureEnabled(configuration, "discord_presence_mqtt_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.DiscordPresenceMqtt))
         {
             services.AddHostedService<DiscordPresenceMqttService>();
         }
 
-        if (IsFeatureEnabled(configuration, "food_service_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.FoodService))
         {
             services.AddHostedService<FoodPublisherService>();
         }
 
-        if (IsFeatureEnabled(configuration, "spontan_treff_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.SpontanTreff))
         {
             services.AddHostedService<SpontanTreffExpiryService>();
         }
 
-        if (IsFeatureEnabled(configuration, "weekend_digest_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.WeekendDigest))
         {
             services.AddHostedService<WeekendDigestBackgroundService>();
         }
 
-        if (IsFeatureEnabled(configuration, "dwd_warning_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.DwdWarning))
         {
             services.AddHostedService<DwdWarningBackgroundService>();
         }
 
-        if (IsFeatureEnabled(configuration, "error_notifications_enabled"))
+        if (IsFeatureEnabled(configuration, FeatureKeys.ErrorNotifications))
         {
             services.AddHostedService<ErrorNotificationDispatcher>();
         }

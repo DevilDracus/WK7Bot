@@ -109,7 +109,12 @@ public class InteractionHandlingService : IHostedService
         try
         {
             var context = new SocketInteractionContext(_client, interaction);
-            var result = await _interactionService.ExecuteCommandAsync(context, _services);
+
+            // A scope per interaction: the command modules resolve scoped services (the bot DbContext
+            // behind the repositories), and resolving them from the root provider would share one
+            // context across every concurrent interaction.
+            using var scope = _services.CreateScope();
+            var result = await _interactionService.ExecuteCommandAsync(context, scope.ServiceProvider);
 
             if (!result.IsSuccess)
             {

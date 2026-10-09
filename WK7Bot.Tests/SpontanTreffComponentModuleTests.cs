@@ -115,59 +115,10 @@ public class SpontanTreffComponentModuleTests
         var module = new TestComponentModule(fixture.Repository, failEdit);
 
         var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
-        SetUser(context, "Gast", actingUserId);
+        DiscordTestDoubles.SetUser(context, "Gast", actingUserId);
         ((IInteractionModuleBase)module).SetContext(context);
 
         return module;
-    }
-
-    private static void SetUser(SocketInteractionContext context, string username, ulong id)
-    {
-        var userField = FindField(context.GetType(), "<User>k__BackingField")
-            ?? throw new InvalidOperationException("SocketInteractionContext user backing field not found.");
-        userField.SetValue(context, CreateUser(username, id));
-    }
-
-    private static FieldInfo? FindField(Type type, string fieldName)
-    {
-        while (type != null)
-        {
-            var field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-            if (field != null)
-            {
-                return field;
-            }
-
-            type = type.BaseType!;
-        }
-
-        return null;
-    }
-
-    private static SocketUser CreateUser(string username, ulong id)
-    {
-        var userType = typeof(SocketUser).Assembly.GetType("Discord.WebSocket.SocketGlobalUser")
-            ?? throw new InvalidOperationException("Discord.WebSocket.SocketGlobalUser type not found.");
-
-        var user = (SocketUser)RuntimeHelpers.GetUninitializedObject(userType);
-        SetPropertyOrField(user, userType, "Username", username);
-        SetPropertyOrField(user, userType, "Id", id);
-
-        return user;
-    }
-
-    private static void SetPropertyOrField(object target, Type type, string name, object value)
-    {
-        var property = type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (property?.SetMethod != null)
-        {
-            property.SetValue(target, value);
-            return;
-        }
-
-        var field = FindField(type, $"<{name}>k__BackingField")
-            ?? throw new InvalidOperationException($"{type.Name} {name} backing field not found.");
-        field.SetValue(target, value);
     }
 
     private static List<ButtonComponent> Buttons(MessageComponent component)

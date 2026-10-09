@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Options;
+namespace WK7Bot.Options;
 
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;

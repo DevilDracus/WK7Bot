@@ -45,8 +45,8 @@ public class HomeAssistantService : IHomeAssistantService
     {
         try
         {
-            // The authorization header is attached per request: the typed HttpClient is shared and
-            // mutating its default headers from the constructor would leak into every other caller.
+            // The authorization header is attached per request: that keeps the Supervisor credential
+            // out of any client state and mirrors how the other typed clients are configured.
             using var request = new HttpRequestMessage(HttpMethod.Get, BuildRequestUri(endpoint));
 
             if (!string.IsNullOrEmpty(_supervisorToken))

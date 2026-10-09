@@ -15,6 +15,56 @@ public class NameSanitizerTests
         Assert.Equal(expected, NameSanitizer.ToChannelSlug(input));
     }
 
+    [Theory]
+    [InlineData("PD: Leipzig", "pd-leipzig")]
+    [InlineData("General #1", "general-1")]
+    [InlineData("Was? Ja!", "was-ja")]
+    [InlineData("a/b\\c", "abc")]
+    public void ToChannelSlug_RemovesCharactersDiscordRejects(string input, string expected)
+    {
+        Assert.Equal(expected, NameSanitizer.ToChannelSlug(input));
+    }
+
+    [Fact]
+    public void ToChannelSlug_KeepsUnicodeLetters()
+    {
+        Assert.Equal("ümlaut-ä-ö-ü", NameSanitizer.ToChannelSlug("Ümlaut Ä Ö Ü"));
+    }
+
+    [Fact]
+    public void ToChannelSlug_FallsBackWhenNothingUsableRemains()
+    {
+        Assert.Equal(NameSanitizer.FallbackChannelSlug, NameSanitizer.ToChannelSlug("!!!"));
+        Assert.Equal(NameSanitizer.FallbackChannelSlug, NameSanitizer.ToChannelSlug(":?"));
+    }
+
+    [Fact]
+    public void ToChannelSlug_WhitespaceOnlyNameBecomesHyphens()
+    {
+        // Hyphens alone are a valid Discord channel name, so no fallback applies.
+        Assert.Equal("---", NameSanitizer.ToChannelSlug("   "));
+    }
+
+    [Fact]
+    public void ToChannelSlug_CapsAtDiscordLimit()
+    {
+        var slug = NameSanitizer.ToChannelSlug(new string('a', NameSanitizer.MaxChannelNameLength + 50));
+
+        Assert.Equal(NameSanitizer.MaxChannelNameLength, slug.Length);
+    }
+
+    [Fact]
+    public void ToChannelSlug_OutputAlwaysMatchesDiscordRules()
+    {
+        var names = new[] { "PD: Leipzig", "emoji 🗑️ waste", "Ümlaut-Name", "Was? Ja!", "###", "a" };
+
+        foreach (var name in names)
+        {
+            var slug = NameSanitizer.ToChannelSlug(name);
+            Assert.Matches("^[\\p{L}\\p{N}_-]{1,100}$", slug);
+        }
+    }
+
     [Fact]
     public void ToChannelSlug_ThrowsOnNull()
     {

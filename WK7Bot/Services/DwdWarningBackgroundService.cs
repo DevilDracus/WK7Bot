@@ -1,7 +1,6 @@
 namespace WK7Bot.Services;
 
 using Discord;
-using Discord.Net;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Interfaces;
@@ -191,9 +190,12 @@ public class DwdWarningBackgroundService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IWarningDispatchRepository>();
 
+        // Resolved once per dispatch: re-resolving per warning would repeat the resolver's
+        // "no server configured" warning for every active warning.
+        var targetGuildIds = GetTargetGuildIds();
         var postedAny = false;
 
-        foreach (var guildId in GetTargetGuildIds())
+        foreach (var guildId in targetGuildIds)
         {
             if (await repository.HasSentAsync(warning.Identifier, guildId, stoppingToken))
             {
@@ -240,7 +242,7 @@ public class DwdWarningBackgroundService : BackgroundService
     protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
         => AutomaticTargetResolver.Resolve(
             _options.Servers,
-            "dwd_warning",
+            FeatureKeys.RoutedFeatures.DwdWarning,
             _discordClient.Guilds.Select(g => g.Id),
             _logger);
 
@@ -249,29 +251,17 @@ public class DwdWarningBackgroundService : BackgroundService
     /// </summary>
     /// <param name="guildId">The target guild where channel existence is evaluated.</param>
     /// <returns>The text channel instance, or <see langword="null"/> when the guild cannot be resolved.</returns>
-    protected virtual async Task<ITextChannel?> GetOrCreateWarningChannelAsync(ulong guildId)
+    protected virtual Task<ITextChannel?> GetOrCreateWarningChannelAsync(ulong guildId)
     {
         var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
-        {
-            return null;
-        }
-
-        try
-        {
-            return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
-            {
-                properties.Topic = BuildChannelTopic();
-                ChannelResolver.ApplyDefaultChannelPermissions(properties, guild, _discordClient.CurrentUser.Id, allowReactions: false);
-            });
-        }
-        catch (HttpException ex)
-        {
-            // A persistent Manage-Channels permission problem must not escalate to the error-DM
-            // queue on every poll tick; the warning is skipped and retried on the next one.
-            _logger.LogWarning(ex, "Could not find or create the #{Channel} channel.", TargetChannelName);
-            return null;
-        }
+        return guild is null
+            ? Task.FromResult<ITextChannel?>(null)
+            : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
+                guild,
+                _discordClient.CurrentUser.Id,
+                TargetChannelName,
+                BuildChannelTopic(),
+                _logger);
     }
 
     /// <summary>
