@@ -18,6 +18,12 @@ public class BattleNetDataCache
     private readonly ConcurrentDictionary<string, CacheEntry> _entries = new();
 
     /// <summary>
+    /// Tracks one in-flight Battle.net fetch per refresh token so concurrent callers (presence event +
+    /// periodic refresh tick) share a single request instead of stampeding the Battle.net API.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, Task<BattleNetUserData?>> _inFlight = new();
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="BattleNetDataCache"/> class.
     /// </summary>
     /// <param name="battleNetService">The underlying Battle.net service used on cache misses.</param>
@@ -41,16 +47,51 @@ public class BattleNetDataCache
     /// <param name="refreshToken">The OAuth refresh token of the mapped Battle.net account.</param>
     /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
     /// <returns>The cached or freshly fetched <see cref="BattleNetUserData"/>, or null when retrieval fails.</returns>
-    public async Task<BattleNetUserData?> GetBattleNetUserDataAsync(string refreshToken, CancellationToken cancellationToken = default)
+    public Task<BattleNetUserData?> GetBattleNetUserDataAsync(string refreshToken, CancellationToken cancellationToken = default)
+        => GetBattleNetUserDataAsync(refreshToken, forceRefresh: false, cancellationToken);
+
+    /// <summary>
+    /// Returns cached Battle.net user data when younger than the time-to-live, or fetches fresh data when the
+    /// entry expired or when <paramref name="forceRefresh"/> is set. Concurrent cache misses for the same
+    /// refresh token share one in-flight Battle.net request.
+    /// </summary>
+    /// <param name="refreshToken">The OAuth refresh token of the mapped Battle.net account.</param>
+    /// <param name="forceRefresh">When true, a still-fresh cached entry is bypassed and Battle.net is queried again.</param>
+    /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+    /// <returns>The cached or freshly fetched <see cref="BattleNetUserData"/>, or null when retrieval fails.</returns>
+    public async Task<BattleNetUserData?> GetBattleNetUserDataAsync(string refreshToken, bool forceRefresh, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(refreshToken);
 
         var now = DateTimeOffset.UtcNow;
-        if (_entries.TryGetValue(refreshToken, out var entry) && now - entry.FetchedAt < _timeToLive)
+        if (!forceRefresh && _entries.TryGetValue(refreshToken, out var entry) && now - entry.FetchedAt < _timeToLive)
         {
             return entry.Data;
         }
 
+        var fetchTask = _inFlight.GetOrAdd(refreshToken, token => FetchAndStoreAsync(token, cancellationToken));
+        try
+        {
+            return await fetchTask.WaitAsync(cancellationToken);
+        }
+        finally
+        {
+            // Remove only the exact task this call joined, so a newer in-flight fetch for the same
+            // refresh token is never evicted. (The factory itself cannot remove: GetOrAdd inserts the
+            // factory's result after the factory has already returned.)
+            ((ICollection<KeyValuePair<string, Task<BattleNetUserData?>>>)_inFlight)
+                .Remove(new KeyValuePair<string, Task<BattleNetUserData?>>(refreshToken, fetchTask));
+        }
+    }
+
+    /// <summary>
+    /// Fetches fresh Battle.net user data and stores it (including null results) in the cache.
+    /// </summary>
+    /// <param name="refreshToken">The OAuth refresh token of the mapped Battle.net account.</param>
+    /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+    /// <returns>The freshly fetched <see cref="BattleNetUserData"/>, or null when retrieval fails.</returns>
+    private async Task<BattleNetUserData?> FetchAndStoreAsync(string refreshToken, CancellationToken cancellationToken)
+    {
         var data = await _battleNetService.GetBattleNetUserDataAsync(refreshToken, cancellationToken);
         _entries[refreshToken] = new CacheEntry(data, DateTimeOffset.UtcNow);
         return data;

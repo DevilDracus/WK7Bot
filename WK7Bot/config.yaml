@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.55"
+version: "1.0.56"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 init: false
@@ -28,10 +28,11 @@ options:
   discord_battlenet_mappings: []
   discord_dm_user_ids: []
   error_notify_user_ids: ["162201162257399808"]
+  leipzig_waste_ics_feed_url: ""
   alexa_notification:
-    target_user_id: "YOUR_DISCORD_USER_ID"
-    api_token: "YOUR_GETNOTIFY_TOKEN"
-    api_secret: "YOUR_GETNOTIFY_SECRET"
+    target_user_id: ""
+    api_token: ""
+    api_secret: ""
     endpoint_url: "https://api.getnotify.me/v1/notify"
   features:
     rss_polling_enabled: true
@@ -51,10 +52,10 @@ options:
     test_server_id: "YOUR_BOT_TEST_SERVER_ID"
     testing_features: []
   dwd_warning:
-    postal_code: "01234"
+    postal_code: ""
     latitude: 00.00
     longitude: 00.00
-    lead_minutes: 00
+    lead_minutes: 30
     area_names:
       - "City Name"
       - "City"
@@ -78,8 +79,8 @@ schema:
   steam_api_key: str?
   battlenet_client_id: str?
   battlenet_client_secret: str?
-  battlenet_region: str?
-  battlenet_locale: str?
+  battlenet_region: str
+  battlenet_locale: str
   gemini_api_key: str?
   discord_steam_mappings:
     - discord_user_id: str
@@ -93,6 +94,7 @@ schema:
     - str
   error_notify_user_ids:
     - str
+  leipzig_waste_ics_feed_url: str
   alexa_notification:
     target_user_id: str?
     api_token: str?

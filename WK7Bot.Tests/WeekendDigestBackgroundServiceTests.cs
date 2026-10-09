@@ -194,7 +194,7 @@ public class WeekendDigestBackgroundServiceTests
         var failing = FailingEventSource();
 
         var first = new TestableWeekendDigestService(fixture.Provider, failing.Object, new ulong[] { 100 });
-        await Assert.ThrowsAsync<HttpRequestException>(() => first.EvaluateAsync(Thursday1415));
+        await first.EvaluateAsync(Thursday1415);
 
         Assert.Empty(first.Posts);
         Assert.False(await fixture.HasSentAsync(100, Thursday1415.Date));
@@ -215,7 +215,7 @@ public class WeekendDigestBackgroundServiceTests
         var failing = FailingEventSource();
 
         var service = new TestableWeekendDigestService(fixture.Provider, failing.Object, new ulong[] { 100 });
-        await Assert.ThrowsAsync<HttpRequestException>(() => service.EvaluateAsync(Thursday1415));
+        await service.EvaluateAsync(Thursday1415);
         await service.EvaluateAsync(Thursday1415.AddMinutes(5));
 
         failing.Verify(
@@ -234,7 +234,7 @@ public class WeekendDigestBackgroundServiceTests
         for (var attempt = 0; attempt < 4; attempt++)
         {
             var now = Thursday1415.AddMinutes(16 * attempt);
-            await Assert.ThrowsAsync<HttpRequestException>(() => service.EvaluateAsync(now));
+            await service.EvaluateAsync(now);
         }
 
         // Fifth attempt: the day is exhausted, nothing more happens.
@@ -284,7 +284,7 @@ public class WeekendDigestBackgroundServiceTests
         var partial = new TestableWeekendDigestService(fixture.Provider, source.Object, new ulong[] { 1, 2 });
         partial.FailingGuilds.Add(2);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => partial.EvaluateAsync(Thursday1415));
+        await partial.EvaluateAsync(Thursday1415);
 
         Assert.Single(partial.Posts);
         Assert.Equal(1ul, partial.Posts[0].GuildId);

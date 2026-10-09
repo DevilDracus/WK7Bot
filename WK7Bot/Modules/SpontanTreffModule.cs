@@ -46,16 +46,9 @@ public class SpontanTreffModule : InteractionModuleBase<SocketInteractionContext
             return null;
         }
 
-        var existing = guild.TextChannels
-            .FirstOrDefault(c => string.Equals(c.Name, TargetChannelName, StringComparison.OrdinalIgnoreCase));
-        if (existing != null)
-        {
-            return existing;
-        }
-
         try
         {
-            return await guild.CreateTextChannelAsync(TargetChannelName, properties =>
+            return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
             {
                 properties.Topic = "Kurzfristige Treffen: Auf dem Weg oder Absagen mit einem Klick.";
             });

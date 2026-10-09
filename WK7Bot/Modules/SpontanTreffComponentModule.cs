@@ -110,7 +110,17 @@ public class SpontanTreffComponentModule : InteractionModuleBase<SocketInteracti
 
             var responses = await _repository.GetResponsesAsync(meetupId);
             var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, responses, now);
-            await EditMeetupMessageAsync(meetup, embed, components);
+
+            try
+            {
+                await EditMeetupMessageAsync(meetup, embed, components);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The answer is already persisted — a deleted or inaccessible message must not
+                // surface as a fake "save failed" error to the clicking user.
+                _logger.LogWarning(ex, "Could not re-render meetup message {MessageId} for meetup {MeetupId}.", meetup.MessageId, meetupId);
+            }
 
             await FollowupAsync(confirmation, ephemeral: true);
         }

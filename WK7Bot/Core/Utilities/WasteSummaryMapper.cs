@@ -33,7 +33,7 @@ public static class WasteSummaryMapper
             return "🟦 Blaue Tonne (Pappe & Papier)";
         }
 
-        if (ContainsAny(rawSummary, "biogut", "bio ", "braun"))
+        if (ContainsBioKeyword(rawSummary))
         {
             return "🟫 Braune Tonne (Biogut)";
         }
@@ -43,4 +43,42 @@ public static class WasteSummaryMapper
 
     private static bool ContainsAny(string haystack, params string[] needles)
         => needles.Any(n => haystack.Contains(n, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Matches the brown-bin waste keywords: the compound terms are matched as substrings, while the
+    /// bare word "bio" requires letter boundaries so that unrelated words containing it stay untouched.
+    /// </summary>
+    /// <param name="summary">The raw ICS event summary.</param>
+    /// <returns><see langword="true"/> when the summary refers to bio waste.</returns>
+    private static bool ContainsBioKeyword(string summary)
+        => ContainsAny(summary, "biogut", "bioabfall", "biomüll", "braun")
+           || ContainsStandaloneWord(summary, "bio");
+
+    /// <summary>
+    /// Determines whether a word occurs in the haystack without being embedded inside a longer
+    /// letter-run (e.g. "bio" matches "Bio," or "und Bio" but not "Biografie").
+    /// </summary>
+    /// <param name="haystack">The text to search.</param>
+    /// <param name="word">The word to look for (case-insensitive).</param>
+    /// <returns><see langword="true"/> when the word occurs standalone.</returns>
+    private static bool ContainsStandaloneWord(string haystack, string word)
+    {
+        var index = haystack.IndexOf(word, StringComparison.OrdinalIgnoreCase);
+
+        while (index >= 0)
+        {
+            var startIsBoundary = index == 0 || !char.IsLetter(haystack[index - 1]);
+            var end = index + word.Length;
+            var endIsBoundary = end >= haystack.Length || !char.IsLetter(haystack[end]);
+
+            if (startIsBoundary && endIsBoundary)
+            {
+                return true;
+            }
+
+            index = haystack.IndexOf(word, index + 1, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
 }

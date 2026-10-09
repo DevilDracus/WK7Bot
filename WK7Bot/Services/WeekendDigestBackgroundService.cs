@@ -90,7 +90,7 @@ public class WeekendDigestBackgroundService : BackgroundService
             {
                 await EvaluateScheduleAsync(DateTime.Now, stoppingToken);
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
@@ -139,11 +139,14 @@ public class WeekendDigestBackgroundService : BackgroundService
             // A completed attempt (even one that skipped guilds without a channel) ends the day.
             _nextAttemptAt = DateTime.MaxValue;
         }
-        catch
+        catch (Exception ex)
         {
+            // Handled here (no rethrow) so one failed attempt produces exactly one log entry;
+            // retries log as warnings and only the final give-up is an error.
             if (_attemptCount >= MaxAttemptsPerDay)
             {
                 _logger.LogError(
+                    ex,
                     "Giving up on the weekend digest for {Thursday:dd.MM.yyyy} after {Attempts} failed attempts.",
                     now.Date,
                     _attemptCount);
@@ -152,9 +155,14 @@ public class WeekendDigestBackgroundService : BackgroundService
             else
             {
                 _nextAttemptAt = now.Add(RetryDelay);
+                _logger.LogWarning(
+                    ex,
+                    "Weekend digest attempt {Attempt}/{MaxAttempts} for {Thursday:dd.MM.yyyy} failed; retrying at {NextAttemptAt:HH:mm}.",
+                    _attemptCount,
+                    MaxAttemptsPerDay,
+                    now.Date,
+                    _nextAttemptAt);
             }
-
-            throw;
         }
     }
 
@@ -281,13 +289,7 @@ public class WeekendDigestBackgroundService : BackgroundService
             return null;
         }
 
-        var existingChannel = guild.TextChannels.FirstOrDefault(c => c.Name.Equals(TargetChannelName, StringComparison.OrdinalIgnoreCase));
-        if (existingChannel != null)
-        {
-            return existingChannel;
-        }
-
-        return await guild.CreateTextChannelAsync(TargetChannelName, properties =>
+        return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
         {
             properties.Topic = "Wochenend-Tipps aus Leipzig – Märkte, Kultur und Ausflüge mit Abstimmung.";
             properties.PermissionOverwrites = new List<Overwrite>

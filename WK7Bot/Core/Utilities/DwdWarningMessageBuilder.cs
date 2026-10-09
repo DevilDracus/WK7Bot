@@ -19,6 +19,16 @@ public static class DwdWarningMessageBuilder
     private const int FieldNameLimit = 256;
     private const int FieldValueLimit = 1024;
 
+    /// <summary>
+    /// Discord's total embed length limit (title + description + footer + all field names and values).
+    /// </summary>
+    private const int TotalLimit = 6000;
+
+    /// <summary>
+    /// Head-room kept below <see cref="TotalLimit"/> so the embed is never rejected by Discord.
+    /// </summary>
+    private const int SafetyMargin = 150;
+
     private static readonly CultureInfo GermanCulture = new("de-DE");
 
     /// <summary>
@@ -35,15 +45,37 @@ public static class DwdWarningMessageBuilder
 
         var locationLabel = ResolveLocationLabel(warning, options);
         var subject = warning.Event.Length > 0 ? warning.Event : warning.Headline;
+        var title = Truncate($"⚠️ {subject} für {locationLabel}", TitleLimit);
+        var footer = ResolveFooter(options);
+
+        // Whole-embed budget: title and footer are fixed, the headline description gets the next slice,
+        // and every field draws from what remains so the embed stays inside Discord's total limit.
+        int budget = TotalLimit - SafetyMargin - title.Length - footer.Length;
+
+        var headline = Truncate(warning.Headline, Math.Clamp(budget, 0, DescriptionLimit));
+        budget -= headline.Length;
+
+        var onset = TakeField(ref budget, "🕐 Eintritt", FormatOnset(warning.Onset, postTime), inline: true);
+        var expires = warning.Expires != DateTime.MaxValue
+            ? TakeField(ref budget, "⏳ Gültig bis", FormatExpires(warning.Expires, postTime), inline: true)
+            : null;
+        var area = TakeField(ref budget, "📍 Gebiet", FormatArea(locationLabel, warning), inline: true);
+        var severity = TakeField(ref budget, "⚠️ Schweregrad", FormatSeverity(warning.Severity), inline: true);
+        var description = warning.Description.Length > 0
+            ? TakeField(ref budget, "📝 Beschreibung", warning.Description, inline: false)
+            : null;
+        var instruction = warning.Instruction.Length > 0
+            ? TakeField(ref budget, "✅ Empfehlung", warning.Instruction, inline: false)
+            : null;
 
         var builder = new EmbedBuilder()
-            .WithTitle(Truncate($"⚠️ {subject} für {locationLabel}", TitleLimit))
+            .WithTitle(title)
             .WithColor(ResolveColor(warning.Severity))
             .WithTimestamp(postTime);
 
-        if (warning.Headline.Length > 0)
+        if (headline.Length > 0)
         {
-            builder.WithDescription(Truncate(warning.Headline, DescriptionLimit));
+            builder.WithDescription(headline);
         }
 
         if (warning.Web.Length > 0)
@@ -51,47 +83,66 @@ public static class DwdWarningMessageBuilder
             builder.WithUrl(warning.Web);
         }
 
-        builder.AddField(
-            Truncate("🕐 Eintritt", FieldNameLimit),
-            Truncate(FormatOnset(warning.Onset, postTime), FieldValueLimit),
-            true);
+        AddFieldIfPresent(builder, onset);
+        AddFieldIfPresent(builder, expires);
+        AddFieldIfPresent(builder, area);
+        AddFieldIfPresent(builder, severity);
+        AddFieldIfPresent(builder, description);
+        AddFieldIfPresent(builder, instruction);
 
-        if (warning.Expires != DateTime.MaxValue)
-        {
-            builder.AddField(
-                Truncate("⏳ Gültig bis", FieldNameLimit),
-                Truncate(FormatExpires(warning.Expires, postTime), FieldValueLimit),
-                true);
-        }
-
-        builder.AddField(
-            Truncate("📍 Gebiet", FieldNameLimit),
-            Truncate(FormatArea(locationLabel, warning), FieldValueLimit),
-            true);
-
-        builder.AddField(
-            Truncate("⚠️ Schweregrad", FieldNameLimit),
-            Truncate(FormatSeverity(warning.Severity), FieldValueLimit),
-            true);
-
-        if (warning.Description.Length > 0)
-        {
-            builder.AddField(
-                Truncate("📝 Beschreibung", FieldNameLimit),
-                Truncate(warning.Description, FieldValueLimit),
-                false);
-        }
-
-        if (warning.Instruction.Length > 0)
-        {
-            builder.AddField(
-                Truncate("✅ Empfehlung", FieldNameLimit),
-                Truncate(warning.Instruction, FieldValueLimit),
-                false);
-        }
-
-        builder.WithFooter(ResolveFooter(options));
+        builder.WithFooter(footer);
         return builder.Build();
+    }
+
+    /// <summary>
+    /// Draws one field from the remaining embed-wide budget: the value is first cut to Discord's per-field
+    /// limit, then cut again when the budget has run low. Returns null when not even the field name fits.
+    /// </summary>
+    /// <param name="budget">The remaining character budget; reduced by the field's cost.</param>
+    /// <param name="name">The field name.</param>
+    /// <param name="value">The raw field value.</param>
+    /// <param name="inline">Whether the field renders inline.</param>
+    /// <returns>The field to add, or null when nothing fits.</returns>
+    private static (string Name, string Value, bool Inline)? TakeField(
+        ref int budget,
+        string name,
+        string value,
+        bool inline)
+    {
+        if (budget <= name.Length)
+        {
+            return null;
+        }
+
+        var truncated = Truncate(value, FieldValueLimit);
+        int cost = name.Length + truncated.Length;
+        if (cost <= budget)
+        {
+            budget -= cost;
+            return (name, truncated, inline);
+        }
+
+        int room = budget - name.Length;
+        if (room <= 0)
+        {
+            return null;
+        }
+
+        budget = 0;
+        return (name, Truncate(truncated, room), inline);
+    }
+
+    /// <summary>
+    /// Adds a field produced by <see cref="TakeField"/> when one was returned.
+    /// </summary>
+    /// <param name="builder">The embed under construction.</param>
+    /// <param name="field">The field to add, if any.</param>
+    private static void AddFieldIfPresent(EmbedBuilder builder, (string Name, string Value, bool Inline)? field)
+    {
+        if (field is { } value)
+        {
+            builder.AddField(value.Name, value.Value, value.Inline);
+        }
     }
 
     /// <summary>

@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWasteDispatchRepository, WasteDispatchRepository>();
         services.AddScoped<ISpontanTreffRepository, SpontanTreffRepository>();
         services.AddScoped<IWarningDispatchRepository, WarningDispatchRepository>();
+        services.AddScoped<IFoodDispatchRepository, FoodDispatchRepository>();
         return services;
     }
 
@@ -78,6 +79,10 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IMqttClient>(sp => new MqttClientFactory().CreateMqttClient());
 
+        // Owns all connect/reconnect behavior for the single shared IMqttClient: MQTTnet forbids
+        // concurrent ConnectAsync calls, so both MQTT-backed services go through this gate.
+        services.AddSingleton<MqttConnectionCoordinator>();
+
         return services;
     }
 
@@ -113,7 +118,11 @@ public static class ServiceCollectionExtensions
 
         if (IsFeatureEnabled(configuration, "alexa_notifications_enabled"))
         {
-            services.AddHostedService<AlexaMentionNotificationService>();
+            // Reuse the typed-client instance from AddBotDiscordAndClients instead of registering the
+            // type a second time: the typed registration is the only one that supplies the HttpClient,
+            // and a second instance would never have its StartAsync called if the service were injected
+            // anywhere else.
+            services.AddHostedService(sp => sp.GetRequiredService<AlexaMentionNotificationService>());
         }
 
         if (IsFeatureEnabled(configuration, "discord_presence_mqtt_enabled"))
@@ -150,23 +159,26 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Resolves a feature toggle from the Wk7Bot configuration section when present, otherwise from the root configuration.
+    /// Resolves a feature toggle per key: the Wk7Bot section wins when it defines the key, otherwise the
+    /// configuration root (Home Assistant options.json / config.yaml) is consulted, otherwise the feature
+    /// defaults to enabled. Falling back per key (instead of per section) means a partially configured
+    /// section no longer shadows root-level feature flags.
     /// </summary>
     /// <param name="configuration">The configuration provider.</param>
     /// <param name="featureKey">The snake_case feature key (e.g. rss_polling_enabled).</param>
     /// <returns><see langword="true"/> when the feature is enabled or unset (defaults to enabled).</returns>
     private static bool IsFeatureEnabled(IConfiguration configuration, string featureKey)
     {
-        var wk7Features = configuration.GetSection($"{Wk7BotOptions.SectionName}:features");
-        if (wk7Features.Exists())
+        var wk7Value = configuration.GetSection($"{Wk7BotOptions.SectionName}:features").GetValue<bool?>(featureKey);
+        if (wk7Value.HasValue)
         {
-            return wk7Features.GetValue(featureKey, true);
+            return wk7Value.Value;
         }
 
-        var rootFeatures = configuration.GetSection("features");
-        if (rootFeatures.Exists())
+        var rootValue = configuration.GetSection("features").GetValue<bool?>(featureKey);
+        if (rootValue.HasValue)
         {
-            return rootFeatures.GetValue(featureKey, true);
+            return rootValue.Value;
         }
 
         return true;

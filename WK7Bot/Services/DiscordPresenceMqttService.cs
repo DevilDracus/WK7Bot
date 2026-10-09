@@ -23,6 +23,7 @@ public class DiscordPresenceMqttService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IMqttClient _mqttClient;
+    private readonly MqttConnectionCoordinator _coordinator;
     private readonly ISteamService _steamService;
     private readonly SteamDataCache _steamDataCache;
     private readonly IBattleNetService _battleNetService;
@@ -35,10 +36,18 @@ public class DiscordPresenceMqttService : BackgroundService
     private static readonly TimeSpan BattleNetFetchCooldown = TimeSpan.FromSeconds(60);
 
     /// <summary>
+    /// How often mapped users are re-fetched from Steam/Battle.net and republished, independent of Discord
+    /// presence events. Without this sweep, playtime and achievement progress would only refresh when the
+    /// user's Discord presence changed (status/game switch) or the bot restarted.
+    /// </summary>
+    private static readonly TimeSpan PresenceRefreshInterval = TimeSpan.FromSeconds(60);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="DiscordPresenceMqttService"/> class.
     /// </summary>
     /// <param name="discordClient">The active Discord socket client handling server connections.</param>
     /// <param name="mqttClient">The connected MQTT client instance responsible for broker communication.</param>
+    /// <param name="coordinator">The shared MQTT connection coordinator owning connect/reconnect behavior.</param>
     /// <param name="steamService">The Steam service instance used to fetch Steam metadata.</param>
     /// <param name="battleNetService">The Battle.net service instance used to fetch Battle.net profile data.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
@@ -46,6 +55,7 @@ public class DiscordPresenceMqttService : BackgroundService
     public DiscordPresenceMqttService(
         DiscordSocketClient discordClient,
         IMqttClient mqttClient,
+        MqttConnectionCoordinator coordinator,
         ISteamService steamService,
         IBattleNetService battleNetService,
         IOptions<Wk7BotOptions> options,
@@ -53,6 +63,7 @@ public class DiscordPresenceMqttService : BackgroundService
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
+        _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
         _steamDataCache = new SteamDataCache(steamService, SteamFetchCooldown);
         _battleNetService = battleNetService ?? throw new ArgumentNullException(nameof(battleNetService));
@@ -74,14 +85,25 @@ public class DiscordPresenceMqttService : BackgroundService
             return;
         }
 
-        await ConnectMqttClientAsync(stoppingToken);
+        await _coordinator.StartMaintainingAsync(stoppingToken);
 
         _discordClient.PresenceUpdated += OnPresenceUpdatedAsync;
         _discordClient.Ready += OnDiscordReadyAsync;
 
         try
         {
-            await Task.Delay(Timeout.Infinite, stoppingToken);
+            using var refreshTimer = new PeriodicTimer(PresenceRefreshInterval);
+            while (await refreshTimer.WaitForNextTickAsync(stoppingToken))
+            {
+                try
+                {
+                    await RefreshMappedPresenceAsync();
+                }
+                catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+                {
+                    _logger.LogError(ex, "Periodic mapped-user presence refresh failed; it will retry on the next tick.");
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -95,43 +117,51 @@ public class DiscordPresenceMqttService : BackgroundService
     }
 
     /// <summary>
-    /// Establishes connection to the MQTT broker using application configuration settings.
+    /// Republishes enriched presence state for every guild user with an enabled Steam or Battle.net mapping,
+    /// bypassing the short-lived data caches so playtime and achievement progress advance even when Discord
+    /// fires no presence change events during a game session.
     /// </summary>
-    /// <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
-    /// <returns>A task tracking the asynchronous connection operation.</returns>
-    private async Task ConnectMqttClientAsync(CancellationToken cancellationToken)
+    /// <returns>A task tracking the refresh sweep.</returns>
+    private async Task RefreshMappedPresenceAsync()
     {
-        if (_mqttClient.IsConnected)
+        foreach (var guild in _discordClient.Guilds)
         {
-            return;
+            foreach (var user in guild.Users)
+            {
+                if (user.IsBot || !HasExternalMapping(user))
+                {
+                    continue;
+                }
+
+                await ProcessUserPresenceAsync(user, null, forceRefresh: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Determines whether the user has a Steam or Battle.net mapping whose feature is enabled, i.e. whether
+    /// enriched external data would be attached to their presence state.
+    /// </summary>
+    /// <param name="user">The guild user to check.</param>
+    /// <returns><see langword="true"/> when a matching enabled mapping exists; otherwise <see langword="false"/>.</returns>
+    private bool HasExternalMapping(SocketGuildUser user)
+    {
+        string userId = user.Id.ToString();
+
+        if (_options.Features.SteamPresenceEnabled
+            && !string.IsNullOrWhiteSpace(_steamService.GetSteamIdForDiscordUser(userId)))
+        {
+            return true;
         }
 
-        string host = string.IsNullOrWhiteSpace(_options.MqttHost) ? "localhost" : _options.MqttHost;
-        int port = _options.MqttPort > 0 ? _options.MqttPort : 1883;
-
-        var optionsBuilder = new MqttClientOptionsBuilder()
-            .WithTcpServer(host, port);
-
-        if (!string.IsNullOrWhiteSpace(_options.MqttUsername))
-        {
-            optionsBuilder.WithCredentials(_options.MqttUsername, _options.MqttPassword);
-        }
-
-        try
-        {
-            await _mqttClient.ConnectAsync(optionsBuilder.Build(), cancellationToken);
-            _logger.LogInformation("Successfully connected to MQTT broker at {Host}:{Port}", host, port);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to connect to MQTT broker at {Host}:{Port}", host, port);
-        }
+        return _options.Features.BattleNetPresenceEnabled
+            && !string.IsNullOrWhiteSpace(_battleNetService.GetMappingForDiscordUser(userId)?.RefreshToken);
     }
 
     /// <summary>
     /// Performs an initial presence sweep for all cached guild users upon Discord client ready state.
     /// </summary>
-    /// <returns>A task tracking asynchronous sweep processing.</returns>
+    /// <returns>A task representing asynchronous sweep processing.</returns>
     private async Task OnDiscordReadyAsync()
     {
         _logger.LogInformation("Discord client ready. Running initial user presence sweep for Home Assistant...");
@@ -172,8 +202,9 @@ public class DiscordPresenceMqttService : BackgroundService
     /// </summary>
     /// <param name="user">The socket user target.</param>
     /// <param name="presence">The active presence object containing status and activities, if available.</param>
+    /// <param name="forceRefresh">When true, still-fresh Steam/Battle.net cache entries are bypassed so the periodic refresh sweep publishes current data.</param>
     /// <returns>A task tracking discovery and state publishing operations.</returns>
-    private async Task ProcessUserPresenceAsync(SocketUser user, SocketPresence? presence = null)
+    private async Task ProcessUserPresenceAsync(SocketUser user, SocketPresence? presence = null, bool forceRefresh = false)
     {
         try
         {
@@ -184,7 +215,7 @@ public class DiscordPresenceMqttService : BackgroundService
                 string? userSteamId = _steamService.GetSteamIdForDiscordUser(user.Id.ToString());
                 if (!string.IsNullOrWhiteSpace(userSteamId))
                 {
-                    presenceEntity.SteamData = await _steamDataCache.GetSteamUserDataAsync(userSteamId);
+                    presenceEntity.SteamData = await _steamDataCache.GetSteamUserDataAsync(userSteamId, forceRefresh);
                 }
             }
 
@@ -193,14 +224,16 @@ public class DiscordPresenceMqttService : BackgroundService
                 var battleNetMapping = _battleNetService.GetMappingForDiscordUser(user.Id.ToString());
                 if (!string.IsNullOrWhiteSpace(battleNetMapping?.RefreshToken))
                 {
-                    presenceEntity.BattleNetData = await _battleNetDataCache.GetBattleNetUserDataAsync(battleNetMapping.RefreshToken);
+                    presenceEntity.BattleNetData = await _battleNetDataCache.GetBattleNetUserDataAsync(battleNetMapping.RefreshToken, forceRefresh);
                 }
             }
 
             if (!_discoveredUsers.ContainsKey(user.Id))
             {
-                await PublishHomeAssistantDiscoveryAsync(presenceEntity);
-                _discoveredUsers.TryAdd(user.Id, true);
+                if (await PublishHomeAssistantDiscoveryAsync(presenceEntity))
+                {
+                    _discoveredUsers.TryAdd(user.Id, true);
+                }
             }
 
             await PublishPresenceEntityAsync(presenceEntity);
@@ -290,7 +323,7 @@ public class DiscordPresenceMqttService : BackgroundService
     {
         if (imageId.StartsWith("mp:external/"))
         {
-            return $"https://media.discordapp.net/{imageId.Replace("mp:", string.Empty)}";
+            return $"https://media.discordapp.net/{imageId.Substring("mp:".Length)}";
         }
 
         if (applicationId.HasValue)
@@ -305,15 +338,14 @@ public class DiscordPresenceMqttService : BackgroundService
     /// Transmits a single Home Assistant MQTT Auto-Discovery configuration payload to dynamically register a unified user presence entity with all metadata attributes.
     /// </summary>
     /// <param name="entity">The presence entity instance containing user metadata.</param>
-    /// <returns>A task tracking asynchronous MQTT discovery publication.</returns>
-    private async Task PublishHomeAssistantDiscoveryAsync(UserPresenceEntity entity)
+    /// <returns><see langword="true"/> when the discovery payload was published; <see langword="false"/> when MQTT was unavailable, in which case the user is retried on the next update.</returns>
+    private async Task<bool> PublishHomeAssistantDiscoveryAsync(UserPresenceEntity entity)
     {
         if (!_mqttClient.IsConnected)
         {
-            await ConnectMqttClientAsync(CancellationToken.None);
-            if (!_mqttClient.IsConnected)
+            if (!await _coordinator.EnsureConnectedAsync(CancellationToken.None))
             {
-                return;
+                return false;
             }
         }
 
@@ -340,6 +372,7 @@ public class DiscordPresenceMqttService : BackgroundService
         await SendMqttDiscoveryPayloadAsync($"homeassistant/sensor/{deviceId}/config", singleEntityDiscovery);
 
         _logger.LogInformation("Published unified Home Assistant MQTT Discovery configuration entity for user {Username}", entity.Username);
+        return true;
     }
 
     /// <summary>
@@ -370,8 +403,7 @@ public class DiscordPresenceMqttService : BackgroundService
     {
         if (!_mqttClient.IsConnected)
         {
-            await ConnectMqttClientAsync(CancellationToken.None);
-            if (!_mqttClient.IsConnected)
+            if (!await _coordinator.EnsureConnectedAsync(CancellationToken.None))
             {
                 _logger.LogWarning("MQTT client disconnected. Skipping presence broadcast for {Username}", entity.Username);
                 return;

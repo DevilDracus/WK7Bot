@@ -12,6 +12,12 @@ public class HomeAssistantService : IHomeAssistantService
     private readonly ILogger<HomeAssistantService> _logger;
 
     /// <summary>
+    /// Per-request HTTP timeout; the Supervisor proxy is a local service, so a request still pending
+    /// after this window is treated as unreachable instead of hanging for the HttpClient default of 100 seconds.
+    /// </summary>
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="HomeAssistantService"/> class and configures default headers.
     /// </summary>
     /// <param name="httpClient">The HTTP client instance configured for REST communication.</param>
@@ -20,6 +26,7 @@ public class HomeAssistantService : IHomeAssistantService
     {
         _httpClient = httpClient;
         _logger = logger;
+        _httpClient.Timeout = RequestTimeout;
 
         string? supervisorToken = Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN");
         

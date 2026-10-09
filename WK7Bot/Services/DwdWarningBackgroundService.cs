@@ -105,12 +105,14 @@ public class DwdWarningBackgroundService : BackgroundService
             {
                 await EvaluateAsync(DateTime.Now, stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
             catch (Exception ex)
             {
+                // Timeouts surface as OperationCanceledException with the stopping token untouched;
+                // they land here so a slow feed response cannot silently kill the poll loop.
                 _logger.LogError(ex, "An error occurred while evaluating DWD warnings.");
             }
         }
@@ -254,13 +256,7 @@ public class DwdWarningBackgroundService : BackgroundService
             return null;
         }
 
-        var existingChannel = guild.TextChannels.FirstOrDefault(c => c.Name.Equals(TargetChannelName, StringComparison.OrdinalIgnoreCase));
-        if (existingChannel != null)
-        {
-            return existingChannel;
-        }
-
-        return await guild.CreateTextChannelAsync(TargetChannelName, properties =>
+        return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
         {
             properties.Topic = BuildChannelTopic();
             properties.PermissionOverwrites = new List<Overwrite>

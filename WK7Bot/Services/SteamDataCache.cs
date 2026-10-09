@@ -18,6 +18,12 @@ public class SteamDataCache
     private readonly ConcurrentDictionary<string, CacheEntry> _entries = new();
 
     /// <summary>
+    /// Tracks one in-flight Steam fetch per Steam ID so concurrent callers (presence event + periodic
+    /// refresh tick) share a single request instead of stampeding the Steam Web API.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, Task<SteamUserData?>> _inFlight = new();
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="SteamDataCache"/> class.
     /// </summary>
     /// <param name="steamService">The underlying Steam service used on cache misses.</param>
@@ -41,16 +47,51 @@ public class SteamDataCache
     /// <param name="steamId">The 64-bit Steam ID of the user.</param>
     /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
     /// <returns>The cached or freshly fetched <see cref="SteamUserData"/>, or null when retrieval fails.</returns>
-    public async Task<SteamUserData?> GetSteamUserDataAsync(string steamId, CancellationToken cancellationToken = default)
+    public Task<SteamUserData?> GetSteamUserDataAsync(string steamId, CancellationToken cancellationToken = default)
+        => GetSteamUserDataAsync(steamId, forceRefresh: false, cancellationToken);
+
+    /// <summary>
+    /// Returns cached Steam user data when younger than the time-to-live, or fetches fresh data when the entry
+    /// expired or when <paramref name="forceRefresh"/> is set. Concurrent cache misses for the same Steam ID
+    /// share one in-flight Steam request.
+    /// </summary>
+    /// <param name="steamId">The 64-bit Steam ID of the user.</param>
+    /// <param name="forceRefresh">When true, a still-fresh cached entry is bypassed and Steam is queried again.</param>
+    /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+    /// <returns>The cached or freshly fetched <see cref="SteamUserData"/>, or null when retrieval fails.</returns>
+    public async Task<SteamUserData?> GetSteamUserDataAsync(string steamId, bool forceRefresh, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(steamId);
 
         var now = DateTimeOffset.UtcNow;
-        if (_entries.TryGetValue(steamId, out var entry) && now - entry.FetchedAt < _timeToLive)
+        if (!forceRefresh && _entries.TryGetValue(steamId, out var entry) && now - entry.FetchedAt < _timeToLive)
         {
             return entry.Data;
         }
 
+        var fetchTask = _inFlight.GetOrAdd(steamId, id => FetchAndStoreAsync(id, cancellationToken));
+        try
+        {
+            return await fetchTask.WaitAsync(cancellationToken);
+        }
+        finally
+        {
+            // Remove only the exact task this call joined, so a newer in-flight fetch for the same
+            // Steam ID is never evicted. (The factory itself cannot remove: GetOrAdd inserts the
+            // factory's result after the factory has already returned.)
+            ((ICollection<KeyValuePair<string, Task<SteamUserData?>>>)_inFlight)
+                .Remove(new KeyValuePair<string, Task<SteamUserData?>>(steamId, fetchTask));
+        }
+    }
+
+    /// <summary>
+    /// Fetches fresh Steam user data and stores it (including null results) in the cache.
+    /// </summary>
+    /// <param name="steamId">The 64-bit Steam ID of the user.</param>
+    /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+    /// <returns>The freshly fetched <see cref="SteamUserData"/>, or null when retrieval fails.</returns>
+    private async Task<SteamUserData?> FetchAndStoreAsync(string steamId, CancellationToken cancellationToken)
+    {
         var data = await _steamService.GetSteamUserDataAsync(steamId, cancellationToken);
         _entries[steamId] = new CacheEntry(data, DateTimeOffset.UtcNow);
         return data;

@@ -127,6 +127,35 @@ public class WasteDispatchRepositoryTests : IDisposable
         await AssertRoundTripAsync(context);
     }
 
+    [Fact]
+    public async Task MarkSentAsync_ConcurrentContextsWithSameKey_SwallowDuplicateInsert()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"wk7-waste-dispatch-{Guid.NewGuid():N}.db");
+
+        try
+        {
+            var connectionString = $"Data Source={databasePath};Pooling=False";
+
+            await using (var firstContext = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options))
+            {
+                await firstContext.Database.EnsureCreatedAsync();
+                await new WasteDispatchRepository(firstContext).MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, new DateTime(2026, 10, 5));
+            }
+
+            // Second context has no tracked duplicate, so the insert hits the real primary-key
+            // violation and must be swallowed as "already recorded" by the repository guard.
+            await using var secondContext = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options);
+            await new WasteDispatchRepository(secondContext).MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, new DateTime(2026, 10, 5));
+
+            Assert.Equal(1, await secondContext.WasteDispatchLogs.CountAsync());
+            Assert.True(await new WasteDispatchRepository(secondContext).HasSentAsync(WasteDispatchKinds.DailyConfirmation, 100, new DateTime(2026, 10, 5)));
+        }
+        finally
+        {
+            File.Delete(databasePath);
+        }
+    }
+
     private static async Task AssertRoundTripAsync(BotDbContext context)
     {
         var repository = new WasteDispatchRepository(context);

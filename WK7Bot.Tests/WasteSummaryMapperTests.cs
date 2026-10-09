@@ -16,6 +16,9 @@ public class WasteSummaryMapperTests
     [InlineData("Wertstoff", "🟨 Gelbe Tonne / Gelber Sack (Wertstoffe)")]
     [InlineData("gelb", "🟨 Gelbe Tonne / Gelber Sack (Wertstoffe)")]
     [InlineData("Biogut", "🟫 Braune Tonne (Biogut)")]
+    [InlineData("Bioabfall", "🟫 Braune Tonne (Biogut)")]
+    [InlineData("Biomüll", "🟫 Braune Tonne (Biogut)")]
+    [InlineData("Bio", "🟫 Braune Tonne (Biogut)")]
     [InlineData("braun", "🟫 Braune Tonne (Biogut)")]
     public void MapToFriendlyName_KnownCategories(string input, string expected)
     {
@@ -55,8 +58,9 @@ public class WasteSummaryMapperTests
     [Fact]
     public void MapToFriendlyName_BioKeyword_RequiresBoundaryToAvoidFalsePositive()
     {
-        // "Biogut" matches; "Kiosk" must not match bare "bio"
+        // "Biogut" matches; "Kiosk" and "Biografie" must not match bare "bio"
         Assert.Contains("Braune Tonne", WasteSummaryMapper.MapToFriendlyName("Biogut"));
         Assert.Equal("🗑️ Kiosk", WasteSummaryMapper.MapToFriendlyName("Kiosk"));
+        Assert.Equal("🗑️ Biografie", WasteSummaryMapper.MapToFriendlyName("Biografie"));
     }
 }

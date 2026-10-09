@@ -283,13 +283,13 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
             string nutsFormatted = produceData.Nuts.Count > 0 ? string.Join(", ", produceData.Nuts) : "Keine angegeben";
 
             var embed = new EmbedBuilder()
-                .WithTitle($"🌱 Saisonkalender: {produceData.Month ?? monthName}")
+                .WithTitle(EmbedText.Title($"🌱 Saisonkalender: {produceData.Month ?? monthName}"))
                 .WithDescription($"Übersicht der regionalen Saisonprodukte (Zentraleuropa / Leipzig-Region) für **{monthName}**.")
                 .WithColor(Color.Green)
-                .AddField("🍎 Obst", fruitsFormatted, false)
-                .AddField("🥕 Gemüse", vegetablesFormatted, false)
-                .AddField("🌿 Kräuter", herbsFormatted, false)
-                .AddField("🌰 Nüsse", nutsFormatted, false)
+                .AddField("🍎 Obst", EmbedText.Field(fruitsFormatted), false)
+                .AddField("🥕 Gemüse", EmbedText.Field(vegetablesFormatted), false)
+                .AddField("🌿 Kräuter", EmbedText.Field(herbsFormatted), false)
+                .AddField("🌰 Nüsse", EmbedText.Field(nutsFormatted), false)
                 .WithFooter($"Requested by @{Context.User.Username} • Regionale Saisonware")
                 .WithCurrentTimestamp()
                 .Build();
@@ -323,14 +323,4 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
             return recipe;
         }
     }
-
-    /// <summary>
-    /// Normalises a produce category into a distinct, non-empty term list.
-    /// </summary>
-    private static List<string> CleanTerms(IEnumerable<string>? items)
-        => (items ?? Enumerable.Empty<string>())
-            .Where(item => !string.IsNullOrWhiteSpace(item))
-            .Select(item => item.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
 }

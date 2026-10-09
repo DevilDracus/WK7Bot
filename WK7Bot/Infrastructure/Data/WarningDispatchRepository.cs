@@ -56,11 +56,19 @@ public class WarningDispatchRepository : IWarningDispatchRepository
             return;
         }
 
-        await _dbContext.WarningDispatchLogs.AddAsync(
-            new WarningDispatchLog { WarningId = warningId, GuildId = guildId, SentAt = sentAt },
-            cancellationToken);
+        var log = new WarningDispatchLog { WarningId = warningId, GuildId = guildId, SentAt = sentAt };
+        await _dbContext.WarningDispatchLogs.AddAsync(log, cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (DatabaseWriteGuard.IsUniqueConstraintViolation(ex))
+        {
+            // Lost the race against a concurrent dispatcher — the row already exists, which is the
+            // desired state. Detach the failed insert so the shared context stays usable.
+            _dbContext.Entry(log).State = EntityState.Detached;
+        }
     }
 
     /// <summary>

@@ -49,11 +49,18 @@ public class LeipzigWasteService : ILeipzigWasteService
     public async Task<List<string>> GetWasteTypesForDateAsync(DateTime targetDate, CancellationToken cancellationToken = default)
     {
         var detectedWasteTypes = new List<string>();
-        var feedUrl = _configuration["LeipzigWaste:IcsFeedUrl"];
+
+        // Root key (config.yaml / /data/options.json) overrides the appsettings default so the
+        // add-on's private street address can be replaced without rebuilding the image.
+        var feedUrl = _configuration["leipzig_waste_ics_feed_url"];
+        if (string.IsNullOrWhiteSpace(feedUrl))
+        {
+            feedUrl = _configuration["LeipzigWaste:IcsFeedUrl"];
+        }
 
         if (string.IsNullOrWhiteSpace(feedUrl))
         {
-            _logger.LogError("Stadtreinigung Leipzig ICS feed URL is not configured in appsettings.json.");
+            _logger.LogError("Stadtreinigung Leipzig ICS feed URL is not configured (leipzig_waste_ics_feed_url).");
             return detectedWasteTypes;
         }
 

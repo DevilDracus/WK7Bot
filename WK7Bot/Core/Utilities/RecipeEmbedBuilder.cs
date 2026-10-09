@@ -27,6 +27,11 @@ public static class RecipeEmbedBuilder
     private const string OverflowHint =
         "… zu lang für Discord – das vollständige Rezept steht hinter dem Link am Titel bzw. in der Quelle.";
 
+    private const string DietTagsFieldName = "🏷️ Diet Tags";
+    private const string SafetyFieldName = "🛡️ Safety & Renal Notes";
+    private const string SeasonalFieldName = "🌿 Saisonale Zutaten";
+    private const string DisclaimerFieldName = "⚠️ Hinweis";
+
     /// <summary>
     /// Builds the embed for a Gemini generated, renal screened recipe.
     /// </summary>
@@ -58,14 +63,10 @@ public static class RecipeEmbedBuilder
         // Hard Discord limits for the fixed slots; recipe lists are chunked instead of truncated.
         var safeTitle = Truncate(title, 256);
         var safeFooter = Truncate(footer ?? string.Empty, 2048);
-        var description = Truncate(BuildDescription(recipe), 4096);
-        var builder = new EmbedBuilder()
-            .WithTitle(safeTitle)
-            .WithDescription(description)
-            .WithColor(color);
 
-        // Sections that are added after the variable-length ones are measured up front so the recipe text can
-        // never crowd out the diet/safety/disclaimer fields.
+        // Sections that are added after the variable-length ones are measured up front (field names
+        // included) so the recipe text can never crowd out the diet/safety/disclaimer fields and the
+        // embed stays inside Discord's total length limit.
         var dietTags = recipe.DietTags ?? new List<string>();
         var formattedTags = dietTags.Count > 0 ? DietTagFormatter.Format(dietTags) : string.Empty;
         var safetyNotes = string.IsNullOrWhiteSpace(recipe.TransplantSafetyNotes)
@@ -74,14 +75,24 @@ public static class RecipeEmbedBuilder
         var seasonalIngredients = string.Join(", ", recipe.SeasonalIngredientsUsed ?? new List<string>());
         var disclaimer = includeDisclaimer ? BuildDisclaimer(recipe.SourceUrl) : string.Empty;
 
+        int reserved =
+            (formattedTags.Length > 0 ? DietTagsFieldName.Length + formattedTags.Length : 0)
+            + (safetyNotes.Length > 0 ? SafetyFieldName.Length + safetyNotes.Length : 0)
+            + (seasonalIngredients.Length > 0 ? SeasonalFieldName.Length + seasonalIngredients.Length : 0)
+            + (disclaimer.Length > 0 ? DisclaimerFieldName.Length + disclaimer.Length : 0);
+
         int budget = EmbedLengthLimit - EmbedLengthSafety
             - safeTitle.Length
-            - description.Length
             - safeFooter.Length
-            - formattedTags.Length
-            - safetyNotes.Length
-            - seasonalIngredients.Length
-            - disclaimer.Length;
+            - reserved;
+
+        var description = Truncate(BuildDescription(recipe), Math.Clamp(budget, 0, 4096));
+        budget -= description.Length;
+
+        var builder = new EmbedBuilder()
+            .WithTitle(safeTitle)
+            .WithDescription(description)
+            .WithColor(color);
 
         var ingredients = FormatIngredients(recipe.Ingredients);
         if (ingredients.Length > 0)
@@ -97,17 +108,17 @@ public static class RecipeEmbedBuilder
 
         if (formattedTags.Length > 0)
         {
-            builder.AddField("🏷️ Diet Tags", formattedTags, false);
+            budget = AddFixedField(builder, DietTagsFieldName, formattedTags, budget);
         }
 
         if (safetyNotes.Length > 0)
         {
-            builder.AddField("🛡️ Safety & Renal Notes", safetyNotes, false);
+            budget = AddFixedField(builder, SafetyFieldName, safetyNotes, budget);
         }
 
         if (seasonalIngredients.Length > 0)
         {
-            builder.AddField("🌿 Saisonale Zutaten", seasonalIngredients, false);
+            budget = AddFixedField(builder, SeasonalFieldName, seasonalIngredients, budget);
         }
 
         if (includeDisclaimer)
@@ -122,7 +133,10 @@ public static class RecipeEmbedBuilder
                 builder.WithThumbnailUrl(recipe.ImageUrl);
             }
 
-            builder.AddField("⚠️ Hinweis", disclaimer, false);
+            if (disclaimer.Length > 0)
+            {
+                AddFixedField(builder, DisclaimerFieldName, disclaimer, budget);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(safeFooter))
@@ -132,6 +146,34 @@ public static class RecipeEmbedBuilder
 
         builder.WithCurrentTimestamp();
         return builder.Build();
+    }
+
+    /// <summary>
+    /// Adds a fixed single-field section clamped to the remaining embed-wide budget (field name included),
+    /// skipping it entirely when not even the name fits.
+    /// </summary>
+    /// <returns>The remaining budget after the section was added or skipped.</returns>
+    private static int AddFixedField(EmbedBuilder builder, string name, string value, int budget)
+    {
+        if (string.IsNullOrEmpty(value) || budget <= 0)
+        {
+            return budget;
+        }
+
+        if (name.Length + value.Length <= budget)
+        {
+            builder.AddField(name, value, false);
+            return budget - name.Length - value.Length;
+        }
+
+        int room = budget - name.Length;
+        if (room < 16)
+        {
+            return budget;
+        }
+
+        builder.AddField(name, Truncate(value, room), false);
+        return 0;
     }
 
     /// <summary>
@@ -285,5 +327,22 @@ public static class RecipeEmbedBuilder
     /// when truncated. Used only for single-line values; recipe lists are chunked instead of truncated.
     /// </summary>
     private static string Truncate(string value, int limit)
-        => value.Length > limit ? value[..(limit - 3)] + "..." : value;
+    {
+        if (limit <= 0)
+        {
+            return string.Empty;
+        }
+
+        if (value.Length <= limit)
+        {
+            return value;
+        }
+
+        if (limit <= 3)
+        {
+            return value[..limit];
+        }
+
+        return value[..(limit - 3)] + "...";
+    }
 }

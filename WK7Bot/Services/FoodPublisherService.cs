@@ -9,9 +9,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Entities;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Options;
@@ -27,13 +29,33 @@ public class FoodPublisherService : BackgroundService
     private readonly IGeminiFoodService _geminiFoodService;
     private readonly IRecipeSearchService _recipeSearchService;
     private readonly IRandomSource _randomSource;
+    private readonly IServiceProvider _serviceProvider;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<FoodPublisherService> _logger;
 
     private const string TargetChannelName = "🍎food";
 
+    /// <summary>Earliest time of day the monthly produce post may go out (09:00).</summary>
+    private static readonly TimeSpan MonthlyWindowOpen = TimeSpan.FromHours(9);
+
+    /// <summary>Earliest time of day the weekly recipe post may go out (15:30, the original anchor).</summary>
+    private static readonly TimeSpan WeeklyWindowOpen = new(15, 30, 0);
+
+    /// <summary>Failed attempts are spaced five minutes apart inside the publish window.</summary>
+    private static readonly TimeSpan AttemptRetryDelay = TimeSpan.FromMinutes(5);
+
+    /// <summary>How many failed attempts a slot makes before giving up for the current period.</summary>
+    private const int MaxAttemptsPerWindow = 10;
+
+    /// <summary>Dispatch records older than this are pruned after each successful post.</summary>
+    private static readonly TimeSpan DispatchRetention = TimeSpan.FromDays(90);
+
     private DateTime? _lastMonthlyPostDate;
     private DateTime? _lastWeeklyRecipePostDate;
+    private DateTime _nextMonthlyAttempt = DateTime.MinValue;
+    private DateTime _nextWeeklyAttempt = DateTime.MinValue;
+    private int _monthlyAttempts;
+    private int _weeklyAttempts;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FoodPublisherService"/> class.
@@ -42,6 +64,7 @@ public class FoodPublisherService : BackgroundService
     /// <param name="geminiFoodService">The Gemini AI food and recipe service dependency.</param>
     /// <param name="recipeSearchService">The web recipe search service used for the weekly seasonal recipe.</param>
     /// <param name="options">Application options instance.</param>
+    /// <param name="serviceProvider">Root service provider used to resolve scoped database services.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="randomSource">Randomness used to pick the seasonal search terms; defaults to <see cref="SystemRandomSource"/>.</param>
     public FoodPublisherService(
@@ -49,6 +72,7 @@ public class FoodPublisherService : BackgroundService
         IGeminiFoodService geminiFoodService,
         IRecipeSearchService recipeSearchService,
         IOptions<Wk7BotOptions> options,
+        IServiceProvider serviceProvider,
         ILogger<FoodPublisherService> logger,
         IRandomSource? randomSource = null)
     {
@@ -56,6 +80,7 @@ public class FoodPublisherService : BackgroundService
         _geminiFoodService = geminiFoodService ?? throw new ArgumentNullException(nameof(geminiFoodService));
         _recipeSearchService = recipeSearchService ?? throw new ArgumentNullException(nameof(recipeSearchService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _randomSource = randomSource ?? new SystemRandomSource();
     }
@@ -83,13 +108,17 @@ public class FoodPublisherService : BackgroundService
 
                 if (ShouldPublishMonthlyProduce(now))
                 {
-                    await PublishMonthlyProduceAsync(now, stoppingToken);
+                    await AttemptMonthlyProduceAsync(now, stoppingToken);
                 }
 
                 if (ShouldPublishWeeklyRecipe(now))
                 {
-                    await PublishWeeklyRecipeAsync(now, stoppingToken);
+                    await AttemptWeeklyRecipeAsync(now, stoppingToken);
                 }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {
@@ -101,60 +130,164 @@ public class FoodPublisherService : BackgroundService
     }
 
     /// <summary>
-    /// Determines whether the monthly produce post should trigger on the first day of the current month.
+    /// Determines whether the monthly produce post should trigger: the first day of the month, 09:00 or later,
+    /// not yet posted this month, and the retry backoff elapsed. The window (instead of an exact-minute gate)
+    /// means a restart or a transient failure no longer loses the post for the whole month.
     /// </summary>
     private bool ShouldPublishMonthlyProduce(DateTime now)
     {
         if (now.Day != 1) return false;
-        if (now.Hour != 9 || now.Minute != 0) return false;
+        if (now.TimeOfDay < MonthlyWindowOpen) return false;
+        if (_lastMonthlyPostDate.HasValue && _lastMonthlyPostDate.Value.Month == now.Month) return false;
 
-        return !_lastMonthlyPostDate.HasValue || _lastMonthlyPostDate.Value.Month != now.Month;
+        return now >= _nextMonthlyAttempt;
     }
 
     /// <summary>
-    /// Determines whether the weekly renal recipe should trigger on Thursday at 15:30.
+    /// Determines whether the weekly renal recipe should trigger: Thursday 15:30 or later, not yet posted today,
+    /// and the retry backoff elapsed.
     /// </summary>
     private bool ShouldPublishWeeklyRecipe(DateTime now)
     {
         if (now.DayOfWeek != DayOfWeek.Thursday) return false;
-        if (now.Hour != 15 || now.Minute != 30) return false;
+        if (now.TimeOfDay < WeeklyWindowOpen) return false;
+        if (_lastWeeklyRecipePostDate.HasValue && _lastWeeklyRecipePostDate.Value.Date == now.Date) return false;
 
-        return !_lastWeeklyRecipePostDate.HasValue || _lastWeeklyRecipePostDate.Value.Date != now.Date;
+        return now >= _nextWeeklyAttempt;
+    }
+
+    /// <summary>
+    /// Runs one monthly produce attempt with success/attempt bookkeeping so transient failures retry
+    /// every five minutes instead of silently losing the post until next month.
+    /// </summary>
+    private async Task AttemptMonthlyProduceAsync(DateTime now, CancellationToken cancellationToken)
+    {
+        var succeeded = false;
+        try
+        {
+            succeeded = await PublishMonthlyProduceAsync(now, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Monthly produce publication attempt failed.");
+        }
+
+        if (succeeded)
+        {
+            _lastMonthlyPostDate = now;
+            _monthlyAttempts = 0;
+            _nextMonthlyAttempt = DateTime.MinValue;
+            await PersistSentAsync(FoodDispatchKinds.MonthlyProduce, now, cancellationToken);
+            return;
+        }
+
+        _monthlyAttempts++;
+        if (_monthlyAttempts >= MaxAttemptsPerWindow)
+        {
+            _logger.LogError(
+                "Giving up on the monthly produce post for {Month:MM/yyyy} after {Attempts} failed attempts.",
+                now,
+                _monthlyAttempts);
+            _lastMonthlyPostDate = now;
+            _monthlyAttempts = 0;
+            _nextMonthlyAttempt = DateTime.MinValue;
+        }
+        else
+        {
+            _nextMonthlyAttempt = now.Add(AttemptRetryDelay);
+        }
+    }
+
+    /// <summary>
+    /// Runs one weekly recipe attempt with success/attempt bookkeeping so transient failures retry
+    /// every five minutes instead of silently losing the slot for the week.
+    /// </summary>
+    private async Task AttemptWeeklyRecipeAsync(DateTime now, CancellationToken cancellationToken)
+    {
+        var succeeded = false;
+        try
+        {
+            succeeded = await PublishWeeklyRecipeAsync(now, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Weekly recipe publication attempt failed.");
+        }
+
+        if (succeeded)
+        {
+            _lastWeeklyRecipePostDate = now;
+            _weeklyAttempts = 0;
+            _nextWeeklyAttempt = DateTime.MinValue;
+            await PersistSentAsync(FoodDispatchKinds.WeeklyRecipe, now, cancellationToken);
+            return;
+        }
+
+        _weeklyAttempts++;
+        if (_weeklyAttempts >= MaxAttemptsPerWindow)
+        {
+            _logger.LogError(
+                "Giving up on the weekly recipe post for {Date:dd.MM.yyyy} after {Attempts} failed attempts.",
+                now.Date,
+                _weeklyAttempts);
+            _lastWeeklyRecipePostDate = now;
+            _weeklyAttempts = 0;
+            _nextWeeklyAttempt = DateTime.MinValue;
+        }
+        else
+        {
+            _nextWeeklyAttempt = now.Add(AttemptRetryDelay);
+        }
     }
 
     /// <summary>
     /// Queries seasonal produce data and posts the embedded payload to the target Discord channel.
     /// </summary>
-    private async Task PublishMonthlyProduceAsync(DateTime now, CancellationToken cancellationToken)
+    /// <returns><see langword="true"/> when the post was delivered (or was already delivered before a restart).</returns>
+    private async Task<bool> PublishMonthlyProduceAsync(DateTime now, CancellationToken cancellationToken)
     {
+        if (await WasAlreadyDispatchedAsync(FoodDispatchKinds.MonthlyProduce, now, cancellationToken))
+        {
+            _logger.LogInformation("Monthly produce post for {Month:MM/yyyy} already dispatched before a restart; skipping.", now);
+            return true;
+        }
+
         var channel = ResolveTargetChannel();
-        if (channel == null) return;
+        if (channel == null) return false;
 
         _logger.LogInformation("Generating monthly seasonal produce list for {Month}", now.ToString("MMMM"));
 
         var produce = await _geminiFoodService.GetSeasonalProduceAsync(now, cancellationToken);
-        if (produce == null) return;
+        if (produce == null) return false;
 
         string monthName = DateTime.Today.ToString("MMMM", CultureInfo.GetCultureInfo("de-DE"));
         string fruitsFormatted = produce.Fruits.Count > 0 ? string.Join(", ", produce.Fruits) : "Keine angegeben";
         string vegetablesFormatted = produce.Vegetables.Count > 0 ? string.Join(", ", produce.Vegetables) : "Keine angegeben";
         string herbsFormatted = produce.Herbs.Count > 0 ? string.Join(", ", produce.Herbs) : "Keine angegeben";
         string nutsFormatted = produce.Nuts.Count > 0 ? string.Join(", ", produce.Nuts) : "Keine angegeben";
-        
+
         var embed = new EmbedBuilder()
-            .WithTitle($"🌱 Saisonkalender: {produce.Month ?? monthName}")
-            .WithDescription($"Übersicht der regionalen Saisonprodukte (Zentraleuropa / Leipzig-Region) für **{monthName}**.")
+            .WithTitle(EmbedText.Title($"🌱 Saisonkalender: {produce.Month ?? monthName}"))
+            .WithDescription(EmbedText.Description($"Übersicht der regionalen Saisonprodukte (Zentraleuropa / Leipzig-Region) für **{monthName}**."))
             .WithColor(Color.Green)
-            .AddField("🍎 Obst", fruitsFormatted, false)
-            .AddField("🥕 Gemüse", vegetablesFormatted, false)
-            .AddField("🌿 Kräuter", herbsFormatted, false)
-            .AddField("🌰 Nüsse", nutsFormatted, false)
+            .AddField("🍎 Obst", EmbedText.Field(fruitsFormatted), false)
+            .AddField("🥕 Gemüse", EmbedText.Field(vegetablesFormatted), false)
+            .AddField("🌿 Kräuter", EmbedText.Field(herbsFormatted), false)
+            .AddField("🌰 Nüsse", EmbedText.Field(nutsFormatted), false)
             .WithFooter($"Sent by WK7 Bot • Regionale Saisonware")
             .WithCurrentTimestamp()
             .Build();
 
         await channel.SendMessageAsync(embed: embed);
-        _lastMonthlyPostDate = now;
+        return true;
     }
 
     /// <summary>
@@ -162,10 +295,17 @@ public class FoodPublisherService : BackgroundService
     /// to the target channel. When the search yields nothing, the previously used Gemini-generated recipe is posted
     /// instead so the weekly slot is never empty.
     /// </summary>
-    private async Task PublishWeeklyRecipeAsync(DateTime now, CancellationToken cancellationToken)
+    /// <returns><see langword="true"/> when the post was delivered (or was already delivered before a restart).</returns>
+    private async Task<bool> PublishWeeklyRecipeAsync(DateTime now, CancellationToken cancellationToken)
     {
+        if (await WasAlreadyDispatchedAsync(FoodDispatchKinds.WeeklyRecipe, now, cancellationToken))
+        {
+            _logger.LogInformation("Weekly recipe post for {Date:dd.MM.yyyy} already dispatched before a restart; skipping.", now.Date);
+            return true;
+        }
+
         var channel = ResolveTargetChannel();
-        if (channel == null) return;
+        if (channel == null) return false;
 
         _logger.LogInformation("Searching a seasonal web recipe for {Date}", now.ToShortDateString());
 
@@ -184,8 +324,7 @@ public class FoodPublisherService : BackgroundService
                 $"Automatisch veröffentlicht • Saisonale Zutaten: {string.Join(", ", seasonalTerms)}");
 
             await channel.SendMessageAsync(embed: embed);
-            _lastWeeklyRecipePostDate = now;
-            return;
+            return true;
         }
 
         _logger.LogWarning(
@@ -193,11 +332,57 @@ public class FoodPublisherService : BackgroundService
             now.ToShortDateString());
 
         var generated = await _geminiFoodService.GetWeeklyRenalRecipeAsync(now, cancellationToken);
-        if (generated == null) return;
+        if (generated == null) return false;
 
         await channel.SendMessageAsync(
             embed: RecipeEmbedBuilder.BuildGenerated(generated, "Tailored for Dialysis & Kidney Transplant Safety"));
-        _lastWeeklyRecipePostDate = now;
+        return true;
+    }
+
+    /// <summary>
+    /// Persists the successful post so a restart inside the same period cannot duplicate it.
+    /// </summary>
+    private async Task PersistSentAsync(string kind, DateTime now, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<Core.Interfaces.IFoodDispatchRepository>();
+
+            await repository.MarkSentAsync(kind, now.Date, cancellationToken);
+            await repository.PruneAsync(now.Date - DispatchRetention, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to persist dispatch state for {Kind}; an in-memory flag guards this process until restart.", kind);
+        }
+    }
+
+    /// <summary>
+    /// Reads the persisted dispatch state so a restart after a successful send cannot re-post the same period.
+    /// Failures fall back to the in-memory flag rather than blocking the publication.
+    /// </summary>
+    private async Task<bool> WasAlreadyDispatchedAsync(string kind, DateTime now, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<Core.Interfaces.IFoodDispatchRepository>();
+            return await repository.HasSentAsync(kind, now.Date, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not read persisted dispatch state for {Kind}; falling back to in-memory state.", kind);
+            return false;
+        }
     }
 
     /// <summary>

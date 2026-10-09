@@ -21,30 +21,38 @@ public class HomeAssistantNotifierService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IMqttClient _mqttClient;
+    private readonly MqttConnectionCoordinator _coordinator;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<HomeAssistantNotifierService> _logger;
+
+    private CancellationToken _stoppingToken = CancellationToken.None;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeAssistantNotifierService"/> class with required dependencies.
     /// </summary>
     /// <param name="discordClient">The active Discord socket client instance used for channel and user interactions.</param>
     /// <param name="mqttClient">The active MQTT client instance used to communicate with Home Assistant.</param>
+    /// <param name="coordinator">The shared MQTT connection coordinator owning connect/reconnect behavior.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The diagnostic logging service instance.</param>
     public HomeAssistantNotifierService(
         DiscordSocketClient discordClient, 
-        IMqttClient mqttClient, 
+        IMqttClient mqttClient,
+        MqttConnectionCoordinator coordinator,
         IOptions<Wk7BotOptions> options,
         ILogger<HomeAssistantNotifierService> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
+        _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
     /// <summary>
-    /// Connects asynchronously to the MQTT broker, applies credentials if configured, subscribes to Discord events, and listens for MQTT notifications.
+    /// Wires MQTT notification handling, Discord entity tracking, and the shared MQTT connection lifecycle:
+    /// every successful (re)connect (re)subscribes the notification topic and re-registers discovery entities,
+    /// so a broker restart no longer silently kills Home Assistant notifications.
     /// </summary>
     /// <param name="stoppingToken">A cancellation token monitored to observe service shutdown requests.</param>
     /// <returns>A task representing the background execution lifecycle.</returns>
@@ -56,48 +64,45 @@ public class HomeAssistantNotifierService : BackgroundService
             return;
         }
 
-        var mqttHost = string.IsNullOrWhiteSpace(_options.MqttHost) ? "core-mosquitto" : _options.MqttHost;
-        var mqttPort = _options.MqttPort > 0 ? _options.MqttPort : 1883;
+        _stoppingToken = stoppingToken;
 
-        var optionsBuilder = new MqttClientOptionsBuilder()
-            .WithTcpServer(mqttHost, mqttPort)
-            .WithCleanSession();
-
-        if (!string.IsNullOrWhiteSpace(_options.MqttUsername))
-        {
-            optionsBuilder.WithCredentials(_options.MqttUsername, _options.MqttPassword);
-        }
-
-        try
-        {
-            if (!_mqttClient.IsConnected)
-            {
-                await _mqttClient.ConnectAsync(optionsBuilder.Build(), stoppingToken);
-                _logger.LogInformation("Successfully connected Home Assistant Notifier to MQTT broker at {Host}:{Port}", mqttHost, mqttPort);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to connect Home Assistant Notifier to MQTT broker at {Host}:{Port}", mqttHost, mqttPort);
-            return;
-        }
+        _mqttClient.ApplicationMessageReceivedAsync += ProcessIncomingNotificationAsync;
+        _coordinator.ConnectionEstablishedAsync += OnMqttConnectionEstablishedAsync;
 
         _discordClient.Ready += OnReadyAsync;
         _discordClient.ChannelCreated += OnChannelCreatedAsync;
         _discordClient.ChannelDestroyed += OnChannelDestroyedAsync;
         _discordClient.ChannelUpdated += OnChannelUpdatedAsync;
 
+        await _coordinator.StartMaintainingAsync(stoppingToken);
+    }
+
+    /// <summary>
+    /// Runs after every successful MQTT (re)connect: subscribes to the notification command topic and
+    /// re-registers all discovery entities (retained payloads cover broker restarts, re-registration covers a
+    /// fresh broker).
+    /// </summary>
+    /// <returns>A task representing the subscription and re-registration.</returns>
+    private async Task OnMqttConnectionEstablishedAsync()
+    {
+        try
+        {
+            await _mqttClient.SubscribeAsync("homeassistant/notify/+/set", cancellationToken: _stoppingToken);
+        }
+        catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to subscribe to the MQTT notification topic; Home Assistant notifications will not work until the next reconnect.");
+            return;
+        }
+
         if (_discordClient.ConnectionState == ConnectionState.Connected)
         {
             await RegisterAllEntitiesAsync();
         }
-
-        _mqttClient.ApplicationMessageReceivedAsync += async eventArgs =>
-        {
-            await ProcessIncomingNotificationAsync(eventArgs);
-        };
-
-        await _mqttClient.SubscribeAsync("homeassistant/notify/+/set", cancellationToken: stoppingToken);
     }
 
     /// <summary>
@@ -106,7 +111,19 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <returns>A task representing the initial entity discovery operation.</returns>
     private async Task OnReadyAsync()
     {
-        await RegisterAllEntitiesAsync();
+        try
+        {
+            await RegisterAllEntitiesAsync();
+        }
+        catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
+        {
+            // Host shutdown during registration.
+        }
+        catch (Exception ex)
+        {
+            // Registration runs again on the next MQTT connect, so a failure here must not escape the event.
+            _logger.LogError(ex, "Entity registration after Discord ready failed; it will retry on the next MQTT connect.");
+        }
     }
 
     /// <summary>
@@ -162,20 +179,51 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <returns>A task representing the complete entity registration workflow.</returns>
     public async Task RegisterAllEntitiesAsync()
     {
+        if (!_mqttClient.IsConnected)
+        {
+            _logger.LogInformation("MQTT is not connected; entity registration is deferred to the next connect.");
+            return;
+        }
+
         foreach (var guild in _discordClient.Guilds)
         {
             foreach (var channel in guild.TextChannels)
             {
-                if (IsWritable(channel))
+                if (!IsWritable(channel))
+                {
+                    continue;
+                }
+
+                try
                 {
                     await RegisterChannelNotificationEntityAsync(channel);
+                }
+                catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // Stable message text so identical failures collapse into one throttled notification.
+                    _logger.LogError(ex, "Publishing MQTT discovery while registering channel entities failed; it will retry on the next connect.");
                 }
             }
         }
 
         foreach (var userId in GetConfiguredDmUserIds())
         {
-            await RegisterUserDmNotificationEntityAsync(userId);
+            try
+            {
+                await RegisterUserDmNotificationEntityAsync(userId);
+            }
+            catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Publishing MQTT discovery while registering DM entities failed; it will retry on the next connect.");
+            }
         }
     }
 
@@ -314,39 +362,51 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <returns>A task representing the message dispatch operation.</returns>
     private async Task ProcessIncomingNotificationAsync(MqttApplicationMessageReceivedEventArgs eventArgs)
     {
-        var topic = eventArgs.ApplicationMessage.Topic;
-        var payloadText = eventArgs.ApplicationMessage.ConvertPayloadToString();
-
-        var segments = topic.Split('/');
-        if (segments.Length == 4 && segments[2].StartsWith("wk7_") && segments[3] == "set")
+        try
         {
-            var identifierPart = segments[2].Replace("wk7_", string.Empty);
+            var topic = eventArgs.ApplicationMessage.Topic;
+            var payloadText = eventArgs.ApplicationMessage.ConvertPayloadToString();
 
-            if (identifierPart.StartsWith("dm_"))
+            var segments = topic.Split('/');
+            if (segments.Length == 4 && segments[2].StartsWith("wk7_") && segments[3] == "set")
             {
-                var userIdString = identifierPart.Replace("dm_", string.Empty);
-                if (ulong.TryParse(userIdString, out var userId))
-                {
-                    IUser? user = _discordClient.GetUser(userId);
-                    if (user == null)
-                    {
-                        user = await _discordClient.Rest.GetUserAsync(userId);
-                    }
+                var identifierPart = segments[2].Substring("wk7_".Length);
 
-                    if (user != null)
+                if (identifierPart.StartsWith("dm_"))
+                {
+                    var userIdString = identifierPart.Substring("dm_".Length);
+                    if (ulong.TryParse(userIdString, out var userId))
                     {
-                        var dmChannel = await user.CreateDMChannelAsync();
-                        await dmChannel.SendMessageAsync(payloadText);
+                        IUser? user = _discordClient.GetUser(userId);
+                        if (user == null)
+                        {
+                            user = await _discordClient.Rest.GetUserAsync(userId);
+                        }
+
+                        if (user != null)
+                        {
+                            var dmChannel = await user.CreateDMChannelAsync();
+                            await dmChannel.SendMessageAsync(payloadText);
+                        }
+                    }
+                }
+                else if (ulong.TryParse(identifierPart, out var channelId))
+                {
+                    if (_discordClient.GetChannel(channelId) is SocketTextChannel textChannel)
+                    {
+                        await textChannel.SendMessageAsync(payloadText);
                     }
                 }
             }
-            else if (ulong.TryParse(identifierPart, out var channelId))
-            {
-                if (_discordClient.GetChannel(channelId) is SocketTextChannel textChannel)
-                {
-                    await textChannel.SendMessageAsync(payloadText);
-                }
-            }
+        }
+        catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
+        {
+            // Host shutdown while dispatching.
+        }
+        catch (Exception ex)
+        {
+            // Stable message text so identical dispatch failures collapse into one throttled notification.
+            _logger.LogError(ex, "Failed to dispatch an incoming MQTT notification to Discord.");
         }
     }
 }

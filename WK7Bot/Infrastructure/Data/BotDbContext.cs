@@ -37,6 +37,11 @@ public class BotDbContext : DbContext
     public DbSet<WarningDispatchLog> WarningDispatchLogs => Set<WarningDispatchLog>();
 
     /// <summary>
+    /// Gets or sets the database set for tracking already dispatched automatic food publications.
+    /// </summary>
+    public DbSet<FoodDispatchLog> FoodDispatchLogs => Set<FoodDispatchLog>();
+
+    /// <summary>
     /// Gets or sets the database set for spontaneous meetups ("Spontan-Treff").
     /// </summary>
     public DbSet<SpontanTreff> SpontanTreffs => Set<SpontanTreff>();
@@ -83,6 +88,13 @@ public class BotDbContext : DbContext
             entity.Property(e => e.WarningId).IsRequired().HasMaxLength(160);
         });
 
+        modelBuilder.Entity<FoodDispatchLog>(entity =>
+        {
+            entity.ToTable("FoodDispatchLogs");
+            entity.HasKey(e => new { e.Kind, e.SentOn });
+            entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
+        });
+
         modelBuilder.Entity<SpontanTreff>(entity =>
         {
             entity.ToTable("SpontanTreffs");
@@ -90,6 +102,9 @@ public class BotDbContext : DbContext
             entity.Property(e => e.OrganizerName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Plan).IsRequired().HasMaxLength(500);
             entity.Property(e => e.Location).HasMaxLength(200);
+
+            // Backs the every-minute expiry sweep (Closed == false && ExpiresAt <= now).
+            entity.HasIndex(e => new { e.Closed, e.ExpiresAt });
         });
 
         modelBuilder.Entity<SpontanTreffResponse>(entity =>

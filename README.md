@@ -359,6 +359,7 @@ discord_dm_user_ids:
   - "123456789012345678"
 error_notify_user_ids:
   - "162201162257399808"                        # User IDs receiving captured errors as DM embeds
+leipzig_waste_ics_feed_url: ""                  # Optional root override of LeipzigWaste:IcsFeedUrl (empty = use the appsettings section)
 alexa_notification:
   target_user_id: "YOUR_DISCORD_USER_ID"
   api_token: "YOUR_GETNOTIFY_TOKEN"
@@ -484,10 +485,10 @@ Secrets may also be supplied via environment variables (`DISCORD_BOT_TOKEN`, `SU
 #### Acquiring a Battle.net refresh token
 
 1. At [develop.battle.net](https://develop.battle.net) create an application with client type **Confidential** and a redirect URI (e.g. `http://localhost:8080`); copy the **Client ID** and **Client Secret** into `battlenet_client_id` / `battlenet_client_secret`.
-2. Open the authorize URL in a browser (the OAuth host region does not matter) and approve the requested scopes `openid wow.profile d3.profile`:
+2. Open the authorize URL in a browser (the OAuth host region does not matter) and approve the requested scopes `openid offline_access wow.profile d3.profile` — without `offline_access` the token endpoint returns no refresh token:
 
    ```text
-   https://us.battle.net/oauth/authorize?client_id=<CLIENT_ID>&redirect_uri=http://localhost:8080&response_type=code&scope=openid%20wow.profile%20d3.profile&state=wk7
+   https://us.battle.net/oauth/authorize?client_id=<CLIENT_ID>&redirect_uri=http://localhost:8080&response_type=code&scope=openid%20offline_access%20wow.profile%20d3.profile&state=wk7
    ```
 
 3. The browser redirects to `http://localhost:8080/?code=<CODE>&state=wk7` — the page itself does not need to load, copy `code` from the address bar.

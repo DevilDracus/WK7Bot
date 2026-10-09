@@ -266,18 +266,24 @@ public class GeminiFoodServiceTests
     [Fact]
     public async Task GetSeasonalProduceAsync_FallsBackToSecondaryModel_WhenPrimaryFails()
     {
-        int calls = 0;
-        var handler = new StubHttpMessageHandler(_ =>
-            ++calls == 1
+        // 5xx responses are retried, so the primary model must keep failing for all of its attempts
+        // before the service falls back to the secondary model.
+        string? primaryModel = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var model = ModelName(request.RequestUri!.ToString());
+            primaryModel ??= model;
+            return string.Equals(model, primaryModel, StringComparison.Ordinal)
                 ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                : Json(Envelope(ProduceJson)));
+                : Json(Envelope(ProduceJson));
+        });
         var service = CreateService(handler);
 
         var result = await service.GetSeasonalProduceAsync(new DateTime(2026, 7, 1));
 
         Assert.NotNull(result);
-        Assert.Equal(2, handler.CallCount);
-        Assert.NotEqual(ModelName(handler.RequestUrls[0]), ModelName(handler.RequestUrls[1]));
+        Assert.Equal(4, handler.CallCount);
+        Assert.NotEqual(ModelName(handler.RequestUrls[0]), ModelName(handler.RequestUrls[3]));
     }
 
     [Fact]
@@ -289,7 +295,7 @@ public class GeminiFoodServiceTests
         var result = await service.GetSeasonalProduceAsync(new DateTime(2026, 7, 1));
 
         Assert.Null(result);
-        Assert.Equal(2, handler.CallCount);
+        Assert.Equal(6, handler.CallCount);
     }
 
     [Fact]

@@ -106,8 +106,16 @@ public class WebRecipeSearchService : IRecipeSearchService
     private readonly ILogger<WebRecipeSearchService> _logger;
     private readonly IRandomSource _random;
     private readonly IMemoryCache? _recentRecipeCache;
-    private readonly object _recentRecipeLock = new();
-    private DateTime _primarySearchBlockedUntilUtc = DateTime.MinValue;
+
+    /// <summary>
+    /// Guards the recently-served list and the search cooldown. Both pieces of state are static because
+    /// this service is resolved as a transient typed HttpClient while <see cref="IMemoryCache"/> is a
+    /// singleton: per-instance locks would not protect the shared cache list from concurrent mutation
+    /// (index-out-of-range while enumerating) and the cooldown would reset on every new instance.
+    /// </summary>
+    private static readonly object RecentRecipeSync = new();
+
+    private static long _primarySearchBlockedUntilUtcTicks;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebRecipeSearchService"/> class.
@@ -148,7 +156,7 @@ public class WebRecipeSearchService : IRecipeSearchService
         }
 
         string? searchHtml = null;
-        bool skippedPrimarySearch = DateTime.UtcNow < _primarySearchBlockedUntilUtc;
+        bool skippedPrimarySearch = DateTime.UtcNow < ReadPrimarySearchBlockedUntilUtc();
         if (skippedPrimarySearch)
         {
             _logger.LogDebug("Skipping the DuckDuckGo search (recent failure cooldown) for query '{Query}'.", query);
@@ -165,12 +173,12 @@ public class WebRecipeSearchService : IRecipeSearchService
 
         if (searchAvailable)
         {
-            _primarySearchBlockedUntilUtc = DateTime.MinValue;
+            SetPrimarySearchBlockedUntilUtc(DateTime.MinValue);
         }
         else if (!skippedPrimarySearch)
         {
             // Do not hammer a provider that just failed or served a challenge page.
-            _primarySearchBlockedUntilUtc = DateTime.UtcNow.Add(PrimarySearchCooldown);
+            SetPrimarySearchBlockedUntilUtc(DateTime.UtcNow.Add(PrimarySearchCooldown));
             _logger.LogWarning("DuckDuckGo search did not respond for query '{Query}'. Falling back to Chefkoch.", query);
         }
 
@@ -300,7 +308,7 @@ public class WebRecipeSearchService : IRecipeSearchService
             return false;
         }
 
-        lock (_recentRecipeLock)
+        lock (RecentRecipeSync)
         {
             return _recentRecipeCache.TryGetValue(RecentRecipeCacheKey, out List<string>? recent)
                 && recent != null
@@ -318,7 +326,7 @@ public class WebRecipeSearchService : IRecipeSearchService
             return;
         }
 
-        lock (_recentRecipeLock)
+        lock (RecentRecipeSync)
         {
             if (!_recentRecipeCache.TryGetValue(RecentRecipeCacheKey, out List<string>? recent) || recent == null)
             {
@@ -338,6 +346,25 @@ public class WebRecipeSearchService : IRecipeSearchService
                 new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = RecentRecipeLifetime });
         }
     }
+
+    /// <summary>
+    /// Reads the shared (cross-instance) cooldown deadline of the primary search provider.
+    /// </summary>
+    private static DateTime ReadPrimarySearchBlockedUntilUtc()
+        => DateTime.FromBinary(Interlocked.Read(ref _primarySearchBlockedUntilUtcTicks));
+
+    /// <summary>
+    /// Stores the shared (cross-instance) cooldown deadline of the primary search provider.
+    /// </summary>
+    private static void SetPrimarySearchBlockedUntilUtc(DateTime value)
+        => Interlocked.Exchange(ref _primarySearchBlockedUntilUtcTicks, value.ToBinary());
+
+    /// <summary>
+    /// Clears the static primary-provider cooldown so unit tests do not inherit a previous test's
+    /// DuckDuckGo failure window (the cooldown is process-wide by design).
+    /// </summary>
+    internal static void ResetSharedStateForTests()
+        => SetPrimarySearchBlockedUntilUtc(DateTime.MinValue);
 
     /// <summary>
     /// Walks candidate recipe pages in order and returns the first one that exposes parseable recipe data.
@@ -403,11 +430,18 @@ public class WebRecipeSearchService : IRecipeSearchService
     }
 
     /// <summary>
-    /// Detects bot-challenge pages (e.g. DuckDuckGo's "select all squares containing a duck" interstitial).
+    /// Detects bot-challenge/verification interstitials: DuckDuckGo's English and structural markers
+    /// (the anomaly modal and challenge form render the same regardless of language), Cloudflare's
+    /// browser-verification pages in English and German, and the German wording of the duck puzzle.
     /// </summary>
     private static bool IsChallengePage(string html)
         => html.Contains("bots use DuckDuckGo", StringComparison.OrdinalIgnoreCase)
-           || html.Contains("complete the following challenge", StringComparison.OrdinalIgnoreCase);
+           || html.Contains("complete the following challenge", StringComparison.OrdinalIgnoreCase)
+           || html.Contains("anomaly-modal", StringComparison.OrdinalIgnoreCase)
+           || html.Contains("challenge-form", StringComparison.OrdinalIgnoreCase)
+           || html.Contains("Enable JavaScript and cookies to continue", StringComparison.OrdinalIgnoreCase)
+           || html.Contains("Aktivieren Sie JavaScript und Cookies, um fortzufahren", StringComparison.OrdinalIgnoreCase)
+           || html.Contains("Wähle alle Quadrate", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Builds the Chefkoch recipe-search URL used as fallback provider.
@@ -560,6 +594,11 @@ public class WebRecipeSearchService : IRecipeSearchService
             }
 
             var decoded = Uri.UnescapeDataString(redirect.Groups["url"].Value);
+            if (decoded.StartsWith("//", StringComparison.Ordinal))
+            {
+                decoded = "https:" + decoded;
+            }
+
             if (!Uri.TryCreate(decoded, UriKind.Absolute, out var decodedUri) || decodedUri.Scheme is not ("http" or "https"))
             {
                 return null;

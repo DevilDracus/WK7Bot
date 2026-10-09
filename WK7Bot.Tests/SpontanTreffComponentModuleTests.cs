@@ -20,17 +20,25 @@ public class SpontanTreffComponentModuleTests
 {
     private sealed class TestComponentModule : SpontanTreffComponentModule
     {
+        private readonly bool _failEdit;
+
         public int DeferCallCount { get; private set; }
         public List<string> Followups { get; } = new();
         public List<(Embed Embed, MessageComponent Components)> Edits { get; } = new();
 
-        public TestComponentModule(ISpontanTreffRepository repository)
+        public TestComponentModule(ISpontanTreffRepository repository, bool failEdit = false)
             : base(repository, NullLogger<SpontanTreffComponentModule>.Instance)
         {
+            _failEdit = failEdit;
         }
 
         protected override Task EditMeetupMessageAsync(SpontanTreff meetup, Embed embed, MessageComponent components)
         {
+            if (_failEdit)
+            {
+                throw new InvalidOperationException("The original meetup message was deleted.");
+            }
+
             Edits.Add((embed, components));
             return Task.CompletedTask;
         }
@@ -102,9 +110,9 @@ public class SpontanTreffComponentModuleTests
         return (await fixture.Repository.GetAsync(meetup.Id))!;
     }
 
-    private static TestComponentModule CreateModule(Fixture fixture, ulong actingUserId = 99)
+    private static TestComponentModule CreateModule(Fixture fixture, ulong actingUserId = 99, bool failEdit = false)
     {
-        var module = new TestComponentModule(fixture.Repository);
+        var module = new TestComponentModule(fixture.Repository, failEdit);
 
         var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
         SetUser(context, "Gast", actingUserId);
@@ -299,6 +307,23 @@ public class SpontanTreffComponentModuleTests
         Assert.Empty(fixture.Context.SpontanTreffResponses.AsNoTracking());
         Assert.Empty(module.Edits);
         Assert.StartsWith("❌", Assert.Single(module.Followups));
+    }
+
+    [Fact]
+    public async Task EditMeetupMessageFails_StillPersistsAnswerAndConfirms()
+    {
+        using var fixture = new Fixture();
+        await CreateMeetupAsync(fixture);
+        var module = CreateModule(fixture, failEdit: true);
+
+        await module.HandleResponseAsync("go:1");
+
+        // The answer is already saved — a failed re-render must not surface a fake "save failed".
+        var response = Assert.Single(fixture.Context.SpontanTreffResponses.AsNoTracking());
+        Assert.Equal(99ul, response.UserId);
+        Assert.True(response.Going);
+        Assert.Empty(module.Edits);
+        Assert.StartsWith("✅", Assert.Single(module.Followups));
     }
 
     [Fact]

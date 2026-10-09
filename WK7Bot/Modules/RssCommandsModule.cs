@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.Interactions;
+using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
@@ -13,15 +14,25 @@ namespace WK7Bot.Modules;
 public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
 {
     private const string CategoryName = "RSS Feeds";
+
+    /// <summary>
+    /// Upper bound for feed names: the role becomes "RSS: {name}" (100-char role limit) and the dashboard's
+    /// select-menu description "Receive notifications for {name}" must fit into 100 characters.
+    /// </summary>
+    private const int MaxFeedNameLength = 70;
+
     private readonly IRssRepository _repository;
+    private readonly ILogger<RssCommandsModule> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RssCommandsModule"/> class.
     /// </summary>
     /// <param name="repository">The repository used for RSS feed data persistence.</param>
-    public RssCommandsModule(IRssRepository repository)
+    /// <param name="logger">Logger instance used to surface command failures.</param>
+    public RssCommandsModule(IRssRepository repository, ILogger<RssCommandsModule> logger)
     {
         _repository = repository;
+        _logger = logger;
     }
 
     /// <summary>
@@ -33,10 +44,13 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
     [SlashCommand("add", "Add a new RSS feed to the bot")]
     [RequireUserPermission(GuildPermission.ManageChannels)]
     public async Task AddFeedAsync(
-        [Summary("name", "Name of the feed (e.g. PD Leipzig)")] string name,
-        [Summary("url", "RSS feed URL")] string url)
+        [Summary("name", "Name of the feed (e.g. PD Leipzig)")] [MaxLength(MaxFeedNameLength)] string name,
+        [Summary("url", "RSS feed URL")] [MaxLength(500)] string url)
     {
         await DeferAsync();
+
+        name = name.Trim();
+        url = url.Trim();
 
         var existing = await _repository.GetFeedByNameAsync(name);
         if (existing != null)
@@ -45,38 +59,69 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             return;
         }
 
-        var guild = Context.Guild;
-        var category = await GetOrCreateCategoryAsync(guild, CategoryName);
-        var role = await guild.CreateRoleAsync(
-            name: $"RSS: {name}",
-            permissions: GuildPermissions.None,
-            color: Color.Gold,
-            isHoisted: false,
-            isMentionable: true);
+        IRole? createdRole = null;
+        ITextChannel? createdChannel = null;
+        var feedSaved = false;
 
-        var channel = await guild.CreateTextChannelAsync(NameSanitizer.ToChannelSlug(name), properties =>
+        try
         {
-            properties.CategoryId = category.Id;
-            properties.Topic = $"RSS feed for {name}. Use the subscription dashboard to manage notifications.";
-            properties.PermissionOverwrites = new List<Overwrite>
+            var guild = Context.Guild;
+            var category = await GetOrCreateCategoryAsync(guild, CategoryName);
+            createdRole = await guild.CreateRoleAsync(
+                name: $"RSS: {name}",
+                permissions: GuildPermissions.None,
+                color: Color.Gold,
+                isHoisted: false,
+                isMentionable: true);
+
+            createdChannel = await guild.CreateTextChannelAsync(NameSanitizer.ToChannelSlug(name), properties =>
             {
-                new(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(viewChannel: PermValue.Deny)),
-                new(role.Id, PermissionTarget.Role, new OverwritePermissions(viewChannel: PermValue.Allow, readMessageHistory: PermValue.Allow, sendMessages: PermValue.Deny))
+                properties.CategoryId = category.Id;
+                properties.Topic = $"RSS feed for {name}. Use the subscription dashboard to manage notifications.";
+                properties.PermissionOverwrites = new List<Overwrite>
+                {
+                    new(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(viewChannel: PermValue.Deny)),
+                    new(createdRole.Id, PermissionTarget.Role, new OverwritePermissions(viewChannel: PermValue.Allow, readMessageHistory: PermValue.Allow, sendMessages: PermValue.Deny))
+                };
+            });
+
+            var feedEntity = new RssFeed
+            {
+                Name = name,
+                Url = url,
+                ChannelId = createdChannel.Id,
+                RoleId = createdRole.Id
             };
-        });
 
-        var feedEntity = new RssFeed
+            await _repository.AddFeedAsync(feedEntity);
+            feedSaved = true;
+
+            var dashboardUpdated = await RefreshDashboardMessageAsync();
+
+            await FollowupAsync(
+                $"Created private read-only channel <#{createdChannel.Id}> and notification role <@&{createdRole.Id}> for RSS feed **{name}**. " +
+                (dashboardUpdated
+                    ? "The subscription dashboard has been updated."
+                    : "No dashboard is posted yet — use `/rss dashboard` to create one."));
+        }
+        catch (Exception ex)
         {
-            Name = name,
-            Url = url,
-            ChannelId = channel.Id,
-            RoleId = role.Id
-        };
+            _logger.LogError(ex, "Adding an RSS feed failed after the interaction was deferred.");
 
-        await _repository.AddFeedAsync(feedEntity);
-        await RefreshDashboardMessageAsync();
-
-        await FollowupAsync($"Created private read-only channel <#{channel.Id}> and notification role <@&{role.Id}> for RSS feed **{name}**. The subscription dashboard has been updated.");
+            if (!feedSaved)
+            {
+                await TryCleanupPartialCreationAsync(createdChannel, createdRole);
+                await FollowupAsync(
+                    $"Creating the feed **{name}** failed and any partially created channel or role was cleaned up. Please try again.",
+                    ephemeral: true);
+            }
+            else
+            {
+                await FollowupAsync(
+                    $"The feed **{name}** was created, but refreshing the subscription dashboard failed. Run `/rss dashboard` to post a fresh one.",
+                    ephemeral: true);
+            }
+        }
     }
 
     /// <summary>
@@ -86,10 +131,11 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
     /// <returns>A task representing the command response operation.</returns>
     [SlashCommand("remove", "Remove an RSS feed and clean up its associated channel and role")]
     [RequireUserPermission(GuildPermission.ManageChannels)]
-    public async Task RemoveFeedAsync([Summary("name", "Name of the feed to remove")] string name)
+    public async Task RemoveFeedAsync([Summary("name", "Name of the feed to remove")] [MaxLength(100)] string name)
     {
         await DeferAsync();
 
+        name = name.Trim();
         var feed = await _repository.GetFeedByNameAsync(name);
         if (feed == null)
         {
@@ -97,22 +143,59 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             return;
         }
 
+        try
+        {
+            await _repository.DeleteFeedAsync(feed.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Removing an RSS feed from the database failed.");
+            await FollowupAsync($"Removing **{feed.Name}** from the database failed; nothing was changed. Please try again.", ephemeral: true);
+            return;
+        }
+
+        var cleanupProblem = false;
         var guild = Context.Guild;
 
         if (guild.GetChannel(feed.ChannelId) is IGuildChannel channel)
         {
-            await channel.DeleteAsync();
+            try
+            {
+                await channel.DeleteAsync();
+            }
+            catch (Exception ex)
+            {
+                cleanupProblem = true;
+                _logger.LogError(ex, "RSS feed {Name} was removed, but its channel {ChannelId} could not be deleted.", feed.Name, feed.ChannelId);
+            }
         }
 
         if (guild.GetRole(feed.RoleId) is IRole role)
         {
-            await role.DeleteAsync();
+            try
+            {
+                await role.DeleteAsync();
+            }
+            catch (Exception ex)
+            {
+                cleanupProblem = true;
+                _logger.LogError(ex, "RSS feed {Name} was removed, but its role {RoleId} could not be deleted.", feed.Name, feed.RoleId);
+            }
         }
 
-        await _repository.DeleteFeedAsync(feed.Id);
-        await RefreshDashboardMessageAsync();
+        try
+        {
+            await RefreshDashboardMessageAsync();
+        }
+        catch (Exception ex)
+        {
+            cleanupProblem = true;
+            _logger.LogError(ex, "Subscription dashboard refresh failed after removing RSS feed {Name}.", feed.Name);
+        }
 
-        await FollowupAsync($"Removed feed **{feed.Name}**, deleted channel, role, and updated the subscription dashboard.");
+        await FollowupAsync(cleanupProblem
+            ? $"Removed feed **{feed.Name}**, but cleaning up its channel/role or refreshing the dashboard hit an error — please check the server."
+            : $"Removed feed **{feed.Name}**, deleted channel, role, and updated the subscription dashboard.");
     }
 
     /// <summary>
@@ -132,32 +215,55 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
 
         var (embed, component) = BuildDashboardMessage(feeds);
 
-        await RespondAsync(embed: embed, components: component, ephemeral: true);
+        // The dashboard must NOT be ephemeral: RefreshDashboardMessageAsync fetches it by channel/message ID,
+        // which is impossible for ephemeral messages, so the stored location would be dead on arrival.
+        await RespondAsync(embed: embed, components: component);
         var responseMessage = await GetOriginalResponseAsync();
 
-        await _repository.SaveDashboardLocationAsync(Context.Channel.Id, responseMessage.Id);
+        try
+        {
+            await _repository.SaveDashboardLocationAsync(Context.Channel.Id, responseMessage.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Persisting the RSS dashboard location failed after the message was posted.");
+            await FollowupAsync(
+                "The dashboard was posted, but its location could not be saved, so automatic refreshes will not work until it is posted again.",
+                ephemeral: true);
+        }
     }
 
     /// <summary>
     /// Refreshes the existing subscription dashboard message in Discord with the latest RSS feed options.
     /// </summary>
-    /// <returns>A task representing the asynchronous dashboard update operation.</returns>
-    private async Task RefreshDashboardMessageAsync()
+    /// <returns>A task containing <see langword="true"/> when the stored dashboard message was updated, or <see langword="false"/> when no (longer fetchable) dashboard exists.</returns>
+    private async Task<bool> RefreshDashboardMessageAsync()
     {
         var location = await _repository.GetDashboardLocationAsync();
         if (location == null)
         {
-            return;
+            return false;
         }
 
         if (Context.Guild.GetChannel(location.Value.ChannelId) is not ITextChannel channel)
         {
-            return;
+            return false;
         }
 
-        if (await channel.GetMessageAsync(location.Value.MessageId) is not IUserMessage message)
+        IMessage fetchedMessage;
+        try
         {
-            return;
+            fetchedMessage = await channel.GetMessageAsync(location.Value.MessageId);
+        }
+        catch (Discord.Net.HttpException ex) when (ex.HttpCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // The stored dashboard message was deleted; there is nothing left to refresh.
+            return false;
+        }
+
+        if (fetchedMessage is not IUserMessage message)
+        {
+            return false;
         }
 
         var feeds = await _repository.GetAllFeedsAsync();
@@ -175,7 +281,7 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
                 props.Components = new ComponentBuilder().Build();
             });
 
-            return;
+            return true;
         }
 
         var (embed, component) = BuildDashboardMessage(feeds);
@@ -185,6 +291,42 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
             props.Embed = embed;
             props.Components = component;
         });
+
+        return true;
+    }
+
+    /// <summary>
+    /// Best-effort rollback of a partially created RSS feed: deletes the channel and role that were created
+    /// before persistence failed, logging (and therefore surfacing) anything that cannot be cleaned up.
+    /// </summary>
+    /// <param name="channel">The channel created during the failed attempt, if any.</param>
+    /// <param name="role">The role created during the failed attempt, if any.</param>
+    /// <returns>A task representing the cleanup attempts.</returns>
+    private async Task TryCleanupPartialCreationAsync(ITextChannel? channel, IRole? role)
+    {
+        if (channel != null)
+        {
+            try
+            {
+                await channel.DeleteAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Rollback of a failed RSS feed creation could not delete channel {ChannelId}.", channel.Id);
+            }
+        }
+
+        if (role != null)
+        {
+            try
+            {
+                await role.DeleteAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Rollback of a failed RSS feed creation could not delete role {RoleId}.", role.Id);
+            }
+        }
     }
 
     /// <summary>

@@ -78,6 +78,23 @@ public class WeekendEventParserTests
             <h3 class="card-title">Eintrag ohne verwertbares Datum</h3>
             <div>
               <span class="icon-text"> <span class="icon" aria-hidden="true">event</span> <span> morgen </span> </span>
+              <span class="icon-text"> <span class="icon" aria-hidden="true">location_on</span> <span> Leuthof </span> </span>
+            </div>
+          </div>
+        </a>
+      </article>
+    </li>
+    """;
+
+    private const string ProtocolRelativeCardHtml = """
+    <li data-pid="12" data-event="13" data-index="14">
+      <article class="card event-card">
+        <a class="link" href="//www.leipzig.de/kultur-und-freizeit/veranstaltungen/eventsingle/event/protocol-relativ">
+          <div class="card-body">
+            <h3 class="card-title">Protocol-relativer Link</h3>
+            <div>
+              <span class="icon-text"> <span class="icon" aria-hidden="true">event</span> <span> 12.10.2026 </span> </span>
+              <span class="icon-text"> <span class="icon" aria-hidden="true">location_on</span> <span> Augustusplatz </span> </span>
             </div>
           </div>
         </a>
@@ -142,6 +159,16 @@ public class WeekendEventParserTests
         var events = WeekendEventParser.Parse(BrokenCardHtml);
 
         Assert.Empty(events);
+    }
+
+    [Fact]
+    public void Parse_ProtocolRelativeLink_BecomesHttpsAbsoluteUrl()
+    {
+        var events = WeekendEventParser.Parse(ProtocolRelativeCardHtml);
+
+        var weekendEvent = Assert.Single(events);
+        Assert.Equal("Protocol-relativer Link", weekendEvent.Title);
+        Assert.Equal("https://www.leipzig.de/kultur-und-freizeit/veranstaltungen/eventsingle/event/protocol-relativ", weekendEvent.Url);
     }
 
     [Fact]

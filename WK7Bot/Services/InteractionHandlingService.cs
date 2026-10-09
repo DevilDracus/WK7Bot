@@ -1,5 +1,6 @@
 ﻿namespace WK7Bot.Services;
 
+using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
@@ -58,6 +59,7 @@ public class InteractionHandlingService : IHostedService
     {
         _client.Ready += OnClientReadyAsync;
         _client.InteractionCreated += OnInteractionCreatedAsync;
+        _interactionService.InteractionExecuted += OnInteractionExecutedAsync;
 
         await _interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
     }
@@ -71,6 +73,7 @@ public class InteractionHandlingService : IHostedService
     {
         _client.Ready -= OnClientReadyAsync;
         _client.InteractionCreated -= OnInteractionCreatedAsync;
+        _interactionService.InteractionExecuted -= OnInteractionExecutedAsync;
 
         return Task.CompletedTask;
     }
@@ -123,5 +126,26 @@ public class InteractionHandlingService : IHostedService
         {
             _logger.LogError(ex, "An unhandled exception occurred while executing interaction.");
         }
+    }
+
+    /// <summary>
+    /// Surfaces uncaught command-handler exceptions: Discord.Net reports them through
+    /// <see cref="InteractionService.InteractionExecuted"/> as an <see cref="ExecuteResult"/> carrying
+    /// the original exception, while <see cref="OnInteractionCreatedAsync"/> only sees a terse warning
+    /// reason. Logging here at error level routes them into the error-notification pipeline with
+    /// their stack trace; non-exception failures are already covered by the warning above.
+    /// </summary>
+    /// <param name="commandInfo">The executed command; <see langword="null"/> for unmatched interactions.</param>
+    /// <param name="context">The interaction context.</param>
+    /// <param name="result">The final execution result.</param>
+    /// <returns>A completed task.</returns>
+    private Task OnInteractionExecutedAsync(ICommandInfo commandInfo, IInteractionContext context, IResult result)
+    {
+        if (result is ExecuteResult { Exception: { } exception })
+        {
+            _logger.LogError(exception, "Unhandled exception in interaction command {CommandName}: {Reason}", commandInfo?.Name ?? "unknown", result.ErrorReason);
+        }
+
+        return Task.CompletedTask;
     }
 }

@@ -37,6 +37,13 @@ public partial class BattleNetService : IBattleNetService
     private readonly SemaphoreSlim _apiThrottle = new(2, 2);
 
     /// <summary>
+    /// Serializes OAuth token exchanges across all service instances, so concurrent callers share one
+    /// refresh grant instead of racing the token endpoint (a second refresh grant could invalidate the
+    /// first one). Static because the access-token cache it protects is shared application-wide.
+    /// </summary>
+    private static readonly SemaphoreSlim TokenRefreshGate = new(1, 1);
+
+    /// <summary>
     /// Gets the base delay applied between retry attempts for transient Battle.net API failures. Virtual for testability.
     /// </summary>
     protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(500);
@@ -102,12 +109,14 @@ public partial class BattleNetService : IBattleNetService
             }
 
             var accessToken = tokenResult.Token;
-            var userInfo = await FetchUserInfoAsync(accessToken, region, cancellationToken);
+            var (userInfo, userInfoStatus) = await FetchUserInfoAsync(accessToken, region, cancellationToken);
 
-            if (userInfo is null && tokenResult.FromCache)
+            if (userInfo is null
+                && userInfoStatus == HttpStatusCode.Unauthorized
+                && tokenResult.FromCache)
             {
                 _logger.LogInformation(
-                    "Battle.net access token was rejected; refreshing it and retrying the userinfo request for region {Region}.",
+                    "Battle.net access token was rejected with 401; refreshing it and retrying the userinfo request for region {Region}.",
                     region);
 
                 var refreshed = await GetAccessTokenAsync(refreshToken, region, cancellationToken, forceRefresh: true);
@@ -117,7 +126,7 @@ public partial class BattleNetService : IBattleNetService
                 }
 
                 accessToken = refreshed.Token;
-                userInfo = await FetchUserInfoAsync(accessToken, region, cancellationToken);
+                (userInfo, _) = await FetchUserInfoAsync(accessToken, region, cancellationToken);
             }
 
             var battleTag = userInfo?.BattleTag;
@@ -197,51 +206,67 @@ public partial class BattleNetService : IBattleNetService
             return (cached, true);
         }
 
-        string clientId = _options.BattleNetClientId ?? string.Empty;
-        string clientSecret = _options.BattleNetClientSecret ?? string.Empty;
-        string tokenUrl = $"https://{region}.battle.net/oauth/token";
-
-        using var response = await SendBnetApiWithRetryAsync(() =>
+        // Single-flight: concurrent lookups for the same account must not stampede the token endpoint.
+        // A second refresh grant could race or invalidate the first one, so all callers funnel through
+        // the shared gate and re-check the cache after acquiring it.
+        await TokenRefreshGate.WaitAsync(cancellationToken);
+        try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, tokenUrl)
+            if (_cache.TryGetValue<string>(cacheKey, out var refreshed) && !string.IsNullOrEmpty(refreshed))
             {
-                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                return (refreshed, true);
+            }
+
+            string clientId = _options.BattleNetClientId ?? string.Empty;
+            string clientSecret = _options.BattleNetClientSecret ?? string.Empty;
+            string tokenUrl = $"https://{region}.battle.net/oauth/token";
+
+            using var response = await SendBnetApiWithRetryAsync(() =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, tokenUrl)
                 {
-                    ["grant_type"] = "refresh_token",
-                    ["refresh_token"] = refreshToken
-                })
-            };
-            request.Headers.Authorization = new AuthenticationHeaderValue(
-                "Basic",
-                Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}")));
+                    Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                    {
+                        ["grant_type"] = "refresh_token",
+                        ["refresh_token"] = refreshToken
+                    })
+                };
+                request.Headers.Authorization = new AuthenticationHeaderValue(
+                    "Basic",
+                    Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}")));
 
-            return _httpClient.SendAsync(request, cancellationToken);
-        }, "RefreshAccessToken", cancellationToken);
+                return _httpClient.SendAsync(request, cancellationToken);
+            }, "RefreshAccessToken", cancellationToken);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogWarning(
-                "Battle.net OAuth token endpoint returned status code {StatusCode} for region {Region}. "
-                + "Check the client ID/client secret and that the refresh token was not revoked.",
-                response.StatusCode,
-                region);
-            return (null, false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Battle.net OAuth token endpoint returned status code {StatusCode} for region {Region}. "
+                    + "Check the client ID/client secret and that the refresh token was not revoked.",
+                    response.StatusCode,
+                    region);
+                return (null, false);
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<BattleNetTokenResponse>(cancellationToken: cancellationToken);
+            if (string.IsNullOrWhiteSpace(payload?.AccessToken))
+            {
+                _logger.LogWarning("Battle.net OAuth token endpoint returned no access token for region {Region}.", region);
+                return (null, false);
+            }
+
+            int expiresIn = payload.ExpiresIn > 0 ? payload.ExpiresIn : 3600;
+            var cacheTtl = TimeSpan.FromSeconds(Math.Max(60, expiresIn - 300));
+            _cache.Set(cacheKey, payload.AccessToken!, cacheTtl);
+
+            _logger.LogDebug("Refreshed Battle.net access token for region {Region} (valid for {Ttl}).", region, cacheTtl);
+
+            return (payload.AccessToken, false);
         }
-
-        var payload = await response.Content.ReadFromJsonAsync<BattleNetTokenResponse>(cancellationToken: cancellationToken);
-        if (string.IsNullOrWhiteSpace(payload?.AccessToken))
+        finally
         {
-            _logger.LogWarning("Battle.net OAuth token endpoint returned no access token for region {Region}.", region);
-            return (null, false);
+            TokenRefreshGate.Release();
         }
-
-        int expiresIn = payload.ExpiresIn > 0 ? payload.ExpiresIn : 3600;
-        var cacheTtl = TimeSpan.FromSeconds(Math.Max(60, expiresIn - 300));
-        _cache.Set(cacheKey, payload.AccessToken!, cacheTtl);
-
-        _logger.LogDebug("Refreshed Battle.net access token for region {Region} (valid for {Ttl}).", region, cacheTtl);
-
-        return (payload.AccessToken, false);
     }
 
     /// <summary>
@@ -249,9 +274,9 @@ public partial class BattleNetService : IBattleNetService
     /// </summary>
     /// <param name="accessToken">The user access token.</param>
     /// <param name="region">The API region whose OAuth host is used.</param>
-    /// <param name="cancellationToken">A cancellation token to monitor for task cancellation.</param>
-    /// <returns>The parsed user info, or null when the request fails.</returns>
-    private async Task<BattleNetUserInfoResponse?> FetchUserInfoAsync(string accessToken, string region, CancellationToken cancellationToken)
+    /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+    /// <returns>The parsed user info together with the HTTP status of the attempt (the status is meaningful when the info is null).</returns>
+    private async Task<(BattleNetUserInfoResponse? Info, HttpStatusCode StatusCode)> FetchUserInfoAsync(string accessToken, string region, CancellationToken cancellationToken)
     {
         string url = $"https://{region}.battle.net/oauth/userinfo";
 
@@ -262,10 +287,10 @@ public partial class BattleNetService : IBattleNetService
                 "Battle.net OAuth userinfo returned status code {StatusCode} for region {Region}.",
                 response.StatusCode,
                 region);
-            return null;
+            return (null, response.StatusCode);
         }
 
-        return await response.Content.ReadFromJsonAsync<BattleNetUserInfoResponse>(cancellationToken: cancellationToken);
+        return (await response.Content.ReadFromJsonAsync<BattleNetUserInfoResponse>(cancellationToken: cancellationToken), HttpStatusCode.OK);
     }
 
     /// <summary>
@@ -284,11 +309,21 @@ public partial class BattleNetService : IBattleNetService
         using var response = await SendBnetApiWithRetryAsync(() => SendAuthorizedAsync(url, accessToken, cancellationToken), "GetAccountProfileSummary", cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogWarning(
-                "Battle.net API returned status code {StatusCode} for the WoW account profile (BattleTag: {BattleTag}). "
-                + "Make sure the refresh token was issued with the 'wow.profile' scope; skipping WoW characters.",
-                response.StatusCode,
-                userData.BattleTag);
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                _logger.LogWarning(
+                    "Battle.net API returned 403 Forbidden for the WoW account profile (BattleTag: {BattleTag}). "
+                    + "The refresh token was likely issued without the 'wow.profile' scope; re-authorize with that scope granted to show WoW characters.",
+                    userData.BattleTag);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Battle.net API returned status code {StatusCode} for the WoW account profile (BattleTag: {BattleTag}); skipping WoW characters.",
+                    response.StatusCode,
+                    userData.BattleTag);
+            }
+
             return;
         }
 
@@ -449,10 +484,21 @@ public partial class BattleNetService : IBattleNetService
         using var response = await SendBnetApiWithRetryAsync(() => SendAuthorizedAsync(url, accessToken, cancellationToken), "GetDiabloProfile", cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogWarning(
-                "Battle.net API returned status code {StatusCode} for the Diablo III profile of {BattleTag}; skipping Diablo heroes.",
-                response.StatusCode,
-                userData.BattleTag);
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                _logger.LogWarning(
+                    "Battle.net API returned 403 Forbidden for the Diablo III profile of {BattleTag}. "
+                    + "The refresh token was likely issued without the 'd3.profile' scope; re-authorize with that scope granted to show Diablo heroes.",
+                    userData.BattleTag);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Battle.net API returned status code {StatusCode} for the Diablo III profile of {BattleTag}; skipping Diablo heroes.",
+                    response.StatusCode,
+                    userData.BattleTag);
+            }
+
             return;
         }
 

@@ -72,12 +72,14 @@ public class LeipzigWasteBackgroundService : BackgroundService
             {
                 await EvaluateScheduleAsync(DateTime.Now, stoppingToken);
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
             catch (Exception ex)
             {
+                // HTTP timeouts surface as OperationCanceledException with the stopping token
+                // untouched; they are logged so the scheduler survives a slow feed response.
                 _logger.LogError(ex, "An error occurred while processing the Leipzig waste schedule evaluation loop.");
             }
         }
@@ -300,13 +302,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
             return null;
         }
 
-        var existingChannel = guild.TextChannels.FirstOrDefault(c => c.Name.Equals(TargetChannelName, StringComparison.OrdinalIgnoreCase));
-        if (existingChannel != null)
-        {
-            return existingChannel;
-        }
-
-        return await guild.CreateTextChannelAsync(TargetChannelName, properties =>
+        return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
         {
             properties.Topic = "Benachrichtigungen und Bestätigungen zur Stadtreinigung Leipzig Müllabholung.";
             properties.PermissionOverwrites = new List<Overwrite>

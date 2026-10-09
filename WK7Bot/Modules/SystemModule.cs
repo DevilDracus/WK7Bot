@@ -37,15 +37,19 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     [SlashCommand("ha-status", "Tests communication with internal Home Assistant API.")]
     public async Task HomeAssistantStatusCommandAsync()
     {
+        // Defer first: the Supervisor round-trip can take longer than Discord's 3-second
+        // initial-response window, which would otherwise fail the interaction entirely.
+        await DeferAsync(ephemeral: true);
+
         string? response = await _homeAssistantService.GetApiStateAsync("config");
 
         if (response != null)
         {
-            await RespondAsync("Successfully connected to Home Assistant API via Supervisor token!", ephemeral: true);
+            await FollowupAsync("Successfully connected to Home Assistant API via Supervisor token!", ephemeral: true);
         }
         else
         {
-            await RespondAsync("Failed to reach Home Assistant API. Verify Supervisor logs.", ephemeral: true);
+            await FollowupAsync("Failed to reach Home Assistant API. Verify Supervisor logs.", ephemeral: true);
         }
     }
 }

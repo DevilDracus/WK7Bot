@@ -57,6 +57,9 @@ public class ServiceCollectionExtensionsTests
         Assert.DoesNotContain(typeof(Services.SpontanTreffExpiryService), types);
         Assert.DoesNotContain(typeof(Services.DwdWarningBackgroundService), types);
         Assert.DoesNotContain(typeof(Services.ErrorNotificationDispatcher), types);
+
+        // The Alexa feature uses a factory-based descriptor; disabling it must skip that too.
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IHostedService) && d.ImplementationFactory != null);
     }
 
     [Fact]
@@ -97,7 +100,9 @@ public class ServiceCollectionExtensionsTests
         Assert.Contains(typeof(Services.RssPollingBackgroundService), types);
         Assert.Contains(typeof(Services.HomeAssistantNotifierService), types);
         Assert.Contains(typeof(Services.LeipzigWasteBackgroundService), types);
-        Assert.Contains(typeof(Services.AlexaMentionNotificationService), types);
+        // Alexa reuses the typed HttpClient registration, so its hosted descriptor is factory-based
+        // and carries no ImplementationType. Exactly one such descriptor must exist (Alexa's).
+        Assert.Single(services, d => d.ServiceType == typeof(IHostedService) && d.ImplementationFactory != null);
         Assert.Contains(typeof(Services.DiscordPresenceMqttService), types);
         Assert.Contains(typeof(Services.FoodPublisherService), types);
         Assert.Contains(typeof(Services.SpontanTreffExpiryService), types);

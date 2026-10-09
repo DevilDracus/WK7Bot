@@ -191,8 +191,15 @@ public static class WeekendEventParser
         => WebUtility.HtmlDecode(TagRegex.Replace(value, string.Empty)).Trim();
 
     /// <summary>
-    /// Converts a root-relative listing link into an absolute leipzig.de URL.
+    /// Converts a root-relative or protocol-relative listing link into an absolute URL.
     /// </summary>
     private static string NormalizeUrl(string href)
-        => href.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? href : BaseUrl + href;
+    {
+        if (href.StartsWith("//", StringComparison.Ordinal))
+        {
+            return "https:" + href;
+        }
+
+        return href.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? href : BaseUrl + href;
+    }
 }

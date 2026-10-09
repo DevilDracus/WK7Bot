@@ -61,7 +61,7 @@ public class SpontanTreffExpiryService : BackgroundService
             {
                 await SweepAsync(DateTime.Now, stoppingToken);
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }

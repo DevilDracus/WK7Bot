@@ -32,6 +32,12 @@ public class WebRecipeSearchServiceTests
     </div></body></html>
     """;
 
+    private const string SearchResultsProtocolRelativeTargetHtml = """
+    <html><body><div class="results">
+    <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=%2F%2Fwww.chefkoch.de%2Frezepte%2F123%2Fpfannkuchen.html&amp;rut=xyz">Pfannkuchen mit protocol-relativem Ziel</a>
+    </div></body></html>
+    """;
+
     private const string RecipePageHtml = """
     <!DOCTYPE html><html><head><title>Pfannkuchen</title>
     <script type="application/ld+json">
@@ -106,11 +112,17 @@ public class WebRecipeSearchServiceTests
         HttpMessageHandler handler,
         IRandomSource? randomSource = null,
         IMemoryCache? recentRecipeCache = null)
-        => new(
+    {
+        // The DuckDuckGo failure cooldown is intentionally process-wide (the service is transient);
+        // clear it so each test starts from a clean slate instead of inheriting a prior test's window.
+        WK7Bot.Services.WebRecipeSearchService.ResetSharedStateForTests();
+
+        return new WebRecipeSearchService(
             new HttpClient(handler),
             NullLogger<WebRecipeSearchService>.Instance,
             randomSource ?? new StubRandomSource(),
             recentRecipeCache);
+    }
 
     private static HttpResponseMessage Html(string content, HttpStatusCode statusCode = HttpStatusCode.OK)
         => new(statusCode) { Content = new StringContent(content, Encoding.UTF8, "text/html") };
@@ -163,6 +175,34 @@ public class WebRecipeSearchServiceTests
         Assert.DoesNotContain(handler.RequestUrls, u => u.Contains("y.js"));
         Assert.Contains("Pfannkuchen", handler.RequestUrls[0]);
         Assert.Contains("html.duckduckgo.com", handler.RequestUrls[0]);
+    }
+
+    [Fact]
+    public async Task SearchWebRecipeAsync_ProtocolRelativeRedirectTarget_IsResolvedToHttps()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.ToString();
+            if (url.Contains("duckduckgo.com"))
+            {
+                return Html(SearchResultsProtocolRelativeTargetHtml);
+            }
+
+            if (url.Contains("chefkoch.de"))
+            {
+                return Html(RecipePageHtml);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var service = CreateService(handler);
+
+        var recipe = await service.SearchWebRecipeAsync("Pfannkuchen");
+
+        Assert.NotNull(recipe);
+        Assert.Equal("https://www.chefkoch.de/rezepte/123/pfannkuchen.html", recipe!.SourceUrl);
+        Assert.Contains(handler.RequestUrls, u => u == "https://www.chefkoch.de/rezepte/123/pfannkuchen.html");
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 ﻿namespace WK7Bot.Services;
 
 using System;
+using System.Globalization;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -27,6 +28,12 @@ public class GeminiFoodService : IGeminiFoodService
     private const string FallbackModel = "gemini-3.1-flash-lite";
 
     /// <summary>
+    /// Per-attempt HTTP timeout so a hung generation cannot stall the food publisher for the
+    /// HttpClient default of 100 seconds; client timeouts are retried like transient failures.
+    /// </summary>
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="GeminiFoodService"/> class.
     /// </summary>
     /// <param name="httpClient">The HTTP client instance.</param>
@@ -39,6 +46,7 @@ public class GeminiFoodService : IGeminiFoodService
         ILogger<GeminiFoodService> logger)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _httpClient.Timeout = RequestTimeout;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
@@ -57,7 +65,7 @@ public class GeminiFoodService : IGeminiFoodService
             return null;
         }
 
-        string monthName = dateTime.ToString("MMMM");
+        string monthName = dateTime.ToString("MMMM", CultureInfo.GetCultureInfo("de-DE"));
         string prompt = $"Provide a complete list of seasonal produce for the month of {monthName} in Central Europe (Germany/Leipzig region). " +
                        $"Categorize every item strictly into fruits, vegetables, herbs, and nuts.\n" + 
                        $"IMPORTANT: Use the GERMAN names for fruits, vegetables, herbs and nuts!";
@@ -93,7 +101,7 @@ public class GeminiFoodService : IGeminiFoodService
             return null;
         }
 
-        string monthName = dateTime.ToString("MMMM");
+        string monthName = dateTime.ToString("MMMM", CultureInfo.GetCultureInfo("de-DE"));
         string prompt = $"Create a delicious recipe for the month of {monthName} using local Central European seasonal produce (Germany/Leipzig region), featuring at least one seasonal fruit or vegetable. " +
                         $"CRITICAL DIETARY RESTRICTIONS:\n" +
                         $"1. Tailor the recipe for individuals on dialysis or kidney transplant recipients taking immunosuppressants.\n" +
@@ -322,8 +330,8 @@ public class GeminiFoodService : IGeminiFoodService
                 int statusCode = (int)response.StatusCode;
                 string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
-                // Retry on transient 503 (Unavailable) or 429 (Too Many Requests)
-                if ((statusCode == 503 || statusCode == 429) && attempt < maxRetries)
+                // Retry on transient server failures (5xx) or rate limiting (429)
+                if ((statusCode >= 500 || statusCode == 429) && attempt < maxRetries)
                 {
                     _logger.LogWarning("Gemini API returned status {StatusCode} for model {Model}. Retrying attempt {Attempt}/{Max} in {Delay}ms...",
                         statusCode, modelName, attempt, maxRetries, delayMs);

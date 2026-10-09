@@ -61,10 +61,18 @@ public class WasteDispatchRepository : IWasteDispatchRepository
             return;
         }
 
-        await _dbContext.WasteDispatchLogs.AddAsync(
-            new WasteDispatchLog { Kind = kind, GuildId = guildId, SentOn = normalizedDate },
-            cancellationToken);
+        var log = new WasteDispatchLog { Kind = kind, GuildId = guildId, SentOn = normalizedDate };
+        await _dbContext.WasteDispatchLogs.AddAsync(log, cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (DatabaseWriteGuard.IsUniqueConstraintViolation(ex))
+        {
+            // Lost the race against a concurrent dispatcher — the row already exists, which is the
+            // desired state. Detach the failed insert so the shared context stays usable.
+            _dbContext.Entry(log).State = EntityState.Detached;
+        }
     }
 }

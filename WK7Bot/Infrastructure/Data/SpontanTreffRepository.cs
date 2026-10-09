@@ -79,14 +79,24 @@ public class SpontanTreffRepository : ISpontanTreffRepository
         if (existing == null)
         {
             await _dbContext.SpontanTreffResponses.AddAsync(response, cancellationToken);
-        }
-        else
-        {
-            existing.Going = response.Going;
-            existing.RespondedAt = response.RespondedAt;
-            _dbContext.SpontanTreffResponses.Update(existing);
+
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex) when (DatabaseWriteGuard.IsUniqueConstraintViolation(ex))
+            {
+                // A concurrent click from the same user inserted the row first; the desired state is
+                // identical. Detach the failed insert so the shared context stays usable.
+                _dbContext.Entry(response).State = EntityState.Detached;
+            }
+
+            return;
         }
 
+        existing.Going = response.Going;
+        existing.RespondedAt = response.RespondedAt;
+        _dbContext.SpontanTreffResponses.Update(existing);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

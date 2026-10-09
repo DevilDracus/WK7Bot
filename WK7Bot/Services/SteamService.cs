@@ -167,6 +167,10 @@ public class SteamService : ISteamService
 
             return userData;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while fetching Steam data for Steam ID {SteamId}", steamId);
@@ -223,6 +227,10 @@ public class SteamService : ISteamService
 
             return playerAchievements;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to retrieve enriched achievements for AppId {AppId} and SteamID {SteamId}", appId, steamId);
@@ -240,7 +248,7 @@ public class SteamService : ISteamService
     {
         string url = $"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key={_options.SteamApiKey}&steamids={steamId}";
 
-        using var response = await _httpClient.GetAsync(url, cancellationToken);
+        using var response = await GetSteamApiWithRetryAsync(url, "GetPlayerSummaries", cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning(
@@ -289,7 +297,7 @@ public class SteamService : ISteamService
     {
         string url = $"https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/?key={_options.SteamApiKey}&steamid={userData.SteamId}&format=json";
 
-        using var response = await _httpClient.GetAsync(url, cancellationToken);
+        using var response = await GetSteamApiWithRetryAsync(url, "GetRecentlyPlayedGames", cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning(
@@ -958,7 +966,12 @@ internal class FlexibleIntConverter : JsonConverter<int>
         if (reader.TokenType == JsonTokenType.Number) return reader.GetInt32();
         if (reader.TokenType == JsonTokenType.True) return 1;
         if (reader.TokenType == JsonTokenType.False) return 0;
-        if (reader.TokenType == JsonTokenType.String && int.TryParse(reader.GetString(), out int val)) return val;
+        if (reader.TokenType == JsonTokenType.String
+            && int.TryParse(reader.GetString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int val))
+        {
+            return val;
+        }
+
         return 0;
     }
 
@@ -1031,7 +1044,7 @@ internal class FlexibleBoolConverter : JsonConverter<bool>
         {
             var value = reader.GetString();
             if (bool.TryParse(value, out bool parsed)) return parsed;
-            if (double.TryParse(value, out double numeric)) return numeric != 0;
+            if (double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double numeric)) return numeric != 0;
         }
 
         return false;
@@ -1064,7 +1077,12 @@ internal class FlexibleLongConverter : JsonConverter<long>
     public override long Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         if (reader.TokenType == JsonTokenType.Number) return reader.GetInt64();
-        if (reader.TokenType == JsonTokenType.String && long.TryParse(reader.GetString(), out long val)) return val;
+        if (reader.TokenType == JsonTokenType.String
+            && long.TryParse(reader.GetString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long val))
+        {
+            return val;
+        }
+
         return 0;
     }
 
