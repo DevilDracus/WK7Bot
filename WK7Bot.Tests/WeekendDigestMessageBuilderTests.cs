@@ -56,6 +56,7 @@ public class WeekendDigestMessageBuilderTests
         Assert.NotNull(poll);
         Assert.Equal("Wohin gehen wir am Wochenende?", poll!.Question!.Text);
         Assert.False(poll.AllowMultiselect);
+        Assert.Equal(PollLayout.Default, poll.LayoutType);
         Assert.Equal(3, poll.Answers!.Count);
         Assert.Equal("Fr 09:00 · Wochenmarkt in der Innenstadt", poll.Answers[0].Text);
         Assert.Equal("Sa 10:00 · Flohmarkt Leuthof", poll.Answers[1].Text);
@@ -72,6 +73,21 @@ public class WeekendDigestMessageBuilderTests
         // Thursday 14:15 -> Sunday 23:59 is 81h44m, rounded up to 82 hours.
         Assert.NotNull(poll);
         Assert.Equal(82u, poll!.Duration);
+        Assert.InRange(poll.Duration, 1u, 168u);
+    }
+
+    [Fact]
+    public void Build_PollLayout_IsExplicitDefault_BecauseZeroIsRejectedByDiscord()
+    {
+        var suggestions = new[] { Event("Wochenmarkt", Friday), Event("Flohmarkt", Sunday) };
+
+        var (_, poll) = WeekendDigestMessageBuilder.Build(suggestions, Friday, PostTime);
+
+        Assert.NotNull(poll);
+
+        // PollLayout has no zero member; the uninitialised default would serialise as layout_type 0
+        // and make Discord answer with 50035 "BASE_TYPE_CHOICES: Value must be one of (1,)."
+        Assert.Equal(1, (int)poll!.LayoutType);
     }
 
     [Fact]

@@ -17,6 +17,13 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - **Interactive UI** – select menus and role management for RSS subscription dashboards, plus one-tap go/pass buttons for spontaneous meetups.
 - **Duplicate protection** – `/rss add` rejects a name that already exists before creating channels/roles.
 
+### Automatic Message Routing (WK7 Server & Bot Test Server)
+- Every **automatic message** — the `WeekendDigestBackgroundService`, `DwdWarningBackgroundService`, `LeipzigWasteBackgroundService` and `FoodPublisherService` posts — is sent to the **WK7 server** configured as `servers.wk7_server_id`.
+- Features that are still being tested can be pointed at the **bot test server** (`servers.test_server_id`) by listing their key in `servers.testing_features` (e.g. `[dwd_warning]`); every other feature keeps posting to the WK7 server, so test traffic never reaches the community server.
+- Both IDs ship as placeholders (`YOUR_WK7_SERVER_ID`, `YOUR_BOT_TEST_SERVER_ID`) in `WK7Bot/config.yaml`, so only the Home Assistant add-on configuration holds the real IDs (`1549409126625575004` for the WK7 server, `551130054776717323` for the bot test server).
+- While neither ID is configured, the previous behaviour is kept (posts go to every guild the bot is in) and a warning naming the feature is logged each time the targets are resolved.
+- Command-driven posts are unaffected: `/rss` feeds, `/recipe*`, `/spontan-treff` and the Home Assistant notify channels keep working in whichever server they were created in.
+
 ### RSS Feed Syndication
 - `RssPollingBackgroundService` polls configured feeds every 5 minutes and publishes rich embeds to dedicated per-feed channels.
 - **First-poll baseline seeding** – when a feed has never been polled, the newest item is recorded silently; the historical backlog is *not* posted to Discord.
@@ -47,12 +54,12 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - `WeekendDigestBackgroundService` posts every **Thursday at 14:15** the digest for the upcoming weekend into the dedicated `#📅wochenende` channel (created automatically when missing, same pattern as `#🍎food` and `#🗑️leipzig-waste`).
 - **Two listing sources** – the leipzig.de weekend page (rich Saturday/Sunday coverage) and the month overview page of the target Friday (which carries the Friday events the weekend page omits); both share the same `event-card` markup and are parsed by `WeekendEventParser`, merged, deduplicated by URL and reduced to events overlapping Friday–Sunday. When *no* page can be fetched the attempt fails and is retried instead of silently posting an empty digest.
 - **Market-first curation** – `WeekendDigestCurator` ranks candidates by the requested market keywords (*Wochenmarkt*, *Flohmarkt*, *Nachtmarkt*, *Abendmarkt*, *Straßenmarkt*, *Street Food*, *Trödelmarkt*, … plus topic bonuses for *Messen*/*Markt*), prefers one pick per day ordered Friday → Sunday, never repeats a venue and falls back to fewer than three picks when candidates run out.
-- **Native Discord poll** – `WeekendDigestMessageBuilder` renders one embed field per pick (day label, time, location, topic, source link) plus a three-answer poll ("Wohin gehen wir am Wochenende?") whose duration covers the time until Sunday 23:59 (clamped to Discord's 1–168 h window); poll answers honour Discord's 55-char limit, embed fields their 256/1024-char limits, and a single-pick week posts without a poll.
+- **Native Discord poll** – `WeekendDigestMessageBuilder` renders one embed field per pick (day label, time, location, topic, source link) plus a three-answer poll ("Wohin gehen wir am Wochenende?") whose duration covers the time until Sunday 23:59 (clamped to Discord's 1–168 h window); poll answers honour Discord's 55-char limit, embed fields their 256/1024-char limits, the layout type is sent explicitly as `PollLayout.Default` (its only accepted value — the enum's uninitialised zero would be rejected by Discord with `50035 … BASE_TYPE_CHOICES: Value must be one of (1,)`), and a single-pick week posts without a poll.
 - **Restart-safe dedup** – each Thursday's dispatch per guild is recorded in the existing `WasteDispatchLogs` table (dispatch kind `weekend_digest`), so restarting the bot never re-posts the digest; failed fetches/postings retry at 15-minute intervals (at most 4 attempts per Thursday), a zero-event weekend is marked handled without posting, partial failures retry only the guilds that did not receive the message, and a build-once cache keeps retries and additional guilds from re-fetching leipzig.de.
 - Gated by the `weekend_digest_enabled` feature flag.
 
 ### Local DWD Rain & Storm Warnings
-- `DwdWarningBackgroundService` checks the DWD open-data CAP feed (`opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/`) once at startup and then every 2 minutes: it picks the newest German snapshot (`Z_CAP_C_EDZW_<timestamp>_…_COMMUNEUNION_de.zip`), opens it in memory (a 22-byte archive means *no active warnings*), parses every CAP alert (`CapWarningParser`) and posts a German embed into the dedicated `#⛈️weather-warnings` channel (created automatically when missing, same pattern as `#📅wochenende`) — so you know when to close the balcony windows before the rain starts. No ping, just the embed.
+- `DwdWarningBackgroundService` checks the DWD open-data CAP feed (`opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/`) once at startup and then every 2 minutes: it picks the newest German snapshot (`Z_CAP_C_EDZW_<timestamp>_…_COMMUNEUNION_de.zip`, matched case-insensitively because the feed currently publishes `…_COMMUNEUNION_DE.zip`), opens it in memory (a 22-byte archive means *no active warnings*), parses every CAP alert (`CapWarningParser`) and posts a German embed into the dedicated `#⛈️weather-warnings` channel (created automatically when missing, same pattern as `#📅wochenende`) — so you know when to close the balcony windows before the rain starts. No ping, just the embed.
 - **Trigger window** – a warning is posted when its onset lies at most `lead_minutes` ahead (default 30, with a 5-minute grace so feed latency does not drop a warning whose onset just slipped into the past), its expiry has not passed, its event matches the configured tokens, and the configured location is covered.
 - **Location matching** – point-in-polygon against the CAP polygons (latitude-first `lat,lon` pairs, `EXCLUDE_POLYGON` geocodes vetoed); the configured `area_names` (e.g. `Stadt Leipzig`) only apply when a warning carries no polygon at all.
 - **Event matching** – German DWD event names (`STARKREGEN`, `HAGEL`, `GEWITTER`, `STURM`, `BÖEN`) and English CAP group codes (`HEAVY RAIN`, `HAIL`, `THUNDERSTORM`) match case-insensitively after normalising umlauts and separators (`HEAVY_RAIN` = `HEAVY RAIN`), so the token list in `config.yaml` can mix both languages.
@@ -122,6 +129,7 @@ WK7Bot
 │   │   ├── IWarningDispatchRepository.cs
 │   │   └── IWasteDispatchRepository.cs
 │   └── Utilities
+│       ├── AutomaticTargetResolver.cs      # Feature → WK7 server / bot test server routing
 │       ├── CapWarningParser.cs              # CAP XML → warning model, polygon + event matching
 │       ├── DietTagFormatter.cs              # Diet-tag identifiers → German embed labels
 │       ├── DwdWarningMessageBuilder.cs      # German warning embed (countdown, severity, limits)
@@ -165,6 +173,7 @@ WK7Bot
 │   ├── DiscordSteamMappingOptions.cs
 │   ├── DwdWarningOptions.cs                 # Postal-code-specific DWD warning settings
 │   ├── FeatureOptions.cs                    # All toggles default to enabled
+│   ├── ServersOptions.cs                    # WK7 / bot test server IDs + features under test
 │   └── Wk7BotOptions.cs
 ├── Services
 │   ├── Interfaces
@@ -205,6 +214,7 @@ WK7Bot
 └── WK7Bot.csproj
 
 WK7Bot.Tests                                 # xUnit test project (included in WK7Bot.sln)
+├── AutomaticTargetResolverTests.cs           # WK7/test-server routing, placeholders → all-guild fallback
 ├── CapWarningParserTests.cs                 # CAP parse, polygon/area matching, event normalization
 ├── DietTagFormatterTests.cs
 ├── DwdWarningBackgroundServiceTests.cs      # Lead window, dedupe, retries, area fallback
@@ -278,6 +288,8 @@ All food commands are ephemeral while the lookup runs, post the result embed int
 
 Feature flags are resolved from the `Wk7Bot:features` section when present (appsettings.json), otherwise from root-level `features` (Home Assistant `options.json`). Services re-check the bound options at runtime, so disabling a flag always takes effect.
 
+Automatic posts from `LeipzigWasteBackgroundService`, `FoodPublisherService`, `WeekendDigestBackgroundService` and `DwdWarningBackgroundService` are routed by `AutomaticTargetResolver`: their feature key (`leipzig_waste`, `food_service`, `weekend_digest`, `dwd_warning`) maps to `servers.wk7_server_id`, to `servers.test_server_id` while the key is listed in `servers.testing_features`, or — while no server ID is configured — to every guild the bot is in. Every other hosted service keeps its existing targets.
+
 ## Configuration
 
 Configuration is bound from `appsettings.json`, environment variables, or the Home Assistant Add-On `config.yaml`. The `Wk7Bot` section in `appsettings.json` (and root-level keys in `config.yaml`/`options.json`) is read as `Wk7BotOptions`. All option properties use `ConfigurationKeyName` snake_case aliases to match the Add-On schema.
@@ -313,6 +325,10 @@ features:
   spontan_treff_enabled: true
   weekend_digest_enabled: true
   dwd_warning_enabled: true
+servers:
+  wk7_server_id: "YOUR_WK7_SERVER_ID"             # WK7 server: receives all automatic messages
+  test_server_id: "YOUR_BOT_TEST_SERVER_ID"       # Bot test server: features listed below post here
+  testing_features: []                            # e.g. [ "dwd_warning", "weekend_digest" ]
 dwd_warning:
   postal_code: "01234"                          # 5-digit German postal code to watch
   latitude: 00.00                               # Used for point-in-polygon matching (polygon warnings)
@@ -375,6 +391,11 @@ dwd_warning:
       "weekend_digest_enabled": true,
       "dwd_warning_enabled": true
     },
+    "servers": {
+      "wk7_server_id": "YOUR_WK7_SERVER_ID",
+      "test_server_id": "YOUR_BOT_TEST_SERVER_ID",
+      "testing_features": []
+    },
     "dwd_warning": {
       "postal_code": "01234",
       "latitude": 00.00,
@@ -388,6 +409,8 @@ dwd_warning:
 ```
 
 If no `Wk7Bot` section exists, `Program.cs` binds `Wk7BotOptions` from the configuration **root** instead — this is what the shipped `appsettings.json` does (it only carries logging, the connection string, and the Leipzig ICS URL). In that case all bot options come from environment variables or the Home Assistant `/data/options.json`.
+
+`servers.wk7_server_id` and `servers.test_server_id` are shipped as placeholders — enter the real server IDs in the add-on **Configuration** tab (Home Assistant stores them in `/data/options.json`). An unparsable or empty ID is treated as "not configured", so the placeholders never break a fresh install.
 
 Secrets may also be supplied via environment variables (`DISCORD_BOT_TOKEN`, `SUPERVISOR_TOKEN`, etc.) or .NET user secrets.
 
@@ -429,7 +452,7 @@ dotnet test WK7Bot.sln
 dotnet test WK7Bot.Tests/WK7Bot.Tests.csproj
 ```
 
-The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled`, `spontan_treff_enabled`, `weekend_digest_enabled` and `dwd_warning_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, search vs. generate paths, error paths, via Moq), the web recipe search service (DuckDuckGo result extraction incl. ad skipping, JSON-LD `Recipe` parsing, candidate-skip and failure paths, bot-challenge detection with the Chefkoch fallback provider, the provider-unavailable exception, randomised candidate starting points and the recently-served preference — against a stubbed HTTP handler), the weighted `SeasonalTermPicker` (category weights, distinct terms, empty pools), the shared recipe embed builder (source link, disclaimer, empty-section skipping, 1024-char truncation), the Spontan-Treff feature (embed/button rendering and field limits, the slash command with validation, `@everyone`-forbidden fallback and error paths, the button handler with toggle/undo/switch plus expired/closed/malformed rejection and real `InteractionService` custom-ID matching, the expiry sweep incl. edit-failure isolation and idempotency, and repository CRUD together with the raw SQLite startup DDL replayed for both fresh and pre-existing databases), the weekend digest (leipzig.de event-card parsing with all date/time forms and HTML entities, the dual weekend/month page merge with URL dedupe and the both-pages-failure throw, market-weighted curation with Friday→Sunday day spread and venue dedupe, embed/poll rendering incl. Discord's 300/55/256/1024-char limits and the Sunday-23:59 poll duration clamp, and the Thursday 14:15 scheduler with its 15-minute retry budget, zero-event short-circuit, build-once fetch cache, missing-channel skip and restart-safe dispatch — via a testable subclass and EF InMemory), the DWD warning feature (newest-snapshot selection from the feed directory listing, empty-22-byte snapshot handling, malformed-entry skipping, offset-time parsing, point-in-polygon matching with `EXCLUDE_POLYGON` veto and area-name fallback, umlaut/underscore event normalisation, the lead-window/grace/expiry evaluation via a testable `EvaluateAsync` seam, per-warning per-guild restart-safe dedup with pruning, send-failure and missing-channel retries, embed countdown/severity/area-count/truncation formatting, the raw SQLite `WarningDispatchLogs` DDL replay, and `dwd_warning_enabled` flag registration), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`). Randomised behaviour is driven by a scripted `StubRandomSource`, so these tests never flake.
+The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled`, `spontan_treff_enabled`, `weekend_digest_enabled` and `dwd_warning_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, search vs. generate paths, error paths, via Moq), the web recipe search service (DuckDuckGo result extraction incl. ad skipping, JSON-LD `Recipe` parsing, candidate-skip and failure paths, bot-challenge detection with the Chefkoch fallback provider, the provider-unavailable exception, randomised candidate starting points and the recently-served preference — against a stubbed HTTP handler), the weighted `SeasonalTermPicker` (category weights, distinct terms, empty pools), the shared recipe embed builder (source link, disclaimer, empty-section skipping, 1024-char truncation), the Spontan-Treff feature (embed/button rendering and field limits, the slash command with validation, `@everyone`-forbidden fallback and error paths, the button handler with toggle/undo/switch plus expired/closed/malformed rejection and real `InteractionService` custom-ID matching, the expiry sweep incl. edit-failure isolation and idempotency, and repository CRUD together with the raw SQLite startup DDL replayed for both fresh and pre-existing databases), the weekend digest (leipzig.de event-card parsing with all date/time forms and HTML entities, the dual weekend/month page merge with URL dedupe and the both-pages-failure throw, market-weighted curation with Friday→Sunday day spread and venue dedupe, embed/poll rendering incl. Discord's 300/55/256/1024-char limits and the Sunday-23:59 poll duration clamp, and the Thursday 14:15 scheduler with its 15-minute retry budget, zero-event short-circuit, build-once fetch cache, missing-channel skip and restart-safe dispatch — via a testable subclass and EF InMemory), the DWD warning feature (newest-snapshot selection from the feed directory listing, empty-22-byte snapshot handling, malformed-entry skipping, offset-time parsing, point-in-polygon matching with `EXCLUDE_POLYGON` veto and area-name fallback, umlaut/underscore event normalisation, the lead-window/grace/expiry evaluation via a testable `EvaluateAsync` seam, per-warning per-guild restart-safe dedup with pruning, send-failure and missing-channel retries, embed countdown/severity/area-count/truncation formatting, the raw SQLite `WarningDispatchLogs` DDL replay, and `dwd_warning_enabled` flag registration), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`). Randomised behaviour is driven by a scripted `StubRandomSource`, so these tests never flake. The routing of automatic posts (`AutomaticTargetResolverTests`: WK7/test-server selection, placeholder fallback to all guilds with a warning, configured-but-unjoined server), the `servers` options binding, the weekend-digest poll layout/duration sent to Discord, and the upper/lower-case DWD snapshot names are covered as well.
 
 ### Docker
 

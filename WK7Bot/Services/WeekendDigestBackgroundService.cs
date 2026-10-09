@@ -255,11 +255,18 @@ public class WeekendDigestBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Returns the IDs of all guilds that should receive the weekend digest. Virtual for testability.
+    /// Returns the IDs of the guilds that should receive the weekend digest: the configured WK7
+    /// server (or the bot test server while <c>weekend_digest</c> is listed in
+    /// <c>servers.testing_features</c>), falling back to every guild while no server ID is
+    /// configured. Virtual for testability.
     /// </summary>
     /// <returns>The target Discord guild IDs.</returns>
     protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
-        => _discordClient.Guilds.Select(g => g.Id).ToList();
+        => AutomaticTargetResolver.Resolve(
+            _options.Servers,
+            "weekend_digest",
+            _discordClient.Guilds.Select(g => g.Id),
+            _logger);
 
     /// <summary>
     /// Resolves the weekend digest channel for a guild by ID, creating a new channel when missing.

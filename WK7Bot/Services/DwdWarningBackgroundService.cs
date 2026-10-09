@@ -229,11 +229,17 @@ public class DwdWarningBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Returns the IDs of all guilds that should receive warnings. Virtual for testability.
+    /// Returns the IDs of the guilds that should receive warnings: the configured WK7 server (or the
+    /// bot test server while <c>dwd_warning</c> is listed in <c>servers.testing_features</c>),
+    /// falling back to every guild while no server ID is configured. Virtual for testability.
     /// </summary>
     /// <returns>The target Discord guild IDs.</returns>
     protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
-        => _discordClient.Guilds.Select(g => g.Id).ToList();
+        => AutomaticTargetResolver.Resolve(
+            _options.Servers,
+            "dwd_warning",
+            _discordClient.Guilds.Select(g => g.Id),
+            _logger);
 
     /// <summary>
     /// Resolves the warning channel for a guild by ID, creating a new channel when missing.

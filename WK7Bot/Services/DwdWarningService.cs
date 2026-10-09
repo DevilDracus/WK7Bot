@@ -41,8 +41,10 @@ public partial class DwdWarningService : IDwdWarningService
     /// <summary>
     /// Matches the German snapshot archives in the feed directory listing
     /// (<c>Z_CAP_C_EDZW_&lt;yyyyMMddHHmmss&gt;_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_de.zip</c>).
+    /// Matching is case-insensitive because the feed currently publishes the upper-case
+    /// <c>..._COMMUNEUNION_DE.zip</c> variant (the language suffix decides German vs. English).
     /// </summary>
-    [GeneratedRegex(@"Z_CAP_C_EDZW_(\d{14})_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_de\.zip", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"Z_CAP_C_EDZW_(\d{14})_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_de\.zip", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SnapshotRegex();
 
     /// <summary>

@@ -50,7 +50,10 @@ public class OptionsBindingTests
                 ["Wk7Bot:dwd_warning:longitude"] = "12.36",
                 ["Wk7Bot:dwd_warning:lead_minutes"] = "45",
                 ["Wk7Bot:dwd_warning:area_names:0"] = "Stadt Leipzig",
-                ["Wk7Bot:dwd_warning:events:0"] = "HAGEL"
+                ["Wk7Bot:dwd_warning:events:0"] = "HAGEL",
+                ["Wk7Bot:servers:wk7_server_id"] = "1549409126625575004",
+                ["Wk7Bot:servers:test_server_id"] = "551130054776717323",
+                ["Wk7Bot:servers:testing_features:0"] = "dwd_warning_enabled"
             })
             .Build();
 
@@ -88,6 +91,10 @@ public class OptionsBindingTests
         Assert.Equal(45, options.DwdWarning.LeadMinutes);
         Assert.Equal("Stadt Leipzig", Assert.Single(options.DwdWarning.AreaNames));
         Assert.Equal("HAGEL", Assert.Single(options.DwdWarning.Events));
+
+        Assert.Equal("1549409126625575004", options.Servers.Wk7ServerId);
+        Assert.Equal("551130054776717323", options.Servers.TestServerId);
+        Assert.Equal("dwd_warning_enabled", Assert.Single(options.Servers.TestingFeatures));
     }
 
     [Fact]
@@ -100,7 +107,10 @@ public class OptionsBindingTests
                 ["mqtt_host"] = "core-mosquitto",
                 ["features:leipzig_waste_enabled"] = "false",
                 ["features:food_service_enabled"] = "false",
-                ["dwd_warning:postal_code"] = "04103"
+                ["dwd_warning:postal_code"] = "04103",
+                ["servers:wk7_server_id"] = "1549409126625575004",
+                ["servers:test_server_id"] = "551130054776717323",
+                ["servers:testing_features:0"] = "weekend_digest"
             })
             .Build();
 
@@ -112,6 +122,9 @@ public class OptionsBindingTests
         Assert.False(options.Features.LeipzigWasteEnabled);
         Assert.False(options.Features.FoodServiceEnabled);
         Assert.Equal("04103", options.DwdWarning.PostalCode);
+        Assert.Equal("1549409126625575004", options.Servers.Wk7ServerId);
+        Assert.Equal("551130054776717323", options.Servers.TestServerId);
+        Assert.Equal("weekend_digest", Assert.Single(options.Servers.TestingFeatures));
     }
 
     [Fact]
@@ -189,5 +202,57 @@ public class OptionsBindingTests
 
         Assert.True(options.HasPostalCode());
         Assert.True(options.HasCoordinates());
+    }
+
+    [Fact]
+    public void ServersOptions_DefaultsToPlaceholders_AndReportsThemAsUnset()
+    {
+        var options = new Wk7BotOptions().Servers;
+
+        Assert.Equal(string.Empty, options.Wk7ServerId);
+        Assert.Equal(string.Empty, options.TestServerId);
+        Assert.Empty(options.TestingFeatures);
+        Assert.False(options.TryGetWk7ServerId(out _));
+        Assert.False(options.TryGetTestServerId(out _));
+        Assert.False(options.IsFeatureBeingTested("dwd_warning"));
+    }
+
+    [Fact]
+    public void ServersOptions_IgnoresShippedPlaceholders_ButParsesRealIds()
+    {
+        var placeholder = new ServersOptions
+        {
+            Wk7ServerId = "YOUR_WK7_SERVER_ID",
+            TestServerId = "YOUR_BOT_TEST_SERVER_ID"
+        };
+
+        Assert.False(placeholder.TryGetWk7ServerId(out _));
+        Assert.False(placeholder.TryGetTestServerId(out _));
+
+        var configured = new ServersOptions
+        {
+            Wk7ServerId = "1549409126625575004",
+            TestServerId = "551130054776717323"
+        };
+
+        Assert.True(configured.TryGetWk7ServerId(out var wk7));
+        Assert.Equal(1549409126625575004ul, wk7);
+        Assert.True(configured.TryGetTestServerId(out var test));
+        Assert.Equal(551130054776717323ul, test);
+    }
+
+    [Fact]
+    public void ServersOptions_IsFeatureBeingTested_MatchesCaseInsensitively_AndToleratesEnabledSuffix()
+    {
+        var options = new ServersOptions
+        {
+            TestingFeatures = new List<string> { "DWD_Warning_Enabled", "weekend_digest" }
+        };
+
+        Assert.True(options.IsFeatureBeingTested("dwd_warning"));
+        Assert.True(options.IsFeatureBeingTested("dwd_warning_enabled"));
+        Assert.True(options.IsFeatureBeingTested("DWD_WARNING"));
+        Assert.True(options.IsFeatureBeingTested("weekend_digest"));
+        Assert.False(options.IsFeatureBeingTested("leipzig_waste"));
     }
 }

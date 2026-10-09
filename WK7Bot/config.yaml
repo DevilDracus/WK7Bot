@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.51"
+version: "1.0.52"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 init: false
@@ -38,6 +38,10 @@ options:
     spontan_treff_enabled: true
     weekend_digest_enabled: true
     dwd_warning_enabled: true
+  servers:
+    wk7_server_id: "YOUR_WK7_SERVER_ID"
+    test_server_id: "YOUR_BOT_TEST_SERVER_ID"
+    testing_features: []
   dwd_warning:
     postal_code: "01234"
     latitude: 00.00
@@ -86,6 +90,11 @@ schema:
     spontan_treff_enabled: bool
     weekend_digest_enabled: bool
     dwd_warning_enabled: bool
+  servers:
+    wk7_server_id: str
+    test_server_id: str
+    testing_features:
+      - str
   dwd_warning:
     postal_code: str
     latitude: float

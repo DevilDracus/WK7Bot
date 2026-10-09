@@ -9,9 +9,12 @@ namespace WK7Bot.Tests;
 
 public class DwdWarningServiceTests
 {
-    private const string NewerDeSnapshot = "Z_CAP_C_EDZW_20261006131515_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_de.zip";
-    private const string OlderDeSnapshot = "Z_CAP_C_EDZW_20261006125445_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_de.zip";
-    private const string NewerEnSnapshot = "Z_CAP_C_EDZW_20261006133615_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_en.zip";
+    // The feed currently publishes upper-case language suffixes (…_COMMUNEUNION_DE.zip); the
+    // lower-case variant published earlier must keep matching as well.
+    private const string NewerDeSnapshot = "Z_CAP_C_EDZW_20261006131515_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_DE.zip";
+    private const string OlderDeSnapshot = "Z_CAP_C_EDZW_20261006125445_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_DE.zip";
+    private const string NewerEnSnapshot = "Z_CAP_C_EDZW_20261006133615_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_EN.zip";
+    private const string LegacyLowerDeSnapshot = "Z_CAP_C_EDZW_20261006125445_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_de.zip";
 
     private const string SampleAlert =
         """
@@ -165,5 +168,21 @@ public class DwdWarningServiceTests
         Assert.Null(DwdWarningService.SelectNewestSnapshot(string.Empty));
         Assert.Null(DwdWarningService.SelectNewestSnapshot(Listing(NewerEnSnapshot)));
         Assert.Equal(NewerDeSnapshot, DwdWarningService.SelectNewestSnapshot(Listing(OlderDeSnapshot, NewerDeSnapshot)));
+    }
+
+    [Fact]
+    public void SelectNewestSnapshot_MatchesUpperCaseListing_AsPublishedByDwd()
+    {
+        var listing = Listing(LegacyLowerDeSnapshot, NewerDeSnapshot, NewerEnSnapshot);
+
+        Assert.Equal(NewerDeSnapshot, DwdWarningService.SelectNewestSnapshot(listing));
+    }
+
+    [Fact]
+    public void SelectNewestSnapshot_MatchesLegacyLowerCaseListing()
+    {
+        var listing = Listing(LegacyLowerDeSnapshot, NewerEnSnapshot);
+
+        Assert.Equal(LegacyLowerDeSnapshot, DwdWarningService.SelectNewestSnapshot(listing));
     }
 }

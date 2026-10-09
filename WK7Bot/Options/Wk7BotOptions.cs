@@ -80,6 +80,12 @@ public class Wk7BotOptions
     public DwdWarningOptions DwdWarning { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets the Discord servers that receive automatic messages (WK7 server, bot test server).
+    /// </summary>
+    [ConfigurationKeyName("servers")]
+    public ServersOptions Servers { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets feature toggle flags for individual background services.
     /// </summary>
     [ConfigurationKeyName("features")]

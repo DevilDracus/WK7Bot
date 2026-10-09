@@ -239,17 +239,35 @@ public class FoodPublisherService : BackgroundService
     }
 
     /// <summary>
-    /// Resolves the socket text channel matching the configured target channel name.
+    /// Resolves the socket text channel matching the configured target channel name inside the
+    /// configured target servers: the WK7 server (or the bot test server while
+    /// <c>food_service</c> is listed in <c>servers.testing_features</c>), falling back to every
+    /// guild the bot is in while no server ID is configured.
     /// </summary>
     private SocketTextChannel? ResolveTargetChannel()
     {
-        foreach (var guild in _discordClient.Guilds)
+        var targetGuildIds = AutomaticTargetResolver.Resolve(
+            _options.Servers,
+            "food_service",
+            _discordClient.Guilds.Select(g => g.Id),
+            _logger);
+
+        foreach (var guildId in targetGuildIds)
         {
+            var guild = _discordClient.GetGuild(guildId);
+            if (guild == null)
+            {
+                _logger.LogWarning(
+                    "Configured target server {GuildId} for feature 'food_service' could not be resolved; is the bot a member of it?",
+                    guildId);
+                continue;
+            }
+
             var channel = guild.TextChannels.FirstOrDefault(c => string.Equals(c.Name, TargetChannelName, StringComparison.OrdinalIgnoreCase));
             if (channel != null) return channel;
         }
 
-        _logger.LogWarning("Target channel '{ChannelName}' could not be resolved in any available guild.", TargetChannelName);
+        _logger.LogWarning("Target channel '{ChannelName}' could not be resolved in any target server.", TargetChannelName);
         return null;
     }
 }

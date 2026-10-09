@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
 
@@ -205,11 +206,18 @@ public class LeipzigWasteBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Returns the IDs of all guilds that should receive waste notifications. Virtual for testability.
+    /// Returns the IDs of the guilds that should receive waste notifications: the configured WK7
+    /// server (or the bot test server while <c>leipzig_waste</c> is listed in
+    /// <c>servers.testing_features</c>), falling back to every guild while no server ID is
+    /// configured. Virtual for testability.
     /// </summary>
     /// <returns>The target Discord guild IDs.</returns>
     protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
-        => _discordClient.Guilds.Select(g => g.Id).ToList();
+        => AutomaticTargetResolver.Resolve(
+            _options.Servers,
+            "leipzig_waste",
+            _discordClient.Guilds.Select(g => g.Id),
+            _logger);
 
     /// <summary>
     /// Constructs a structured Discord Embed confirming the waste pickup from the previous day.

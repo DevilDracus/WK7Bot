@@ -83,7 +83,11 @@ public static class WeekendDigestMessageBuilder
             },
             Answers = answers,
             Duration = ComputeDurationHours(postTime, sunday),
-            AllowMultiselect = false
+            AllowMultiselect = false,
+
+            // PollLayout has no zero value; the uninitialised default serialises as layout_type 0,
+            // which Discord rejects with 50035 (only layout type 1 is accepted).
+            LayoutType = PollLayout.Default
         };
     }
 
