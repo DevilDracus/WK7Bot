@@ -1,6 +1,6 @@
 # WK7Bot
 
-A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, RSS feed syndication, web-searched and AI-generated seasonal food and renal-safe recipes, spontaneous meetup coordination, a weekly Leipzig weekend culture digest with voting polls, local DWD rain and storm warnings for your postal code, and local utility schedule automation into a unified, extensible background framework.
+A modular Discord automation bot and Home Assistant Add-On built on .NET 10. WK7Bot integrates Discord slash commands, MQTT event pipelines, Steam Rich Presence monitoring, Battle.net World of Warcraft/Diablo profile enrichment, RSS feed syndication, web-searched and AI-generated seasonal food and renal-safe recipes, spontaneous meetup coordination, a weekly Leipzig weekend culture digest with voting polls, local DWD rain and storm warnings for your postal code, and local utility schedule automation into a unified, extensible background framework.
 
 [![Run Unit Tests](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml/badge.svg)](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml)
 [![Add repository to Home Assistant][repository-badge]][repository-url]
@@ -77,6 +77,18 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - **Fetch cooldown** – `SteamDataCache` serves Steam data from a 60s per-user cache, so Discord presence-update storms hit Steam at most once per minute per user.
 - **Diagnostics** – previously silent failure paths (no games to fetch, non-success responses, `playerstats.success=false` with Steam's error string) are logged, and per-game unlocked-achievement counts are logged at debug level. A `403` from `GetPlayerAchievements` is logged with an actionable hint (the target user's *Game details* privacy setting is likely not Public — friends-only is not enough for the Web API) plus the response body snippet, and a follow-up log reports how many achievements the fallback recovered.
 
+### Battle.net Profile Enrichment (World of Warcraft & Diablo)
+- Maps Discord user IDs to Battle.net accounts through the account's OAuth **refresh token** (`DiscordBattleNetMappings`) — no passwords are stored, and the token can be revoked from the user's Battle.net account page at any time.
+- **Setup** – create an application at [develop.battle.net](https://develop.battle.net) (client type *Confidential*, at least one redirect URI such as `http://localhost:8080`), put the **Client ID**/**Client Secret** into `battlenet_client_id`/`battlenet_client_secret`, mint a refresh token (recipe below) and add it to `discord_battlenet_mappings` together with the Discord user ID.
+- **Model** – `BattleNetUserData` carries `BattleNetId`, `BattleTag`, `Region`, `AvatarUrl`, up to five `WowCharacters`, the `DiabloHeroes` and the derived `MainCharacterDisplay` label (`Lyria · Stufe 80`), mirroring `SteamUserData`.
+- **World of Warcraft** – the account profile yields the character list; each character is enriched with level, class, faction, average/equipped item level, guild, last login (millisecond *and* second unix timestamps are tolerated) and its avatar art from the character-media endpoint (`avatar` → `bust` → `profile` fallback). Characters are sorted by level then last login, so the first entry is the main character and its avatar becomes `AvatarUrl`.
+- **Diablo** – the public Diablo III community profile contributes heroes (level, paragon, seasonal/hardcore/dead flags). **Blizzard publishes no player API for Diablo IV, Hearthstone or Overwatch 2**, so those sections stay empty by design — the dashboard popup says so instead of showing stale data.
+- **Region & locale** – a per-mapping `region` wins over the global `battlenet_region` (default `eu`); class/faction/realm names are localized via `battlenet_locale` (default `de_DE`).
+- **Token handling** – refresh tokens are exchanged for access tokens that are cached per token (SHA-256-hashed cache key so the token itself never appears in cache keys or logs, five-minute expiry margin); a cached token that Blizzard rejects is discarded and refreshed once before the userinfo request is retried.
+- **Resilient fetching** – every Battle.net call retries up to 3 times with linear backoff on `429`/`5xx` and shares a 2-request concurrency throttle; `BattleNetDataCache` serves account data from a 60s per-token cooldown, exactly like `SteamDataCache` does for Steam.
+- **Graceful degradation** – missing client credentials (warning + skip), a rejected refresh token, a missing BattleTag (falls back to the configured `battle_tag`), or a failing WoW/Diablo endpoint each reduce the payload instead of failing the whole presence update.
+- Gated by the `battlenet_presence_enabled` feature flag.
+
 ### AI Food & Recipe Automation (Google Gemini)
 - `GeminiFoodService` calls the Google Gemini `generateContent` API using JSON-schema structured output to produce German-language seasonal produce lists and dialysis / kidney-transplant-safe weekly recipes.
 - **Model fallback & resilience** – a primary model is tried first and a lite fallback model second; transient `429`/`503` responses are retried with exponential backoff, and a missing `gemini_api_key` short-circuits before any HTTP call.
@@ -92,9 +104,15 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 ### Home Assistant & MQTT Integration
 - `HomeAssistantNotifierService` registers every writable Discord text channel and configured DM user as an MQTT `notify` entity using Home Assistant Auto-Discovery.
 - Sending to `homeassistant/notify/wk7_<channelId>/set` (or `wk7_dm_<userId>/set`) pushes a message to the target Discord channel/DM.
-- `DiscordPresenceMqttService` publishes live user status/activity as MQTT sensors (`wk7bot/presence/users/<userId>`), enriched with Steam data when enabled. The payload carries the full `SteamData` object plus flattened top-level attributes (`CurrentGameTitle`, `CurrentGameAppId`, `PlaytimeLastTwoWeeksMinutes`, `PlaytimeDisplay`, `PersonaState`, `SteamAvatarUrl`) so Lovelace cards can reference them directly — the dashboard view is kept in `HASS.yaml` itself (`wk7` view, regenerated from the local-only `HASS_DiscordView.yaml` and spliced in place, so no manual paste is needed): presence cards with the Discord state on the main button plus a Discord-header-style Steam identity row (avatar on the left, `<steamname> (Steam)` name, online status painted underneath by CSS), game/playtime shortcut rows (the Spielzeit row opens the detail popup — there is no separate `>` button anymore), and detail popups whose markup deliberately only uses what Home Assistant's markdown sanitiser keeps (`<img width height>`, base64 data-URI brand glyphs, `<font>` status chips, `ha-alert`, the Font Awesome `<ha-icon icon="fab:discord">` logo — never `style=` attributes, inline `<svg>`, or non-existent icon names such as `mdi:discord`). The activity box shows the currently played game's art via Steam's `header.jpg` (230x107) and falls back to the Discord-provided `GameThumbnailUrl` when Steam has no app id for it. Popup headers are emitted as a single line joined with explicit `<br>` because `marked` swallows raw line breaks inside HTML blocks, which is what collapsed the header into one squished line.
+- `DiscordPresenceMqttService` publishes live user status/activity as MQTT sensors (`wk7bot/presence/users/<userId>`), enriched with Steam and Battle.net data when enabled. The payload carries the full `SteamData` object plus flattened top-level attributes (`CurrentGameTitle`, `CurrentGameAppId`, `PlaytimeLastTwoWeeksMinutes`, `PlaytimeDisplay`, `PersonaState`, `SteamAvatarUrl`) so Lovelace cards can reference them directly — the dashboard view is kept in `HASS.yaml` itself (`wk7` view, regenerated from the local-only `HASS_DiscordView.yaml` and spliced in place, so no manual paste is needed): presence cards with the Discord state on the main button plus a Discord-header-style Steam identity row (avatar on the left, `<steamname> (Steam)` name, online status painted underneath by CSS), game/playtime shortcut rows (the Spielzeit row opens the detail popup — there is no separate `>` button anymore), and detail popups whose markup deliberately only uses what Home Assistant's markdown sanitiser keeps (`<img width height>`, base64 data-URI brand glyphs, `<font>` status chips, `ha-alert`, the Font Awesome `<ha-icon icon="fab:discord">` logo — never `style=` attributes, inline `<svg>`, or non-existent icon names such as `mdi:discord`). The activity box shows the currently played game's art via Steam's `header.jpg` (230x107) and falls back to the Discord-provided `GameThumbnailUrl` when Steam has no app id for it. Popup headers are emitted as a single line joined with explicit `<br>` because `marked` swallows raw line breaks inside HTML blocks, which is what collapsed the header into one squished line. The same card set also carries a **Battle.net identity row directly below the Steam row** (WoW avatar on the left, `<battletag> (Battle.net)` as the name, `MainCharacterDisplay` painted underneath by CSS — hidden entirely while no `BattleNetData` is published) that navigates to a dedicated `#battlenet-<user>` popup: BattleTag and region header with the account avatar, the WoW characters (class, faction, guild, item levels, last login, armory link), the Diablo heroes, and honest empty-state notes for the games Blizzard does not expose. The MQTT payload gained the full `BattleNetData` object plus the flattened `BattleTag`, `BattleNetAvatarUrl` and `WoWMainCharacter` attributes.
 - `AlexaMentionNotificationService` forwards mentions of a target user to the getnotify.me Alexa notification API.
 - Comes with Supervisor configuration for running as a native Add-On.
+
+### Error Notifications via Discord DMs
+- `DiscordErrorLoggerProvider` is hooked into the .NET logging pipeline and captures every `Error`/`Critical` log event — the regular Home Assistant add-on logs stay untouched — while `Program.cs` additionally routes process-level escapes (`AppDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException`) into the same bounded `ErrorNotificationQueue`.
+- `ErrorNotificationDispatcher` waits for the Discord gateway and DMs every recipient in `error_notify_user_ids` a red error embed: `⚠️ Fehler in <Kurzkontext>` as the title plus `Ausnahme` (type + message), `Meldung` (the log message), `Stack-Trace` (full dump incl. inner exceptions), `Kontext` (logger category) and `Zeitpunkt` — every section truncated to Discord's field limits (256 title / 1024 field value) with embedded code fences neutralised.
+- Identical errors are throttled to one DM per unique signature every 5 minutes, delivery runs in batches of five with a one-second pause to respect rate limits, and delivery failures are logged as warnings only so the dispatcher can never feed the queue it is draining.
+- Toggle with `features.error_notifications_enabled` (default on); an empty `error_notify_user_ids` list discards reports silently.
 
 ## Technology Stack
 
@@ -104,6 +122,7 @@ WK7Bot runs as a standalone containerized service or as a native Home Assistant 
 - **Messaging:** `MQTTnet`, HTTP client pipelines
 - **Parsing:** `CodeHollow.FeedReader`, `Ical.Net`, schema.org JSON-LD recipe blocks (`System.Text.Json`)
 - **Web search:** DuckDuckGo HTML endpoint (keyless) for `/recipe`, with the Chefkoch search as fallback provider
+- **Game platforms:** Steam Web API (summaries, recently played, achievements) and Battle.net OAuth 2.0 + Blizzard profile APIs (WoW characters, Diablo III heroes)
 - **Weather warnings:** Deutscher Wetterdienst (DWD) open-data CAP alerts (zipped XML, point-in-polygon matching)
 - **AI:** Google Gemini `generateContent` (structured JSON schema, primary + fallback model)
 - **Testing:** xUnit, Moq, EF Core InMemory
@@ -133,6 +152,7 @@ WK7Bot
 │       ├── CapWarningParser.cs              # CAP XML → warning model, polygon + event matching
 │       ├── DietTagFormatter.cs              # Diet-tag identifiers → German embed labels
 │       ├── DwdWarningMessageBuilder.cs      # German warning embed (countdown, severity, limits)
+│       ├── ErrorEmbedBuilder.cs             # Red error-report embed (German labels, limit truncation)
 │       ├── FeedDeltaCalculator.cs           # Pure RSS baseline/new-item decisions
 │       ├── FeedTextFormatter.cs             # HTML strip + truncation for embeds
 │       ├── NameSanitizer.cs                 # Channel slugs + MQTT-safe names
@@ -153,7 +173,11 @@ WK7Bot
 │       ├── WarningDispatchRepository.cs
 │       └── WasteDispatchRepository.cs
 ├── Models
+│   ├── BattleNetDiabloHero.cs                 # D3 hero (level, paragon, seasonal/hardcore/dead)
+│   ├── BattleNetUserData.cs                   # Battle.net identity + WoW/Diablo payload (mirrors SteamUserData)
+│   ├── BattleNetWowCharacter.cs               # WoW character (class, faction, item levels, guild, avatar)
 │   ├── CapWarning.cs                        # DWD CAP warning model (event, times, areas, polygons)
+│   ├── ErrorNotification.cs                  # Captured error report + deduplication signature
 │   ├── FoodModels.cs                         # Seasonal produce + renal recipe models (Gemini schema)
 │   ├── SteamAchievement.cs
 │   ├── SteamRecentGame.cs
@@ -170,6 +194,7 @@ WK7Bot
 │   └── SystemModule.cs
 ├── Options
 │   ├── AlexaNotificationOptions.cs
+│   ├── DiscordBattleNetMappingOptions.cs      # Discord user → Battle.net refresh token/region/BattleTag
 │   ├── DiscordSteamMappingOptions.cs
 │   ├── DwdWarningOptions.cs                 # Postal-code-specific DWD warning settings
 │   ├── FeatureOptions.cs                    # All toggles default to enabled
@@ -177,6 +202,7 @@ WK7Bot
 │   └── Wk7BotOptions.cs
 ├── Services
 │   ├── Interfaces
+│   │   ├── IBattleNetService.cs               # Battle.net OAuth + game API fetch contract
 │   │   ├── IDwdWarningService.cs            # DWD CAP warning feed fetch contract
 │   │   ├── IGeminiFoodService.cs
 │   │   ├── IHomeAssistantService.cs
@@ -186,10 +212,15 @@ WK7Bot
 │   │   ├── ISteamService.cs
 │   │   └── IWeekendEventSource.cs           # leipzig.de weekend + month listing fetch contract
 │   ├── AlexaMentionNotificationService.cs
+│   ├── BattleNetDataCache.cs                  # 60s per-refresh-token Battle.net fetch cooldown
+│   ├── BattleNetService.cs                    # OAuth refresh flow + userinfo/WoW/Diablo profile reads
 │   ├── DiscordBotWorker.cs
+│   ├── DiscordErrorLoggerProvider.cs         # Error/Critical log capture → notification queue
 │   ├── DiscordPresenceMqttService.cs
 │   ├── DwdWarningBackgroundService.cs       # 2-minute DWD poll → #⛈️weather-warnings (lead window)
 │   ├── DwdWarningService.cs                 # Newest-snapshot fetch from opendata.dwd.de + zip parsing
+│   ├── ErrorNotificationDispatcher.cs        # Queue drain → error-embed DMs to error_notify_user_ids
+│   ├── ErrorNotificationQueue.cs             # Bounded buffer with signature throttle + capacity pruning
 │   ├── FoodPublisherService.cs               # Scheduled produce calendar + seasonal web recipe posts to #🍎food
 │   ├── GeminiFoodService.cs                  # Gemini REST client with model fallback
 │   ├── HomeAssistantNotifierService.cs
@@ -206,7 +237,7 @@ WK7Bot
 │   ├── SystemRandomSource.cs                 # Random.Shared-backed IRandomSource
 │   ├── WebRecipeSearchService.cs            # DuckDuckGo search + Chefkoch fallback + JSON-LD recipe parsing
 │   └── WeekendDigestBackgroundService.cs    # Thursday 14:15 digest → #📅wochenende (poll, retry budget)
-├── Program.cs                               # Host bootstrap, options binding, /health endpoint
+├── Program.cs                               # Host bootstrap, options binding, global error hooks, /health endpoint
 ├── appsettings.json
 ├── appsettings.Development.json
 ├── config.yaml                              # Home Assistant Add-On configuration
@@ -215,11 +246,16 @@ WK7Bot
 
 WK7Bot.Tests                                 # xUnit test project (included in WK7Bot.sln)
 ├── AutomaticTargetResolverTests.cs           # WK7/test-server routing, placeholders → all-guild fallback
+├── BattleNetDataCacheTests.cs                # Per-token cooldown, TTL expiry, null caching
+├── BattleNetServiceTests.cs                  # OAuth token reuse/refresh, userinfo/WoW/Diablo parsing, retries, region/locale
 ├── CapWarningParserTests.cs                 # CAP parse, polygon/area matching, event normalization
 ├── DietTagFormatterTests.cs
+├── DiscordErrorLoggerProviderTests.cs         # Error/Critical capture, level filtering, formatter fallback
 ├── DwdWarningBackgroundServiceTests.cs      # Lead window, dedupe, retries, area fallback
 ├── DwdWarningMessageBuilderTests.cs         # Embed countdown, severity colors, truncation
 ├── DwdWarningServiceTests.cs                # Newest-snapshot selection, empty zip, malformed entries
+├── ErrorEmbedBuilderTests.cs                # Field layout, German labels, truncation, fence neutralisation
+├── ErrorNotificationQueueTests.cs           # FIFO, capacity drop-oldest, signature throttle, exception factory
 ├── FeedDeltaCalculatorTests.cs
 ├── FeedTextFormatterTests.cs
 ├── FoodModuleTests.cs                       # Slash-command behaviour incl. embed content
@@ -280,11 +316,12 @@ All food commands are ephemeral while the lookup runs, post the result embed int
 | `HomeAssistantNotifierService` | Bridges MQTT notify commands to Discord channels / DMs | `home_assistant_notifier_enabled` |
 | `LeipzigWasteBackgroundService` | Sends daily and weekly waste collection reminders | `leipzig_waste_enabled` |
 | `AlexaMentionNotificationService` | Forwards target-user mentions to the Alexa notification API | `alexa_notifications_enabled` |
-| `DiscordPresenceMqttService` | Publishes Discord presence snapshots to MQTT for Home Assistant | `discord_presence_mqtt_enabled` |
+| `DiscordPresenceMqttService` | Publishes Discord presence snapshots to MQTT for Home Assistant (enriched with Steam and Battle.net data) | `discord_presence_mqtt_enabled` |
 | `FoodPublisherService` | Posts the monthly produce calendar (Gemini) and the weekly seasonal web recipe to `#🍎food` | `food_service_enabled` |
 | `SpontanTreffExpiryService` | Closes overdue spontaneous meetups and removes their buttons every minute | `spontan_treff_enabled` |
 | `WeekendDigestBackgroundService` | Posts the Thursday 14:15 weekend digest with a native voting poll to `#📅wochenende` | `weekend_digest_enabled` |
 | `DwdWarningBackgroundService` | Polls the DWD CAP feed every 2 minutes and posts local rain/storm warnings to `#⛈️weather-warnings` | `dwd_warning_enabled` |
+| `ErrorNotificationDispatcher` | DMs buffered error reports as embeds to every `error_notify_user_ids` recipient | `error_notifications_enabled` |
 
 Feature flags are resolved from the `Wk7Bot:features` section when present (appsettings.json), otherwise from root-level `features` (Home Assistant `options.json`). Services re-check the bound options at runtime, so disabling a flag always takes effect.
 
@@ -293,6 +330,8 @@ Automatic posts from `LeipzigWasteBackgroundService`, `FoodPublisherService`, `W
 ## Configuration
 
 Configuration is bound from `appsettings.json`, environment variables, or the Home Assistant Add-On `config.yaml`. The `Wk7Bot` section in `appsettings.json` (and root-level keys in `config.yaml`/`options.json`) is read as `Wk7BotOptions`. All option properties use `ConfigurationKeyName` snake_case aliases to match the Add-On schema.
+
+Platform credentials are optional: without `steam_api_key` the Steam enrichment is skipped, and without `battlenet_client_id`/`battlenet_client_secret` (or an empty `discord_battlenet_mappings`) the Battle.net enrichment logs a warning and skips — Discord, MQTT and every other feature keep working either way.
 
 ### Home Assistant `config.yaml`
 
@@ -303,12 +342,23 @@ mqtt_port: 1883
 mqtt_username: ""
 mqtt_password: ""
 steam_api_key: ""
+battlenet_client_id: ""                         # OAuth client ID from develop.battle.net
+battlenet_client_secret: ""                     # OAuth client secret
+battlenet_region: "eu"                          # us, eu, kr or tw (per-mapping region wins)
+battlenet_locale: "de_DE"                       # Localizes WoW class/faction/realm names
 gemini_api_key: ""                             # Google AI Studio key: seasonal produce, generated recipes, recipe formatting
 discord_steam_mappings:
   - discord_user_id: "123456789012345678"
     steam_id: "76561198000000000"
+discord_battlenet_mappings:
+  - discord_user_id: "123456789012345678"
+    refresh_token: "YOUR_BATTLE_NET_REFRESH_TOKEN"
+    region: ""                                  # Optional per-account override (us, eu, kr, tw)
+    battle_tag: ""                              # Optional fallback when userinfo is unreachable
 discord_dm_user_ids:
   - "123456789012345678"
+error_notify_user_ids:
+  - "162201162257399808"                        # User IDs receiving captured errors as DM embeds
 alexa_notification:
   target_user_id: "YOUR_DISCORD_USER_ID"
   api_token: "YOUR_GETNOTIFY_TOKEN"
@@ -321,10 +371,12 @@ features:
   alexa_notifications_enabled: true
   discord_presence_mqtt_enabled: true
   steam_presence_enabled: true
+  battlenet_presence_enabled: true
   food_service_enabled: true
   spontan_treff_enabled: true
   weekend_digest_enabled: true
   dwd_warning_enabled: true
+  error_notifications_enabled: true
 servers:
   wk7_server_id: "YOUR_WK7_SERVER_ID"             # WK7 server: receives all automatic messages
   test_server_id: "YOUR_BOT_TEST_SERVER_ID"       # Bot test server: features listed below post here
@@ -365,6 +417,10 @@ dwd_warning:
     "mqtt_host": "core-mosquitto",
     "mqtt_port": 1883,
     "steam_api_key": "YOUR_STEAM_WEB_API_KEY",
+    "battlenet_client_id": "YOUR_BATTLE_NET_CLIENT_ID",
+    "battlenet_client_secret": "YOUR_BATTLE_NET_CLIENT_SECRET",
+    "battlenet_region": "eu",
+    "battlenet_locale": "de_DE",
     "gemini_api_key": "YOUR_GOOGLE_AI_STUDIO_KEY",
     "discord_steam_mappings": [
       {
@@ -372,7 +428,16 @@ dwd_warning:
         "steam_id": "76561198000000000"
       }
     ],
+    "discord_battlenet_mappings": [
+      {
+        "discord_user_id": "123456789012345678",
+        "refresh_token": "YOUR_BATTLE_NET_REFRESH_TOKEN",
+        "region": "",
+        "battle_tag": ""
+      }
+    ],
     "discord_dm_user_ids": [ "123456789012345678" ],
+    "error_notify_user_ids": [ "162201162257399808" ],
     "alexa_notification": {
       "target_user_id": "YOUR_DISCORD_USER_ID",
       "api_token": "YOUR_GETNOTIFY_TOKEN",
@@ -386,10 +451,12 @@ dwd_warning:
       "alexa_notifications_enabled": true,
       "discord_presence_mqtt_enabled": true,
       "steam_presence_enabled": true,
+      "battlenet_presence_enabled": true,
       "food_service_enabled": true,
       "spontan_treff_enabled": true,
       "weekend_digest_enabled": true,
-      "dwd_warning_enabled": true
+      "dwd_warning_enabled": true,
+      "error_notifications_enabled": true
     },
     "servers": {
       "wk7_server_id": "YOUR_WK7_SERVER_ID",
@@ -398,9 +465,9 @@ dwd_warning:
     },
     "dwd_warning": {
       "postal_code": "01234",
-      "latitude": 00.00,
-      "longitude": 00.00,
-      "lead_minutes": 00,
+      "latitude": 0.00,
+      "longitude": 0.00,
+      "lead_minutes": 0,
       "area_names": [ "City Name", "City" ],
       "events": [ "STARKREGEN", "HAGEL", "GEWITTER", "STURM", "BÖEN", "BOEEN", "HEAVY_RAIN", "HAIL", "THUNDER", "STORM" ]
     }
@@ -413,6 +480,28 @@ If no `Wk7Bot` section exists, `Program.cs` binds `Wk7BotOptions` from the confi
 `servers.wk7_server_id` and `servers.test_server_id` are shipped as placeholders — enter the real server IDs in the add-on **Configuration** tab (Home Assistant stores them in `/data/options.json`). An unparsable or empty ID is treated as "not configured", so the placeholders never break a fresh install.
 
 Secrets may also be supplied via environment variables (`DISCORD_BOT_TOKEN`, `SUPERVISOR_TOKEN`, etc.) or .NET user secrets.
+
+#### Acquiring a Battle.net refresh token
+
+1. At [develop.battle.net](https://develop.battle.net) create an application with client type **Confidential** and a redirect URI (e.g. `http://localhost:8080`); copy the **Client ID** and **Client Secret** into `battlenet_client_id` / `battlenet_client_secret`.
+2. Open the authorize URL in a browser (the OAuth host region does not matter) and approve the requested scopes `openid wow.profile d3.profile`:
+
+   ```text
+   https://us.battle.net/oauth/authorize?client_id=<CLIENT_ID>&redirect_uri=http://localhost:8080&response_type=code&scope=openid%20wow.profile%20d3.profile&state=wk7
+   ```
+
+3. The browser redirects to `http://localhost:8080/?code=<CODE>&state=wk7` — the page itself does not need to load, copy `code` from the address bar.
+4. Exchange the code for tokens:
+
+   ```bash
+   curl -X POST https://us.battle.net/oauth/token \
+     -u "<CLIENT_ID>:<CLIENT_SECRET>" \
+     -d grant_type=authorization_code \
+     -d code="<CODE>" \
+     -d redirect_uri="http://localhost:8080"
+   ```
+
+5. Put the returned `refresh_token` into `discord_battlenet_mappings[].refresh_token`. It can be revoked any time under *Account → Settings → Security*; the bot simply logs a warning and skips Battle.net data afterwards.
 
 ### Important environment variables
 
@@ -452,7 +541,7 @@ dotnet test WK7Bot.sln
 dotnet test WK7Bot.Tests/WK7Bot.Tests.csproj
 ```
 
-The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled`, `spontan_treff_enabled`, `weekend_digest_enabled` and `dwd_warning_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, search vs. generate paths, error paths, via Moq), the web recipe search service (DuckDuckGo result extraction incl. ad skipping, JSON-LD `Recipe` parsing, candidate-skip and failure paths, bot-challenge detection with the Chefkoch fallback provider, the provider-unavailable exception, randomised candidate starting points and the recently-served preference — against a stubbed HTTP handler), the weighted `SeasonalTermPicker` (category weights, distinct terms, empty pools), the shared recipe embed builder (source link, disclaimer, empty-section skipping, 1024-char truncation), the Spontan-Treff feature (embed/button rendering and field limits, the slash command with validation, `@everyone`-forbidden fallback and error paths, the button handler with toggle/undo/switch plus expired/closed/malformed rejection and real `InteractionService` custom-ID matching, the expiry sweep incl. edit-failure isolation and idempotency, and repository CRUD together with the raw SQLite startup DDL replayed for both fresh and pre-existing databases), the weekend digest (leipzig.de event-card parsing with all date/time forms and HTML entities, the dual weekend/month page merge with URL dedupe and the both-pages-failure throw, market-weighted curation with Friday→Sunday day spread and venue dedupe, embed/poll rendering incl. Discord's 300/55/256/1024-char limits and the Sunday-23:59 poll duration clamp, and the Thursday 14:15 scheduler with its 15-minute retry budget, zero-event short-circuit, build-once fetch cache, missing-channel skip and restart-safe dispatch — via a testable subclass and EF InMemory), the DWD warning feature (newest-snapshot selection from the feed directory listing, empty-22-byte snapshot handling, malformed-entry skipping, offset-time parsing, point-in-polygon matching with `EXCLUDE_POLYGON` veto and area-name fallback, umlaut/underscore event normalisation, the lead-window/grace/expiry evaluation via a testable `EvaluateAsync` seam, per-warning per-guild restart-safe dedup with pruning, send-failure and missing-channel retries, embed countdown/severity/area-count/truncation formatting, the raw SQLite `WarningDispatchLogs` DDL replay, and `dwd_warning_enabled` flag registration), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`). Randomised behaviour is driven by a scripted `StubRandomSource`, so these tests never flake. The routing of automatic posts (`AutomaticTargetResolverTests`: WK7/test-server selection, placeholder fallback to all guilds with a warning, configured-but-unjoined server), the `servers` options binding, the weekend-digest poll layout/duration sent to Discord, and the upper/lower-case DWD snapshot names are covered as well.
+The suite covers Steam API mapping and resilience (bounded retry on `429`/`5xx`, no-retry on `400`, failed-schema non-caching, failure-path log assertions — against a stubbed HTTP handler), the `SteamDataCache` per-user cooldown (TTL expiry, null caching), the Battle.net service (refresh-token exchange with access-token reuse and refresh-on-rejection, userinfo + BattleTag fallback, WoW account → character enrichment incl. level sorting, the five-character cap and media-avatar fallback, Diablo hero parsing, region/locale selection, transient retries, missing-credential short-circuit and BattleTag URL escaping — against a stubbed HTTP handler), the `BattleNetDataCache` per-token cooldown (TTL expiry, null caching), RSS repository CRUD (EF InMemory), ICS parsing (including BOM) and ICS feed download caching (single download across lookups, failures and invalid payloads not cached), restart-safe waste dispatch (persisted per-guild dedup, independent daily/weekly kinds, partial-failure retry, missing-channel skip — via a testable subclass and EF InMemory), feature-flag registration (including `food_service_enabled`, `spontan_treff_enabled`, `weekend_digest_enabled`, `dwd_warning_enabled` and `error_notifications_enabled`), options binding, the Gemini food service (structured-output parsing, model fallback, transient-error retries, cancellation — against a stubbed HTTP handler), the `FoodModule` slash commands (channel resolution, embed content, search vs. generate paths, error paths, via Moq), the web recipe search service (DuckDuckGo result extraction incl. ad skipping, JSON-LD `Recipe` parsing, candidate-skip and failure paths, bot-challenge detection with the Chefkoch fallback provider, the provider-unavailable exception, randomised candidate starting points and the recently-served preference — against a stubbed HTTP handler), the weighted `SeasonalTermPicker` (category weights, distinct terms, empty pools), the shared recipe embed builder (source link, disclaimer, empty-section skipping, 1024-char truncation), the Spontan-Treff feature (embed/button rendering and field limits, the slash command with validation, `@everyone`-forbidden fallback and error paths, the button handler with toggle/undo/switch plus expired/closed/malformed rejection and real `InteractionService` custom-ID matching, the expiry sweep incl. edit-failure isolation and idempotency, and repository CRUD together with the raw SQLite startup DDL replayed for both fresh and pre-existing databases), the weekend digest (leipzig.de event-card parsing with all date/time forms and HTML entities, the dual weekend/month page merge with URL dedupe and the both-pages-failure throw, market-weighted curation with Friday→Sunday day spread and venue dedupe, embed/poll rendering incl. Discord's 300/55/256/1024-char limits and the Sunday-23:59 poll duration clamp, and the Thursday 14:15 scheduler with its 15-minute retry budget, zero-event short-circuit, build-once fetch cache, missing-channel skip and restart-safe dispatch — via a testable subclass and EF InMemory), the DWD warning feature (newest-snapshot selection from the feed directory listing, empty-22-byte snapshot handling, malformed-entry skipping, offset-time parsing, point-in-polygon matching with `EXCLUDE_POLYGON` veto and area-name fallback, umlaut/underscore event normalisation, the lead-window/grace/expiry evaluation via a testable `EvaluateAsync` seam, per-warning per-guild restart-safe dedup with pruning, send-failure and missing-channel retries, embed countdown/severity/area-count/truncation formatting, the raw SQLite `WarningDispatchLogs` DDL replay, and `dwd_warning_enabled` flag registration), the Discord error-notification guard (`ErrorNotificationQueue` FIFO, capacity drop-oldest and signature throttling, `DiscordErrorLoggerProvider` Error/Critical capture with level filtering and formatter-failure fallback, `ErrorEmbedBuilder` field layout with Discord length-limit truncation and code-fence neutralisation), and pure utilities (`FeedDeltaCalculator`, `WasteSummaryMapper`, `FeedTextFormatter`, `NameSanitizer`, `DietTagFormatter`). Randomised behaviour is driven by a scripted `StubRandomSource`, so these tests never flake. The routing of automatic posts (`AutomaticTargetResolverTests`: WK7/test-server selection, placeholder fallback to all guilds with a warning, configured-but-unjoined server), the `servers` options binding, the weekend-digest poll layout/duration sent to Discord, and the upper/lower-case DWD snapshot names are covered as well.
 
 ### Docker
 
@@ -471,7 +560,7 @@ docker run -d \
 1. Add the custom repository to your supervisor:
    [![Add repository to Home Assistant][repository-badge]][repository-url]
 2. Search for **WK7Bot** in the Add-On Store.
-3. Configure your tokens in the Add-On **Configuration** tab and click **Start**.
+3. Configure your tokens in the Add-On **Configuration** tab and click **Start** — `discord_token` and MQTT are required; `steam_api_key` and the Battle.net client credentials plus `discord_battlenet_mappings` refresh tokens are optional (see [Acquiring a Battle.net refresh token](#acquiring-a-battlenet-refresh-token)).
 
 Installs and updates pull the pre-built image `ghcr.io/devildracus/wk7bot:<version>` instead of compiling .NET on the device, so a Raspberry Pi 4 only downloads the container (architectures `aarch64` and `amd64`). To release a new version, bump `version:` in `WK7Bot/config.yaml` and push — the build workflow skips publishing while that version tag already exists.
 
@@ -481,7 +570,7 @@ Installs and updates pull the pre-built image `ghcr.io/devildracus/wk7bot:<versi
 | --- | --- |
 | `GET /health` | Returns `200 OK` with `WK7 Bot is healthy.` when the process is up |
 
-Logs from `Discord.Net` are forwarded into the ASP.NET logging pipeline and appear in the add-on log.
+Logs from `Discord.Net` are forwarded into the ASP.NET logging pipeline and appear in the add-on log. Battle.net problems show up there too: missing client credentials log a single `Warning`, and OAuth/API failures log the endpoint status together with the affected BattleTag (or region) instead of failing the whole presence payload. Every `Error`/`Critical` event is additionally captured by `DiscordErrorLoggerProvider` and delivered to `error_notify_user_ids` as a red embed DM (see [Error Notifications via Discord DMs](#error-notifications-via-discord-dms)), so critical failures reach you even when nobody is watching the add-on log.
 
 ## Continuous Integration
 

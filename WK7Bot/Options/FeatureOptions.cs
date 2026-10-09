@@ -44,6 +44,12 @@ public class FeatureOptions
     public bool SteamPresenceEnabled { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether Battle.net profile tracking is enabled.
+    /// </summary>
+    [ConfigurationKeyName("battlenet_presence_enabled")]
+    public bool BattleNetPresenceEnabled { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets a value indicating whether the monthly seasonal food and weekly recipe background service is enabled.
     /// </summary>
     [ConfigurationKeyName("food_service_enabled")]
@@ -66,4 +72,10 @@ public class FeatureOptions
     /// </summary>
     [ConfigurationKeyName("dwd_warning_enabled")]
     public bool DwdWarningEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether captured errors are additionally sent to Discord as direct messages.
+    /// </summary>
+    [ConfigurationKeyName("error_notifications_enabled")]
+    public bool ErrorNotificationsEnabled { get; set; } = true;
 }

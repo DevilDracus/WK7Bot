@@ -56,6 +56,36 @@ public class Wk7BotOptions
     public string? GeminiApiKey { get; set; }
 
     /// <summary>
+    /// Gets or sets the OAuth client ID of the Battle.net application registered on develop.battle.net.
+    /// </summary>
+    [ConfigurationKeyName("battlenet_client_id")]
+    public string? BattleNetClientId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the OAuth client secret of the Battle.net application registered on develop.battle.net.
+    /// </summary>
+    [ConfigurationKeyName("battlenet_client_secret")]
+    public string? BattleNetClientSecret { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Battle.net API region (us, eu, kr, tw) used for OAuth and game data requests.
+    /// </summary>
+    [ConfigurationKeyName("battlenet_region")]
+    public string BattleNetRegion { get; set; } = "eu";
+
+    /// <summary>
+    /// Gets or sets the Battle.net API locale (e.g. de_DE) used to localize class, faction and realm names.
+    /// </summary>
+    [ConfigurationKeyName("battlenet_locale")]
+    public string BattleNetLocale { get; set; } = "de_DE";
+
+    /// <summary>
+    /// Gets or sets the list of explicit Discord user ID to Battle.net account mappings.
+    /// </summary>
+    [ConfigurationKeyName("discord_battlenet_mappings")]
+    public List<DiscordBattleNetMappingOptions> DiscordBattleNetMappings { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets the list of explicit Discord user ID to Steam ID mappings.
     /// </summary>
     [ConfigurationKeyName("discord_steam_mappings")]
@@ -66,6 +96,12 @@ public class Wk7BotOptions
     /// </summary>
     [ConfigurationKeyName("discord_dm_user_ids")]
     public List<string> DiscordDmUserIds { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the target Discord user IDs that receive captured errors as direct message embeds.
+    /// </summary>
+    [ConfigurationKeyName("error_notify_user_ids")]
+    public List<string> ErrorNotifyUserIds { get; set; } = new();
 
     /// <summary>
     /// Gets or sets the configuration options for Alexa notifications.

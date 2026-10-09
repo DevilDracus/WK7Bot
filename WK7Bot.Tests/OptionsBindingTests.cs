@@ -17,8 +17,10 @@ public class OptionsBindingTests
         Assert.True(features.AlexaNotificationsEnabled);
         Assert.True(features.DiscordPresenceMqttEnabled);
         Assert.True(features.SteamPresenceEnabled);
+        Assert.True(features.BattleNetPresenceEnabled);
         Assert.True(features.FoodServiceEnabled);
         Assert.True(features.DwdWarningEnabled);
+        Assert.True(features.ErrorNotificationsEnabled);
     }
 
     [Fact]
@@ -34,17 +36,28 @@ public class OptionsBindingTests
                 ["Wk7Bot:mqtt_password"] = "pass",
                 ["Wk7Bot:steam_api_key"] = "steam-key",
                 ["Wk7Bot:gemini_api_key"] = "gemini-key",
+                ["Wk7Bot:battlenet_client_id"] = "bnet-client",
+                ["Wk7Bot:battlenet_client_secret"] = "bnet-secret",
+                ["Wk7Bot:battlenet_region"] = "us",
+                ["Wk7Bot:battlenet_locale"] = "en_US",
                 ["Wk7Bot:discord_steam_mappings:0:discord_user_id"] = "111",
                 ["Wk7Bot:discord_steam_mappings:0:steam_id"] = "76561198000000001",
+                ["Wk7Bot:discord_battlenet_mappings:0:discord_user_id"] = "111",
+                ["Wk7Bot:discord_battlenet_mappings:0:refresh_token"] = "refresh-token-abc",
+                ["Wk7Bot:discord_battlenet_mappings:0:region"] = "kr",
+                ["Wk7Bot:discord_battlenet_mappings:0:battle_tag"] = "Arthas#21234",
                 ["Wk7Bot:discord_dm_user_ids:0"] = "222",
+                ["Wk7Bot:error_notify_user_ids:0"] = "444",
                 ["Wk7Bot:alexa_notification:target_user_id"] = "333",
                 ["Wk7Bot:alexa_notification:api_token"] = "tok",
                 ["Wk7Bot:alexa_notification:api_secret"] = "sec",
                 ["Wk7Bot:alexa_notification:endpoint_url"] = "https://api.example.com/notify",
                 ["Wk7Bot:features:rss_polling_enabled"] = "false",
                 ["Wk7Bot:features:steam_presence_enabled"] = "false",
+                ["Wk7Bot:features:battlenet_presence_enabled"] = "false",
                 ["Wk7Bot:features:food_service_enabled"] = "false",
                 ["Wk7Bot:features:dwd_warning_enabled"] = "false",
+                ["Wk7Bot:features:error_notifications_enabled"] = "false",
                 ["Wk7Bot:dwd_warning:postal_code"] = "04205",
                 ["Wk7Bot:dwd_warning:latitude"] = "51.34",
                 ["Wk7Bot:dwd_warning:longitude"] = "12.36",
@@ -67,12 +80,23 @@ public class OptionsBindingTests
         Assert.Equal("pass", options.MqttPassword);
         Assert.Equal("steam-key", options.SteamApiKey);
         Assert.Equal("gemini-key", options.GeminiApiKey);
+        Assert.Equal("bnet-client", options.BattleNetClientId);
+        Assert.Equal("bnet-secret", options.BattleNetClientSecret);
+        Assert.Equal("us", options.BattleNetRegion);
+        Assert.Equal("en_US", options.BattleNetLocale);
 
         var mapping = Assert.Single(options.DiscordSteamMappings);
         Assert.Equal("111", mapping.DiscordUserId);
         Assert.Equal("76561198000000001", mapping.SteamId);
 
+        var battleNetMapping = Assert.Single(options.DiscordBattleNetMappings);
+        Assert.Equal("111", battleNetMapping.DiscordUserId);
+        Assert.Equal("refresh-token-abc", battleNetMapping.RefreshToken);
+        Assert.Equal("kr", battleNetMapping.Region);
+        Assert.Equal("Arthas#21234", battleNetMapping.BattleTag);
+
         Assert.Equal("222", Assert.Single(options.DiscordDmUserIds));
+        Assert.Equal("444", Assert.Single(options.ErrorNotifyUserIds));
 
         Assert.Equal("333", options.AlexaNotification.TargetUserId);
         Assert.Equal("tok", options.AlexaNotification.ApiToken);
@@ -82,8 +106,10 @@ public class OptionsBindingTests
         Assert.False(options.Features.RssPollingEnabled);
         Assert.True(options.Features.HomeAssistantNotifierEnabled);
         Assert.False(options.Features.SteamPresenceEnabled);
+        Assert.False(options.Features.BattleNetPresenceEnabled);
         Assert.False(options.Features.FoodServiceEnabled);
         Assert.False(options.Features.DwdWarningEnabled);
+        Assert.False(options.Features.ErrorNotificationsEnabled);
 
         Assert.Equal("04205", options.DwdWarning.PostalCode);
         Assert.Equal(51.34, options.DwdWarning.Latitude, 3);
@@ -145,8 +171,14 @@ public class OptionsBindingTests
         Assert.Null(options.MqttPassword);
         Assert.Null(options.SteamApiKey);
         Assert.Null(options.GeminiApiKey);
+        Assert.Null(options.BattleNetClientId);
+        Assert.Null(options.BattleNetClientSecret);
+        Assert.Equal("eu", options.BattleNetRegion);
+        Assert.Equal("de_DE", options.BattleNetLocale);
         Assert.Empty(options.DiscordSteamMappings);
+        Assert.Empty(options.DiscordBattleNetMappings);
         Assert.Empty(options.DiscordDmUserIds);
+        Assert.Empty(options.ErrorNotifyUserIds);
         Assert.NotNull(options.AlexaNotification);
         Assert.NotNull(options.Features);
         Assert.NotNull(options.DwdWarning);
@@ -165,6 +197,16 @@ public class OptionsBindingTests
         var mapping = new DiscordSteamMappingOptions();
         Assert.Equal(string.Empty, mapping.DiscordUserId);
         Assert.Equal(string.Empty, mapping.SteamId);
+    }
+
+    [Fact]
+    public void DiscordBattleNetMappingOptions_Defaults()
+    {
+        var mapping = new DiscordBattleNetMappingOptions();
+        Assert.Equal(string.Empty, mapping.DiscordUserId);
+        Assert.Equal(string.Empty, mapping.RefreshToken);
+        Assert.Equal(string.Empty, mapping.Region);
+        Assert.Equal(string.Empty, mapping.BattleTag);
     }
 
     [Fact]

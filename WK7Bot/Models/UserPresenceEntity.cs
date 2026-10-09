@@ -51,4 +51,9 @@ public class UserPresenceEntity
     /// Gets or sets the SteamUserData for the mapped discord user entity.
     /// </summary>
     public SteamUserData? SteamData { get; set; }
+
+    /// <summary>
+    /// Gets or sets the BattleNetUserData for the mapped discord user entity.
+    /// </summary>
+    public BattleNetUserData? BattleNetData { get; set; }
 }

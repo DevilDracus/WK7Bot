@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IHomeAssistantService, HomeAssistantService>();
         services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
         services.AddHttpClient<ISteamService, SteamService>();
+        services.AddHttpClient<IBattleNetService, BattleNetService>();
         services.AddHttpClient<IGeminiFoodService, GeminiFoodService>();
         services.AddHttpClient<IRecipeSearchService, WebRecipeSearchService>(client =>
         {
@@ -138,6 +139,11 @@ public static class ServiceCollectionExtensions
         if (IsFeatureEnabled(configuration, "dwd_warning_enabled"))
         {
             services.AddHostedService<DwdWarningBackgroundService>();
+        }
+
+        if (IsFeatureEnabled(configuration, "error_notifications_enabled"))
+        {
+            services.AddHostedService<ErrorNotificationDispatcher>();
         }
 
         return services;

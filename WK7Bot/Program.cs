@@ -2,13 +2,20 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using WK7Bot.Extensions;
 using WK7Bot.Infrastructure.Data;
+using WK7Bot.Models;
 using WK7Bot.Options;
+using WK7Bot.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("/data/options.json", optional: true, reloadOnChange: true);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=/data/wk7bot.db";
+
+// Capture every Error/Critical log event for Discord direct message delivery in addition to the regular logs.
+var errorNotificationQueue = new ErrorNotificationQueue();
+builder.Services.AddSingleton(errorNotificationQueue);
+builder.Logging.AddProvider(new DiscordErrorLoggerProvider(errorNotificationQueue));
 
 // Modular service registrations
 builder.Services.AddBotDatabase(connectionString);
@@ -33,6 +40,29 @@ var app = builder.Build();
 await app.InitializeDatabaseAsync();
 
 app.MapGet("/health", () => Results.Ok("WK7 Bot is healthy."));
+
+// Route process-level exception escapes into the Discord error notification queue as well.
+AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
+{
+    errorNotificationQueue.Enqueue(eventArgs.ExceptionObject is Exception exception
+        ? ErrorNotification.FromException("AppDomain.UnhandledException", exception)
+        : new ErrorNotification
+        {
+            Context = "AppDomain.UnhandledException",
+            Message = eventArgs.ExceptionObject?.ToString() ?? "Unbekannter Fehler",
+            Timestamp = DateTimeOffset.Now
+        });
+};
+
+TaskScheduler.UnobservedTaskException += (_, eventArgs) =>
+{
+    eventArgs.SetObserved();
+
+    foreach (var exception in eventArgs.Exception.InnerExceptions)
+    {
+        errorNotificationQueue.Enqueue(ErrorNotification.FromException("TaskScheduler.UnobservedTaskException", exception));
+    }
+};
 
 await app.RunAsync();
 

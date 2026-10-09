@@ -25,11 +25,14 @@ public class DiscordPresenceMqttService : BackgroundService
     private readonly IMqttClient _mqttClient;
     private readonly ISteamService _steamService;
     private readonly SteamDataCache _steamDataCache;
+    private readonly IBattleNetService _battleNetService;
+    private readonly BattleNetDataCache _battleNetDataCache;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DiscordPresenceMqttService> _logger;
     private readonly ConcurrentDictionary<ulong, bool> _discoveredUsers = new();
 
     private static readonly TimeSpan SteamFetchCooldown = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan BattleNetFetchCooldown = TimeSpan.FromSeconds(60);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordPresenceMqttService"/> class.
@@ -37,12 +40,14 @@ public class DiscordPresenceMqttService : BackgroundService
     /// <param name="discordClient">The active Discord socket client handling server connections.</param>
     /// <param name="mqttClient">The connected MQTT client instance responsible for broker communication.</param>
     /// <param name="steamService">The Steam service instance used to fetch Steam metadata.</param>
+    /// <param name="battleNetService">The Battle.net service instance used to fetch Battle.net profile data.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logging service instance for operational diagnostics.</param>
     public DiscordPresenceMqttService(
         DiscordSocketClient discordClient,
         IMqttClient mqttClient,
         ISteamService steamService,
+        IBattleNetService battleNetService,
         IOptions<Wk7BotOptions> options,
         ILogger<DiscordPresenceMqttService> logger)
     {
@@ -50,6 +55,8 @@ public class DiscordPresenceMqttService : BackgroundService
         _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
         _steamDataCache = new SteamDataCache(steamService, SteamFetchCooldown);
+        _battleNetService = battleNetService ?? throw new ArgumentNullException(nameof(battleNetService));
+        _battleNetDataCache = new BattleNetDataCache(battleNetService, BattleNetFetchCooldown);
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
@@ -161,7 +168,7 @@ public class DiscordPresenceMqttService : BackgroundService
     }
 
     /// <summary>
-    /// Extracts presence entity data, enriches Steam telemetry if enabled, ensures Home Assistant discovery registration, and publishes current state to MQTT.
+    /// Extracts presence entity data, enriches Steam and Battle.net telemetry if enabled, ensures Home Assistant discovery registration, and publishes current state to MQTT.
     /// </summary>
     /// <param name="user">The socket user target.</param>
     /// <param name="presence">The active presence object containing status and activities, if available.</param>
@@ -178,6 +185,15 @@ public class DiscordPresenceMqttService : BackgroundService
                 if (!string.IsNullOrWhiteSpace(userSteamId))
                 {
                     presenceEntity.SteamData = await _steamDataCache.GetSteamUserDataAsync(userSteamId);
+                }
+            }
+
+            if (_options.Features.BattleNetPresenceEnabled)
+            {
+                var battleNetMapping = _battleNetService.GetMappingForDiscordUser(user.Id.ToString());
+                if (!string.IsNullOrWhiteSpace(battleNetMapping?.RefreshToken))
+                {
+                    presenceEntity.BattleNetData = await _battleNetDataCache.GetBattleNetUserDataAsync(battleNetMapping.RefreshToken);
                 }
             }
 
@@ -380,6 +396,10 @@ public class DiscordPresenceMqttService : BackgroundService
             PersonaState = entity.SteamData?.PersonaState,
             SteamAvatarUrl = entity.SteamData?.SteamAvatarUrl,
             entity.SteamData,
+            BattleTag = entity.BattleNetData?.BattleTag,
+            BattleNetAvatarUrl = entity.BattleNetData?.AvatarUrl,
+            WoWMainCharacter = entity.BattleNetData?.MainCharacterDisplay,
+            entity.BattleNetData,
             entity.LastUpdated,
             entity_picture = !string.IsNullOrWhiteSpace(entity.GameThumbnailUrl) 
                 ? entity.GameThumbnailUrl 

@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.53"
+version: "1.0.55"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 init: false
@@ -19,9 +19,15 @@ options:
   mqtt_username: ""
   mqtt_password: ""
   steam_api_key: ""
+  battlenet_client_id: ""
+  battlenet_client_secret: ""
+  battlenet_region: "eu"
+  battlenet_locale: "de_DE"
   gemini_api_key: ""
   discord_steam_mappings: []
+  discord_battlenet_mappings: []
   discord_dm_user_ids: []
+  error_notify_user_ids: ["162201162257399808"]
   alexa_notification:
     target_user_id: "YOUR_DISCORD_USER_ID"
     api_token: "YOUR_GETNOTIFY_TOKEN"
@@ -34,10 +40,12 @@ options:
     alexa_notifications_enabled: true
     discord_presence_mqtt_enabled: true
     steam_presence_enabled: true
+    battlenet_presence_enabled: true
     food_service_enabled: true
     spontan_treff_enabled: true
     weekend_digest_enabled: true
     dwd_warning_enabled: true
+    error_notifications_enabled: true
   servers:
     wk7_server_id: "YOUR_WK7_SERVER_ID"
     test_server_id: "YOUR_BOT_TEST_SERVER_ID"
@@ -68,11 +76,22 @@ schema:
   mqtt_username: str?
   mqtt_password: str?
   steam_api_key: str?
+  battlenet_client_id: str?
+  battlenet_client_secret: str?
+  battlenet_region: str?
+  battlenet_locale: str?
   gemini_api_key: str?
   discord_steam_mappings:
     - discord_user_id: str
       steam_id: str
+  discord_battlenet_mappings:
+    - discord_user_id: str
+      refresh_token: str
+      region: str?
+      battle_tag: str?
   discord_dm_user_ids:
+    - str
+  error_notify_user_ids:
     - str
   alexa_notification:
     target_user_id: str?
@@ -86,10 +105,12 @@ schema:
     alexa_notifications_enabled: bool
     discord_presence_mqtt_enabled: bool
     steam_presence_enabled: bool
+    battlenet_presence_enabled: bool
     food_service_enabled: bool
     spontan_treff_enabled: bool
     weekend_digest_enabled: bool
     dwd_warning_enabled: bool
+    error_notifications_enabled: bool
   servers:
     wk7_server_id: str
     test_server_id: str
