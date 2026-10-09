@@ -19,6 +19,12 @@ public class RssPollingBackgroundService : BackgroundService
     private readonly ILogger<RssPollingBackgroundService> _logger;
     private bool _isClientReady;
 
+    /// <summary>Loop tick; individual feeds are polled at their own <see cref="RssFeed.RefreshIntervalMinutes"/>.</summary>
+    private static readonly TimeSpan PollTick = TimeSpan.FromMinutes(1);
+
+    /// <summary>Fallback interval when a feed's <see cref="RssFeed.RefreshIntervalMinutes"/> is not positive.</summary>
+    private const int DefaultRefreshIntervalMinutes = 15;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="RssPollingBackgroundService"/> class.
     /// </summary>
@@ -32,12 +38,22 @@ public class RssPollingBackgroundService : BackgroundService
         IOptions<Wk7BotOptions> options,
         ILogger<RssPollingBackgroundService> logger)
     {
-        _serviceProvider = serviceProvider;
-        _discordClient = discordClient;
-        _logger = logger;
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
-        _discordClient.Ready += OnDiscordClientReadyAsync;
+    /// <summary>
+    /// Detaches the gateway subscription on shutdown so the service cannot keep the client referenced
+    /// after the host stops it.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token indicating service shutdown.</param>
+    /// <returns>A task representing the asynchronous stop operation.</returns>
+    public override Task StopAsync(CancellationToken cancellationToken)
+    {
+        _discordClient.Ready -= OnDiscordClientReadyAsync;
+        return base.StopAsync(cancellationToken);
     }
 
     /// <summary>
@@ -63,6 +79,8 @@ public class RssPollingBackgroundService : BackgroundService
             return;
         }
 
+        _discordClient.Ready += OnDiscordClientReadyAsync;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -76,6 +94,10 @@ public class RssPollingBackgroundService : BackgroundService
                     _logger.LogInformation("Discord client is not fully ready. Skipping this RSS polling cycle.");
                 }
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An unhandled exception occurred during RSS polling loop execution.");
@@ -83,7 +105,7 @@ public class RssPollingBackgroundService : BackgroundService
 
             try
             {
-                await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+                await Task.Delay(PollTick, stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -93,7 +115,8 @@ public class RssPollingBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Queries all active feeds from the database and processes pending news entries.
+    /// Queries all configured feeds and processes those whose refresh interval has elapsed. Each feed
+    /// is isolated, so one failing feed cannot abort the sweep for the others.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
@@ -107,35 +130,82 @@ public class RssPollingBackgroundService : BackgroundService
 
         foreach (var feed in feeds)
         {
-            var hadBaseline = feed.LastPublishedDate.HasValue || !string.IsNullOrEmpty(feed.LastItemGuid);
-            var newItems = await parser.FetchNewItemsAsync(feed, cancellationToken);
-            var baselineSeeded = !hadBaseline
-                && (feed.LastPublishedDate.HasValue || !string.IsNullOrEmpty(feed.LastItemGuid));
-
-            if (!newItems.Any())
+            if (!IsDue(feed))
             {
-                // Persist a freshly seeded baseline so the history is never re-posted.
-                if (baselineSeeded)
+                continue;
+            }
+
+            try
+            {
+                await PollFeedAsync(parser, repository, feed, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Stamp the attempt anyway so a persistently failing feed is retried at its own
+                // interval instead of once per loop tick.
+                _logger.LogWarning(ex, "Failed to process feed '{FeedName}'; retrying at its next interval.", feed.Name);
+
+                try
                 {
                     feed.LastPolledAt = DateTimeOffset.UtcNow;
                     await repository.UpdateFeedAsync(feed, cancellationToken);
                 }
-
-                continue;
-            }
-
-            if (_discordClient.GetChannel(feed.ChannelId) is ITextChannel channel)
-            {
-                foreach (var item in newItems)
+                catch (Exception stampEx)
                 {
-                    await SendFeedEmbedAsync(channel, feed, item);
-                    feed.LastItemGuid = item.Id;
-                    feed.LastPublishedDate = item.PublishingDate;
+                    _logger.LogWarning(stampEx, "Could not stamp the failed poll of feed '{FeedName}'.", feed.Name);
                 }
-
-                feed.LastPolledAt = DateTimeOffset.UtcNow;
-                await repository.UpdateFeedAsync(feed, cancellationToken);
             }
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a feed's refresh interval has elapsed since its last poll attempt.
+    /// </summary>
+    /// <param name="feed">The feed to evaluate.</param>
+    /// <returns><see langword="true"/> when the feed should be polled now.</returns>
+    private static bool IsDue(RssFeed feed)
+    {
+        var minutes = feed.RefreshIntervalMinutes > 0 ? feed.RefreshIntervalMinutes : DefaultRefreshIntervalMinutes;
+        return !feed.LastPolledAt.HasValue
+            || DateTimeOffset.UtcNow - feed.LastPolledAt.Value >= TimeSpan.FromMinutes(minutes);
+    }
+
+    /// <summary>
+    /// Polls a single feed: fetches new items, posts embeds and persists the advanced baseline.
+    /// </summary>
+    /// <param name="parser">The RSS parser service used for the fetch.</param>
+    /// <param name="repository">The repository used to persist feed state.</param>
+    /// <param name="feed">The feed entity to process.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task PollFeedAsync(RssParserService parser, IRssRepository repository, RssFeed feed, CancellationToken cancellationToken)
+    {
+        var newItems = await parser.FetchNewItemsAsync(feed, cancellationToken);
+
+        if (!newItems.Any())
+        {
+            // Persist the attempt (and a freshly seeded baseline) so the history is never re-posted
+            // and a failing feed waits its full interval before the next attempt.
+            feed.LastPolledAt = DateTimeOffset.UtcNow;
+            await repository.UpdateFeedAsync(feed, cancellationToken);
+            return;
+        }
+
+        if (_discordClient.GetChannel(feed.ChannelId) is ITextChannel channel)
+        {
+            foreach (var item in newItems)
+            {
+                await SendFeedEmbedAsync(channel, feed, item);
+                feed.LastItemGuid = item.Id;
+                feed.LastPublishedDate = item.PublishingDate;
+            }
+
+            feed.LastPolledAt = DateTimeOffset.UtcNow;
+            await repository.UpdateFeedAsync(feed, cancellationToken);
         }
     }
 
@@ -148,18 +218,22 @@ public class RssPollingBackgroundService : BackgroundService
     /// <returns>A task representing the send operation.</returns>
     private async Task SendFeedEmbedAsync(ITextChannel channel, RssFeed feed, CodeHollow.FeedReader.FeedItem item)
     {
-        // Sanitize the URL to remove any accidental newlines, tabs, or trailing whitespace from the feed parser
+        // Strip accidental newlines, tabs or trailing whitespace from the feed parser. An item
+        // without a usable link is still posted (title + description) — dropping it would lose the
+        // entry forever, because the baseline advances past it.
         var sanitizedUrl = item.Link?.Trim();
+        var hasValidUrl = !string.IsNullOrWhiteSpace(sanitizedUrl)
+            && Uri.IsWellFormedUriString(sanitizedUrl, UriKind.Absolute);
 
-        if (string.IsNullOrWhiteSpace(sanitizedUrl) || !Uri.IsWellFormedUriString(sanitizedUrl, UriKind.Absolute))
-        {
-            _logger.LogWarning("Skipping feed item with invalid or missing URL for feed {FeedName}.", feed.Name);
-            return;
-        }
-        
         var embedBuilder = new EmbedBuilder()
-            .WithTitle(item.Title)
-            .WithUrl(sanitizedUrl)
+            .WithTitle(item.Title);
+
+        if (hasValidUrl)
+        {
+            embedBuilder = embedBuilder.WithUrl(sanitizedUrl);
+        }
+
+        embedBuilder = embedBuilder
             .WithDescription(FeedTextFormatter.SanitizeFeedDescription(item.Description))
             .WithColor(Color.Blue)
             .WithFooter(text: feed.Name)

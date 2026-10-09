@@ -81,7 +81,18 @@ public class LeipzigWasteService : ILeipzigWasteService
             foreach (var calendarEvent in calendar.Events)
             {
                 var startDate = calendarEvent?.Start?.Value;
-                if (startDate.HasValue && startDate.Value.Date == targetDate.Date)
+                if (!startDate.HasValue)
+                {
+                    continue;
+                }
+
+                // Match collections spanning the target day too: an event is active on the day when
+                // it starts on/before that day and ends after the day's start (an event without an
+                // explicit end covers its start day only).
+                var dayStart = targetDate.Date;
+                var endDate = calendarEvent?.End?.Value ?? startDate.Value.Date.AddDays(1);
+
+                if (startDate.Value.Date <= dayStart && endDate > dayStart)
                 {
                     var rawSummary = calendarEvent?.Summary ?? string.Empty;
                     var friendlyName = WasteSummaryMapper.MapToFriendlyName(rawSummary);
@@ -89,7 +100,7 @@ public class LeipzigWasteService : ILeipzigWasteService
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to parse the Stadtreinigung Leipzig ICS calendar for {TargetDate}", targetDate);
         }
@@ -106,7 +117,11 @@ public class LeipzigWasteService : ILeipzigWasteService
     /// <returns>The BOM-trimmed ICS payload, or <see langword="null"/> when the download or validation failed.</returns>
     private async Task<string?> DownloadIcsContentAsync(string feedUrl, CancellationToken cancellationToken)
     {
-        if (_cache.TryGetValue<string>(IcsCacheKey, out var cached) && !string.IsNullOrEmpty(cached))
+        // The URL belongs to the cache key: a changed leipzig_waste_ics_feed_url must not keep
+        // serving the previous calendar for the rest of the TTL.
+        var cacheKey = $"{IcsCacheKey}_{feedUrl}";
+
+        if (_cache.TryGetValue<string>(cacheKey, out var cached) && !string.IsNullOrEmpty(cached))
         {
             return cached;
         }
@@ -127,10 +142,10 @@ public class LeipzigWasteService : ILeipzigWasteService
                 return null;
             }
 
-            _cache.Set(IcsCacheKey, contentString, IcsCacheTtl);
+            _cache.Set(cacheKey, contentString, IcsCacheTtl);
             return contentString;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to download the Stadtreinigung Leipzig ICS feed from {FeedUrl}", feedUrl);
             return null;

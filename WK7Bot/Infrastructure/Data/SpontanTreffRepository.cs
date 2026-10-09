@@ -70,7 +70,14 @@ public class SpontanTreffRepository : ISpontanTreffRepository
             .FirstOrDefaultAsync(r => r.MeetupId == meetupId && r.UserId == userId, cancellationToken);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Inserts or replaces the answer. When two clicks from the same user race, the first writer wins:
+    /// the duplicate insert is swallowed and the stored <see cref="SpontanTreffResponse.Going"/> keeps
+    /// whichever value was committed first.
+    /// </summary>
+    /// <param name="response">The answer to persist.</param>
+    /// <param name="cancellationToken">Cancellation token for the database operation.</param>
+    /// <returns>A task representing the asynchronous write operation.</returns>
     public async Task SetResponseAsync(SpontanTreffResponse response, CancellationToken cancellationToken = default)
     {
         var existing = await _dbContext.SpontanTreffResponses

@@ -69,16 +69,27 @@ public class SteamDataCache
             return entry.Data;
         }
 
-        var fetchTask = _inFlight.GetOrAdd(steamId, id => FetchAndStoreAsync(id, cancellationToken));
-        try
+        // The caller whose factory created the task owns its eviction and runs it only after the
+        // fetch has settled. Waiters must never remove the shared task: a waiter that cancels would
+        // otherwise evict a still-running fetch and defeat the single-flight guarantee.
+        var isOwner = false;
+        var fetchTask = _inFlight.GetOrAdd(steamId, id =>
+        {
+            isOwner = true;
+            return FetchAndStoreAsync(id, cancellationToken);
+        });
+
+        if (!isOwner)
         {
             return await fetchTask.WaitAsync(cancellationToken);
         }
+
+        try
+        {
+            return await fetchTask;
+        }
         finally
         {
-            // Remove only the exact task this call joined, so a newer in-flight fetch for the same
-            // Steam ID is never evicted. (The factory itself cannot remove: GetOrAdd inserts the
-            // factory's result after the factory has already returned.)
             ((ICollection<KeyValuePair<string, Task<SteamUserData?>>>)_inFlight)
                 .Remove(new KeyValuePair<string, Task<SteamUserData?>>(steamId, fetchTask));
         }

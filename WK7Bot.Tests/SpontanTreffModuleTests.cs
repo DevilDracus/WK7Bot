@@ -269,7 +269,7 @@ public class SpontanTreffModuleTests
 
         Assert.Empty(module.Posts);
         Assert.Empty(fixture.Context.SpontanTreffs.AsNoTracking());
-        Assert.Contains("Could not find or create", Assert.Single(module.Followups));
+        Assert.Contains("nicht gefunden oder erstellt werden", Assert.Single(module.Followups));
     }
 
     [Fact]

@@ -23,7 +23,7 @@ public class DatabaseWriteGuardTests
     }
 
     [Fact]
-    public void IsUniqueConstraintViolation_UnrelatedSqliteFailure_IsNotClassifiedWithoutSqliteException()
+    public void IsUniqueConstraintViolation_UnrelatedInnerException_ReturnsFalse()
     {
         var exception = new DbUpdateException("insert failed", new InvalidOperationException("boom"));
 
@@ -49,6 +49,33 @@ public class DatabaseWriteGuardTests
             var wrapped = new DbUpdateException("update failed", sqliteException);
 
             Assert.True(DatabaseWriteGuard.IsUniqueConstraintViolation(wrapped));
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task IsUniqueConstraintViolation_SqliteNotNullViolation_ReturnsFalse()
+    {
+        // A NOT NULL failure shares the primary SQLITE_CONSTRAINT code but must not be treated as
+        // "row already exists" — otherwise a schema bug would silently drop the write.
+        var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        try
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE t (a INTEGER NOT NULL);
+                INSERT INTO t VALUES (NULL);
+                """;
+
+            var sqliteException = await Assert.ThrowsAsync<SqliteException>(() => command.ExecuteNonQueryAsync());
+            var wrapped = new DbUpdateException("update failed", sqliteException);
+
+            Assert.False(DatabaseWriteGuard.IsUniqueConstraintViolation(wrapped));
         }
         finally
         {

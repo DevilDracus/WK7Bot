@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using Discord;
 using Discord.Interactions;
+using Microsoft.Extensions.Logging;
 using WK7Bot.Services.Interfaces;
 
 namespace WK7Bot.Modules;
@@ -11,14 +12,17 @@ namespace WK7Bot.Modules;
 public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly ILeipzigWasteService _wasteService;
+    private readonly ILogger<LeipzigWasteModule> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LeipzigWasteModule"/> class.
     /// </summary>
     /// <param name="wasteService">The waste calendar service instance.</param>
-    public LeipzigWasteModule(ILeipzigWasteService wasteService)
+    /// <param name="logger">The logger instance for diagnostics.</param>
+    public LeipzigWasteModule(ILeipzigWasteService wasteService, ILogger<LeipzigWasteModule> logger)
     {
-        _wasteService = wasteService;
+        _wasteService = wasteService ?? throw new ArgumentNullException(nameof(wasteService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -34,14 +38,24 @@ public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext
     {
         await DeferAsync(ephemeral: true);
 
-        if (!string.IsNullOrWhiteSpace(dateInput))
+        try
         {
-            await HandleSingleDateQueryAsync(dateInput);
-            return;
-        }
+            if (!string.IsNullOrWhiteSpace(dateInput))
+            {
+                await HandleSingleDateQueryAsync(dateInput);
+                return;
+            }
 
-        var rangeDays = Math.Clamp(days ?? 2, 1, 14);
-        await HandleDateRangeQueryAsync(rangeDays);
+            var rangeDays = Math.Clamp(days ?? 2, 1, 14);
+            await HandleDateRangeQueryAsync(rangeDays);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The calendar lookup downloads the ICS feed, so it can fail like any HTTP call;
+            // without this guard the deferred interaction would never receive an answer.
+            _logger.LogError(ex, "Error occurred while executing the /check-waste slash command.");
+            await FollowupAsync("❌ Die Müllabholtermine konnten nicht abgerufen werden. Bitte versuche es später erneut.", ephemeral: true);
+        }
     }
 
     /// <summary>

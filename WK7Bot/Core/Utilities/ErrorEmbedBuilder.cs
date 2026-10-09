@@ -24,8 +24,6 @@ public static class ErrorEmbedBuilder
     /// </summary>
     public const string FooterText = "WK7 Bot • Fehlerbenachrichtigung";
 
-    private const int TitleLimit = 256;
-    private const int FieldValueLimit = 1024;
     private const int CodeBlockOverhead = 8;
 
     /// <summary>
@@ -39,7 +37,7 @@ public static class ErrorEmbedBuilder
 
         var builder = new EmbedBuilder()
             .WithColor(ErrorColor)
-            .WithTitle(Truncate($"{TitlePrefix}{ShortContext(notification.Context)}", TitleLimit))
+            .WithTitle(EmbedText.Truncate($"{TitlePrefix}{ShortContext(notification.Context)}", EmbedText.TitleLimit))
             .WithFooter(FooterText);
 
         if (!string.IsNullOrWhiteSpace(notification.ExceptionType))
@@ -48,7 +46,7 @@ public static class ErrorEmbedBuilder
                 ? notification.ExceptionType
                 : $"{notification.ExceptionType}: {notification.ExceptionMessage}";
 
-            builder.AddField("Ausnahme", Truncate(detail, FieldValueLimit), false);
+            builder.AddField("Ausnahme", EmbedText.Truncate(detail, EmbedText.FieldValueLimit), false);
         }
 
         if (!string.IsNullOrWhiteSpace(notification.Message) && notification.Message != notification.ExceptionMessage)
@@ -62,7 +60,7 @@ public static class ErrorEmbedBuilder
         }
 
         var context = string.IsNullOrWhiteSpace(notification.Context) ? "Unbekannt" : notification.Context;
-        builder.AddField("Kontext", Truncate(context, FieldValueLimit), false);
+        builder.AddField("Kontext", EmbedText.Truncate(context, EmbedText.FieldValueLimit), false);
         builder.AddField("Zeitpunkt", notification.Timestamp.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss zzz"), false);
 
         return builder.Build();
@@ -92,27 +90,6 @@ public static class ErrorEmbedBuilder
     private static string CodeBlock(string text)
     {
         var sanitized = text.Replace("```", "'''", StringComparison.Ordinal);
-        return $"```\n{Truncate(sanitized, FieldValueLimit - CodeBlockOverhead)}\n```";
-    }
-
-    /// <summary>
-    /// Cuts a string to the given limit, appending an ellipsis when content had to be removed.
-    /// </summary>
-    /// <param name="value">The text to truncate.</param>
-    /// <param name="limit">The maximum allowed length.</param>
-    /// <returns>The truncated text.</returns>
-    private static string Truncate(string value, int limit)
-    {
-        if (string.IsNullOrEmpty(value) || value.Length <= limit)
-        {
-            return value;
-        }
-
-        if (limit <= 1)
-        {
-            return value[..limit];
-        }
-
-        return $"{value[..(limit - 1)]}…";
+        return $"```\n{EmbedText.Truncate(sanitized, EmbedText.FieldValueLimit - CodeBlockOverhead)}\n```";
     }
 }

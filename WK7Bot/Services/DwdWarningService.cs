@@ -114,23 +114,37 @@ public partial class DwdWarningService : IDwdWarningService
     {
         var warnings = new List<CapWarning>();
 
-        using var archive = new ZipArchive(new MemoryStream(archiveBytes), ZipArchiveMode.Read);
-
-        foreach (var entry in archive.Entries)
+        ZipArchive archive;
+        try
         {
-            if (!entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
+            archive = new ZipArchive(new MemoryStream(archiveBytes), ZipArchiveMode.Read);
+        }
+        catch (InvalidDataException ex)
+        {
+            // A non-zip body (proxy error page, truncated download) must not surface as an unhandled
+            // exception on every poll; report it once as a warning and treat the snapshot as empty.
+            _logger.LogWarning(ex, "DWD warning snapshot {Snapshot} is not a readable zip archive.", snapshotName);
+            return warnings;
+        }
 
-            try
+        using (archive)
+        {
+            foreach (var entry in archive.Entries)
             {
-                using var stream = entry.Open();
-                warnings.AddRange(CapWarningParser.ParseAlert(stream));
-            }
-            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
-            {
-                _logger.LogWarning(ex, "Skipping malformed CAP entry {Entry} in DWD snapshot {Snapshot}.", entry.FullName, snapshotName);
+                if (!entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    using var stream = entry.Open();
+                    warnings.AddRange(CapWarningParser.ParseAlert(stream));
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+                {
+                    _logger.LogWarning(ex, "Skipping malformed CAP entry {Entry} in DWD snapshot {Snapshot}.", entry.FullName, snapshotName);
+                }
             }
         }
 

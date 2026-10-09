@@ -221,7 +221,7 @@ public class FoodModuleTests
 
         Assert.Equal(1, module.DeferCallCount);
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Could not find the channel", followup);
+        Assert.Contains("wurde auf diesem Server nicht gefunden", followup);
         Assert.Contains("🍎food", followup);
         Assert.Null(module.PostedEmbed);
         service.Verify(s => s.GetWeeklyRenalRecipeAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -238,7 +238,7 @@ public class FoodModuleTests
         await module.GenerateRecipeAsync();
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Failed to generate a recipe", followup);
+        Assert.Contains("konnte von der Gemini-API nicht erstellt werden", followup);
         Assert.Null(module.PostedEmbed);
     }
 
@@ -265,7 +265,7 @@ public class FoodModuleTests
         Assert.Contains("@Tester", embed.Footer!.Value.Text);
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Recipe successfully created", followup);
+        Assert.Contains("Rezept erfolgreich erstellt", followup);
         Assert.Contains(FoodChannelMention, followup);
     }
 
@@ -280,7 +280,7 @@ public class FoodModuleTests
         await module.GenerateRecipeAsync();
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("unexpected error", followup);
+        Assert.Contains("unerwarteter Fehler", followup);
         Assert.Null(module.PostedEmbed);
     }
 
@@ -315,7 +315,7 @@ public class FoodModuleTests
         Assert.Contains("@Tester", embed.Footer!.Value.Text);
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Recipe found", followup);
+        Assert.Contains("Rezept gefunden", followup);
         Assert.Contains(FoodChannelMention, followup);
     }
 
@@ -331,7 +331,7 @@ public class FoodModuleTests
         await module.SearchRecipeAsync("gibbnichts");
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("No parseable recipe", followup);
+        Assert.Contains("Kein auswertbares Rezept", followup);
         Assert.Contains("/recipe-generate", followup);
         Assert.Null(module.PostedEmbed);
     }
@@ -345,7 +345,7 @@ public class FoodModuleTests
         await module.SearchRecipeAsync("Pfannkuchen");
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Could not find the channel", followup);
+        Assert.Contains("wurde auf diesem Server nicht gefunden", followup);
         Assert.Null(module.PostedEmbed);
         search.Verify(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -359,7 +359,7 @@ public class FoodModuleTests
         await module.SearchRecipeAsync("   ");
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Please provide a search query", followup);
+        Assert.Contains("Bitte gib einen Suchbegriff an", followup);
         Assert.Null(module.PostedEmbed);
         search.Verify(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -376,7 +376,7 @@ public class FoodModuleTests
         await module.SearchRecipeAsync("Pfannkuchen");
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("unexpected error", followup);
+        Assert.Contains("unerwarteter Fehler", followup);
         Assert.Null(module.PostedEmbed);
     }
 
@@ -392,7 +392,7 @@ public class FoodModuleTests
         await module.SearchRecipeAsync("Pfannkuchen");
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("temporarily unavailable", followup);
+        Assert.Contains("vorübergehend nicht verfügbar", followup);
         Assert.Contains("/recipe-generate", followup);
         Assert.Null(module.PostedEmbed);
     }
@@ -456,7 +456,7 @@ public class FoodModuleTests
         Assert.Equal(raw.SourceUrl, embed.Url?.ToString());
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Recipe found", followup);
+        Assert.Contains("Rezept gefunden", followup);
     }
 
     [Fact]
@@ -512,7 +512,7 @@ public class FoodModuleTests
         Assert.Contains("Saisonale Zutaten:", embed.Footer!.Value.Text);
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Seasonal recipe", followup);
+        Assert.Contains("Saisonales Rezept", followup);
         Assert.Contains(FoodChannelMention, followup);
     }
 
@@ -588,7 +588,7 @@ public class FoodModuleTests
         await module.SearchSeasonalRecipeAsync();
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("seasonal produce", followup);
+        Assert.Contains("Saisonprodukte konnten nicht", followup);
         Assert.Null(module.PostedEmbed);
         search.Verify(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -609,7 +609,7 @@ public class FoodModuleTests
         await module.SearchSeasonalRecipeAsync();
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("No parseable recipe", followup);
+        Assert.Contains("Kein auswertbares Rezept", followup);
         Assert.Null(module.PostedEmbed);
         gemini.Verify(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -630,7 +630,7 @@ public class FoodModuleTests
         await module.SearchSeasonalRecipeAsync();
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("temporarily unavailable", followup);
+        Assert.Contains("vorübergehend nicht verfügbar", followup);
         Assert.Contains("/recipe-generate", followup);
         Assert.Null(module.PostedEmbed);
     }
@@ -644,7 +644,7 @@ public class FoodModuleTests
         await module.GetSeasonalProduceAsync(7);
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Could not find the channel", followup);
+        Assert.Contains("wurde auf diesem Server nicht gefunden", followup);
         Assert.Null(module.PostedEmbed);
         service.Verify(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -658,7 +658,7 @@ public class FoodModuleTests
         await module.GetSeasonalProduceAsync(13);
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Invalid month", followup);
+        Assert.Contains("Ungültiger Monat", followup);
         Assert.Null(module.PostedEmbed);
         service.Verify(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -666,6 +666,8 @@ public class FoodModuleTests
     [Fact]
     public async Task GetSeasonalProduceAsync_UsesCurrentMonth_WhenMonthOmitted()
     {
+        // The production code reads DateTime.Now itself, so a run straddling midnight must not
+        // fail the assertion: accept the captured month or the month that had just begun.
         DateTime expected = DateTime.Now;
         var service = new Mock<IGeminiFoodService>();
         service.Setup(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
@@ -676,12 +678,12 @@ public class FoodModuleTests
 
         service.Verify(
             s => s.GetSeasonalProduceAsync(
-                It.Is<DateTime>(d => d.Year == expected.Year && d.Month == expected.Month && d.Day == 1),
+                It.Is<DateTime>(d => d.Day == 1 && (IsSameMonth(d, expected) || IsNextMonth(d, expected))),
                 It.IsAny<CancellationToken>()),
             Times.Once);
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Failed to retrieve seasonal produce", followup);
+        Assert.Contains("Saisonprodukte konnten nicht", followup);
     }
 
     [Fact]
@@ -707,7 +709,7 @@ public class FoodModuleTests
         Assert.Contains("@Tester", embed.Footer!.Value.Text);
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("successfully posted", followup);
+        Assert.Contains("erfolgreich in", followup);
         Assert.Contains(FoodChannelMention, followup);
     }
 
@@ -740,7 +742,7 @@ public class FoodModuleTests
         await module.GetSeasonalProduceAsync(7);
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("Failed to retrieve seasonal produce", followup);
+        Assert.Contains("Saisonprodukte konnten nicht", followup);
         Assert.Null(module.PostedEmbed);
     }
 
@@ -755,7 +757,25 @@ public class FoodModuleTests
         await module.GetSeasonalProduceAsync(7);
 
         var followup = Assert.Single(module.Followups);
-        Assert.Contains("unexpected error", followup);
+        Assert.Contains("unerwarteter Fehler", followup);
         Assert.Null(module.PostedEmbed);
+    }
+
+    /// <summary>
+    /// Tolerates a test run that straddles a month boundary: the command reads <see cref="DateTime.Now"/>
+    /// itself, so the captured month and the month used by the command may legitimately differ by one.
+    /// </summary>
+    private static bool IsSameMonth(DateTime actual, DateTime expected)
+        => actual.Year == expected.Year && actual.Month == expected.Month;
+
+    /// <summary>
+    /// Determines whether <paramref name="actual"/> is the first day of the month following the
+    /// captured month.
+    /// </summary>
+    private static bool IsNextMonth(DateTime actual, DateTime expected)
+    {
+        var firstOfCaptured = new DateTime(expected.Year, expected.Month, 1);
+        var firstOfNext = firstOfCaptured.AddMonths(1);
+        return actual.Year == firstOfNext.Year && actual.Month == firstOfNext.Month;
     }
 }

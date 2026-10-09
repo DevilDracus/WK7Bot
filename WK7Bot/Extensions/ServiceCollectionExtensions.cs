@@ -53,8 +53,13 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
         
-        services.AddHttpClient<IHomeAssistantService, HomeAssistantService>();
-        services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
+services.AddHttpClient<IHomeAssistantService, HomeAssistantService>(client =>
+{
+    // The Supervisor proxy is a local service: a request still pending after this window is
+    // treated as unreachable instead of hanging for the HttpClient default of 100 seconds.
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
         services.AddHttpClient<ISteamService, SteamService>();
         services.AddHttpClient<IBattleNetService, BattleNetService>();
         services.AddHttpClient<IGeminiFoodService, GeminiFoodService>();

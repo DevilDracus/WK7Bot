@@ -124,7 +124,7 @@ public class SpontanTreffComponentModule : InteractionModuleBase<SocketInteracti
 
             await FollowupAsync(confirmation, ephemeral: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while handling a Spontan-Treff button interaction.");
             await FollowupAsync("❌ Deine Antwort konnte nicht gespeichert werden.", ephemeral: true);

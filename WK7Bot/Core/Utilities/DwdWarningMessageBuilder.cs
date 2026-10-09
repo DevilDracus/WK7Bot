@@ -14,18 +14,8 @@ using WK7Bot.Options;
 /// </summary>
 public static class DwdWarningMessageBuilder
 {
-    private const int TitleLimit = 256;
-    private const int DescriptionLimit = 4096;
-    private const int FieldNameLimit = 256;
-    private const int FieldValueLimit = 1024;
-
     /// <summary>
-    /// Discord's total embed length limit (title + description + footer + all field names and values).
-    /// </summary>
-    private const int TotalLimit = 6000;
-
-    /// <summary>
-    /// Head-room kept below <see cref="TotalLimit"/> so the embed is never rejected by Discord.
+    /// Head-room kept below <see cref="EmbedText.TotalLimit"/> so the embed is never rejected by Discord.
     /// </summary>
     private const int SafetyMargin = 150;
 
@@ -45,14 +35,14 @@ public static class DwdWarningMessageBuilder
 
         var locationLabel = ResolveLocationLabel(warning, options);
         var subject = warning.Event.Length > 0 ? warning.Event : warning.Headline;
-        var title = Truncate($"⚠️ {subject} für {locationLabel}", TitleLimit);
+        var title = EmbedText.Truncate($"⚠️ {subject} für {locationLabel}", EmbedText.TitleLimit);
         var footer = ResolveFooter(options);
 
         // Whole-embed budget: title and footer are fixed, the headline description gets the next slice,
         // and every field draws from what remains so the embed stays inside Discord's total limit.
-        int budget = TotalLimit - SafetyMargin - title.Length - footer.Length;
+        int budget = EmbedText.TotalLimit - SafetyMargin - title.Length - footer.Length;
 
-        var headline = Truncate(warning.Headline, Math.Clamp(budget, 0, DescriptionLimit));
+        var headline = EmbedText.Truncate(warning.Headline, Math.Clamp(budget, 0, EmbedText.DescriptionLimit));
         budget -= headline.Length;
 
         var onset = TakeField(ref budget, "🕐 Eintritt", FormatOnset(warning.Onset, postTime), inline: true);
@@ -114,7 +104,7 @@ public static class DwdWarningMessageBuilder
             return null;
         }
 
-        var truncated = Truncate(value, FieldValueLimit);
+        var truncated = EmbedText.Truncate(value, EmbedText.FieldValueLimit);
         int cost = name.Length + truncated.Length;
         if (cost <= budget)
         {
@@ -129,7 +119,7 @@ public static class DwdWarningMessageBuilder
         }
 
         budget = 0;
-        return (name, Truncate(truncated, room), inline);
+        return (name, EmbedText.Truncate(truncated, room), inline);
     }
 
     /// <summary>
@@ -282,25 +272,4 @@ public static class DwdWarningMessageBuilder
         => options.HasPostalCode()
             ? $"Deutscher Wetterdienst (DWD) • PLZ {options.PostalCode}"
             : "Deutscher Wetterdienst (DWD)";
-
-    /// <summary>
-    /// Shortens text to <paramref name="maxChars"/> characters, appending an ellipsis when truncated.
-    /// </summary>
-    /// <param name="text">The text to shorten.</param>
-    /// <param name="maxChars">The maximum length.</param>
-    /// <returns>The possibly truncated text.</returns>
-    private static string Truncate(string text, int maxChars)
-    {
-        if (string.IsNullOrEmpty(text) || text.Length <= maxChars)
-        {
-            return text;
-        }
-
-        if (maxChars <= 1)
-        {
-            return text.Substring(0, maxChars);
-        }
-
-        return text.Substring(0, maxChars - 1) + "…";
-    }
 }

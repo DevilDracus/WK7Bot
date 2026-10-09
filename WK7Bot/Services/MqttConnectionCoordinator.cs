@@ -19,6 +19,12 @@ public sealed class MqttConnectionCoordinator
     private static readonly TimeSpan InitialReconnectDelay = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan MaxReconnectDelay = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Upper bound for a single TCP connect attempt so an unreachable broker cannot stall the
+    /// calling Discord gateway handler for the OS default (which can reach minutes).
+    /// </summary>
+    private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
+
     private readonly IMqttClient _mqttClient;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<MqttConnectionCoordinator> _logger;
@@ -144,7 +150,11 @@ public sealed class MqttConnectionCoordinator
     {
         var optionsBuilder = new MqttClientOptionsBuilder()
             .WithTcpServer(Host, Port)
-            .WithCleanSession();
+            .WithCleanSession()
+            // Bound the TCP connect attempt: the OS default can be minutes long, which would
+            // stall the calling Discord gateway handler on every publish while the broker is
+            // unreachable.
+            .WithTimeout(ConnectTimeout);
 
         if (!string.IsNullOrWhiteSpace(_options.MqttUsername))
         {

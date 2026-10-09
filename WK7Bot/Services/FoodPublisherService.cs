@@ -50,11 +50,22 @@ public class FoodPublisherService : BackgroundService
     /// <summary>Dispatch records older than this are pruned after each successful post.</summary>
     private static readonly TimeSpan DispatchRetention = TimeSpan.FromDays(90);
 
+    /// <summary>Month and year of the last completed monthly produce slot, or <see langword="null"/> when none ran.</summary>
     private DateTime? _lastMonthlyPostDate;
+
+    /// <summary>Date of the last completed weekly recipe slot, or <see langword="null"/> when none ran.</summary>
     private DateTime? _lastWeeklyRecipePostDate;
+
+    /// <summary>Next allowed monthly attempt time; <see cref="DateTime.MinValue"/> means "immediately".</summary>
     private DateTime _nextMonthlyAttempt = DateTime.MinValue;
+
+    /// <summary>Next allowed weekly attempt time; <see cref="DateTime.MinValue"/> means "immediately".</summary>
     private DateTime _nextWeeklyAttempt = DateTime.MinValue;
+
+    /// <summary>Failed monthly attempts inside the current window.</summary>
     private int _monthlyAttempts;
+
+    /// <summary>Failed weekly attempts inside the current slot.</summary>
     private int _weeklyAttempts;
 
     /// <summary>
@@ -108,12 +119,12 @@ public class FoodPublisherService : BackgroundService
 
                 if (ShouldPublishMonthlyProduce(now))
                 {
-                    await AttemptMonthlyProduceAsync(now, stoppingToken);
+                    await AttemptSlotAsync(now, FoodDispatchKinds.MonthlyProduce, "monthly produce", PublishMonthlyProduceAsync, stoppingToken);
                 }
 
                 if (ShouldPublishWeeklyRecipe(now))
                 {
-                    await AttemptWeeklyRecipeAsync(now, stoppingToken);
+                    await AttemptSlotAsync(now, FoodDispatchKinds.WeeklyRecipe, "weekly recipe", PublishWeeklyRecipeAsync, stoppingToken);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -138,7 +149,15 @@ public class FoodPublisherService : BackgroundService
     {
         if (now.Day != 1) return false;
         if (now.TimeOfDay < MonthlyWindowOpen) return false;
-        if (_lastMonthlyPostDate.HasValue && _lastMonthlyPostDate.Value.Month == now.Month) return false;
+
+        // Compare year AND month: a process that stays up for over a year must still post the
+        // same calendar month of every later year.
+        if (_lastMonthlyPostDate.HasValue
+            && _lastMonthlyPostDate.Value.Year == now.Year
+            && _lastMonthlyPostDate.Value.Month == now.Month)
+        {
+            return false;
+        }
 
         return now >= _nextMonthlyAttempt;
     }
@@ -157,15 +176,26 @@ public class FoodPublisherService : BackgroundService
     }
 
     /// <summary>
-    /// Runs one monthly produce attempt with success/attempt bookkeeping so transient failures retry
-    /// every five minutes instead of silently losing the post until next month.
+    /// Runs one slot attempt with success/attempt bookkeeping so transient failures retry every
+    /// five minutes instead of silently losing the slot; giving up suppresses the slot for the
+    /// current period (month or week).
     /// </summary>
-    private async Task AttemptMonthlyProduceAsync(DateTime now, CancellationToken cancellationToken)
+    /// <param name="now">The current local time; also the dispatch key for persistence.</param>
+    /// <param name="kind">The dispatch kind identifying the slot.</param>
+    /// <param name="slotLabel">Human-readable slot name used in log messages.</param>
+    /// <param name="publish">The publish operation of this slot.</param>
+    /// <param name="cancellationToken">Cancellation token for network and database operations.</param>
+    private async Task AttemptSlotAsync(
+        DateTime now,
+        string kind,
+        string slotLabel,
+        Func<DateTime, CancellationToken, Task<bool>> publish,
+        CancellationToken cancellationToken)
     {
         var succeeded = false;
         try
         {
-            succeeded = await PublishMonthlyProduceAsync(now, cancellationToken);
+            succeeded = await publish(now, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -173,78 +203,43 @@ public class FoodPublisherService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Monthly produce publication attempt failed.");
+            _logger.LogError(ex, "{Slot} publication attempt failed.", slotLabel);
+        }
+
+        ref var attempts = ref _monthlyAttempts;
+        ref var nextAttempt = ref _nextMonthlyAttempt;
+        ref var lastPost = ref _lastMonthlyPostDate;
+        if (kind == FoodDispatchKinds.WeeklyRecipe)
+        {
+            attempts = ref _weeklyAttempts;
+            nextAttempt = ref _nextWeeklyAttempt;
+            lastPost = ref _lastWeeklyRecipePostDate;
         }
 
         if (succeeded)
         {
-            _lastMonthlyPostDate = now;
-            _monthlyAttempts = 0;
-            _nextMonthlyAttempt = DateTime.MinValue;
-            await PersistSentAsync(FoodDispatchKinds.MonthlyProduce, now, cancellationToken);
+            lastPost = now;
+            attempts = 0;
+            nextAttempt = DateTime.MinValue;
+            await PersistSentAsync(kind, now, cancellationToken);
             return;
         }
 
-        _monthlyAttempts++;
-        if (_monthlyAttempts >= MaxAttemptsPerWindow)
+        attempts++;
+        if (attempts >= MaxAttemptsPerWindow)
         {
             _logger.LogError(
-                "Giving up on the monthly produce post for {Month:MM/yyyy} after {Attempts} failed attempts.",
-                now,
-                _monthlyAttempts);
-            _lastMonthlyPostDate = now;
-            _monthlyAttempts = 0;
-            _nextMonthlyAttempt = DateTime.MinValue;
-        }
-        else
-        {
-            _nextMonthlyAttempt = now.Add(AttemptRetryDelay);
-        }
-    }
-
-    /// <summary>
-    /// Runs one weekly recipe attempt with success/attempt bookkeeping so transient failures retry
-    /// every five minutes instead of silently losing the slot for the week.
-    /// </summary>
-    private async Task AttemptWeeklyRecipeAsync(DateTime now, CancellationToken cancellationToken)
-    {
-        var succeeded = false;
-        try
-        {
-            succeeded = await PublishWeeklyRecipeAsync(now, cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Weekly recipe publication attempt failed.");
-        }
-
-        if (succeeded)
-        {
-            _lastWeeklyRecipePostDate = now;
-            _weeklyAttempts = 0;
-            _nextWeeklyAttempt = DateTime.MinValue;
-            await PersistSentAsync(FoodDispatchKinds.WeeklyRecipe, now, cancellationToken);
-            return;
-        }
-
-        _weeklyAttempts++;
-        if (_weeklyAttempts >= MaxAttemptsPerWindow)
-        {
-            _logger.LogError(
-                "Giving up on the weekly recipe post for {Date:dd.MM.yyyy} after {Attempts} failed attempts.",
+                "Giving up on the {Slot} post for {SlotKey:dd.MM.yyyy} after {Attempts} failed attempts.",
+                slotLabel,
                 now.Date,
-                _weeklyAttempts);
-            _lastWeeklyRecipePostDate = now;
-            _weeklyAttempts = 0;
-            _nextWeeklyAttempt = DateTime.MinValue;
+                attempts);
+            lastPost = now;
+            attempts = 0;
+            nextAttempt = DateTime.MinValue;
         }
         else
         {
-            _nextWeeklyAttempt = now.Add(AttemptRetryDelay);
+            nextAttempt = now.Add(AttemptRetryDelay);
         }
     }
 
@@ -335,7 +330,7 @@ public class FoodPublisherService : BackgroundService
         if (generated == null) return false;
 
         await channel.SendMessageAsync(
-            embed: RecipeEmbedBuilder.BuildGenerated(generated, "Tailored for Dialysis & Kidney Transplant Safety"));
+            embed: RecipeEmbedBuilder.BuildGenerated(generated, "Geeignet für Dialyse & Nierentransplantation"));
         return true;
     }
 
@@ -400,14 +395,14 @@ public class FoodPublisherService : BackgroundService
             return null;
         }
 
-        recipe.SeasonalIngredientsUsed = seasonalTerms.ToList();
-
         try
         {
             var formatted = await _geminiFoodService.FormatRecipeAsync(recipe, cancellationToken);
             if (formatted != null)
             {
-                recipe = formatted;
+                // The Gemini formatting pass returns a fresh object without seasonal metadata.
+                formatted.SeasonalIngredientsUsed = seasonalTerms.ToList();
+                return formatted;
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

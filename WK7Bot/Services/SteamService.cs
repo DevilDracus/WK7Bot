@@ -604,7 +604,7 @@ public class SteamService : ISteamService
     /// </summary>
     /// <param name="stateCode">The integer status code returned by the Steam API.</param>
     /// <returns>A string representation of the user's online state.</returns>
-    private static string MapPersonaState(int stateCode)
+    internal static string MapPersonaState(int stateCode)
     {
         return stateCode switch
         {

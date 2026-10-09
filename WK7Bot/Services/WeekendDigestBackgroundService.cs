@@ -1,6 +1,7 @@
 namespace WK7Bot.Services;
 
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Interfaces;
@@ -19,7 +20,7 @@ public class WeekendDigestBackgroundService : BackgroundService
     /// <summary>
     /// Name of the channel the digest is posted to; created when missing.
     /// </summary>
-    public const string TargetChannelName = "📅wochenende";
+    private const string TargetChannelName = "📅wochenende";
 
     /// <summary>
     /// Dispatch kind used for restart-safe duplicate suppression.
@@ -139,10 +140,11 @@ public class WeekendDigestBackgroundService : BackgroundService
             // A completed attempt (even one that skipped guilds without a channel) ends the day.
             _nextAttemptAt = DateTime.MaxValue;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Handled here (no rethrow) so one failed attempt produces exactly one log entry;
-            // retries log as warnings and only the final give-up is an error.
+            // retries log as warnings and only the final give-up is an error. Shutdown
+            // cancellation is not a failure and must not mutate the retry state.
             if (_attemptCount >= MaxAttemptsPerDay)
             {
                 _logger.LogError(
@@ -180,8 +182,9 @@ public class WeekendDigestBackgroundService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
 
+        var targetGuildIds = GetTargetGuildIds();
         var pendingGuildIds = new List<ulong>();
-        foreach (var guildId in GetTargetGuildIds())
+        foreach (var guildId in targetGuildIds)
         {
             if (!await dispatchRepository.HasSentAsync(DispatchKind, guildId, thursday, cancellationToken))
             {
@@ -194,7 +197,7 @@ public class WeekendDigestBackgroundService : BackgroundService
             _logger.LogInformation(
                 "Skipping weekend digest dispatch for {Thursday:dd.MM.yyyy}: already sent to all {Count} guild(s) before a restart.",
                 thursday,
-                GetTargetGuildIds().Count);
+                targetGuildIds.Count);
             return;
         }
 
@@ -289,25 +292,21 @@ public class WeekendDigestBackgroundService : BackgroundService
             return null;
         }
 
-        return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
+        try
         {
-            properties.Topic = "Wochenend-Tipps aus Leipzig – Märkte, Kultur und Ausflüge mit Abstimmung.";
-            properties.PermissionOverwrites = new List<Overwrite>
+            return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
             {
-                new(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(
-                    viewChannel: PermValue.Allow,
-                    readMessageHistory: PermValue.Allow,
-                    sendMessages: PermValue.Deny,
-                    addReactions: PermValue.Allow
-                )),
-                new(_discordClient.CurrentUser.Id, PermissionTarget.User, new OverwritePermissions(
-                    viewChannel: PermValue.Allow,
-                    readMessageHistory: PermValue.Allow,
-                    sendMessages: PermValue.Allow,
-                    embedLinks: PermValue.Allow
-                ))
-            };
-        });
+                properties.Topic = "Wochenend-Tipps aus Leipzig – Märkte, Kultur und Ausflüge mit Abstimmung.";
+                ChannelResolver.ApplyDefaultChannelPermissions(properties, guild, _discordClient.CurrentUser.Id, allowReactions: true);
+            });
+        }
+        catch (HttpException ex)
+        {
+            // A persistent Manage-Channels permission problem must not escalate to the error-DM
+            // queue on every poll tick; the digest is skipped and retried on the next attempt.
+            _logger.LogWarning(ex, "Could not find or create the #{Channel} channel.", TargetChannelName);
+            return null;
+        }
     }
 
     /// <summary>

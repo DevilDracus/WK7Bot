@@ -38,8 +38,13 @@ public class RssRepository : IRssRepository
     /// <returns>The matching RSS feed entity if found; otherwise, null.</returns>
     public async Task<RssFeed?> GetFeedByNameAsync(string name, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.RssFeeds
-            .FirstOrDefaultAsync(f => f.Name.ToLower() == name.ToLower(), cancellationToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        // SQLite's lower() (like COLLATE NOCASE) is ASCII-only, so names containing umlauts or ß
+        // would never match; the feed table holds a handful of rows, so compare in memory with
+        // ordinal semantics instead.
+        var feeds = await _dbContext.RssFeeds.ToListAsync(cancellationToken);
+        return feeds.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

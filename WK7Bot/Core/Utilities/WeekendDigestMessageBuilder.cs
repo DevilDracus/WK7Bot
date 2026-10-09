@@ -14,9 +14,6 @@ using WK7Bot.Models;
 /// </summary>
 public static class WeekendDigestMessageBuilder
 {
-    private const int EmbedTitleLimit = 256;
-    private const int FieldNameLimit = 256;
-    private const int FieldValueLimit = 1024;
     private const int PollQuestionLimit = 300;
     private const int PollAnswerLimit = 55;
     private const uint MaxPollDurationHours = 168;
@@ -42,7 +39,7 @@ public static class WeekendDigestMessageBuilder
 
         var sunday = weekendFriday.AddDays(2);
         var embedBuilder = new EmbedBuilder()
-            .WithTitle(Truncate($"📅 Wochenend-Tipps — {FormatDateRange(weekendFriday, sunday)}", EmbedTitleLimit))
+            .WithTitle(EmbedText.Truncate($"📅 Wochenend-Tipps — {FormatDateRange(weekendFriday, sunday)}", EmbedText.TitleLimit))
             .WithDescription(BuildDescription(suggestions))
             .WithColor(Color.Gold)
             .WithTimestamp(postTime)
@@ -52,8 +49,8 @@ public static class WeekendDigestMessageBuilder
         {
             var suggestion = suggestions[i];
             embedBuilder.AddField(
-                Truncate($"{i + 1}️⃣ {FormatDayLabel(suggestion.StartDate)} · {suggestion.Title}", FieldNameLimit),
-                Truncate(BuildFieldValue(suggestion), FieldValueLimit),
+                EmbedText.Truncate($"{i + 1}️⃣ {FormatDayLabel(suggestion.StartDate)} · {suggestion.Title}", EmbedText.FieldNameLimit),
+                EmbedText.Truncate(BuildFieldValue(suggestion), EmbedText.FieldValueLimit),
                 false);
         }
 
@@ -72,14 +69,14 @@ public static class WeekendDigestMessageBuilder
     private static PollProperties BuildPoll(IReadOnlyList<WeekendEvent> suggestions, DateTime postTime, DateTime sunday)
     {
         var answers = suggestions
-            .Select(s => new PollMediaProperties { Text = Truncate(BuildAnswerText(s), PollAnswerLimit) })
+            .Select(s => new PollMediaProperties { Text = EmbedText.Truncate(BuildAnswerText(s), PollAnswerLimit) })
             .ToList();
 
         return new PollProperties
         {
             Question = new PollMediaProperties
             {
-                Text = Truncate("Wohin gehen wir am Wochenende?", PollQuestionLimit)
+                Text = EmbedText.Truncate("Wohin gehen wir am Wochenende?", PollQuestionLimit)
             },
             Answers = answers,
             Duration = ComputeDurationHours(postTime, sunday),
@@ -187,25 +184,4 @@ public static class WeekendDigestMessageBuilder
     /// <returns>The formatted day label.</returns>
     private static string FormatDayLabel(DateTime date)
         => $"{DayAbbreviations[(int)date.DayOfWeek]}, {date:dd.MM.}";
-
-    /// <summary>
-    /// Shortens text to <paramref name="maxChars"/> characters, appending an ellipsis when truncated.
-    /// </summary>
-    /// <param name="text">The text to shorten.</param>
-    /// <param name="maxChars">The maximum length.</param>
-    /// <returns>The possibly truncated text.</returns>
-    private static string Truncate(string text, int maxChars)
-    {
-        if (string.IsNullOrEmpty(text) || text.Length <= maxChars)
-        {
-            return text;
-        }
-
-        if (maxChars <= 1)
-        {
-            return text.Substring(0, maxChars);
-        }
-
-        return text.Substring(0, maxChars - 1) + "…";
-    }
 }

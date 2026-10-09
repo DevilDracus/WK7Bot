@@ -61,6 +61,17 @@ public class DiscordBotWorker : BackgroundService
     }
 
     /// <summary>
+    /// Detaches the gateway log forwarding on shutdown so a stopped client cannot log into a torn-down pipeline.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token triggered when the application host stops.</param>
+    /// <returns>A task representing the asynchronous stop operation.</returns>
+    public override Task StopAsync(CancellationToken cancellationToken)
+    {
+        _client.Log -= OnLogAsync;
+        return base.StopAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Resolves the Discord bot token, falling back to environment variables if unpopulated in strongly-typed options.
     /// </summary>
     /// <returns>The resolved Discord bot token string, or null if no valid token was found.</returns>

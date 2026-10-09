@@ -221,9 +221,9 @@ public partial class BattleNetService : IBattleNetService
             string clientSecret = _options.BattleNetClientSecret ?? string.Empty;
             string tokenUrl = $"https://{region}.battle.net/oauth/token";
 
-            using var response = await SendBnetApiWithRetryAsync(() =>
+            using var response = await SendBnetApiWithRetryAsync(async () =>
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, tokenUrl)
+                using var request = new HttpRequestMessage(HttpMethod.Post, tokenUrl)
                 {
                     Content = new FormUrlEncodedContent(new Dictionary<string, string>
                     {
@@ -235,7 +235,7 @@ public partial class BattleNetService : IBattleNetService
                     "Basic",
                     Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}")));
 
-                return _httpClient.SendAsync(request, cancellationToken);
+                return await _httpClient.SendAsync(request, cancellationToken);
             }, "RefreshAccessToken", cancellationToken);
 
             if (!response.IsSuccessStatusCode)
@@ -344,7 +344,9 @@ public partial class BattleNetService : IBattleNetService
             return;
         }
 
-        var fetchTasks = characterKeys.Select(key => FetchWowCharacterAsync(key.RealmSlug, key.Name, accessToken, region, cancellationToken));
+        // One failing character must not discard the whole account payload (identity + all other
+        // characters + heroes), so every fetch carries its own error boundary.
+        var fetchTasks = characterKeys.Select(key => FetchWowCharacterSafelyAsync(key.RealmSlug, key.Name, accessToken, region, cancellationToken));
         var characters = (await Task.WhenAll(fetchTasks)).Where(c => c is not null).Cast<BattleNetWowCharacter>().ToList();
 
         foreach (var character in characters.OrderByDescending(c => c.Level).ThenByDescending(c => c.LastLoginTimestamp))
@@ -359,6 +361,43 @@ public partial class BattleNetService : IBattleNetService
         if (mainAvatar is not null)
         {
             userData.AvatarUrl = mainAvatar;
+        }
+    }
+
+    /// <summary>
+    /// Retrieves a single World of Warcraft character profile and its character media (avatar art),
+    /// converting transport and parsing failures into a null result so the remaining characters of
+    /// the same account survive.
+    /// </summary>
+    /// <param name="realmSlug">The realm slug of the character.</param>
+    /// <param name="characterName">The name of the character.</param>
+    /// <param name="accessToken">The user access token.</param>
+    /// <param name="region">The API region (also the profile namespace).</param>
+    /// <param name="cancellationToken">Cancellation token to monitor for cancellation requests.</param>
+    /// <returns>The parsed character, or null when the profile cannot be read.</returns>
+    private async Task<BattleNetWowCharacter?> FetchWowCharacterSafelyAsync(
+        string realmSlug,
+        string characterName,
+        string accessToken,
+        string region,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await FetchWowCharacterAsync(realmSlug, characterName, accessToken, region, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Could not read WoW character {Realm}/{Character}; skipping it.",
+                realmSlug,
+                characterName);
+            return null;
         }
     }
 
@@ -532,11 +571,12 @@ public partial class BattleNetService : IBattleNetService
     /// <returns>The received <see cref="HttpResponseMessage"/>.</returns>
     private Task<HttpResponseMessage> SendAuthorizedAsync(string url, string accessToken, CancellationToken cancellationToken)
     {
-        return SendThrottledAsync(() =>
+        return SendThrottledAsync(async () =>
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            // Dispose the request right after the send; the caller only owns the response.
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            return _httpClient.SendAsync(request, cancellationToken);
+            return await _httpClient.SendAsync(request, cancellationToken);
         }, cancellationToken);
     }
 

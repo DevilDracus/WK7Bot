@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Entities;
@@ -18,6 +19,10 @@ namespace WK7Bot.Services;
 public class LeipzigWasteBackgroundService : BackgroundService
 {
     private const string TargetChannelName = "🗑️leipzig-waste";
+
+    /// <summary>Dispatch records older than this are pruned after each daily/weekly evaluation.</summary>
+    private static readonly TimeSpan DispatchRetention = TimeSpan.FromDays(90);
+
     private readonly IServiceProvider _serviceProvider;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILeipzigWasteService _wasteService;
@@ -159,8 +164,12 @@ public class LeipzigWasteBackgroundService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
 
+        // The waste table also stores weekend-digest records; keep it bounded by the same retention.
+        await dispatchRepository.PruneAsync(DateTime.Now.Date - DispatchRetention, cancellationToken);
+
+        var targetGuildIds = GetTargetGuildIds();
         var pendingGuildIds = new List<ulong>();
-        foreach (var guildId in GetTargetGuildIds())
+        foreach (var guildId in targetGuildIds)
         {
             if (!await dispatchRepository.HasSentAsync(kind, guildId, date, cancellationToken))
             {
@@ -174,7 +183,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
                 "Skipping {Kind} dispatch for {Date}: already sent to all {Count} guild(s) before a restart.",
                 kind,
                 date,
-                GetTargetGuildIds().Count);
+                targetGuildIds.Count);
             return;
         }
 
@@ -302,25 +311,21 @@ public class LeipzigWasteBackgroundService : BackgroundService
             return null;
         }
 
-        return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
+        try
         {
-            properties.Topic = "Benachrichtigungen und Bestätigungen zur Stadtreinigung Leipzig Müllabholung.";
-            properties.PermissionOverwrites = new List<Overwrite>
+            return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
             {
-                new(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(
-                    viewChannel: PermValue.Allow,
-                    readMessageHistory: PermValue.Allow,
-                    sendMessages: PermValue.Deny,
-                    addReactions: PermValue.Allow
-                )),
-                new(_discordClient.CurrentUser.Id, PermissionTarget.User, new OverwritePermissions(
-                    viewChannel: PermValue.Allow,
-                    readMessageHistory: PermValue.Allow,
-                    sendMessages: PermValue.Allow,
-                    embedLinks: PermValue.Allow
-                ))
-            };
-        });
+                properties.Topic = "Benachrichtigungen und Bestätigungen zur Stadtreinigung Leipzig Müllabholung.";
+                ChannelResolver.ApplyDefaultChannelPermissions(properties, guild, _discordClient.CurrentUser.Id, allowReactions: true);
+            });
+        }
+        catch (HttpException ex)
+        {
+            // A persistent Manage-Channels permission problem must not escalate to the error-DM
+            // queue on every poll tick; the dispatch is skipped and retried on the next one.
+            _logger.LogWarning(ex, "Could not find or create the #{Channel} channel.", TargetChannelName);
+            return null;
+        }
     }
 
     /// <summary>

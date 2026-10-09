@@ -16,7 +16,8 @@ using WK7Bot.Options;
 
 /// <summary>
 /// Hosted background service monitoring Discord gateway messages for target user mentions
-/// and forwarding queued notifications to the getnotify.me Alexa API using HTTP Basic Authentication.
+/// and forwarding notifications to the getnotify.me Alexa API using HTTP Basic Authentication.
+/// Dispatch runs outside the gateway event so a slow endpoint cannot stall other handlers.
 /// </summary>
 public class AlexaMentionNotificationService : IHostedService
 {
@@ -103,7 +104,19 @@ public class AlexaMentionNotificationService : IHostedService
 
                 _logger.LogInformation("Discord mention detected for user {TargetUserId}. Forwarding to Alexa API.", targetUserId);
 
-                await SendAlexaNotificationAsync(notificationText);
+                // Fire-and-forget: awaiting the notification call inside the gateway event would
+                // stall message dispatch for every other handler while the endpoint is slow.
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await SendAlexaNotificationAsync(notificationText);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Alexa notification dispatch failed.");
+                    }
+                });
             }
         }
         catch (Exception ex)

@@ -6,12 +6,10 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using WK7Bot.Options;
 
 /// <summary>
 /// Manages the registration of interaction modules and routes incoming Discord slash command interactions.
@@ -22,7 +20,6 @@ public class InteractionHandlingService : IHostedService
     private readonly InteractionService _interactionService;
     private readonly IServiceProvider _services;
     private readonly IConfiguration _configuration;
-    private readonly Wk7BotOptions _options;
     private readonly ILogger<InteractionHandlingService> _logger;
 
     /// <summary>
@@ -32,14 +29,12 @@ public class InteractionHandlingService : IHostedService
     /// <param name="interactionService">The interaction service responsible for handling commands.</param>
     /// <param name="services">The dependency injection service provider context.</param>
     /// <param name="configuration">The application configuration instance used to retrieve target guild options.</param>
-    /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logging service instance.</param>
     public InteractionHandlingService(
         DiscordSocketClient client,
         InteractionService interactionService,
         IServiceProvider services,
         IConfiguration configuration,
-        IOptions<Wk7BotOptions> options,
         ILogger<InteractionHandlingService> logger)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
@@ -47,7 +42,6 @@ public class InteractionHandlingService : IHostedService
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
     /// <summary>
@@ -119,7 +113,12 @@ public class InteractionHandlingService : IHostedService
 
             if (!result.IsSuccess)
             {
-                _logger.LogWarning("Interaction execution failed: {Reason}", result.ErrorReason);
+                // Exception results are logged with their full stack trace by
+                // OnInteractionExecutedAsync; only non-exception failures belong here.
+                if (result is not ExecuteResult { Exception: { } })
+                {
+                    _logger.LogWarning("Interaction execution failed: {Reason}", result.ErrorReason);
+                }
             }
         }
         catch (Exception ex)

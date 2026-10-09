@@ -1,6 +1,7 @@
 namespace WK7Bot.Services;
 
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Utilities;
@@ -9,10 +10,11 @@ using WK7Bot.Options;
 
 /// <summary>
 /// Background service that drains the error notification queue and delivers every buffered report
-/// as a rich embed direct message to each configured recipient once the Discord gateway is connected.
-/// Reports are delivered in small batches with a short pause between messages to stay clear of
-/// Discord rate limits; delivery problems are logged as warnings only so the dispatcher never
-/// feeds the queue it is draining.
+/// as a rich embed to the dedicated <c>#🤖WK7Errors❗</c> channel (created when missing, same pattern
+/// as the other feature channels), pinging every configured recipient. Reports are delivered in small
+/// batches with a short pause between messages to stay clear of Discord rate limits; delivery problems
+/// are logged as warnings only so the dispatcher never feeds the queue it is draining. When no channel
+/// can be resolved or created, the dispatcher falls back to direct messages.
 /// </summary>
 public class ErrorNotificationDispatcher : BackgroundService
 {
@@ -20,6 +22,16 @@ public class ErrorNotificationDispatcher : BackgroundService
     /// Maximum number of reports delivered per polling cycle.
     /// </summary>
     public const int MaxBatchSize = 5;
+
+    /// <summary>
+    /// Name of the channel the reports are posted to; created when missing.
+    /// </summary>
+    public const string TargetChannelName = "🤖WK7Errors❗";
+
+    /// <summary>
+    /// Topic of the auto-created error channel.
+    /// </summary>
+    public const string ChannelTopic = "Automatische Fehlerberichte des WK7-Bots (Error-/Critical-Logs und Abstürze).";
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan SendDelay = TimeSpan.FromSeconds(1);
@@ -49,7 +61,8 @@ public class ErrorNotificationDispatcher : BackgroundService
     }
 
     /// <summary>
-    /// Runs the delivery loop, waiting for the Discord gateway and forwarding buffered reports as direct messages.
+    /// Runs the delivery loop, waiting for the Discord gateway and forwarding buffered reports as
+    /// embeds to the notification channel (or as direct messages when no channel is available).
     /// </summary>
     /// <param name="stoppingToken">Cancellation token monitored for background service shutdown.</param>
     /// <returns>A task representing the background execution process.</returns>
@@ -95,19 +108,118 @@ public class ErrorNotificationDispatcher : BackgroundService
     }
 
     /// <summary>
-    /// Renders the report once and sends it to every configured notification recipient.
+    /// Renders the report once and posts it to the error notification channel, pinging every configured
+    /// recipient. Direct messages are the fallback when no channel can be resolved or the post fails.
     /// </summary>
     /// <param name="notification">The error report to deliver.</param>
     /// <param name="stoppingToken">Cancellation token monitored for background service shutdown.</param>
     /// <returns>A task representing the delivery operation.</returns>
     private async Task DeliverAsync(ErrorNotification notification, CancellationToken stoppingToken)
     {
-        if (_options.ErrorNotifyUserIds.Count == 0)
+        var embed = ErrorEmbedBuilder.Build(notification);
+
+        var channel = await ResolveErrorChannelAsync(stoppingToken);
+        if (channel != null)
         {
-            return;
+            try
+            {
+                var ping = BuildChannelPing(_options.ErrorNotifyUserIds);
+                await channel.SendMessageAsync(text: ping, embed: embed);
+                return;
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Stable message text so repeated failures collapse into one throttled report
+                // instead of one per delivery attempt.
+                _logger.LogWarning(ex, "Could not deliver error notification to the error channel; falling back to direct messages.");
+            }
         }
 
-        var embed = ErrorEmbedBuilder.Build(notification);
+        await DeliverAsDirectMessagesAsync(embed, stoppingToken);
+    }
+
+    /// <summary>
+    /// Resolves the notification channel inside the target servers: the WK7 server (or the bot test
+    /// server while <c>error_notifications</c> is listed in <c>servers.testing_features</c>), falling
+    /// back to every guild the bot is in while no server ID is configured. The first guild that offers
+    /// a resolvable channel wins; when the channel is missing it is created.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token monitored for background service shutdown.</param>
+    /// <returns>The target text channel, or <see langword="null"/> when none could be resolved or created.</returns>
+    private async Task<ITextChannel?> ResolveErrorChannelAsync(CancellationToken cancellationToken)
+    {
+        foreach (var guildId in GetTargetGuildIds())
+        {
+            var channel = await GetOrCreateErrorChannelAsync(guildId);
+            if (channel != null)
+            {
+                return channel;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Returns the IDs of the guilds that should receive error reports: the configured WK7 server (or
+    /// the bot test server while <c>error_notifications</c> is listed in <c>servers.testing_features</c>),
+    /// falling back to every guild while no server ID is configured. Virtual for testability.
+    /// </summary>
+    /// <returns>The target Discord guild IDs.</returns>
+    protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
+        => AutomaticTargetResolver.Resolve(
+            _options.Servers,
+            "error_notifications",
+            _discordClient.Guilds.Select(g => g.Id),
+            _logger);
+
+    /// <summary>
+    /// Resolves the error channel for a guild by ID, creating the read-only notification channel when missing.
+    /// </summary>
+    /// <param name="guildId">The target guild where channel existence is evaluated.</param>
+    /// <returns>The text channel instance, or <see langword="null"/> when the guild cannot be resolved or the channel cannot be created.</returns>
+    protected virtual async Task<ITextChannel?> GetOrCreateErrorChannelAsync(ulong guildId)
+    {
+        var guild = _discordClient.GetGuild(guildId);
+        if (guild == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
+            {
+                properties.Topic = ChannelTopic;
+                ChannelResolver.ApplyDefaultChannelPermissions(properties, guild, _discordClient.CurrentUser.Id, allowReactions: false);
+            });
+        }
+        catch (HttpException ex)
+        {
+            // A persistent Manage-Channels permission problem must not escalate into the error
+            // queue on every delivery; the direct-message fallback covers the report.
+            _logger.LogWarning(ex, "Could not find or create the #{Channel} channel.", TargetChannelName);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Delivers the rendered report as a direct message to every configured recipient.
+    /// </summary>
+    /// <param name="embed">The rendered error embed.</param>
+    /// <param name="stoppingToken">Cancellation token monitored for background service shutdown.</param>
+    /// <returns>A task representing the delivery operation.</returns>
+    private async Task DeliverAsDirectMessagesAsync(Embed embed, CancellationToken stoppingToken)
+    {
+        if (_options.ErrorNotifyUserIds.Count == 0)
+        {
+            // Neither a usable channel nor recipients configured: reports are discarded silently.
+            return;
+        }
 
         foreach (var idText in _options.ErrorNotifyUserIds)
         {
@@ -146,4 +258,15 @@ public class ErrorNotificationDispatcher : BackgroundService
             }
         }
     }
+
+    /// <summary>
+    /// Builds the mention prefix of a channel post: every configured notification user is pinged,
+    /// so a report in the shared channel reaches the same people as the direct message would.
+    /// </summary>
+    /// <param name="userIds">The configured notification user IDs.</param>
+    /// <returns>The mention text, or an empty string when no users are configured.</returns>
+    internal static string BuildChannelPing(IReadOnlyCollection<string> userIds)
+        => userIds.Count == 0
+            ? string.Empty
+            : string.Join(' ', userIds.Select(id => $"<@{id}>"));
 }

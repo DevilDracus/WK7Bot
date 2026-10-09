@@ -115,7 +115,7 @@ public class WebRecipeSearchServiceTests
     {
         // The DuckDuckGo failure cooldown is intentionally process-wide (the service is transient);
         // clear it so each test starts from a clean slate instead of inheriting a prior test's window.
-        WK7Bot.Services.WebRecipeSearchService.ResetSharedStateForTests();
+        WebRecipeSearchService.ResetSharedStateForTests();
 
         return new WebRecipeSearchService(
             new HttpClient(handler),

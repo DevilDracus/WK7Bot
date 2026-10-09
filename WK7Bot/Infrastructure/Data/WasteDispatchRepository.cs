@@ -75,4 +75,29 @@ public class WasteDispatchRepository : IWasteDispatchRepository
             _dbContext.Entry(log).State = EntityState.Detached;
         }
     }
+
+    /// <summary>
+    /// Removes dispatch records older than the given retention window so the table stays bounded
+    /// (it also stores the <c>weekend_digest</c> dispatch records).
+    /// </summary>
+    /// <param name="olderThan">Records strictly older than this date are removed.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>The number of records removed.</returns>
+    public async Task<int> PruneAsync(DateTime olderThan, CancellationToken cancellationToken = default)
+    {
+        var cutoff = olderThan.Date;
+
+        var stale = await _dbContext.WasteDispatchLogs
+            .Where(log => log.SentOn < cutoff)
+            .ToListAsync(cancellationToken);
+
+        if (stale.Count == 0)
+        {
+            return 0;
+        }
+
+        _dbContext.WasteDispatchLogs.RemoveRange(stale);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return stale.Count;
+    }
 }

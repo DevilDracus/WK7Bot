@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using Discord.Interactions;
 using Discord.WebSocket;
+using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Interfaces;
 
 namespace WK7Bot.Modules;
@@ -11,14 +12,17 @@ namespace WK7Bot.Modules;
 public class RssComponentModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IRssRepository _repository;
+    private readonly ILogger<RssComponentModule> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RssComponentModule"/> class.
     /// </summary>
     /// <param name="repository">The repository used for RSS feed data persistence.</param>
-    public RssComponentModule(IRssRepository repository)
+    /// <param name="logger">The logger instance for diagnostics.</param>
+    public RssComponentModule(IRssRepository repository, ILogger<RssComponentModule> logger)
     {
-        _repository = repository;
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -36,16 +40,29 @@ public class RssComponentModule : InteractionModuleBase<SocketInteractionContext
         {
             if (Context.User is not SocketGuildUser guildUser)
             {
-                await FollowupAsync("This action can only be performed within a server.", ephemeral: true);
+                await FollowupAsync("❌ Diese Aktion ist nur innerhalb eines Servers möglich.", ephemeral: true);
                 return;
             }
 
             var feeds = await _repository.GetAllFeedsAsync();
             var allFeedRoleIds = feeds.Select(f => f.RoleId).ToHashSet();
 
-            var selectedSet = selectedValues
-                .Select(ulong.Parse)
-                .ToHashSet();
+            var selectedSet = new HashSet<ulong>();
+            foreach (var value in selectedValues ?? Array.Empty<string>())
+            {
+                if (!ulong.TryParse(value, out var roleId))
+                {
+                    await FollowupAsync("❌ Die Auswahl konnte nicht verarbeitet werden. Bitte öffne das Abo-Menü mit `/rss dashboard` neu.", ephemeral: true);
+                    return;
+                }
+
+                // Only roles the bot actually manages may be granted, so a stale dashboard whose
+                // refresh failed cannot assign arbitrary server roles.
+                if (allFeedRoleIds.Contains(roleId))
+                {
+                    selectedSet.Add(roleId);
+                }
+            }
 
             var rolesToAdd = selectedSet
                 .Where(roleId => !guildUser.Roles.Any(r => r.Id == roleId))
@@ -65,15 +82,17 @@ public class RssComponentModule : InteractionModuleBase<SocketInteractionContext
                 await guildUser.RemoveRolesAsync(rolesToRemove);
             }
 
-            await FollowupAsync("Your RSS feed subscriptions have been successfully updated!", ephemeral: true);
+            await FollowupAsync("✅ Deine RSS-Feed-Abos wurden aktualisiert!", ephemeral: true);
         }
         catch (Discord.Net.HttpException ex) when (ex.HttpCode == HttpStatusCode.Forbidden)
         {
-            await FollowupAsync("Failed to update roles: The bot lacks permission or its role is positioned lower in the server hierarchy than the RSS roles. Please move the bot's role above the RSS roles in Server Settings > Roles.", ephemeral: true);
+            await FollowupAsync("❌ Die Rollen konnten nicht aktualisiert werden: Dem Bot fehlt die Berechtigung oder seine Rolle steht in der Hierarchie unter den RSS-Rollen. Bitte verschiebe die Bot-Rolle über die RSS-Rollen (Servereinstellungen > Rollen).", ephemeral: true);
         }
         catch (Exception ex)
         {
-            await FollowupAsync($"An error occurred while updating your subscriptions: {ex.Message}", ephemeral: true);
+            // Component failures must reach the error pipeline, not just the clicking user.
+            _logger.LogError(ex, "Error occurred while handling an RSS subscription select-menu interaction.");
+            await FollowupAsync("❌ Beim Aktualisieren deiner Abos ist ein Fehler aufgetreten.", ephemeral: true);
         }
     }
 }

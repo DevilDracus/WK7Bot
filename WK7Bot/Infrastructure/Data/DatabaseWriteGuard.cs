@@ -22,11 +22,10 @@ internal static class DatabaseWriteGuard
             return false;
         }
 
-        // SQLITE_CONSTRAINT (19) with the extended PK/UNIQUE codes, plus a message fallback for
-        // providers/versions that only report the primary code.
-        return sqlite.SqliteErrorCode == 19
-            || sqlite.SqliteErrorCode == 1555
-            || sqlite.SqliteErrorCode == 2067
+        // SQLITE_CONSTRAINT (19) is the primary code for every constraint failure, so the extended
+        // codes distinguish primary-key/unique violations from NOT NULL/CHECK/FOREIGN KEY ones. The
+        // message fallback covers providers/versions that only report the primary code.
+        return sqlite.SqliteExtendedErrorCode is 1555 or 2067
             || sqlite.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase)
             || sqlite.Message.Contains("PRIMARY KEY must be unique", StringComparison.OrdinalIgnoreCase);
     }

@@ -1,6 +1,7 @@
 namespace WK7Bot.Services;
 
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Interfaces;
@@ -21,7 +22,7 @@ public class DwdWarningBackgroundService : BackgroundService
     /// <summary>
     /// Name of the channel the warnings are posted to; created when missing.
     /// </summary>
-    public const string TargetChannelName = "⛈️weather-warnings";
+    private const string TargetChannelName = "⛈️weather-warnings";
 
     /// <summary>
     /// How long posted dispatch records are kept before they are pruned.
@@ -256,24 +257,21 @@ public class DwdWarningBackgroundService : BackgroundService
             return null;
         }
 
-        return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
+        try
         {
-            properties.Topic = BuildChannelTopic();
-            properties.PermissionOverwrites = new List<Overwrite>
+            return await ChannelResolver.GetOrCreateChannelAsync(guild, TargetChannelName, properties =>
             {
-                new(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(
-                    viewChannel: PermValue.Allow,
-                    readMessageHistory: PermValue.Allow,
-                    sendMessages: PermValue.Deny
-                )),
-                new(_discordClient.CurrentUser.Id, PermissionTarget.User, new OverwritePermissions(
-                    viewChannel: PermValue.Allow,
-                    readMessageHistory: PermValue.Allow,
-                    sendMessages: PermValue.Allow,
-                    embedLinks: PermValue.Allow
-                ))
-            };
-        });
+                properties.Topic = BuildChannelTopic();
+                ChannelResolver.ApplyDefaultChannelPermissions(properties, guild, _discordClient.CurrentUser.Id, allowReactions: false);
+            });
+        }
+        catch (HttpException ex)
+        {
+            // A persistent Manage-Channels permission problem must not escalate to the error-DM
+            // queue on every poll tick; the warning is skipped and retried on the next one.
+            _logger.LogWarning(ex, "Could not find or create the #{Channel} channel.", TargetChannelName);
+            return null;
+        }
     }
 
     /// <summary>

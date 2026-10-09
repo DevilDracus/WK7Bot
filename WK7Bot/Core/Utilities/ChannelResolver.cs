@@ -1,6 +1,7 @@
 namespace WK7Bot.Core.Utilities;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -28,6 +29,7 @@ public static class ChannelResolver
     {
         ArgumentNullException.ThrowIfNull(guild);
         ArgumentNullException.ThrowIfNull(configure);
+        ArgumentNullException.ThrowIfNull(channelName);
 
         var existingChannel = guild.TextChannels.FirstOrDefault(c => c.Name.Equals(channelName, StringComparison.OrdinalIgnoreCase));
         if (existingChannel != null)
@@ -35,6 +37,40 @@ public static class ChannelResolver
             return existingChannel;
         }
 
-        return await guild.CreateTextChannelAsync(channelName, properties => configure(properties));
+        return await guild.CreateTextChannelAsync(channelName, configure);
+    }
+
+    /// <summary>
+    /// Applies the standard read-only permission setup to channel properties: @everyone may read the
+    /// channel and its history but not send messages, while the bot may send messages and embed links.
+    /// </summary>
+    /// <param name="properties">The channel properties to configure.</param>
+    /// <param name="guild">The guild the channel belongs to (source of the @everyone role).</param>
+    /// <param name="botUserId">The bot's own user ID.</param>
+    /// <param name="allowReactions">Whether @everyone may additionally add reactions.</param>
+    public static void ApplyDefaultChannelPermissions(
+        TextChannelProperties properties,
+        SocketGuild guild,
+        ulong botUserId,
+        bool allowReactions)
+    {
+        ArgumentNullException.ThrowIfNull(properties);
+        ArgumentNullException.ThrowIfNull(guild);
+
+        properties.PermissionOverwrites = new List<Overwrite>
+        {
+            new(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(
+                viewChannel: PermValue.Allow,
+                readMessageHistory: PermValue.Allow,
+                sendMessages: PermValue.Deny,
+                addReactions: allowReactions ? PermValue.Allow : PermValue.Deny
+            )),
+            new(botUserId, PermissionTarget.User, new OverwritePermissions(
+                viewChannel: PermValue.Allow,
+                readMessageHistory: PermValue.Allow,
+                sendMessages: PermValue.Allow,
+                embedLinks: PermValue.Allow
+            ))
+        };
     }
 }

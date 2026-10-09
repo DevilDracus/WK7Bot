@@ -24,9 +24,6 @@ public static class EmbedText
     /// <summary>Combined character budget for the whole embed (title, description, fields, footer, author).</summary>
     public const int TotalLimit = 6000;
 
-    /// <summary>Maximum number of fields per embed.</summary>
-    public const int MaxFields = 25;
-
     /// <summary>
     /// Truncates <paramref name="value"/> to <paramref name="limit"/> characters, appending an ellipsis when cut.
     /// </summary>

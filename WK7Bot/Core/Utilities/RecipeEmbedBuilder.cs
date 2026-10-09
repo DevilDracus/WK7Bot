@@ -12,8 +12,6 @@ using WK7Bot.Models;
 /// </summary>
 public static class RecipeEmbedBuilder
 {
-    private const int FieldValueLimit = 1024;
-
     /// <summary>
     /// Discord's total embed length limit (title + description + footer + all field names and values).
     /// </summary>
@@ -61,8 +59,8 @@ public static class RecipeEmbedBuilder
         ArgumentNullException.ThrowIfNull(recipe);
 
         // Hard Discord limits for the fixed slots; recipe lists are chunked instead of truncated.
-        var safeTitle = Truncate(title, 256);
-        var safeFooter = Truncate(footer ?? string.Empty, 2048);
+        var safeTitle = EmbedText.Truncate(title, EmbedText.TitleLimit);
+        var safeFooter = EmbedText.Truncate(footer ?? string.Empty, EmbedText.FooterLimit);
 
         // Sections that are added after the variable-length ones are measured up front (field names
         // included) so the recipe text can never crowd out the diet/safety/disclaimer fields and the
@@ -86,7 +84,7 @@ public static class RecipeEmbedBuilder
             - safeFooter.Length
             - reserved;
 
-        var description = Truncate(BuildDescription(recipe), Math.Clamp(budget, 0, 4096));
+        var description = EmbedText.Truncate(BuildDescription(recipe), Math.Clamp(budget, 0, EmbedText.DescriptionLimit));
         budget -= description.Length;
 
         var builder = new EmbedBuilder()
@@ -172,7 +170,7 @@ public static class RecipeEmbedBuilder
             return budget;
         }
 
-        builder.AddField(name, Truncate(value, room), false);
+        builder.AddField(name, EmbedText.Truncate(value, room), false);
         return 0;
     }
 
@@ -188,7 +186,7 @@ public static class RecipeEmbedBuilder
             return 0;
         }
 
-        var chunks = SplitValue(value, FieldValueLimit);
+        var chunks = SplitValue(value, EmbedText.FieldValueLimit);
         if (chunks.Count == 0)
         {
             return 0;
@@ -321,28 +319,4 @@ public static class RecipeEmbedBuilder
 
     private static string FormatInstructions(IReadOnlyCollection<string> instructions)
         => string.Join("\n", instructions.Where(i => !string.IsNullOrWhiteSpace(i)).Select((inst, idx) => $"{idx + 1}. {inst}"));
-
-    /// <summary>
-    /// Cuts a value to Discord's character limit for its slot (field value or description), appending an ellipsis
-    /// when truncated. Used only for single-line values; recipe lists are chunked instead of truncated.
-    /// </summary>
-    private static string Truncate(string value, int limit)
-    {
-        if (limit <= 0)
-        {
-            return string.Empty;
-        }
-
-        if (value.Length <= limit)
-        {
-            return value;
-        }
-
-        if (limit <= 3)
-        {
-            return value[..limit];
-        }
-
-        return value[..(limit - 3)] + "...";
-    }
 }

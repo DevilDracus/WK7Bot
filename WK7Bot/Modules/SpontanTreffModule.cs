@@ -108,7 +108,7 @@ public class SpontanTreffModule : InteractionModuleBase<SocketInteractionContext
             var targetChannel = await GetOrCreateTreffChannelAsync();
             if (targetChannel == null)
             {
-                await FollowupAsync($"❌ Could not find or create the channel `#{TargetChannelName}` in this server.", ephemeral: true);
+                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` konnte auf diesem Server nicht gefunden oder erstellt werden.", ephemeral: true);
                 return;
             }
 
@@ -133,7 +133,7 @@ public class SpontanTreffModule : InteractionModuleBase<SocketInteractionContext
                 $"✅ Spontan-Treff gepostet in {targetChannel.Mention}: [Zum Treff](https://discord.com/channels/{meetup.GuildId}/{targetChannel.Id}/{message.Id})",
                 ephemeral: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing the /spontan-treff slash command.");
             await FollowupAsync("❌ Der Spontan-Treff konnte nicht erstellt werden.", ephemeral: true);

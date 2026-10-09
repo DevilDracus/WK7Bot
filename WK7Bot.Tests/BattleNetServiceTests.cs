@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
@@ -37,17 +38,19 @@ public class BattleNetServiceTests
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+        private int _callCount;
 
         public StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         {
             _responder = responder;
         }
 
-        public int CallCount { get; private set; }
+        public int CallCount => _callCount;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            CallCount++;
+            // The service fetches characters with Task.WhenAll, so the counter must be thread-safe.
+            Interlocked.Increment(ref _callCount);
             return Task.FromResult(_responder(request));
         }
     }
@@ -68,14 +71,32 @@ public class BattleNetServiceTests
 
     private sealed class CapturingLogger<T> : ILogger<T>
     {
-        public List<(LogLevel Level, string Message)> Entries { get; } = new();
+        private readonly object _gate = new();
+        private readonly List<(LogLevel Level, string Message)> _entries = new();
+
+        public IReadOnlyList<(LogLevel Level, string Message)> Entries
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _entries.ToList();
+                }
+            }
+        }
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) => true;
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-            => Entries.Add((logLevel, formatter(state, exception)));
+        {
+            // Log calls arrive from concurrent character fetches; serialize the buffered writes.
+            lock (_gate)
+            {
+                _entries.Add((logLevel, formatter(state, exception)));
+            }
+        }
     }
 
     /// <summary>
@@ -83,7 +104,14 @@ public class BattleNetServiceTests
     /// </summary>
     private sealed class FakeBattleNetApi
     {
-        public readonly List<string> Urls = new();
+        private int _tokenCalls;
+        private int _userInfoCalls;
+        private int _accountProfileCalls;
+        private int _characterProfileCalls;
+        private int _mediaCalls;
+        private int _diabloCalls;
+
+        public readonly ConcurrentQueue<string> Urls = new();
 
         public Func<HttpResponseMessage> TokenResponse = () => Json(TokenJson);
         public Func<HttpResponseMessage> UserInfoResponse = () => Json(UserInfoJson);
@@ -92,53 +120,53 @@ public class BattleNetServiceTests
         public Func<HttpResponseMessage> MediaResponse = () => Json(MediaJsonWithAvatar);
         public Func<HttpResponseMessage> DiabloResponse = () => Json(DiabloJson);
 
-        public int TokenCalls { get; private set; }
-        public int UserInfoCalls { get; private set; }
-        public int AccountProfileCalls { get; private set; }
-        public int CharacterProfileCalls { get; private set; }
-        public int MediaCalls { get; private set; }
-        public int DiabloCalls { get; private set; }
+        public int TokenCalls => _tokenCalls;
+        public int UserInfoCalls => _userInfoCalls;
+        public int AccountProfileCalls => _accountProfileCalls;
+        public int CharacterProfileCalls => _characterProfileCalls;
+        public int MediaCalls => _mediaCalls;
+        public int DiabloCalls => _diabloCalls;
 
         public StubHttpMessageHandler CreateHandler() => new(Respond);
 
         private HttpResponseMessage Respond(HttpRequestMessage request)
         {
             string url = request.RequestUri!.OriginalString;
-            Urls.Add(url);
+            Urls.Enqueue(url);
 
             if (url.Contains("/oauth/token"))
             {
-                TokenCalls++;
+                Interlocked.Increment(ref _tokenCalls);
                 return TokenResponse();
             }
 
             if (url.Contains("/oauth/userinfo"))
             {
-                UserInfoCalls++;
+                Interlocked.Increment(ref _userInfoCalls);
                 return UserInfoResponse();
             }
 
             if (url.Contains("/profile/user/wow"))
             {
-                AccountProfileCalls++;
+                Interlocked.Increment(ref _accountProfileCalls);
                 return AccountProfileResponse();
             }
 
             if (url.Contains("character-media"))
             {
-                MediaCalls++;
+                Interlocked.Increment(ref _mediaCalls);
                 return MediaResponse();
             }
 
             if (url.Contains("/profile/wow/character/"))
             {
-                CharacterProfileCalls++;
+                Interlocked.Increment(ref _characterProfileCalls);
                 return CharacterResponse(ExtractCharacterName(url));
             }
 
             if (url.Contains("/d3/profile/"))
             {
-                DiabloCalls++;
+                Interlocked.Increment(ref _diabloCalls);
                 return DiabloResponse();
             }
 

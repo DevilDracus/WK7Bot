@@ -104,7 +104,7 @@ public class WasteDispatchRepositoryTests : IDisposable
 
         // Mirrors the startup sequence in Program.cs for a brand-new database.
         await context.Database.EnsureCreatedAsync();
-        await context.Database.ExecuteSqlRawAsync(CreateWasteDispatchLogsSql);
+        await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateWasteDispatchLogsSql);
 
         await AssertRoundTripAsync(context);
     }
@@ -121,14 +121,14 @@ public class WasteDispatchRepositoryTests : IDisposable
 
         // An existing database predating the WasteDispatchLogs table only receives the raw SQL
         // (EnsureCreated is a no-op for existing files) — it must create the table and be re-runnable.
-        await context.Database.ExecuteSqlRawAsync(CreateWasteDispatchLogsSql);
-        await context.Database.ExecuteSqlRawAsync(CreateWasteDispatchLogsSql);
+        await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateWasteDispatchLogsSql);
+        await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateWasteDispatchLogsSql);
 
         await AssertRoundTripAsync(context);
     }
 
     [Fact]
-    public async Task MarkSentAsync_ConcurrentContextsWithSameKey_SwallowDuplicateInsert()
+    public async Task MarkSentAsync_RowAlreadyWrittenByAnotherContext_IsIdempotent()
     {
         var databasePath = Path.Combine(Path.GetTempPath(), $"wk7-waste-dispatch-{Guid.NewGuid():N}.db");
 
@@ -142,8 +142,9 @@ public class WasteDispatchRepositoryTests : IDisposable
                 await new WasteDispatchRepository(firstContext).MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, new DateTime(2026, 10, 5));
             }
 
-            // Second context has no tracked duplicate, so the insert hits the real primary-key
-            // violation and must be swallowed as "already recorded" by the repository guard.
+            // A second context has no tracked entity, but the repository's existence pre-check sees
+            // the committed row and short-circuits — the write is recorded exactly once across
+            // contexts. (The duplicate-insert guard itself is covered by DatabaseWriteGuardTests.)
             await using var secondContext = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options);
             await new WasteDispatchRepository(secondContext).MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, new DateTime(2026, 10, 5));
 
@@ -168,14 +169,4 @@ public class WasteDispatchRepositoryTests : IDisposable
         Assert.False(await repository.HasSentAsync(WasteDispatchKinds.WeeklyOverview, 100, date));
         Assert.Single(context.WasteDispatchLogs.AsNoTracking());
     }
-
-    private const string CreateWasteDispatchLogsSql =
-        """
-        CREATE TABLE IF NOT EXISTS WasteDispatchLogs (
-            Kind    TEXT    NOT NULL,
-            GuildId INTEGER NOT NULL,
-            SentOn  TEXT    NOT NULL,
-            PRIMARY KEY (Kind, GuildId, SentOn)
-        );
-        """;
 }

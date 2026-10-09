@@ -19,17 +19,20 @@ public class SteamServiceTests
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+        private int _callCount;
 
         public StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         {
             _responder = responder;
         }
 
-        public int CallCount { get; private set; }
+        public int CallCount => _callCount;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            CallCount++;
+            // The service fetches schema and achievements with Task.WhenAll, so the counter must be
+            // thread-safe.
+            Interlocked.Increment(ref _callCount);
             return Task.FromResult(_responder(request));
         }
     }
@@ -50,14 +53,32 @@ public class SteamServiceTests
 
     private sealed class CapturingLogger<T> : ILogger<T>
     {
-        public List<(LogLevel Level, string Message)> Entries { get; } = new();
+        private readonly object _gate = new();
+        private readonly List<(LogLevel Level, string Message)> _entries = new();
+
+        public IReadOnlyList<(LogLevel Level, string Message)> Entries
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _entries.ToList();
+                }
+            }
+        }
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) => true;
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-            => Entries.Add((logLevel, formatter(state, exception)));
+        {
+            // Log calls arrive from concurrent schema/achievement fetches; serialize buffered writes.
+            lock (_gate)
+            {
+                _entries.Add((logLevel, formatter(state, exception)));
+            }
+        }
     }
 
     private static SteamService CreateService(

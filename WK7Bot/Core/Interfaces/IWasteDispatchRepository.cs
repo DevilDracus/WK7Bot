@@ -25,4 +25,12 @@ public interface IWasteDispatchRepository
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>A task representing the asynchronous storage operation.</returns>
     Task MarkSentAsync(string kind, ulong guildId, DateTime sentOn, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes dispatch records older than the given retention window so the table stays bounded.
+    /// </summary>
+    /// <param name="olderThan">Records strictly older than this date are removed.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>The number of records removed.</returns>
+    Task<int> PruneAsync(DateTime olderThan, CancellationToken cancellationToken = default);
 }

@@ -23,8 +23,14 @@ public class GeminiFoodService : IGeminiFoodService
     private readonly Wk7BotOptions _options;
     private readonly ILogger<GeminiFoodService> _logger;
 
-    // Primary free model and fallback model
+    /// <summary>
+    /// Primary Gemini model used for structured output generation.
+    /// </summary>
     private const string PrimaryModel = "gemini-3.8-flash";
+
+    /// <summary>
+    /// Lite fallback model tried when the primary model is unavailable.
+    /// </summary>
     private const string FallbackModel = "gemini-3.1-flash-lite";
 
     /// <summary>
@@ -32,6 +38,21 @@ public class GeminiFoodService : IGeminiFoodService
     /// HttpClient default of 100 seconds; client timeouts are retried like transient failures.
     /// </summary>
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Delay before the first retry of a transient (429/503) Gemini failure; doubles per attempt.
+    /// Virtual so tests can override it to zero instead of sleeping through real backoff.
+    /// </summary>
+    protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(2000);
+
+    /// <summary>
+    /// Deserializer options for the structured answer: property names arrive from the model, so
+    /// matching is case-insensitive to tolerate casing drift without silently dropping all values.
+    /// </summary>
+    private static readonly JsonSerializerOptions StructuredAnswerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GeminiFoodService"/> class.
@@ -276,7 +297,7 @@ public class GeminiFoodService : IGeminiFoodService
     private async Task<T?> TryExecuteRequestWithRetryAsync<T>(string modelName, string prompt, JsonObject responseSchema, CancellationToken cancellationToken)
     {
         int maxRetries = 3;
-        int delayMs = 2000;
+        int delayMs = (int)RetryDelay.TotalMilliseconds;
 
         string requestUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent?key={_options.GeminiApiKey}";
 
@@ -323,7 +344,7 @@ public class GeminiFoodService : IGeminiFoodService
                             .GetProperty("text")
                             .GetString() ?? string.Empty;
 
-                        return JsonSerializer.Deserialize<T>(innerJson);
+                        return JsonSerializer.Deserialize<T>(innerJson, StructuredAnswerOptions);
                     }
                 }
 

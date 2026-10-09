@@ -68,8 +68,10 @@ public class RssParserService
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            // Shutdown cancellation must not reach the error-DM pipeline; everything else is a
+            // genuine feed problem (unreachable URL, malformed XML, timeouts).
             _logger.LogError(ex, "Failed to parse RSS feed '{FeedName}' from URL '{FeedUrl}'.", feed.Name, feed.Url);
         }
 

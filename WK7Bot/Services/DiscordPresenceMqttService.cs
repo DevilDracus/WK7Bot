@@ -90,6 +90,10 @@ public class DiscordPresenceMqttService : BackgroundService
         _discordClient.PresenceUpdated += OnPresenceUpdatedAsync;
         _discordClient.Ready += OnDiscordReadyAsync;
 
+        // After a broker reconnect the retained discovery configs are gone; clearing the marker
+        // makes the next presence update re-publish them for every user.
+        _coordinator.ConnectionEstablishedAsync += OnMqttConnectionEstablishedAsync;
+
         try
         {
             using var refreshTimer = new PeriodicTimer(PresenceRefreshInterval);
@@ -113,7 +117,20 @@ public class DiscordPresenceMqttService : BackgroundService
         {
             _discordClient.PresenceUpdated -= OnPresenceUpdatedAsync;
             _discordClient.Ready -= OnDiscordReadyAsync;
+            _coordinator.ConnectionEstablishedAsync -= OnMqttConnectionEstablishedAsync;
         }
+    }
+
+    /// <summary>
+    /// Clears the per-user discovery markers after a broker (re)connect so the Home Assistant
+    /// discovery configurations are re-published for every user.
+    /// </summary>
+    /// <returns>A completed task.</returns>
+    private Task OnMqttConnectionEstablishedAsync()
+    {
+        _discoveredUsers.Clear();
+        _logger.LogInformation("MQTT connection established; presence discovery configurations will be re-published.");
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -240,7 +257,10 @@ public class DiscordPresenceMqttService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to process presence update for user {Username} ({UserId})", user.Username, user.Id);
+            // Stable message text: user-specific placeholders would give every failing user its own
+            // error signature and flood the error-DM channel with one message per user.
+            _logger.LogError(ex, "Failed to process presence update for a mapped user.");
+            _logger.LogDebug("Presence update failure details for user {Username} ({UserId}).", user.Username, user.Id);
         }
     }
 

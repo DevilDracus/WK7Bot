@@ -1,4 +1,5 @@
 using WK7Bot.Core.Utilities;
+using WK7Bot.Services;
 using Xunit;
 
 namespace WK7Bot.Tests;
@@ -24,23 +25,17 @@ public class FormattingUtilityTests
     }
 
     [Fact]
-    public void PersonaStateMapping_CoversAllKnownCodes_ViaSteamServiceContract()
+    public void PersonaStateMapping_CoversAllKnownCodes()
     {
-        // Persona mapping remains private inside SteamService; assert the shared contract via reflection-free
-        // expectation table that documents the production switch (kept in sync with SteamService.MapPersonaState).
-        var expected = new Dictionary<int, string>
-        {
-            [0] = "Offline",
-            [1] = "Online",
-            [2] = "Busy",
-            [3] = "Away",
-            [4] = "Snooze",
-            [5] = "LookingToTrade",
-            [6] = "LookingToPlay"
-        };
-
-        Assert.Equal(7, expected.Count);
-        Assert.Equal("Unknown", expected.GetValueOrDefault(99) ?? "Unknown");
+        // Directly exercised against the production mapping (internal, visible to the tests)
+        // instead of a locally mirrored table.
+        Assert.Equal("Offline", SteamService.MapPersonaState(0));
+        Assert.Equal("Online", SteamService.MapPersonaState(1));
+        Assert.Equal("Busy", SteamService.MapPersonaState(2));
+        Assert.Equal("Away", SteamService.MapPersonaState(3));
+        Assert.Equal("Snooze", SteamService.MapPersonaState(4));
+        Assert.Equal("LookingToTrade", SteamService.MapPersonaState(5));
+        Assert.Equal("LookingToPlay", SteamService.MapPersonaState(6));
+        Assert.Equal("Unknown", SteamService.MapPersonaState(99));
     }
 }
-

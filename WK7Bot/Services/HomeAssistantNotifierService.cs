@@ -78,6 +78,25 @@ public class HomeAssistantNotifierService : BackgroundService
     }
 
     /// <summary>
+    /// Detaches every Discord and MQTT handler on shutdown so a stopped service keeps no references
+    /// to the singleton clients.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token indicating service shutdown.</param>
+    /// <returns>A task representing the asynchronous stop operation.</returns>
+    public override Task StopAsync(CancellationToken cancellationToken)
+    {
+        _mqttClient.ApplicationMessageReceivedAsync -= ProcessIncomingNotificationAsync;
+        _coordinator.ConnectionEstablishedAsync -= OnMqttConnectionEstablishedAsync;
+
+        _discordClient.Ready -= OnReadyAsync;
+        _discordClient.ChannelCreated -= OnChannelCreatedAsync;
+        _discordClient.ChannelDestroyed -= OnChannelDestroyedAsync;
+        _discordClient.ChannelUpdated -= OnChannelUpdatedAsync;
+
+        return base.StopAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Runs after every successful MQTT (re)connect: subscribes to the notification command topic and
     /// re-registers all discovery entities (retained payloads cover broker restarts, re-registration covers a
     /// fresh broker).
@@ -135,7 +154,20 @@ public class HomeAssistantNotifierService : BackgroundService
     {
         if (channel is SocketTextChannel textChannel && IsWritable(textChannel))
         {
-            await RegisterChannelNotificationEntityAsync(textChannel);
+            try
+            {
+                await RegisterChannelNotificationEntityAsync(textChannel);
+            }
+            catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
+            {
+                // Host shutdown during registration.
+            }
+            catch (Exception ex)
+            {
+                // Registration re-runs on the next MQTT connect; an escaping exception would only
+                // disturb Discord.Net's gateway event dispatch.
+                _logger.LogError(ex, "Registering the notification entity for a newly created channel failed; it is re-registered on the next MQTT connect.");
+            }
         }
     }
 
@@ -148,7 +180,18 @@ public class HomeAssistantNotifierService : BackgroundService
     {
         if (channel is SocketTextChannel textChannel)
         {
-            await UnregisterChannelNotificationEntityAsync(textChannel);
+            try
+            {
+                await UnregisterChannelNotificationEntityAsync(textChannel);
+            }
+            catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
+            {
+                // Host shutdown during unregistration.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unregistering the notification entity for a deleted channel failed; it is re-registered on the next MQTT connect.");
+            }
         }
     }
 
@@ -162,13 +205,24 @@ public class HomeAssistantNotifierService : BackgroundService
     {
         if (newChannel is SocketTextChannel textChannel)
         {
-            if (IsWritable(textChannel))
+            try
             {
-                await RegisterChannelNotificationEntityAsync(textChannel);
+                if (IsWritable(textChannel))
+                {
+                    await RegisterChannelNotificationEntityAsync(textChannel);
+                }
+                else
+                {
+                    await UnregisterChannelNotificationEntityAsync(textChannel);
+                }
             }
-            else
+            catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
             {
-                await UnregisterChannelNotificationEntityAsync(textChannel);
+                // Host shutdown during synchronization.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Synchronizing the notification entity of an updated channel failed; it is re-registered on the next MQTT connect.");
             }
         }
     }
