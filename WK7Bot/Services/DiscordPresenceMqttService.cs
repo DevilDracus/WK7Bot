@@ -86,14 +86,24 @@ public class DiscordPresenceMqttService : BackgroundService
             return;
         }
 
-        await _coordinator.StartMaintainingAsync(stoppingToken);
-
         _discordClient.PresenceUpdated += OnPresenceUpdatedAsync;
         _discordClient.Ready += OnDiscordReadyAsync;
 
         // After a broker reconnect the retained discovery configs are gone; clearing the marker
-        // makes the next presence update re-publish them for every user.
+        // makes the next presence update re-publish them for every user. Subscribing before
+        // StartMaintainingAsync also keeps the initial connect's event from being missed.
         _coordinator.ConnectionEstablishedAsync += OnMqttConnectionEstablishedAsync;
+
+        await _coordinator.StartMaintainingAsync(stoppingToken);
+
+        // An earlier-hosted MQTT service may already have established the shared connection by
+        // now, so the initial ConnectionEstablishedAsync fired before this subscription existed:
+        // catch up, otherwise the discovery marker is never cleared and no presence entity is
+        // published until the next broker reconnect.
+        if (_mqttClient.IsConnected)
+        {
+            await OnMqttConnectionEstablishedAsync();
+        }
 
         try
         {

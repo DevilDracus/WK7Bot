@@ -88,6 +88,16 @@ public sealed class BotStatusMqttService : BackgroundService
 
         await _coordinator.StartMaintainingAsync(stoppingToken);
 
+        // Another hosted MQTT service starts earlier and may already have established the shared
+        // connection by the time this service subscribes: ConnectionEstablishedAsync for the
+        // initial connect has then already fired, so catch up here. Without this the discovery
+        // payloads and the availability ONLINE marker stay unpublished until a broker reconnect,
+        // leaving sensor.wk7bot_status permanently unavailable in Home Assistant.
+        if (_mqttClient.IsConnected)
+        {
+            await OnMqttConnectionEstablishedAsync();
+        }
+
         using var timer = new PeriodicTimer(HeartbeatInterval);
 
         do
