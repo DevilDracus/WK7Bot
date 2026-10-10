@@ -35,9 +35,6 @@ public sealed class BotStatusMqttService : BackgroundService
 
     private readonly DateTime _startedAtUtc = DateTime.UtcNow;
 
-    /// <summary>Last payload published per topic, so a heartbeat only republishes values that changed.</summary>
-    private readonly Dictionary<string, string> _lastPayloads = new(StringComparer.Ordinal);
-
     private CancellationToken _stoppingToken = CancellationToken.None;
 
     /// <summary>
@@ -102,7 +99,7 @@ public sealed class BotStatusMqttService : BackgroundService
 
         do
         {
-            await PublishStatesAsync(force: false);
+            await PublishStatesAsync();
         }
         while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
     }
@@ -148,7 +145,7 @@ public sealed class BotStatusMqttService : BackgroundService
 
             await PublishRetainedAsync(BotStatusEntities.AvailabilityTopic, BotStatusEntities.AvailabilityOnlinePayload);
             await RegisterEntitiesAsync();
-            await PublishStatesAsync(force: true);
+            await PublishStatesAsync();
         }
         catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
         {
@@ -161,19 +158,15 @@ public sealed class BotStatusMqttService : BackgroundService
     }
 
     /// <summary>
-    /// Converges every status topic to its current value. On a heartbeat only values that changed since
-    /// the last publication are republished; <paramref name="force"/> republishes everything (after a
-    /// broker reconnect) and rebuilds the diff cache.
+    /// Republishes every status topic with its current value. Every topic is refreshed on every
+    /// heartbeat rather than only on change: entities configured with <c>expire_after</c> (the status
+    /// sensor's 120s and the problem sensors' 300s) need a fresh message inside their window, and a
+    /// value that stays constant — a healthy feature's <c>OFF</c> problem payload — would otherwise
+    /// never be republished and would go unavailable long before the value actually changed.
     /// </summary>
-    /// <param name="force">Whether to republish all values regardless of the last published payload.</param>
     /// <returns>A task representing the state publication.</returns>
-    private async Task PublishStatesAsync(bool force)
+    private async Task PublishStatesAsync()
     {
-        if (force)
-        {
-            _lastPayloads.Clear();
-        }
-
         try
         {
             if (!await _coordinator.EnsureConnectedAsync(_stoppingToken))
@@ -183,11 +176,7 @@ public sealed class BotStatusMqttService : BackgroundService
 
             foreach (var (topic, payload) in BuildDesiredStates())
             {
-                if (force || !_lastPayloads.TryGetValue(topic, out var last) || last != payload)
-                {
-                    await PublishRetainedAsync(topic, payload);
-                    _lastPayloads[topic] = payload;
-                }
+                await PublishRetainedAsync(topic, payload);
             }
         }
         catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)

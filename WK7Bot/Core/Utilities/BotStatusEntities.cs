@@ -49,6 +49,12 @@ public static class BotStatusEntities
     /// <summary>Display name of the device the entities belong to.</summary>
     public const string DeviceName = "WK7 Bot";
 
+    /// <summary>
+    /// Slug form of <see cref="DeviceName"/>. Home Assistant derives an entity's ID from the device
+    /// name plus the entity name, so this is the "wk7_bot" prefix of every entity ID.
+    /// </summary>
+    private static readonly string DeviceSlug = Slug(DeviceName);
+
     /// <summary>Retained availability topic of the whole bot.</summary>
     public const string AvailabilityTopic = TopicPrefix + "/status";
 
@@ -120,7 +126,7 @@ public static class BotStatusEntities
     public static string StatusDiscoveryConfig(string softwareVersion) => JsonSerializer.Serialize(new
     {
         name = "Bot Status",
-        object_id = $"{DeviceId}_status",
+        object_id = EntityObjectId("Bot Status"),
         unique_id = $"{DeviceId}_status",
         state_topic = StatusStateTopic,
         json_attributes_topic = StatusAttributesTopic,
@@ -141,7 +147,7 @@ public static class BotStatusEntities
     public static string EnabledDiscoveryConfig(BotStatusFeature feature, string softwareVersion) => JsonSerializer.Serialize(new
     {
         name = $"{feature.DisplayName} Enabled",
-        object_id = $"{DeviceId}_{feature.Slug}_enabled",
+        object_id = EntityObjectId(feature.DisplayName, "enabled"),
         unique_id = $"{DeviceId}_{feature.Slug}_enabled",
         state_topic = EnabledStateTopic(feature),
         payload_on = "ON",
@@ -161,7 +167,7 @@ public static class BotStatusEntities
     public static string ProblemDiscoveryConfig(BotStatusFeature feature, string softwareVersion) => JsonSerializer.Serialize(new
     {
         name = $"{feature.DisplayName} Problem",
-        object_id = $"{DeviceId}_{feature.Slug}_problem",
+        object_id = EntityObjectId(feature.DisplayName, "problem"),
         unique_id = $"{DeviceId}_{feature.Slug}_problem",
         state_topic = ProblemStateTopic(feature),
         json_attributes_topic = ProblemAttributesTopic(feature),
@@ -240,6 +246,27 @@ public static class BotStatusEntities
         manufacturer = "Custom Application",
         sw_version = softwareVersion
     };
+
+    /// <summary>
+    /// Builds the MQTT <c>object_id</c> of a bot entity. Home Assistant derives an entity's ID from
+    /// the device name plus the entity name, so pinning <c>object_id</c> to that same slug keeps the
+    /// entity IDs stable instead of letting a display-name edit silently rename (and break) them.
+    /// </summary>
+    /// <param name="parts">The display-name parts, in order (for example <c>"DWD Warnings", "enabled"</c>).</param>
+    /// <returns>The object_id, for example <c>wk7_bot_dwd_warnings_enabled</c>.</returns>
+    private static string EntityObjectId(params string[] parts)
+        => $"{DeviceSlug}_{string.Join('_', parts.Where(part => !string.IsNullOrWhiteSpace(part)).Select(Slug))}";
+
+    /// <summary>
+    /// Converts a display name to the slug Home Assistant uses inside entity IDs.
+    /// </summary>
+    /// <param name="value">The display name.</param>
+    /// <returns>The slug.</returns>
+    private static string Slug(string value)
+        => string.Concat(value.ToLowerInvariant().Trim().Select(c =>
+            char.IsLetterOrDigit(c) || c == '_' ? c : c is ' ' or '-' ? '_' : (char?)null))
+            .Replace("__", "_")
+            .Trim('_');
 
     private static string? FormatTimestamp(DateTime? value)
         => value.HasValue ? value.Value.ToString("o", System.Globalization.CultureInfo.InvariantCulture) : null;
