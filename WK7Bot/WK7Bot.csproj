@@ -12,6 +12,20 @@
         <InternalsVisibleTo Include="WK7Bot.Tests" />
     </ItemGroup>
 
+    <!-- The Home Assistant add-on version in config.yaml is the single source of truth for the
+         version the bot reports (/health and the MQTT device attributes). Reading it at evaluation
+         time keeps the assembly version in sync with the add-on image tag on every build, instead
+         of defaulting to 1.0.0. -->
+    <PropertyGroup>
+        <AddOnConfigYaml>$(MSBuildProjectDirectory)\config.yaml</AddOnConfigYaml>
+        <AddOnVersion Condition="Exists('$(AddOnConfigYaml)')">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(AddOnConfigYaml)')), '(?m)^version:\s*"?([^"\s]+)"?').Groups[1].Value)</AddOnVersion>
+        <Version Condition="'$(AddOnVersion)' != ''">$(AddOnVersion)</Version>
+        <AssemblyVersion Condition="'$(AddOnVersion)' != ''">$(AddOnVersion).0</AssemblyVersion>
+        <FileVersion Condition="'$(AddOnVersion)' != ''">$(AddOnVersion).0</FileVersion>
+        <InformationalVersion Condition="'$(AddOnVersion)' != ''">$(AddOnVersion)</InformationalVersion>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="CodeHollow.FeedReader" Version="1.2.6" />
         <PackageReference Include="Discord.Net" Version="3.17.1" />
