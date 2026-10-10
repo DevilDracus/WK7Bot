@@ -23,6 +23,12 @@ public class InteractionHandlingService : IHostedService
     private readonly ILogger<InteractionHandlingService> _logger;
 
     /// <summary>
+    /// Set once the host begins stopping the service. Interactions that arrive after this point are
+    /// ignored instead of being executed against a DI provider that is about to be disposed.
+    /// </summary>
+    private volatile bool _isStopping;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="InteractionHandlingService"/> class.
     /// </summary>
     /// <param name="client">The active Discord socket client instance.</param>
@@ -65,6 +71,9 @@ public class InteractionHandlingService : IHostedService
     /// <returns>A task representing the asynchronous service stop operation.</returns>
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        // Flip the shutdown flag first so interactions that arrive while the host is tearing down
+        // are dropped instead of executing against a DI provider that is about to be disposed.
+        _isStopping = true;
         _client.Ready -= OnClientReadyAsync;
         _client.InteractionCreated -= OnInteractionCreatedAsync;
         _interactionService.InteractionExecuted -= OnInteractionExecutedAsync;
@@ -108,13 +117,25 @@ public class InteractionHandlingService : IHostedService
     {
         try
         {
+            if (_isStopping)
+            {
+                // The host is shutting down: the root service provider may already be disposed, so
+                // executing the interaction would fatal. Drop it instead.
+                return;
+            }
+
             var context = new SocketInteractionContext(_client, interaction);
 
-            // A scope per interaction: the command modules resolve scoped services (the bot DbContext
-            // behind the repositories), and resolving them from the root provider would share one
-            // context across every concurrent interaction.
-            using var scope = _services.CreateScope();
-            var result = await _interactionService.ExecuteCommandAsync(context, scope.ServiceProvider);
+            // The root provider is passed, NOT a handler-owned scope: InteractionService keeps its
+            // default RunMode.Async, in which ExecuteCommandAsync returns as soon as the command is
+            // dispatched to a detached task. A scope disposed together with this handler would tear
+            // the command's services down while it is still running — Discord.NET's own
+            // AutoServiceScopes CreateScope then throws ObjectDisposedException, the command never
+            // runs, and no response is ever sent (Discord reports "Die Anwendung reagiert nicht",
+            // and the detached faulted task surfaces as UnobservedTaskException). With
+            // AutoServiceScopes enabled, every command execution resolves its own scope from the
+            // provider passed here, so scoped services (the DbContext) are per-execution, not shared.
+            var result = await _interactionService.ExecuteCommandAsync(context, _services);
 
             if (!result.IsSuccess)
             {
@@ -125,6 +146,14 @@ public class InteractionHandlingService : IHostedService
                     _logger.LogWarning("Interaction execution failed: {Reason}", result.ErrorReason);
                 }
             }
+        }
+        catch (ObjectDisposedException)
+        {
+            // Shutdown won the race: the interaction arrived after the service provider was disposed
+            // (root provider disposal or an in-flight scope disposed by host teardown). Dropping the
+            // interaction is the correct outcome during shutdown — logging at error level here would
+            // feed the error-notification queue with shutdown noise.
+            _logger.LogDebug("Dropped an interaction because the service provider was disposed during shutdown.");
         }
         catch (Exception ex)
         {

@@ -101,4 +101,57 @@ public class AutomaticTargetResolverTests
 
         Assert.Empty(logger.Entries);
     }
+
+    [Fact]
+    public void ResolveTestServerOnly_AlwaysTargetsTestServer_EvenWhenWk7ServerIsConfigured()
+    {
+        var servers = Configured(Wk7Server.ToString(), TestServer.ToString());
+
+        var targets = AutomaticTargetResolver.ResolveTestServerOnly(servers);
+
+        Assert.Equal(new[] { TestServer }, targets);
+    }
+
+    [Fact]
+    public void ResolveTestServerOnly_IgnoresTestingFeatures_RoutesToTestServerAnyway()
+    {
+        var servers = Configured(Wk7Server.ToString(), TestServer.ToString(), "error_notifications", "weekend_digest");
+
+        var targets = AutomaticTargetResolver.ResolveTestServerOnly(servers);
+
+        Assert.Equal(new[] { TestServer }, targets);
+    }
+
+    [Fact]
+    public void ResolveTestServerOnly_NeverTargetsWk7Server_WhenTestServerIsMissing()
+    {
+        var servers = Configured(Wk7Server.ToString(), "YOUR_BOT_TEST_SERVER_ID");
+        var logger = new ListLogger();
+
+        var targets = AutomaticTargetResolver.ResolveTestServerOnly(servers, logger);
+
+        Assert.DoesNotContain(Wk7Server, targets);
+        Assert.Empty(targets);
+    }
+
+    [Fact]
+    public void ResolveTestServerOnly_LogsWarning_AndStaysEmpty_WhenPlaceholderTestServerId()
+    {
+        var servers = Configured(Wk7Server.ToString(), "YOUR_BOT_TEST_SERVER_ID");
+        var logger = new ListLogger();
+
+        var targets = AutomaticTargetResolver.ResolveTestServerOnly(servers, logger);
+
+        Assert.Empty(targets);
+        var warning = Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        Assert.Contains("test_server_id", warning.Message);
+    }
+
+    [Fact]
+    public void ResolveTestServerOnly_NullServers_StaysEmpty_AndDoesNotThrow()
+    {
+        var targets = AutomaticTargetResolver.ResolveTestServerOnly(null);
+
+        Assert.Empty(targets);
+    }
 }

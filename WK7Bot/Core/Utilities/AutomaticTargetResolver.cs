@@ -47,6 +47,28 @@ public static class AutomaticTargetResolver
     }
 
     /// <summary>
+    /// Resolves the target guild IDs for a feature that must never post to the WK7 production
+    /// server: only the bot test server is eligible. When <c>servers.test_server_id</c> is not a
+    /// usable numeric ID the result is empty, so the caller falls back to direct messages instead
+    /// of leaking content to the production server (or to every guild the bot is in).
+    /// </summary>
+    /// <param name="servers">The configured server IDs and testing features.</param>
+    /// <param name="logger">Optional logger used when no test server is configured.</param>
+    /// <returns>The test server guild ID, or an empty list when none is configured.</returns>
+    public static IReadOnlyList<ulong> ResolveTestServerOnly(ServersOptions? servers, ILogger? logger = null)
+    {
+        if (servers is not null && servers.TryGetTestServerId(out var testServerId))
+        {
+            return new[] { testServerId };
+        }
+
+        logger?.LogWarning(
+            "servers.test_server_id is not configured; restricting delivery to direct messages instead of posting to the WK7 server.");
+
+        return Array.Empty<ulong>();
+    }
+
+    /// <summary>
     /// Picks the configured server for a feature: the test server while the feature is being
     /// tested, otherwise the WK7 server.
     /// </summary>

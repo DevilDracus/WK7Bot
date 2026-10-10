@@ -152,10 +152,8 @@ public class ErrorNotificationDispatcher : BackgroundService
     }
 
     /// <summary>
-    /// Resolves the notification channel inside the target servers: the WK7 server (or the bot test
-    /// server while <c>error_notifications</c> is listed in <c>servers.testing_features</c>), falling
-    /// back to every guild the bot is in while no server ID is configured. The first guild that offers
-    /// a resolvable channel wins; when the channel is missing it is created.
+    /// Resolves the error channel inside the target guilds: the test server only. The first guild
+    /// that offers a resolvable channel wins; when the channel is missing it is created.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token monitored for background service shutdown.</param>
     /// <returns>The target text channel, or <see langword="null"/> when none could be resolved or created.</returns>
@@ -174,17 +172,13 @@ public class ErrorNotificationDispatcher : BackgroundService
     }
 
     /// <summary>
-    /// Returns the IDs of the guilds that should receive error reports: the configured WK7 server (or
-    /// the bot test server while <c>error_notifications</c> is listed in <c>servers.testing_features</c>),
-    /// falling back to every guild while no server ID is configured. Virtual for testability.
+    /// Returns the IDs of the guilds that should receive error reports: always the bot test server —
+    /// error reports must never be posted to the WK7 production server. When no test server is
+    /// configured the list is empty and delivery falls back to direct messages. Virtual for testability.
     /// </summary>
-    /// <returns>The target Discord guild IDs.</returns>
+    /// <returns>The target Discord guild IDs (empty when no test server is configured).</returns>
     protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
-        => AutomaticTargetResolver.Resolve(
-            _options.Servers,
-            FeatureKeys.RoutedFeatures.ErrorNotifications,
-            _discordClient.Guilds.Select(g => g.Id),
-            _logger);
+        => AutomaticTargetResolver.ResolveTestServerOnly(_options.Servers, _logger);
 
     /// <summary>
     /// Resolves the error channel for a guild by ID, creating the read-only notification channel when missing.

@@ -43,6 +43,9 @@ public static class FeatureKeys
     /// <summary>Key of the error notification feature.</summary>
     public const string ErrorNotifications = "error_notifications_enabled";
 
+    /// <summary>Key of the MQTT bot status entities feature.</summary>
+    public const string MqttBotStatus = "mqtt_bot_status_enabled";
+
     /// <summary>
     /// The keys of the features that post automatically and therefore honour
     /// <c>servers.testing_features</c> routing.

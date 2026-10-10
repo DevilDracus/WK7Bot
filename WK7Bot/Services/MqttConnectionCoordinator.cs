@@ -61,6 +61,13 @@ public sealed class MqttConnectionCoordinator
     public int Port { get; }
 
     /// <summary>
+    /// Gets or sets the last-will testament included in every connection attempt: the broker publishes
+    /// this retained payload on the topic when our connection drops without a clean disconnect (process
+    /// kill, network loss). Set before the first connect so all connections carry the will.
+    /// </summary>
+    public (string Topic, string Payload)? LastWill { get; set; }
+
+    /// <summary>
     /// Raised after every successful (re)connection so subscribers can resubscribe topics and re-publish
     /// retained discovery payloads. Handler failures are logged and never break the connection pipeline.
     /// </summary>
@@ -159,6 +166,14 @@ public sealed class MqttConnectionCoordinator
         if (!string.IsNullOrWhiteSpace(_options.MqttUsername))
         {
             optionsBuilder.WithCredentials(_options.MqttUsername, _options.MqttPassword);
+        }
+
+        if (LastWill is { } will)
+        {
+            optionsBuilder
+                .WithWillTopic(will.Topic)
+                .WithWillPayload(will.Payload)
+                .WithWillRetain(true);
         }
 
         return optionsBuilder.Build();

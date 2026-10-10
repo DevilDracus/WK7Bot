@@ -51,7 +51,13 @@ public static class ServiceCollectionExtensions
             AlwaysDownloadUsers = true
         }));
 
-        services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
+        // AutoServiceScopes is pinned explicitly because the interaction handler passes the root
+        // provider to ExecuteCommandAsync: the per-command scope is then created inside
+        // ExecuteInternalAsync and outlives the handler, which is what keeps scoped module
+        // dependencies (the DbContext-backed repositories) alive for the whole detached execution.
+        services.AddSingleton(x => new InteractionService(
+            x.GetRequiredService<DiscordSocketClient>(),
+            new InteractionServiceConfig { AutoServiceScopes = true }));
 
         services.AddHttpClient<IHomeAssistantService, HomeAssistantService>(client =>
         {

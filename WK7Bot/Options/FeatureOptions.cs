@@ -78,4 +78,36 @@ public class FeatureOptions
     /// </summary>
     [ConfigurationKeyName("error_notifications_enabled")]
     public bool ErrorNotificationsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the bot publishes its own status (availability, uptime and
+    /// per-feature health) to Home Assistant as MQTT discovery entities.
+    /// </summary>
+    [ConfigurationKeyName("mqtt_bot_status_enabled")]
+    public bool MqttBotStatusEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
+    /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
+    /// feature on older configuration.
+    /// </summary>
+    /// <param name="featureKey">The snake_case feature key (e.g. <c>food_service_enabled</c>).</param>
+    /// <returns><see langword="true"/> when the feature is enabled.</returns>
+    public bool IsEnabled(string featureKey) => featureKey?.ToLowerInvariant() switch
+    {
+        FeatureKeys.RssPolling => RssPollingEnabled,
+        FeatureKeys.HomeAssistantNotifier => HomeAssistantNotifierEnabled,
+        FeatureKeys.LeipzigWaste => LeipzigWasteEnabled,
+        FeatureKeys.AlexaNotifications => AlexaNotificationsEnabled,
+        FeatureKeys.DiscordPresenceMqtt => DiscordPresenceMqttEnabled,
+        FeatureKeys.SteamPresence => SteamPresenceEnabled,
+        FeatureKeys.BattleNetPresence => BattleNetPresenceEnabled,
+        FeatureKeys.FoodService => FoodServiceEnabled,
+        FeatureKeys.SpontanTreff => SpontanTreffEnabled,
+        FeatureKeys.WeekendDigest => WeekendDigestEnabled,
+        FeatureKeys.DwdWarning => DwdWarningEnabled,
+        FeatureKeys.ErrorNotifications => ErrorNotificationsEnabled,
+        FeatureKeys.MqttBotStatus => MqttBotStatusEnabled,
+        _ => true
+    };
 }
