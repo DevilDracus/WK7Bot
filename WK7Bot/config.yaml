@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.58"
+version: "1.0.59"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 init: false
