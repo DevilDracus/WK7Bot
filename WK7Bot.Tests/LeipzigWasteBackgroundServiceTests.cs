@@ -44,6 +44,7 @@ public class LeipzigWasteBackgroundServiceTests
                 serviceProvider,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
                 wasteService,
+                new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(new Wk7BotOptions()),
                 NullLogger<LeipzigWasteBackgroundService>.Instance)
             => _guildIds = guildIds;

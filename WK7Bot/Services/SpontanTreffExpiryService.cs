@@ -16,6 +16,7 @@ public class SpontanTreffExpiryService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly DiscordSocketClient _discordClient;
+    private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<SpontanTreffExpiryService> _logger;
 
@@ -24,16 +25,19 @@ public class SpontanTreffExpiryService : BackgroundService
     /// </summary>
     /// <param name="serviceProvider">The service provider used to create database scopes.</param>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
+    /// <param name="health">The feature health tracker recording the outcome of each sweep.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public SpontanTreffExpiryService(
         IServiceProvider serviceProvider,
         DiscordSocketClient discordClient,
+        FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<SpontanTreffExpiryService> logger)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -59,7 +63,10 @@ public class SpontanTreffExpiryService : BackgroundService
         {
             try
             {
-                await SweepAsync(DateTime.Now, stoppingToken);
+                if (await SweepAsync(DateTime.Now, stoppingToken))
+                {
+                    _health.RecordSuccess(FeatureKeys.SpontanTreff);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -68,6 +75,7 @@ public class SpontanTreffExpiryService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while expiring spontaneous meetups.");
+                _health.RecordFailure(FeatureKeys.SpontanTreff, ex.Message);
             }
         }
     }
@@ -78,13 +86,14 @@ public class SpontanTreffExpiryService : BackgroundService
     /// </summary>
     /// <param name="now">The current local date and time.</param>
     /// <param name="stoppingToken">Cancellation token for network and database operations.</param>
-    /// <returns>A task representing the asynchronous sweep.</returns>
-    protected virtual async Task SweepAsync(DateTime now, CancellationToken stoppingToken)
+    /// <returns><see langword="true"/> when every expired meetup was processed cleanly.</returns>
+    protected virtual async Task<bool> SweepAsync(DateTime now, CancellationToken stoppingToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<ISpontanTreffRepository>();
 
         var expired = await repository.GetExpiredAsync(now, stoppingToken);
+        var allClean = true;
         foreach (var meetup in expired)
         {
             stoppingToken.ThrowIfCancellationRequested();
@@ -100,7 +109,9 @@ public class SpontanTreffExpiryService : BackgroundService
             }
             catch (Exception ex)
             {
+                allClean = false;
                 _logger.LogWarning(ex, "Could not update the closed Spontan-Treff message {MeetupId}.", meetup.Id);
+                _health.RecordFailure(FeatureKeys.SpontanTreff, ex.Message);
             }
         }
 
@@ -108,6 +119,8 @@ public class SpontanTreffExpiryService : BackgroundService
         {
             _logger.LogInformation("Closed {Count} expired Spontan-Treff meetup(s).", expired.Count);
         }
+
+        return allClean;
     }
 
     /// <summary>

@@ -43,6 +43,7 @@ public class WeekendDigestBackgroundServiceTests
                 serviceProvider,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
                 eventSource,
+                new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(new Wk7BotOptions()),
                 NullLogger<WeekendDigestBackgroundService>.Instance)
             => _guildIds = guildIds;

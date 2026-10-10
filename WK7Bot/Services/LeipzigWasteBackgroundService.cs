@@ -24,6 +24,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILeipzigWasteService _wasteService;
+    private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<LeipzigWasteBackgroundService> _logger;
 
@@ -36,18 +37,21 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// <param name="serviceProvider">The service provider used to create database scopes for dispatch state.</param>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="wasteService">The Leipzig waste schedule parser service.</param>
+    /// <param name="health">The feature health tracker recording the outcome of each schedule pass.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public LeipzigWasteBackgroundService(
         IServiceProvider serviceProvider,
         DiscordSocketClient discordClient,
         ILeipzigWasteService wasteService,
+        FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<LeipzigWasteBackgroundService> logger)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _wasteService = wasteService ?? throw new ArgumentNullException(nameof(wasteService));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
@@ -74,6 +78,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
             try
             {
                 await EvaluateScheduleAsync(DateTime.Now, stoppingToken);
+                _health.RecordSuccess(FeatureKeys.LeipzigWaste);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -84,6 +89,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
                 // HTTP timeouts surface as OperationCanceledException with the stopping token
                 // untouched; they are logged so the scheduler survives a slow feed response.
                 _logger.LogError(ex, "An error occurred while processing the Leipzig waste schedule evaluation loop.");
+                _health.RecordFailure(FeatureKeys.LeipzigWaste, ex.Message);
             }
         }
     }
@@ -100,14 +106,21 @@ public class LeipzigWasteBackgroundService : BackgroundService
     {
         if (now.Hour >= 8 && _lastDailyNotificationDate.Date < now.Date)
         {
-            await CheckAndSendWasteNotificationsAsync(now.Date, stoppingToken);
-            _lastDailyNotificationDate = now.Date;
+            // The in-memory flag only advances when the dispatch actually completed. Advancing it on
+            // a partial failure (a guild whose channel could not be resolved) would suppress every
+            // retry until the next day, silently losing that day's notification.
+            if (await CheckAndSendWasteNotificationsAsync(now.Date, stoppingToken))
+            {
+                _lastDailyNotificationDate = now.Date;
+            }
         }
 
         if (now.DayOfWeek == DayOfWeek.Monday && now.Hour >= 9 && _lastWeeklyOverviewDate.Date < now.Date)
         {
-            await SendWeeklyWasteOverviewAsync(now.Date, stoppingToken);
-            _lastWeeklyOverviewDate = now.Date;
+            if (await SendWeeklyWasteOverviewAsync(now.Date, stoppingToken))
+            {
+                _lastWeeklyOverviewDate = now.Date;
+            }
         }
     }
 
@@ -117,10 +130,10 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// </summary>
     /// <param name="date">The calendar date the confirmation is dispatched for bookkeeping.</param>
     /// <param name="cancellationToken">Cancellation token for network operations.</param>
-    /// <returns>A task representing the asynchronous notification process.</returns>
-    private async Task CheckAndSendWasteNotificationsAsync(DateTime date, CancellationToken cancellationToken)
+    /// <returns><see langword="true"/> when every pending guild received the message.</returns>
+    private async Task<bool> CheckAndSendWasteNotificationsAsync(DateTime date, CancellationToken cancellationToken)
     {
-        await DispatchAsync(WasteDispatchKinds.DailyConfirmation, date, async () =>
+        return await DispatchAsync(WasteDispatchKinds.DailyConfirmation, date, async () =>
         {
             var yesterday = date.AddDays(-1);
             var collectionsYesterday = await _wasteService.GetWasteTypesForDateAsync(yesterday, cancellationToken);
@@ -139,10 +152,10 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// </summary>
     /// <param name="monday">The Monday date identifying the target week.</param>
     /// <param name="cancellationToken">Cancellation token for network operations.</param>
-    /// <returns>A task representing the asynchronous weekly overview process.</returns>
-    private async Task SendWeeklyWasteOverviewAsync(DateTime monday, CancellationToken cancellationToken)
+    /// <returns><see langword="true"/> when every pending guild received the message.</returns>
+    private async Task<bool> SendWeeklyWasteOverviewAsync(DateTime monday, CancellationToken cancellationToken)
     {
-        await DispatchAsync(WasteDispatchKinds.WeeklyOverview, monday,
+        return await DispatchAsync(WasteDispatchKinds.WeeklyOverview, monday,
             () => BuildWeeklyOverviewEmbedAsync(monday, cancellationToken),
             cancellationToken);
     }
@@ -156,8 +169,12 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// <param name="date">The calendar date used as the deduplication key.</param>
     /// <param name="embedFactory">Factory producing the embed, or <see langword="null"/> when nothing should be sent.</param>
     /// <param name="cancellationToken">Cancellation token for network and database operations.</param>
-    /// <returns>A task representing the asynchronous dispatch process.</returns>
-    private async Task DispatchAsync(string kind, DateTime date, Func<Task<Embed?>> embedFactory, CancellationToken cancellationToken)
+    /// <returns>
+    /// <see langword="true"/> when every pending guild received the message (or when there was nothing
+    /// left to send); <see langword="false"/> when at least one guild could not be delivered to, so the
+    /// caller retries on the next tick instead of treating the day as done.
+    /// </returns>
+    private async Task<bool> DispatchAsync(string kind, DateTime date, Func<Task<Embed?>> embedFactory, CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
@@ -182,21 +199,24 @@ public class LeipzigWasteBackgroundService : BackgroundService
                 kind,
                 date,
                 targetGuildIds.Count);
-            return;
+            return true;
         }
 
         var embed = await embedFactory();
         if (embed == null)
         {
-            return;
+            return true;
         }
 
+        var deliveredAll = true;
         foreach (var guildId in pendingGuildIds)
         {
             var channel = await GetOrCreateWasteChannelAsync(guildId);
             if (channel == null)
             {
+                // Not marked sent on purpose, but the day must stay open so the next tick retries.
                 _logger.LogWarning("Could not resolve or create the waste channel for guild {GuildId}; skipping.", guildId);
+                deliveredAll = false;
                 continue;
             }
 
@@ -212,6 +232,8 @@ public class LeipzigWasteBackgroundService : BackgroundService
             kind,
             date,
             pendingGuildIds.Count);
+
+        return deliveredAll;
     }
 
     /// <summary>

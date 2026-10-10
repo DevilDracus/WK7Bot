@@ -15,6 +15,7 @@ public class RssPollingBackgroundService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly DiscordSocketClient _discordClient;
+    private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<RssPollingBackgroundService> _logger;
     private bool _isClientReady;
@@ -30,16 +31,19 @@ public class RssPollingBackgroundService : BackgroundService
     /// </summary>
     /// <param name="serviceProvider">The service provider to create database scopes.</param>
     /// <param name="discordClient">The active Discord client instance.</param>
+    /// <param name="health">The feature health tracker recording the outcome of each polling pass.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for operational tracking.</param>
     public RssPollingBackgroundService(
         IServiceProvider serviceProvider,
         DiscordSocketClient discordClient,
+        FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<RssPollingBackgroundService> logger)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -87,7 +91,13 @@ public class RssPollingBackgroundService : BackgroundService
             {
                 if (_isClientReady)
                 {
-                    await PollAllFeedsAsync(stoppingToken);
+                    // A pass is only healthy when every due feed was processed cleanly: the per-feed
+                    // failures are swallowed so one broken feed cannot abort the sweep, so the pass
+                    // itself reports whether any of those write-offs happened.
+                    if (await PollAllFeedsAsync(stoppingToken))
+                    {
+                        _health.RecordSuccess(FeatureKeys.RssPolling);
+                    }
                 }
                 else
                 {
@@ -101,6 +111,7 @@ public class RssPollingBackgroundService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An unhandled exception occurred during RSS polling loop execution.");
+                _health.RecordFailure(FeatureKeys.RssPolling, ex.Message);
             }
 
             try
@@ -119,14 +130,18 @@ public class RssPollingBackgroundService : BackgroundService
     /// is isolated, so one failing feed cannot abort the sweep for the others.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    private async Task PollAllFeedsAsync(CancellationToken cancellationToken)
+    /// <returns>
+    /// <see langword="true"/> when every due feed was processed cleanly; <see langword="false"/> when at
+    /// least one feed failed, so the pass is not reported as a success.
+    /// </returns>
+    private async Task<bool> PollAllFeedsAsync(CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var parser = scope.ServiceProvider.GetRequiredService<RssParserService>();
         var repository = scope.ServiceProvider.GetRequiredService<IRssRepository>();
 
         var feeds = await repository.GetAllFeedsAsync(cancellationToken);
+        var clean = true;
 
         foreach (var feed in feeds)
         {
@@ -137,7 +152,7 @@ public class RssPollingBackgroundService : BackgroundService
 
             try
             {
-                await PollFeedAsync(parser, repository, feed, cancellationToken);
+                clean &= await PollFeedAsync(parser, repository, feed, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -145,9 +160,12 @@ public class RssPollingBackgroundService : BackgroundService
             }
             catch (Exception ex)
             {
+                clean = false;
+
                 // Stamp the attempt anyway so a persistently failing feed is retried at its own
                 // interval instead of once per loop tick.
                 _logger.LogWarning(ex, "Failed to process feed '{FeedName}'; retrying at its next interval.", feed.Name);
+                _health.RecordFailure(FeatureKeys.RssPolling, ex.Message);
 
                 try
                 {
@@ -160,6 +178,8 @@ public class RssPollingBackgroundService : BackgroundService
                 }
             }
         }
+
+        return clean;
     }
 
     /// <summary>
@@ -181,8 +201,11 @@ public class RssPollingBackgroundService : BackgroundService
     /// <param name="repository">The repository used to persist feed state.</param>
     /// <param name="feed">The feed entity to process.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    private async Task PollFeedAsync(RssParserService parser, IRssRepository repository, RssFeed feed, CancellationToken cancellationToken)
+    /// <returns>
+    /// <see langword="true"/> when the feed was processed cleanly; <see langword="false"/> when an item
+    /// could not be delivered (or the target channel is unusable), so the pass is not reported healthy.
+    /// </returns>
+    private async Task<bool> PollFeedAsync(RssParserService parser, IRssRepository repository, RssFeed feed, CancellationToken cancellationToken)
     {
         var newItems = await parser.FetchNewItemsAsync(feed, cancellationToken);
 
@@ -192,7 +215,7 @@ public class RssPollingBackgroundService : BackgroundService
             // and a failing feed waits its full interval before the next attempt.
             feed.LastPolledAt = DateTimeOffset.UtcNow;
             await repository.UpdateFeedAsync(feed, cancellationToken);
-            return;
+            return true;
         }
 
         if (_discordClient.GetChannel(feed.ChannelId) is not ITextChannel channel)
@@ -206,8 +229,11 @@ public class RssPollingBackgroundService : BackgroundService
                 feed.ChannelId);
             feed.LastPolledAt = DateTimeOffset.UtcNow;
             await repository.UpdateFeedAsync(feed, cancellationToken);
-            return;
+            _health.RecordFailure(FeatureKeys.RssPolling, $"RSS feed '{feed.Name}' targets channel {feed.ChannelId}, which is not a text channel.");
+            return false;
         }
+
+        var clean = true;
 
         foreach (var item in newItems)
         {
@@ -226,12 +252,14 @@ public class RssPollingBackgroundService : BackgroundService
                 // Stop the batch without advancing past this item, so the failed item and every
                 // item after it are retried on the next cycle instead of being dropped.
                 _logger.LogError(ex, "Could not post item '{ItemTitle}' of feed '{FeedName}'; it is retried on the next cycle.", item.Title, feed.Name);
+                clean = false;
                 break;
             }
         }
 
         feed.LastPolledAt = DateTimeOffset.UtcNow;
         await repository.UpdateFeedAsync(feed, cancellationToken);
+        return clean;
     }
 
     /// <summary>

@@ -120,6 +120,7 @@ public static class BotStatusEntities
     public static string StatusDiscoveryConfig(string softwareVersion) => JsonSerializer.Serialize(new
     {
         name = "Bot Status",
+        object_id = $"{DeviceId}_status",
         unique_id = $"{DeviceId}_status",
         state_topic = StatusStateTopic,
         json_attributes_topic = StatusAttributesTopic,
@@ -140,6 +141,7 @@ public static class BotStatusEntities
     public static string EnabledDiscoveryConfig(BotStatusFeature feature, string softwareVersion) => JsonSerializer.Serialize(new
     {
         name = $"{feature.DisplayName} Enabled",
+        object_id = $"{DeviceId}_{feature.Slug}_enabled",
         unique_id = $"{DeviceId}_{feature.Slug}_enabled",
         state_topic = EnabledStateTopic(feature),
         payload_on = "ON",
@@ -159,6 +161,7 @@ public static class BotStatusEntities
     public static string ProblemDiscoveryConfig(BotStatusFeature feature, string softwareVersion) => JsonSerializer.Serialize(new
     {
         name = $"{feature.DisplayName} Problem",
+        object_id = $"{DeviceId}_{feature.Slug}_problem",
         unique_id = $"{DeviceId}_{feature.Slug}_problem",
         state_topic = ProblemStateTopic(feature),
         json_attributes_topic = ProblemAttributesTopic(feature),

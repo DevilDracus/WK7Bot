@@ -188,11 +188,14 @@ public class ErrorNotificationDispatcher : BackgroundService
     protected virtual Task<ITextChannel?> GetOrCreateErrorChannelAsync(ulong guildId)
     {
         var guild = _discordClient.GetGuild(guildId);
-        return guild is null
+        // CurrentUser is only populated once the gateway has identified the bot; between the loop's
+        // Connected check and this call the client can disconnect, leaving it null.
+        var currentUser = _discordClient.CurrentUser;
+        return guild is null || currentUser is null
             ? Task.FromResult<ITextChannel?>(null)
             : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
                 guild,
-                _discordClient.CurrentUser.Id,
+                currentUser.Id,
                 TargetChannelName,
                 ChannelTopic,
                 _logger);

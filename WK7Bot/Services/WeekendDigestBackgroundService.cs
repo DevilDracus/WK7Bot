@@ -37,6 +37,7 @@ public class WeekendDigestBackgroundService : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly DiscordSocketClient _discordClient;
     private readonly IWeekendEventSource _eventSource;
+    private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<WeekendDigestBackgroundService> _logger;
 
@@ -51,18 +52,21 @@ public class WeekendDigestBackgroundService : BackgroundService
     /// <param name="serviceProvider">The service provider used to create database scopes for dispatch state.</param>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="eventSource">The weekend event source providing the listing data.</param>
+    /// <param name="health">The feature health tracker recording the outcome of each schedule evaluation.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public WeekendDigestBackgroundService(
         IServiceProvider serviceProvider,
         DiscordSocketClient discordClient,
         IWeekendEventSource eventSource,
+        FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<WeekendDigestBackgroundService> logger)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _eventSource = eventSource ?? throw new ArgumentNullException(nameof(eventSource));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
@@ -89,6 +93,7 @@ public class WeekendDigestBackgroundService : BackgroundService
             try
             {
                 await EvaluateScheduleAsync(DateTime.Now, stoppingToken);
+                _health.RecordSuccess(FeatureKeys.WeekendDigest);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -97,6 +102,7 @@ public class WeekendDigestBackgroundService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while evaluating the weekend digest schedule.");
+                _health.RecordFailure(FeatureKeys.WeekendDigest, ex.Message);
             }
         }
     }

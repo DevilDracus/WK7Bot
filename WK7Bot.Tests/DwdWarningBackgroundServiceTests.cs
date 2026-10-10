@@ -38,6 +38,7 @@ public class DwdWarningBackgroundServiceTests
                 serviceProvider,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
                 warningSource,
+                new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(options ?? new Wk7BotOptions()),
                 NullLogger<DwdWarningBackgroundService>.Instance)
             => _guildIds = guildIds;

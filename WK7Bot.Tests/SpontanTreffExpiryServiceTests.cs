@@ -24,6 +24,7 @@ public class SpontanTreffExpiryServiceTests
             : base(
                 serviceProvider,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
+                new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(
                     new Wk7BotOptions { Features = new FeatureOptions { SpontanTreffEnabled = enabled } }),
                 NullLogger<SpontanTreffExpiryService>.Instance)

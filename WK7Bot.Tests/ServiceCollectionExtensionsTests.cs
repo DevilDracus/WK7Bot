@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Extensions;
 using Xunit;
 
@@ -104,11 +105,38 @@ public class ServiceCollectionExtensionsTests
         // and carries no ImplementationType. Exactly one such descriptor must exist (Alexa's).
         Assert.Single(services, d => d.ServiceType == typeof(IHostedService) && d.ImplementationFactory != null);
         Assert.Contains(typeof(Services.DiscordPresenceMqttService), types);
+        Assert.Contains(typeof(Services.BotStatusMqttService), types);
         Assert.Contains(typeof(Services.FoodPublisherService), types);
         Assert.Contains(typeof(Services.SpontanTreffExpiryService), types);
         Assert.Contains(typeof(Services.WeekendDigestBackgroundService), types);
         Assert.Contains(typeof(Services.DwdWarningBackgroundService), types);
         Assert.Contains(typeof(Services.ErrorNotificationDispatcher), types);
+    }
+
+    [Fact]
+    public void AddBotHostedServices_DisablesMqttBotStatus_FromWk7BotSection()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Wk7Bot:features:mqtt_bot_status_enabled"] = "false"
+            })
+            .Build();
+
+        services.AddBotHostedServices(configuration);
+
+        Assert.DoesNotContain(typeof(Services.BotStatusMqttService), HostedServiceTypes(services));
+    }
+
+    [Fact]
+    public void AddBotDiscordAndClients_RegistersFeatureHealthTrackerAsSingleton()
+    {
+        var services = new ServiceCollection();
+        services.AddBotDiscordAndClients();
+
+        var descriptor = Assert.Single(services, d => d.ServiceType == typeof(FeatureHealthTracker));
+        Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
     }
 
     [Fact]

@@ -69,15 +69,26 @@ public sealed class DiscordErrorLoggerProvider : ILoggerProvider
                 message = state?.ToString() ?? string.Empty;
             }
 
-            _queue.Enqueue(new ErrorNotification
+            // Enqueue must never throw: this provider runs inside the logging pipeline, so an
+            // exception here would escape ILogger.Log and crash whatever code was reporting the
+            // error — turning a reportable failure into a process-wide one.
+            try
             {
-                Context = _categoryName,
-                Message = message,
-                ExceptionType = exception?.GetType().FullName,
-                ExceptionMessage = exception?.Message,
-                StackTrace = exception?.ToString(),
-                Timestamp = DateTimeOffset.Now,
-            });
+                _queue.Enqueue(new ErrorNotification
+                {
+                    Context = _categoryName,
+                    Message = message,
+                    ExceptionType = exception?.GetType().FullName,
+                    ExceptionMessage = exception?.Message,
+                    StackTrace = exception?.ToString(),
+                    Timestamp = DateTimeOffset.Now,
+                });
+            }
+            catch (Exception)
+            {
+                // Notifications are best-effort; losing one is strictly better than crashing the
+                // caller. Nothing can be logged from here — that would re-enter this provider.
+            }
         }
     }
 }

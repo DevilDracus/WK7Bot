@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Options;
 using WK7Bot.Services;
@@ -45,6 +46,11 @@ public static class ServiceCollectionExtensions
     {
         services.AddMemoryCache();
         services.AddSingleton<IRandomSource, SystemRandomSource>();
+
+        // Single shared instance: the background services record outcomes into it and both the MQTT
+        // status sensors and the health endpoint project from it, so they must observe one state.
+        services.AddSingleton<FeatureHealthTracker>();
+
         services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
         {
             GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildMembers | GatewayIntents.GuildPresences,
@@ -164,6 +170,13 @@ public static class ServiceCollectionExtensions
         if (IsFeatureEnabled(configuration, FeatureKeys.DwdWarning))
         {
             services.AddHostedService<DwdWarningBackgroundService>();
+        }
+
+        // Publishes the bot's own availability, uptime and per-feature health to Home Assistant via
+        // MQTT discovery. Without this registration the entire status subsystem is dead code.
+        if (IsFeatureEnabled(configuration, FeatureKeys.MqttBotStatus))
+        {
+            services.AddHostedService<BotStatusMqttService>();
         }
 
         if (IsFeatureEnabled(configuration, FeatureKeys.ErrorNotifications))

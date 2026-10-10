@@ -101,6 +101,10 @@ public class InteractionHandlingService : IHostedService
                 await _interactionService.RegisterCommandsGloballyAsync();
                 _logger.LogInformation("Successfully registered slash commands globally.");
             }
+
+            // Command registration is once-per-connect bookkeeping: detach so a gateway reconnect
+            // (Ready fires again) does not re-register commands and burn rate limit on every reconnect.
+            _client.Ready -= OnClientReadyAsync;
         }
         catch (Exception ex)
         {
@@ -137,14 +141,15 @@ public class InteractionHandlingService : IHostedService
             // provider passed here, so scoped services (the DbContext) are per-execution, not shared.
             var result = await _interactionService.ExecuteCommandAsync(context, _services);
 
-            if (!result.IsSuccess)
+            // A non-exception failure here means the command never ran: a failed precondition
+            // ([RequireUserPermission]/[RequireGuild]), an unknown command or a parse error all
+            // return as the immediate result. Nothing answered the interaction in those cases, so
+            // Discord would show "Die Anwendung reagiert nicht" — answer it explicitly instead.
+            // Exception results are logged by OnInteractionExecutedAsync, which owns that path.
+            if (!result.IsSuccess && result is not ExecuteResult { Exception: { } })
             {
-                // Exception results are logged with their full stack trace by
-                // OnInteractionExecutedAsync; only non-exception failures belong here.
-                if (result is not ExecuteResult { Exception: { } })
-                {
-                    _logger.LogWarning("Interaction execution failed: {Reason}", result.ErrorReason);
-                }
+                _logger.LogWarning("Interaction execution failed: {Reason}", result.ErrorReason);
+                await ReportUnansweredInteractionAsync(context.Interaction, result.ErrorReason);
             }
         }
         catch (ObjectDisposedException)
@@ -166,19 +171,58 @@ public class InteractionHandlingService : IHostedService
     /// <see cref="InteractionService.InteractionExecuted"/> as an <see cref="ExecuteResult"/> carrying
     /// the original exception, while <see cref="OnInteractionCreatedAsync"/> only sees a terse warning
     /// reason. Logging here at error level routes them into the error-notification pipeline with
-    /// their stack trace; non-exception failures are already covered by the warning above.
+    /// their stack trace; the interaction is answered when the failing command left it unanswered.
     /// </summary>
     /// <param name="commandInfo">The executed command; <see langword="null"/> for unmatched interactions.</param>
     /// <param name="context">The interaction context.</param>
     /// <param name="result">The final execution result.</param>
-    /// <returns>A completed task.</returns>
-    private Task OnInteractionExecutedAsync(ICommandInfo commandInfo, IInteractionContext context, IResult result)
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task OnInteractionExecutedAsync(ICommandInfo commandInfo, IInteractionContext context, IResult result)
     {
         if (result is ExecuteResult { Exception: { } exception })
         {
             _logger.LogError(exception, "Unhandled exception in interaction command {CommandName}: {Reason}", commandInfo?.Name ?? "unknown", result.ErrorReason);
-        }
 
-        return Task.CompletedTask;
+            // A command that throws before deferring/responding leaves the interaction unanswered,
+            // which Discord reports as "Die Anwendung reagiert nicht". Answer it here; the check
+            // inside keeps this safe when the command had already answered before failing.
+            await ReportUnansweredInteractionAsync(context.Interaction, "Bei der Ausführung des Befehls ist ein Fehler aufgetreten.");
+        }
+    }
+
+    /// <summary>
+    /// Sends an ephemeral error reply to an interaction that was never answered. Discord requires a
+    /// response within three seconds, so any path that skips one leaves the user staring at
+    /// "Die Anwendung reagiert nicht" with no clue what happened.
+    /// </summary>
+    /// <param name="interaction">The interaction to answer.</param>
+    /// <param name="reason">The reason to show; <see langword="null"/> or blank yields a generic message.</param>
+    /// <returns>A task representing the asynchronous reply operation.</returns>
+    private async Task ReportUnansweredInteractionAsync(IDiscordInteraction interaction, string? reason)
+    {
+        // Failing to answer must never surface as a second exception: this runs from error paths
+        // where throwing would only replace the original failure.
+        try
+        {
+            var message = string.IsNullOrWhiteSpace(reason)
+                ? "❌ Der Befehl konnte nicht ausgeführt werden."
+                : $"❌ {reason}";
+
+            // HasResponded is set once the interaction was answered or deferred. When it was only
+            // deferred there is no reply text yet, so a follow-up carries the error without
+            // colliding with an existing response.
+            if (interaction.HasResponded)
+            {
+                await interaction.FollowupAsync(message, ephemeral: true);
+            }
+            else
+            {
+                await interaction.RespondAsync(message, ephemeral: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not answer the failed interaction with reason {Reason}.", reason);
+        }
     }
 }

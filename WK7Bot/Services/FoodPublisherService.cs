@@ -28,6 +28,7 @@ public class FoodPublisherService : BackgroundService
     private readonly IRecipeSearchService _recipeSearchService;
     private readonly IRandomSource _randomSource;
     private readonly IServiceProvider _serviceProvider;
+    private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<FoodPublisherService> _logger;
 
@@ -72,6 +73,7 @@ public class FoodPublisherService : BackgroundService
     /// <param name="recipeSearchService">The web recipe search service used for the weekly seasonal recipe.</param>
     /// <param name="options">Application options instance.</param>
     /// <param name="serviceProvider">Root service provider used to resolve scoped database services.</param>
+    /// <param name="health">The feature health tracker recording the outcome of each publishing pass.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="randomSource">Randomness used to pick the seasonal search terms; defaults to <see cref="SystemRandomSource"/>.</param>
     public FoodPublisherService(
@@ -80,6 +82,7 @@ public class FoodPublisherService : BackgroundService
         IRecipeSearchService recipeSearchService,
         IOptions<Wk7BotOptions> options,
         IServiceProvider serviceProvider,
+        FeatureHealthTracker health,
         ILogger<FoodPublisherService> logger,
         IRandomSource? randomSource = null)
     {
@@ -88,6 +91,7 @@ public class FoodPublisherService : BackgroundService
         _recipeSearchService = recipeSearchService ?? throw new ArgumentNullException(nameof(recipeSearchService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _randomSource = randomSource ?? new SystemRandomSource();
     }
@@ -130,6 +134,7 @@ public class FoodPublisherService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error encountered while checking or executing food background jobs.");
+                _health.RecordFailure(FeatureKeys.FoodService, ex.Message);
             }
 
             try
@@ -208,6 +213,7 @@ public class FoodPublisherService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "{Slot} publication attempt failed.", slotLabel);
+            _health.RecordFailure(FeatureKeys.FoodService, ex.Message);
         }
 
         var slot = SlotFor(kind);
@@ -216,6 +222,7 @@ public class FoodPublisherService : BackgroundService
         {
             slot.Complete(now);
             await PersistSentAsync(kind, now, cancellationToken);
+            _health.RecordSuccess(FeatureKeys.FoodService);
             return;
         }
 

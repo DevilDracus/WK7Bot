@@ -39,6 +39,7 @@ public class DwdWarningBackgroundService : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly DiscordSocketClient _discordClient;
     private readonly IDwdWarningService _warningSource;
+    private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DwdWarningBackgroundService> _logger;
 
@@ -48,18 +49,21 @@ public class DwdWarningBackgroundService : BackgroundService
     /// <param name="serviceProvider">The service provider used to create database scopes for dispatch state.</param>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="warningSource">The DWD warning feed client.</param>
+    /// <param name="health">The feature health tracker recording the outcome of each poll pass.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public DwdWarningBackgroundService(
         IServiceProvider serviceProvider,
         DiscordSocketClient discordClient,
         IDwdWarningService warningSource,
+        FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<DwdWarningBackgroundService> logger)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _warningSource = warningSource ?? throw new ArgumentNullException(nameof(warningSource));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
@@ -104,6 +108,7 @@ public class DwdWarningBackgroundService : BackgroundService
             try
             {
                 await EvaluateAsync(DateTime.Now, stoppingToken);
+                _health.RecordSuccess(FeatureKeys.DwdWarning);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -114,6 +119,7 @@ public class DwdWarningBackgroundService : BackgroundService
                 // Timeouts surface as OperationCanceledException with the stopping token untouched;
                 // they land here so a slow feed response cannot silently kill the poll loop.
                 _logger.LogError(ex, "An error occurred while evaluating DWD warnings.");
+                _health.RecordFailure(FeatureKeys.DwdWarning, ex.Message);
             }
         }
         while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
