@@ -133,4 +133,22 @@ public class Wk7BotOptions
     /// </summary>
     [ConfigurationKeyName("startup_report_verbose")]
     public bool StartupReportVerbose { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets the Discord channel name where wishlist deal alerts are posted.
+    /// </summary>
+    [ConfigurationKeyName("deal_alert_channel_name")]
+    public string DealAlertChannelName { get; set; } = "game-deals";
+
+    /// <summary>
+    /// Gets or sets the interval in hours between wishlist deal checks.
+    /// </summary>
+    [ConfigurationKeyName("deal_check_interval_hours")]
+    public int DealCheckIntervalHours { get; set; } = 12;
+
+    /// <summary>
+    /// Gets or sets the minimum discount percentage required to trigger a non-historical-low deal alert.
+    /// </summary>
+    [ConfigurationKeyName("deal_min_discount_percent")]
+    public int DealMinDiscountPercent { get; set; } = 60;
 }

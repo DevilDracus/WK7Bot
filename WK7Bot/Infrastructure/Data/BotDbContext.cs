@@ -57,6 +57,16 @@ public class BotDbContext : DbContext
     public DbSet<CommandUsageLog> CommandUsageLogs => Set<CommandUsageLog>();
 
     /// <summary>
+    /// Gets or sets the database set for tracked wishlist games used by the deal alert service.
+    /// </summary>
+    public DbSet<WishlistGame> WishlistGames => Set<WishlistGame>();
+
+    /// <summary>
+    /// Gets or sets the database set for wishlist deal alert cooldown history.
+    /// </summary>
+    public DbSet<WishlistAlertHistory> WishlistAlertHistories => Set<WishlistAlertHistory>();
+
+    /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
     /// <param name="modelBuilder">The builder instance used to define entity structure and keys.</param>
@@ -125,6 +135,20 @@ public class BotDbContext : DbContext
             entity.Property(e => e.CommandName).IsRequired().HasMaxLength(100);
             entity.HasIndex(e => e.InvokedAt);
             entity.HasIndex(e => e.CommandName);
+        });
+
+        modelBuilder.Entity<WishlistGame>(entity =>
+        {
+            entity.ToTable("WishlistGames");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.AppId).IsUnique();
+        });
+
+        modelBuilder.Entity<WishlistAlertHistory>(entity =>
+        {
+            entity.ToTable("WishlistAlertHistories");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.AppId, e.AlertedAt });
         });
     }
 }

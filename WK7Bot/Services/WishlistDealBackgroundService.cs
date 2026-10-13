@@ -1,0 +1,309 @@
+namespace WK7Bot.Services;
+
+using System.Text;
+using Discord;
+using Discord.WebSocket;
+using Microsoft.Extensions.Options;
+using WK7Bot.Core.Entities;
+using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
+using WK7Bot.Models;
+using WK7Bot.Options;
+using WK7Bot.Services.Interfaces;
+
+/// <summary>
+/// Background service that periodically fetches Steam wishlists for mapped users, queries IsThereAnyDeal
+/// for current prices, and posts deal alerts to a dedicated Discord channel when thresholds are met.
+/// </summary>
+public class WishlistDealBackgroundService : BackgroundService
+{
+    private readonly IServiceProvider _serviceProvider;
+    private readonly DiscordSocketClient _discordClient;
+    private readonly IWishlistDealService _dealService;
+    private readonly ISteamService _steamService;
+    private readonly FeatureHealthTracker _health;
+    private readonly Wk7BotOptions _options;
+    private readonly ILogger<WishlistDealBackgroundService> _logger;
+
+    /// <summary>
+    /// Cooldown between alerts for the same game to prevent spam.
+    /// </summary>
+    private static readonly TimeSpan AlertCooldown = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// Maximum age of alert history entries to retain.
+    /// </summary>
+    private static readonly TimeSpan AlertRetention = TimeSpan.FromDays(30);
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WishlistDealBackgroundService"/> class.
+    /// </summary>
+    /// <param name="serviceProvider">The service provider for creating database scopes.</param>
+    /// <param name="discordClient">The connected Discord socket client.</param>
+    /// <param name="dealService">The wishlist deal evaluation service.</param>
+    /// <param name="steamService">The Steam service for resolving Discord-to-Steam mappings.</param>
+    /// <param name="health">The feature health tracker.</param>
+    /// <param name="options">The application configuration options.</param>
+    /// <param name="logger">The logger instance.</param>
+    public WishlistDealBackgroundService(
+        IServiceProvider serviceProvider,
+        DiscordSocketClient discordClient,
+        IWishlistDealService dealService,
+        ISteamService steamService,
+        FeatureHealthTracker health,
+        IOptions<Wk7BotOptions> options,
+        ILogger<WishlistDealBackgroundService> logger)
+    {
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
+        _dealService = dealService ?? throw new ArgumentNullException(nameof(dealService));
+        _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+    }
+
+    /// <inheritdoc />
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!_options.Features.IsEnabled(FeatureKeys.WishlistDealAlerts))
+        {
+            _logger.LogInformation("Wishlist deal alerts are disabled via feature options.");
+            return;
+        }
+
+        _logger.LogInformation("Starting Wishlist Deal Background Service.");
+
+        var interval = TimeSpan.FromHours(_options.DealCheckIntervalHours);
+
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async token =>
+            {
+                await CheckDealsAsync(token);
+            },
+            FeatureKeys.WishlistDealAlerts,
+            _health,
+            _logger,
+            interval,
+            maxConsecutiveFailures: BackgroundServiceResilience.DefaultMaxConsecutiveFailures,
+            restartDelay: BackgroundServiceResilience.DefaultRestartDelay,
+            stoppingToken);
+    }
+
+    /// <summary>
+    /// Fetches wishlists for all mapped users, updates the tracked game set, queries prices,
+    /// evaluates alerts, and posts them to the deals channel.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    private async Task CheckDealsAsync(CancellationToken cancellationToken)
+    {
+        var mappings = _options.DiscordSteamMappings;
+        if (mappings.Count == 0)
+        {
+            _logger.LogInformation("No Discord-Steam mappings configured; skipping wishlist deal check.");
+            return;
+        }
+
+        // Fetch wishlists for all mapped users
+        var wishlistsByDiscordId = new Dictionary<ulong, List<SteamWishlistItem>>();
+        var allAppIds = new HashSet<uint>();
+
+        foreach (var mapping in mappings)
+        {
+            if (!ulong.TryParse(mapping.DiscordUserId, out var discordUserId))
+            {
+                continue;
+            }
+
+            var wishlist = await _dealService.FetchWishlistAsync(mapping.SteamId, cancellationToken);
+            if (wishlist.Count > 0)
+            {
+                wishlistsByDiscordId[discordUserId] = wishlist.ToList();
+                foreach (var item in wishlist)
+                {
+                    allAppIds.Add(item.AppId);
+                }
+            }
+        }
+
+        if (allAppIds.Count == 0)
+        {
+            _logger.LogInformation("No wishlist items found for any mapped user.");
+            return;
+        }
+
+        _logger.LogInformation("Found {Count} unique wishlisted games across {Users} mapped users.", allAppIds.Count, wishlistsByDiscordId.Count);
+
+        // Update tracked games in database
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
+            var games = allAppIds.Select(appId => new WishlistGame
+            {
+                AppId = appId,
+                Name = wishlistsByDiscordId
+                    .SelectMany(x => x.Value)
+                    .FirstOrDefault(g => g.AppId == appId)?.Name ?? string.Empty,
+                LastUpdated = DateTimeOffset.UtcNow
+            }).ToList();
+
+            await repository.ReplaceTrackedGamesAsync(games, cancellationToken);
+            await repository.PruneAlertHistoryAsync(AlertRetention, cancellationToken);
+        }
+
+        // Fetch current prices
+        var prices = await _dealService.FetchPricesAsync(allAppIds, cancellationToken);
+        if (prices.Count == 0)
+        {
+            _logger.LogWarning("No price data returned from IsThereAnyDeal.");
+            return;
+        }
+
+        // Build reverse mapping: appId -> list of Discord user IDs who wishlisted it
+        var usersByAppId = new Dictionary<uint, List<ulong>>();
+        foreach (var (discordUserId, items) in wishlistsByDiscordId)
+        {
+            foreach (var item in items)
+            {
+                if (!usersByAppId.ContainsKey(item.AppId))
+                {
+                    usersByAppId[item.AppId] = new List<ulong>();
+                }
+                usersByAppId[item.AppId].Add(discordUserId);
+            }
+        }
+
+        // Evaluate alerts
+        var alerts = new List<WishlistDealAlert>();
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
+
+            foreach (var (appId, priceData) in prices)
+            {
+                if (!usersByAppId.TryGetValue(appId, out var userIds))
+                {
+                    continue;
+                }
+
+                if (await repository.IsOnCooldownAsync(appId, AlertCooldown, cancellationToken))
+                {
+                    continue;
+                }
+
+                var gameTitle = wishlistsByDiscordId
+                    .SelectMany(x => x.Value)
+                    .FirstOrDefault(g => g.AppId == appId)?.Name ?? priceData.Title;
+
+                var alert = _dealService.EvaluateAlert(appId, gameTitle, priceData, userIds);
+                if (alert != null)
+                {
+                    alerts.Add(alert);
+                    await repository.RecordAlertAsync(appId, alert.IsHistoricalLow, cancellationToken);
+                }
+            }
+        }
+
+        if (alerts.Count == 0)
+        {
+            _logger.LogInformation("No deal alerts met the threshold criteria.");
+            return;
+        }
+
+        _logger.LogInformation("{Count} deal alerts triggered; posting to channel.", alerts.Count);
+
+        // Post alerts
+        await PostAlertsAsync(alerts, cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts deal alert embeds to the configured deals channel for each target guild.
+    /// </summary>
+    /// <param name="alerts">The alerts to post.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task PostAlertsAsync(IReadOnlyList<WishlistDealAlert> alerts, CancellationToken cancellationToken)
+    {
+        var targetGuildIds = GetTargetGuildIds();
+
+        foreach (var guildId in targetGuildIds)
+        {
+            var channel = await GetOrCreateDealsChannelAsync(guildId);
+            if (channel == null)
+            {
+                _logger.LogWarning("Could not resolve or create deals channel for guild {GuildId}.", guildId);
+                continue;
+            }
+
+            foreach (var alert in alerts)
+            {
+                var embed = BuildDealEmbed(alert);
+                var mentions = string.Join(" ", alert.NotifiedUserIds.Select(id => $"<@{id}>"));
+                await channel.SendMessageAsync(text: mentions, embed: embed, allowedMentions: new AllowedMentions { UserIds = alert.NotifiedUserIds });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Builds a Discord embed for a single deal alert.
+    /// </summary>
+    /// <param name="alert">The deal alert data.</param>
+    /// <returns>The constructed embed.</returns>
+    private static Embed BuildDealEmbed(WishlistDealAlert alert)
+    {
+        var embed = new EmbedBuilder()
+            .WithTitle($"🎮 {alert.GameTitle}")
+            .WithColor(alert.IsHistoricalLow ? Color.Gold : Color.Green)
+            .WithTimestamp(DateTimeOffset.UtcNow);
+
+        var priceText = new StringBuilder();
+        priceText.AppendLine($"💰 **Aktuell:** {alert.CurrentPrice:F2} €");
+        priceText.AppendLine($"📊 **Regulär:** ~~{alert.RegularPrice:F2} €~~");
+        priceText.AppendLine($"🔖 **Rabatt:** {alert.DiscountPercent}%");
+        priceText.AppendLine($"🏪 **Shop:** {alert.StoreName}");
+
+        if (alert.IsHistoricalLow)
+        {
+            priceText.AppendLine($"🏆 **Historischer Tiefstpreis!** (Vorher: {alert.HistoricalLow:F2} €)");
+        }
+        else
+        {
+            priceText.AppendLine($"📉 **Historischer Tiefstpreis:** {alert.HistoricalLow:F2} €");
+        }
+
+        embed.AddField("Preisdetails", priceText.ToString(), inline: false);
+        embed.WithUrl(alert.DealUrl);
+        embed.WithFooter("Daten von IsThereAnyDeal");
+
+        return embed.Build();
+    }
+
+    /// <summary>
+    /// Returns the IDs of the guilds that should receive deal alerts.
+    /// </summary>
+    /// <returns>The target Discord guild IDs.</returns>
+    protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
+        => AutomaticTargetResolver.Resolve(
+            _options.Servers,
+            FeatureKeys.RoutedFeatures.WishlistDealAlerts,
+            _discordClient.Guilds.Select(g => g.Id),
+            _logger);
+
+    /// <summary>
+    /// Resolves the deals notification channel for a guild by name, creating it when missing.
+    /// </summary>
+    /// <param name="guildId">The target guild.</param>
+    /// <returns>The text channel instance, or null when the guild cannot be resolved.</returns>
+    protected virtual Task<ITextChannel?> GetOrCreateDealsChannelAsync(ulong guildId)
+    {
+        var guild = _discordClient.GetGuild(guildId);
+        return guild is null
+            ? Task.FromResult<ITextChannel?>(null)
+            : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
+                guild,
+                _discordClient.CurrentUser.Id,
+                _options.DealAlertChannelName,
+                "Automatische Steam-Wunschlisten-Deal-Benachrichtigungen.",
+                _logger,
+                allowReactions: false);
+    }
+}

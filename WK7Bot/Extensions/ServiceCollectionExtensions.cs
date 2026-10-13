@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISpontanTreffRepository, SpontanTreffRepository>();
         services.AddScoped<IWarningDispatchRepository, WarningDispatchRepository>();
         services.AddScoped<IFoodDispatchRepository, FoodDispatchRepository>();
+        services.AddScoped<IWishlistDealRepository, WishlistDealRepository>();
         return services;
     }
 
@@ -82,6 +83,10 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IOpenFoodFactsService, OpenFoodFactsService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        services.AddHttpClient<IWishlistDealService, WishlistDealService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
         });
         services.AddHttpClient<IWeekendEventSource, LeipzigWeekendEventSource>(client =>
         {
@@ -193,6 +198,11 @@ public static class ServiceCollectionExtensions
         if (IsFeatureEnabled(configuration, FeatureKeys.ErrorNotifications))
         {
             services.AddHostedService<ErrorNotificationDispatcher>();
+        }
+
+        if (IsFeatureEnabled(configuration, FeatureKeys.WishlistDealAlerts))
+        {
+            services.AddHostedService<WishlistDealBackgroundService>();
         }
 
         // Always-on infrastructure services

@@ -87,6 +87,12 @@ public class FeatureOptions
     public bool MqttBotStatusEnabled { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether Steam wishlist deal alerts are enabled.
+    /// </summary>
+    [ConfigurationKeyName("wishlist_deal_alerts_enabled")]
+    public bool WishlistDealAlertsEnabled { get; set; } = true;
+
+    /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
     /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
     /// feature on older configuration.
@@ -108,6 +114,7 @@ public class FeatureOptions
         FeatureKeys.DwdWarning => DwdWarningEnabled,
         FeatureKeys.ErrorNotifications => ErrorNotificationsEnabled,
         FeatureKeys.MqttBotStatus => MqttBotStatusEnabled,
+        FeatureKeys.WishlistDealAlerts => WishlistDealAlertsEnabled,
         _ => true
     };
 }

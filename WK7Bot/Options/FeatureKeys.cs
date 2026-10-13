@@ -46,6 +46,9 @@ public static class FeatureKeys
     /// <summary>Key of the MQTT bot status entities feature.</summary>
     public const string MqttBotStatus = "mqtt_bot_status_enabled";
 
+    /// <summary>Key of the Steam wishlist deal alert feature.</summary>
+    public const string WishlistDealAlerts = "wishlist_deal_alerts_enabled";
+
     /// <summary>
     /// The keys of the features that post automatically and therefore honour
     /// <c>servers.testing_features</c> routing.
@@ -66,5 +69,8 @@ public static class FeatureKeys
 
         /// <summary>Routing key of the error notifications.</summary>
         public const string ErrorNotifications = "error_notifications";
+
+        /// <summary>Routing key of the wishlist deal alerts.</summary>
+        public const string WishlistDealAlerts = "wishlist_deal_alerts";
     }
 }
