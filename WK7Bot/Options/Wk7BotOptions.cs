@@ -126,4 +126,11 @@ public class Wk7BotOptions
     /// </summary>
     [ConfigurationKeyName("features")]
     public FeatureOptions Features { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the startup configuration validator posts a full report
+    /// even when all checks pass. When <see langword="false"/> (default), only problems are reported.
+    /// </summary>
+    [ConfigurationKeyName("startup_report_verbose")]
+    public bool StartupReportVerbose { get; set; } = false;
 }

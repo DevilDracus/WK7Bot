@@ -34,7 +34,8 @@ public class StartupConfigurationValidator : BackgroundService
     }
 
     /// <summary>
-    /// Waits for the Discord gateway, then validates configuration and posts the report.
+    /// Waits for the Discord gateway, then validates configuration and posts the report only
+    /// when there are actual problems or when verbose reporting is explicitly enabled.
     /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -52,6 +53,16 @@ public class StartupConfigurationValidator : BackgroundService
             }
 
             var report = BuildReport();
+
+            // Only post when there are actual problems, or when verbose mode is explicitly enabled.
+            // This prevents spamming the channel with identical reports on every routine restart.
+            if (report.AllValid && !_options.StartupReportVerbose)
+            {
+                _logger.LogInformation(
+                    "Startup configuration report suppressed (all valid, verbose mode off).");
+                return;
+            }
+
             await PostReportAsync(report, stoppingToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
