@@ -102,6 +102,9 @@ public static class ServiceCollectionExtensions
 
         services.AddTransient<RssParserService>();
 
+        // Command usage metrics repository
+        services.AddScoped<CommandUsageRepository>();
+
         services.AddSingleton<IMqttClient>(sp => new MqttClientFactory().CreateMqttClient());
 
         // Owns all connect/reconnect behavior for the single shared IMqttClient: MQTTnet forbids
@@ -186,6 +189,10 @@ public static class ServiceCollectionExtensions
         {
             services.AddHostedService<ErrorNotificationDispatcher>();
         }
+
+        // Always-on infrastructure services
+        services.AddHostedService<StartupConfigurationValidator>();
+        services.AddHostedService<DatabaseMaintenanceService>();
 
         return services;
     }

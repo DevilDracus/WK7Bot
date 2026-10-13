@@ -121,6 +121,7 @@ public static class DatabaseInitializationExtensions
         await ExecuteWithBusyRetryAsync(connection, CreateFoodDispatchLogsSql);
         await ExecuteWithBusyRetryAsync(connection, CreateRssDashboardSettingsSql);
         await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffExpiryIndexSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageLogsSql);
 
         // Late-added columns: CREATE TABLE IF NOT EXISTS never alters an existing table, and
         // EnsureCreated does nothing on databases that already exist, so older deployments need
@@ -273,6 +274,21 @@ public static class DatabaseInitializationExtensions
             GuildId   INTEGER NOT NULL,
             SentAt    TEXT    NOT NULL,
             PRIMARY KEY (WarningId, GuildId)
+        );
+        """;
+
+    /// <summary>
+    /// Raw DDL for the command usage metrics table so databases created before the feature pick it up as well.
+    /// </summary>
+    public const string CreateCommandUsageLogsSql =
+        """
+        CREATE TABLE IF NOT EXISTS CommandUsageLogs (
+            Id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            CommandName TEXT    NOT NULL,
+            UserId      INTEGER NOT NULL,
+            GuildId     INTEGER NOT NULL,
+            InvokedAt   TEXT    NOT NULL,
+            Succeeded   INTEGER NOT NULL DEFAULT 1
         );
         """;
 

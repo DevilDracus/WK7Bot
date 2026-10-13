@@ -10,6 +10,7 @@ using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using WK7Bot.Infrastructure.Data;
 
 /// <summary>
 /// Manages the registration of interaction modules and routes incoming Discord slash command interactions.
@@ -21,6 +22,7 @@ public class InteractionHandlingService : IHostedService
     private readonly IServiceProvider _services;
     private readonly IConfiguration _configuration;
     private readonly ILogger<InteractionHandlingService> _logger;
+    private readonly CommandUsageRepository _commandUsageRepository;
 
     /// <summary>
     /// Set once the host begins stopping the service. Interactions that arrive after this point are
@@ -36,18 +38,21 @@ public class InteractionHandlingService : IHostedService
     /// <param name="services">The dependency injection service provider context.</param>
     /// <param name="configuration">The application configuration instance used to retrieve target guild options.</param>
     /// <param name="logger">The logging service instance.</param>
+    /// <param name="commandUsageRepository">The repository for command usage metrics.</param>
     public InteractionHandlingService(
         DiscordSocketClient client,
         InteractionService interactionService,
         IServiceProvider services,
         IConfiguration configuration,
-        ILogger<InteractionHandlingService> logger)
+        ILogger<InteractionHandlingService> logger,
+        CommandUsageRepository commandUsageRepository)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _interactionService = interactionService ?? throw new ArgumentNullException(nameof(interactionService));
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _commandUsageRepository = commandUsageRepository ?? throw new ArgumentNullException(nameof(commandUsageRepository));
     }
 
     /// <summary>
@@ -167,11 +172,11 @@ public class InteractionHandlingService : IHostedService
     }
 
     /// <summary>
-    /// Surfaces uncaught command-handler exceptions: Discord.Net reports them through
-    /// <see cref="InteractionService.InteractionExecuted"/> as an <see cref="ExecuteResult"/> carrying
-    /// the original exception, while <see cref="OnInteractionCreatedAsync"/> only sees a terse warning
-    /// reason. Logging here at error level routes them into the error-notification pipeline with
-    /// their stack trace; the interaction is answered when the failing command left it unanswered.
+    /// Surfaces uncaught command-handler exceptions and records command usage metrics.
+    /// Discord.Net reports exceptions through <see cref="InteractionService.InteractionExecuted"/> as an
+    /// <see cref="ExecuteResult"/> carrying the original exception, while <see cref="OnInteractionCreatedAsync"/>
+    /// only sees a terse warning reason. Logging here at error level routes them into the error-notification
+    /// pipeline with their stack trace; the interaction is answered when the failing command left it unanswered.
     /// </summary>
     /// <param name="commandInfo">The executed command; <see langword="null"/> for unmatched interactions.</param>
     /// <param name="context">The interaction context.</param>
@@ -179,9 +184,24 @@ public class InteractionHandlingService : IHostedService
     /// <returns>A task representing the asynchronous operation.</returns>
     private async Task OnInteractionExecutedAsync(ICommandInfo commandInfo, IInteractionContext context, IResult result)
     {
+        var succeeded = result.IsSuccess;
+        var commandName = commandInfo?.Name ?? "unknown";
+        var userId = context.User.Id;
+        var guildId = context.Guild?.Id ?? 0;
+
+        try
+        {
+            await _commandUsageRepository.LogCommandAsync(
+                commandName, userId, guildId, succeeded, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to record command usage for {CommandName}.", commandName);
+        }
+
         if (result is ExecuteResult { Exception: { } exception })
         {
-            _logger.LogError(exception, "Unhandled exception in interaction command {CommandName}: {Reason}", commandInfo?.Name ?? "unknown", result.ErrorReason);
+            _logger.LogError(exception, "Unhandled exception in interaction command {CommandName}: {Reason}", commandName, result.ErrorReason);
 
             // A command that throws before deferring/responding leaves the interaction unanswered,
             // which Discord reports as "Die Anwendung reagiert nicht". Answer it here; the check

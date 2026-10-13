@@ -1,25 +1,33 @@
-﻿using Discord.Interactions;
+﻿using Discord;
+using Discord.Interactions;
 using Microsoft.Extensions.Logging;
+using WK7Bot.Infrastructure.Data;
 using WK7Bot.Services.Interfaces;
 
 namespace WK7Bot.Modules;
 
 /// <summary>
-/// Provides general diagnostic slash commands for testing gateway latency and API connections.
+/// Provides general diagnostic slash commands for testing gateway latency, API connections, and command usage metrics.
 /// </summary>
 public class SystemModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IHomeAssistantService _homeAssistantService;
+    private readonly CommandUsageRepository _commandUsageRepository;
     private readonly ILogger<SystemModule> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SystemModule"/> class.
     /// </summary>
     /// <param name="homeAssistantService">The Home Assistant API client service.</param>
+    /// <param name="commandUsageRepository">The repository for command usage metrics.</param>
     /// <param name="logger">The logger instance for diagnostics.</param>
-    public SystemModule(IHomeAssistantService homeAssistantService, ILogger<SystemModule> logger)
+    public SystemModule(
+        IHomeAssistantService homeAssistantService,
+        CommandUsageRepository commandUsageRepository,
+        ILogger<SystemModule> logger)
     {
         _homeAssistantService = homeAssistantService ?? throw new ArgumentNullException(nameof(homeAssistantService));
+        _commandUsageRepository = commandUsageRepository ?? throw new ArgumentNullException(nameof(commandUsageRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -62,6 +70,56 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Error occurred while testing the Home Assistant API connection.");
             await FollowupAsync("❌ Home-Assistant-API nicht erreichbar. Bitte prüfe die Supervisor-Logs.", ephemeral: true);
+        }
+    }
+
+    /// <summary>
+    /// Returns the most frequently used slash commands in the last 7 days.
+    /// </summary>
+    /// <returns>A task representing the command execution operation.</returns>
+    [SlashCommand("stats", "Zeigt die am häufigsten verwendeten Befehle der letzten 7 Tage.")]
+    public async Task StatsCommandAsync()
+    {
+        await DeferAsync(ephemeral: true);
+
+        try
+        {
+            var topCommands = await _commandUsageRepository.GetTopCommandsAsync(
+                days: 7, top: 10, CancellationToken.None);
+
+            if (topCommands.Count == 0)
+            {
+                await FollowupAsync("Keine Befehlsnutzung in den letzten 7 Tagen aufgezeichnet.", ephemeral: true);
+                return;
+            }
+
+            var embed = new EmbedBuilder()
+                .WithTitle("📊 Befehlsnutzung (letzte 7 Tage)")
+                .WithColor(Color.Blue)
+                .WithTimestamp(DateTimeOffset.UtcNow)
+                .WithFooter("WK7 Bot • Nutzungsstatistik");
+
+            var total = topCommands.Sum(x => x.Count);
+            var position = 1;
+
+            foreach (var item in topCommands)
+            {
+                var percentage = total > 0 ? (item.Count * 100.0 / total) : 0;
+                embed.AddField(
+                    $"#{position} /{item.CommandName}",
+                    $"{item.Count}x ({percentage:F1}%)",
+                    inline: true);
+                position++;
+            }
+
+            embed.WithDescription($"Gesamt: {total} Befehlsaufrufe");
+
+            await FollowupAsync(embed: embed.Build(), ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while fetching command usage stats.");
+            await FollowupAsync("❌ Statistiken konnten nicht geladen werden.", ephemeral: true);
         }
     }
 }

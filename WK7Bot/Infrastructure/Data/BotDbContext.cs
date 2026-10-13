@@ -52,6 +52,11 @@ public class BotDbContext : DbContext
     public DbSet<SpontanTreffResponse> SpontanTreffResponses => Set<SpontanTreffResponse>();
 
     /// <summary>
+    /// Gets or sets the database set for tracking slash command usage metrics.
+    /// </summary>
+    public DbSet<CommandUsageLog> CommandUsageLogs => Set<CommandUsageLog>();
+
+    /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
     /// <param name="modelBuilder">The builder instance used to define entity structure and keys.</param>
@@ -111,6 +116,15 @@ public class BotDbContext : DbContext
         {
             entity.ToTable("SpontanTreffResponses");
             entity.HasKey(e => new { e.MeetupId, e.UserId });
+        });
+
+        modelBuilder.Entity<CommandUsageLog>(entity =>
+        {
+            entity.ToTable("CommandUsageLogs");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CommandName).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.InvokedAt);
+            entity.HasIndex(e => e.CommandName);
         });
     }
 }
