@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Net;
 using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Services;
 using Xunit;
 
@@ -92,7 +93,10 @@ public class DwdWarningServiceTests
     }
 
     private static DwdWarningService CreateService(StubHttpMessageHandler handler)
-        => new(new HttpClient(handler), NullLogger<DwdWarningService>.Instance);
+        => new(
+            new HttpClient(handler),
+            NullLogger<DwdWarningService>.Instance,
+            new DwdResiliencePolicy(NullLogger<DwdWarningService>.Instance));
 
     [Fact]
     public async Task FetchWarningsAsync_SelectsNewestGermanSnapshot_AndParsesItsAlerts()

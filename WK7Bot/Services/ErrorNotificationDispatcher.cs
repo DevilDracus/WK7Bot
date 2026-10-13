@@ -126,6 +126,7 @@ public class ErrorNotificationDispatcher : BackgroundService
     private async Task DeliverAsync(ErrorNotification notification, CancellationToken stoppingToken)
     {
         var embed = ErrorEmbedBuilder.Build(notification);
+        var plainTextMirror = BuildPlainTextMirror(notification);
 
         var channel = await ResolveErrorChannelAsync(stoppingToken);
         if (channel != null)
@@ -134,6 +135,11 @@ public class ErrorNotificationDispatcher : BackgroundService
             {
                 var ping = BuildChannelPing(_options.ErrorNotifyUserIds);
                 await channel.SendMessageAsync(text: ping, embed: embed);
+
+                // Send a plain-text companion message so that external tools (e.g. the Discord
+                // API fetch_messages action) can read the error summary even though embed bodies
+                // are not surfaced by the API.
+                await channel.SendMessageAsync(text: plainTextMirror);
                 return;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -148,7 +154,7 @@ public class ErrorNotificationDispatcher : BackgroundService
             }
         }
 
-        await DeliverAsDirectMessagesAsync(embed, stoppingToken);
+        await DeliverAsDirectMessagesAsync(embed, plainTextMirror, stoppingToken);
     }
 
     /// <summary>
@@ -205,9 +211,10 @@ public class ErrorNotificationDispatcher : BackgroundService
     /// Delivers the rendered report as a direct message to every configured recipient.
     /// </summary>
     /// <param name="embed">The rendered error embed.</param>
+    /// <param name="plainTextMirror">A plain-text summary of the error.</param>
     /// <param name="stoppingToken">Cancellation token monitored for background service shutdown.</param>
     /// <returns>A task representing the delivery operation.</returns>
-    private async Task DeliverAsDirectMessagesAsync(Embed embed, CancellationToken stoppingToken)
+    private async Task DeliverAsDirectMessagesAsync(Embed embed, string plainTextMirror, CancellationToken stoppingToken)
     {
         if (_options.ErrorNotifyUserIds.Count == 0)
         {
@@ -241,6 +248,9 @@ public class ErrorNotificationDispatcher : BackgroundService
 
                 var dmChannel = await user.CreateDMChannelAsync();
                 await dmChannel.SendMessageAsync(embed: embed);
+
+                // Also send the plain-text mirror in DMs for consistency.
+                await dmChannel.SendMessageAsync(text: plainTextMirror);
             }
             catch (OperationCanceledException)
             {
@@ -271,5 +281,61 @@ public class ErrorNotificationDispatcher : BackgroundService
             .ToList();
 
         return mentions.Count == 0 ? string.Empty : string.Join(' ', mentions);
+    }
+
+    /// <summary>
+    /// Builds a plain-text one-line summary of an error report for channels where embed bodies
+    /// are not readable by external tools (e.g. the Discord API <c>fetch_messages</c> action).
+    /// The summary contains the service name, exception type, and a short message excerpt.
+    /// </summary>
+    /// <param name="notification">The error report to summarise.</param>
+    /// <returns>A plain-text summary string, max 200 characters.</returns>
+    internal static string BuildPlainTextMirror(ErrorNotification notification)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+
+        var context = ShortContext(notification.Context);
+        var exceptionType = notification.ExceptionType ?? "Error";
+        var message = Truncate(notification.Message, 80);
+
+        var summary = $"⚠️ {context}: {exceptionType}";
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            summary += $" — {message}";
+        }
+
+        return Truncate(summary, 200);
+    }
+
+    /// <summary>
+    /// Extracts the trailing type or hook name from a dotted context identifier.
+    /// </summary>
+    /// <param name="context">The full context identifier.</param>
+    /// <returns>The segment after the last dot, or the input when it contains no dot.</returns>
+    private static string ShortContext(string context)
+    {
+        if (string.IsNullOrWhiteSpace(context))
+        {
+            return "Unbekannt";
+        }
+
+        var separatorIndex = context.LastIndexOf('.');
+        return separatorIndex >= 0 && separatorIndex < context.Length - 1 ? context[(separatorIndex + 1)..] : context;
+    }
+
+    /// <summary>
+    /// Truncates a string to the specified maximum length, appending an ellipsis when truncated.
+    /// </summary>
+    /// <param name="text">The text to truncate.</param>
+    /// <param name="maxLength">The maximum length including the ellipsis.</param>
+    /// <returns>The truncated text.</returns>
+    private static string Truncate(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+        {
+            return text;
+        }
+
+        return text[..(maxLength - 3)] + "...";
     }
 }

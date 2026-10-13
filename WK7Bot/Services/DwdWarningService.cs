@@ -12,6 +12,11 @@ using WK7Bot.Services.Interfaces;
 /// snapshot (DWD publishes a 22-byte end-of-central-directory zip when no warning is active)
 /// yields an empty list instead of an error.
 /// </summary>
+/// <remarks>
+/// All HTTP requests are wrapped in a <see cref="DwdResiliencePolicy"/> that provides retry-with-
+/// exponential-backoff and circuit breaker protection. The DWD feed is a public government endpoint
+/// with no SLA; transient TLS failures, timeouts, and 503 responses are common.
+/// </remarks>
 public partial class DwdWarningService : IDwdWarningService
 {
     /// <summary>
@@ -26,16 +31,22 @@ public partial class DwdWarningService : IDwdWarningService
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<DwdWarningService> _logger;
+    private readonly DwdResiliencePolicy _resilience;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DwdWarningService"/> class.
     /// </summary>
     /// <param name="httpClient">The HTTP client used for feed requests.</param>
     /// <param name="logger">The logger instance for feed diagnostics.</param>
-    public DwdWarningService(HttpClient httpClient, ILogger<DwdWarningService> logger)
+    /// <param name="resilience">The resilience policy wrapping HTTP requests.</param>
+    public DwdWarningService(
+        HttpClient httpClient,
+        ILogger<DwdWarningService> logger,
+        DwdResiliencePolicy resilience)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _resilience = resilience ?? throw new ArgumentNullException(nameof(resilience));
     }
 
     /// <summary>
@@ -56,7 +67,10 @@ public partial class DwdWarningService : IDwdWarningService
     /// <exception cref="InvalidOperationException">The listing contains no German snapshot archive.</exception>
     public async Task<IReadOnlyList<CapWarning>> FetchWarningsAsync(CancellationToken cancellationToken = default)
     {
-        var listing = await _httpClient.GetStringAsync(ListingUrl, cancellationToken);
+        var listing = await _resilience.ExecuteAsync(
+            ct => _httpClient.GetStringAsync(ListingUrl, ct),
+            cancellationToken).ConfigureAwait(false);
+
         var snapshotName = SelectNewestSnapshot(listing);
 
         if (snapshotName is null)
@@ -64,7 +78,9 @@ public partial class DwdWarningService : IDwdWarningService
             throw new InvalidOperationException($"No German warning snapshot found at {ListingUrl}.");
         }
 
-        var archiveBytes = await _httpClient.GetByteArrayAsync(ListingUrl + snapshotName, cancellationToken);
+        var archiveBytes = await _resilience.ExecuteAsync(
+            ct => _httpClient.GetByteArrayAsync(ListingUrl + snapshotName, ct),
+            cancellationToken).ConfigureAwait(false);
 
         if (archiveBytes.Length <= EmptySnapshotLength)
         {

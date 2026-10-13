@@ -85,11 +85,14 @@ public static class ServiceCollectionExtensions
         });
         services.AddHttpClient<IDwdWarningService, DwdWarningService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(45);
         }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
             AutomaticDecompression = DecompressionMethods.All
         });
+
+        // Shared resilience policy for DWD requests (retry + circuit breaker).
+        services.AddSingleton<DwdResiliencePolicy>();
         services.AddHttpClient<AlexaMentionNotificationService>(client =>
         {
             // The notification dispatch runs detached from the gateway handler, so bound the wait

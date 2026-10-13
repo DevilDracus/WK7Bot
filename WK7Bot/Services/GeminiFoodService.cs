@@ -37,13 +37,19 @@ public class GeminiFoodService : IGeminiFoodService
     /// Per-attempt HTTP timeout so a hung generation cannot stall the food publisher for the
     /// HttpClient default of 100 seconds; client timeouts are retried like transient failures.
     /// </summary>
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(60);
 
     /// <summary>
     /// Delay before the first retry of a transient (429/503) Gemini failure; doubles per attempt.
     /// Virtual so tests can override it to zero instead of sleeping through real backoff.
     /// </summary>
     protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(2000);
+
+    /// <summary>
+    /// Additional delay applied when the server returns 503 Service Unavailable,
+    /// on top of the regular exponential backoff.
+    /// </summary>
+    protected virtual TimeSpan ServiceUnavailableExtraDelay => TimeSpan.FromSeconds(3);
 
     /// <summary>
     /// Deserializer options for the structured answer: property names arrive from the model, so
@@ -53,6 +59,20 @@ public class GeminiFoodService : IGeminiFoodService
     {
         PropertyNameCaseInsensitive = true
     };
+
+    /// <summary>
+    /// Determines whether an exception represents a transient failure that may succeed on retry.
+    /// </summary>
+    /// <param name="ex">The exception to inspect.</param>
+    /// <returns><see langword="true"/> when the failure is likely transient.</returns>
+    private static bool IsTransient(Exception ex)
+    {
+        return ex is HttpRequestException
+            or TimeoutException
+            or TaskCanceledException
+            or IOException
+            or JsonException;
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GeminiFoodService"/> class.
@@ -328,11 +348,11 @@ public class GeminiFoodService : IGeminiFoodService
                 string jsonPayload = JsonSerializer.Serialize(requestPayload);
                 using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-                using var response = await _httpClient.PostAsync(requestUrl, content, cancellationToken);
+                using var response = await _httpClient.PostAsync(requestUrl, content, cancellationToken).ConfigureAwait(false);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    string responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+                    string responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                     using var doc = JsonDocument.Parse(responseJson);
 
                     var root = doc.RootElement;
@@ -349,26 +369,56 @@ public class GeminiFoodService : IGeminiFoodService
                 }
 
                 int statusCode = (int)response.StatusCode;
-                string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                string errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
                 // Retry on transient server failures (5xx) or rate limiting (429)
                 if ((statusCode >= 500 || statusCode == 429) && attempt < maxRetries)
                 {
-                    _logger.LogWarning("Gemini API returned status {StatusCode} for model {Model}. Retrying attempt {Attempt}/{Max} in {Delay}ms...",
+                    _logger.LogWarning(
+                        "Gemini API returned status {StatusCode} for model {Model}. Retrying attempt {Attempt}/{Max} in {Delay}ms...",
                         statusCode, modelName, attempt, maxRetries, delayMs);
 
-                    await Task.Delay(delayMs, cancellationToken);
+                    await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
                     delayMs *= 2; // Exponential backoff
+
+                    // Add a longer wait on 503 Service Unavailable to give the server breathing room.
+                    if (statusCode == 503)
+                    {
+                        _logger.LogWarning(
+                            "Gemini API reports high demand (503). Adding extra {ExtraDelay}s delay before retry.",
+                            ServiceUnavailableExtraDelay.TotalSeconds);
+                        await Task.Delay(ServiceUnavailableExtraDelay, cancellationToken).ConfigureAwait(false);
+                    }
+
                     continue;
                 }
 
-                _logger.LogError("Gemini API call to model {Model} failed with status code {StatusCode}: {ErrorBody}",
+                _logger.LogError(
+                    "Gemini API call to model {Model} failed with status code {StatusCode}: {ErrorBody}",
                     modelName, response.StatusCode, errorBody);
                 break;
             }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                _logger.LogError(ex, "Unexpected exception during Gemini request for model {Model} on attempt {Attempt}", modelName, attempt);
+                throw;
+            }
+            catch (Exception ex) when (IsTransient(ex) && attempt < maxRetries)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Gemini request for model {Model} encountered transient failure on attempt {Attempt}/{Max}: {Message}. Retrying in {Delay}ms...",
+                    modelName, attempt, maxRetries, ex.Message, delayMs);
+
+                await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
+                delayMs *= 2; // Exponential backoff
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Gemini request for model {Model} failed after {MaxRetries} attempts: {Message}",
+                    modelName, maxRetries, ex.Message);
+                break;
             }
         }
 

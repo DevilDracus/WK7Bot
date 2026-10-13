@@ -412,18 +412,16 @@ public class DiscordPresenceMqttService : BackgroundService
 
     /// <summary>
     /// Serializes the presence entity, dynamically appends the entity_picture mapping for Home Assistant, and transmits it to the dedicated MQTT state topic.
+    /// Retries once on a broken connection (the TCP socket may die between the <c>IsConnected</c> check and the actual publish).
     /// </summary>
     /// <param name="entity">The presence entity instance containing user data.</param>
     /// <returns>A task tracking asynchronous MQTT publication.</returns>
     private async Task PublishPresenceEntityAsync(UserPresenceEntity entity)
     {
-        if (!_mqttClient.IsConnected)
+        if (!await EnsureMqttConnectedAsync())
         {
-            if (!await _coordinator.EnsureConnectedAsync(CancellationToken.None))
-            {
-                _logger.LogWarning("MQTT client disconnected. Skipping presence broadcast for {Username}", entity.Username);
-                return;
-            }
+            _logger.LogWarning("MQTT client disconnected. Skipping presence broadcast for {Username}", entity.Username);
+            return;
         }
 
         string topic = $"wk7bot/presence/users/{entity.DiscordUserId}";
@@ -459,7 +457,52 @@ public class DiscordPresenceMqttService : BackgroundService
             WriteIndented = false
         });
 
-        await _mqttClient.PublishRetainedAsync(topic, payload);
-        _logger.LogDebug("Published presence state for {Username} to MQTT topic {Topic}", entity.Username, topic);
+        try
+        {
+            await _mqttClient.PublishRetainedAsync(topic, payload).ConfigureAwait(false);
+            _logger.LogDebug("Published presence state for {Username} to MQTT topic {Topic}", entity.Username, topic);
+        }
+        catch (MQTTnet.Exceptions.MqttCommunicationException ex)
+        {
+            // The TCP socket died between the IsConnected check and the publish.
+            // Try once more after forcing a reconnect; if it still fails, log and move on
+            // (the next periodic refresh in 60 seconds will retry).
+            _logger.LogWarning(
+                ex,
+                "MQTT publish failed for {Username} (broken connection). Attempting reconnect and retry...",
+                entity.Username);
+
+            if (await EnsureMqttConnectedAsync())
+            {
+                try
+                {
+                    await _mqttClient.PublishRetainedAsync(topic, payload).ConfigureAwait(false);
+                    _logger.LogDebug(
+                        "Published presence state for {Username} to MQTT topic {Topic} after reconnect.",
+                        entity.Username, topic);
+                }
+                catch (MQTTnet.Exceptions.MqttCommunicationException ex2)
+                {
+                    _logger.LogWarning(
+                        ex2,
+                        "MQTT publish still failing for {Username} after reconnect; will retry on next refresh.",
+                        entity.Username);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Ensures the MQTT client is connected, attempting to reconnect when necessary.
+    /// </summary>
+    /// <returns><see langword="true"/> when the client is connected.</returns>
+    private async Task<bool> EnsureMqttConnectedAsync()
+    {
+        if (_mqttClient.IsConnected)
+        {
+            return true;
+        }
+
+        return await _coordinator.EnsureConnectedAsync(CancellationToken.None).ConfigureAwait(false);
     }
 }
