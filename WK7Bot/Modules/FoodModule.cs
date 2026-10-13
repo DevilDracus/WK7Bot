@@ -20,25 +20,38 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     private readonly IGeminiFoodService _geminiFoodService;
     private readonly IRecipeSearchService _recipeSearchService;
     private readonly IRandomSource _randomSource;
+    private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<FoodModule> _logger;
 
     private const string TargetChannelName = "🍎food";
+
+    /// <summary>Cooldown for recipe search commands (web search + Gemini formatting).</summary>
+    private static readonly TimeSpan RecipeCooldown = TimeSpan.FromMinutes(1);
+
+    /// <summary>Cooldown for Gemini-only generation commands.</summary>
+    private static readonly TimeSpan GenerateCooldown = TimeSpan.FromMinutes(2);
+
+    /// <summary>Cooldown for seasonal produce commands (Gemini API).</summary>
+    private static readonly TimeSpan SeasonalCooldown = TimeSpan.FromMinutes(1);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FoodModule"/> class.
     /// </summary>
     /// <param name="geminiFoodService">The Gemini food service instance.</param>
     /// <param name="recipeSearchService">The web recipe search service instance.</param>
+    /// <param name="rateLimiter">The command rate limiter.</param>
     /// <param name="logger">The logger instance.</param>
     /// <param name="randomSource">The randomness used to pick seasonal terms; defaults to <see cref="SystemRandomSource"/>.</param>
     public FoodModule(
         IGeminiFoodService geminiFoodService,
         IRecipeSearchService recipeSearchService,
+        CommandRateLimiter rateLimiter,
         ILogger<FoodModule> logger,
         IRandomSource? randomSource = null)
     {
         _geminiFoodService = geminiFoodService ?? throw new ArgumentNullException(nameof(geminiFoodService));
         _recipeSearchService = recipeSearchService ?? throw new ArgumentNullException(nameof(recipeSearchService));
+        _rateLimiter = rateLimiter ?? throw new ArgumentNullException(nameof(rateLimiter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _randomSource = randomSource ?? new SystemRandomSource();
     }
@@ -69,6 +82,12 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     public async Task SearchRecipeAsync(
         [Summary("query", "What should be cooked? e.g. \"Pfannkuchen\"")] string query)
     {
+        if (!_rateLimiter.CanExecute(Context.User.Id, "recipe", RecipeCooldown))
+        {
+            await RespondAsync("⏳ Bitte warte eine Minute, bevor du ein weiteres Rezept suchst.", ephemeral: true);
+            return;
+        }
+
         // Defer response to allow time for the search and recipe page downloads
         await DeferAsync(ephemeral: true);
 
@@ -131,6 +150,12 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     public async Task SearchSeasonalRecipeAsync(
         [Summary("query", "Optional dish hint, e.g. \"Pfannkuchen\". Leave empty for a purely seasonal search.")] string? query = null)
     {
+        if (!_rateLimiter.CanExecute(Context.User.Id, "recipe-seasonal", RecipeCooldown))
+        {
+            await RespondAsync("⏳ Bitte warte eine Minute, bevor du ein weiteres Rezept suchst.", ephemeral: true);
+            return;
+        }
+
         await DeferAsync(ephemeral: true);
 
         try
@@ -199,6 +224,12 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     [SlashCommand("recipe-generate", "Generates a seasonal renal & transplant-safe recipe and posts it to #🍎food.")]
     public async Task GenerateRecipeAsync()
     {
+        if (!_rateLimiter.CanExecute(Context.User.Id, "recipe-generate", GenerateCooldown))
+        {
+            await RespondAsync("⏳ Bitte warte zwei Minuten, bevor du ein weiteres Rezept generierst.", ephemeral: true);
+            return;
+        }
+
         // Defer response to allow time for the Gemini API request
         await DeferAsync(ephemeral: true);
 
@@ -241,6 +272,12 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     public async Task GetSeasonalProduceAsync(
         [Summary("month", "The month number (1-12). Leave empty for the current month.")] int? monthInput = null)
     {
+        if (!_rateLimiter.CanExecute(Context.User.Id, "seasonal-produce", SeasonalCooldown))
+        {
+            await RespondAsync("⏳ Bitte warte eine Minute, bevor du die Saisonprodukte erneut abfragst.", ephemeral: true);
+            return;
+        }
+
         await DeferAsync(ephemeral: true);
 
         try

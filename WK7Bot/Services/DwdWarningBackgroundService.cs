@@ -101,28 +101,18 @@ public class DwdWarningBackgroundService : BackgroundService
             _options.DwdWarning.PostalCode,
             PollInterval);
 
-        using var timer = new PeriodicTimer(PollInterval);
-
-        do
-        {
-            try
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async token =>
             {
-                await EvaluateAsync(DateTime.Now, stoppingToken);
-                _health.RecordSuccess(FeatureKeys.DwdWarning);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                // Timeouts surface as OperationCanceledException with the stopping token untouched;
-                // they land here so a slow feed response cannot silently kill the poll loop.
-                _logger.LogError(ex, "An error occurred while evaluating DWD warnings.");
-                _health.RecordFailure(FeatureKeys.DwdWarning, ex.Message);
-            }
-        }
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
+                await EvaluateAsync(DateTime.Now, token);
+            },
+            FeatureKeys.DwdWarning,
+            _health,
+            _logger,
+            PollInterval,
+            maxConsecutiveFailures: BackgroundServiceResilience.DefaultMaxConsecutiveFailures,
+            restartDelay: BackgroundServiceResilience.DefaultRestartDelay,
+            stoppingToken);
     }
 
     /// <summary>

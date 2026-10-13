@@ -85,44 +85,29 @@ public class RssPollingBackgroundService : BackgroundService
 
         _discordClient.Ready += OnDiscordClientReadyAsync;
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async token =>
             {
-                if (_isClientReady)
-                {
-                    // A pass is only healthy when every due feed was processed cleanly: the per-feed
-                    // failures are swallowed so one broken feed cannot abort the sweep, so the pass
-                    // itself reports whether any of those write-offs happened.
-                    if (await PollAllFeedsAsync(stoppingToken))
-                    {
-                        _health.RecordSuccess(FeatureKeys.RssPolling);
-                    }
-                }
-                else
+                if (!_isClientReady)
                 {
                     _logger.LogInformation("Discord client is not fully ready. Skipping this RSS polling cycle.");
+                    return;
                 }
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An unhandled exception occurred during RSS polling loop execution.");
-                _health.RecordFailure(FeatureKeys.RssPolling, ex.Message);
-            }
 
-            try
-            {
-                await Task.Delay(PollTick, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
+                // A pass is only healthy when every due feed was processed cleanly: the per-feed
+                // failures are swallowed so one broken feed cannot abort the sweep.
+                if (!await PollAllFeedsAsync(token))
+                {
+                    throw new InvalidOperationException("At least one RSS feed failed during the polling pass.");
+                }
+            },
+            FeatureKeys.RssPolling,
+            _health,
+            _logger,
+            PollTick,
+            maxConsecutiveFailures: BackgroundServiceResilience.DefaultMaxConsecutiveFailures,
+            restartDelay: BackgroundServiceResilience.DefaultRestartDelay,
+            stoppingToken);
     }
 
     /// <summary>

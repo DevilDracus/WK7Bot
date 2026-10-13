@@ -71,27 +71,18 @@ public class LeipzigWasteBackgroundService : BackgroundService
 
         _logger.LogInformation("Starting Leipzig Waste Background Service scheduler loop.");
 
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
-        {
-            try
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async token =>
             {
-                await EvaluateScheduleAsync(DateTime.Now, stoppingToken);
-                _health.RecordSuccess(FeatureKeys.LeipzigWaste);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                // HTTP timeouts surface as OperationCanceledException with the stopping token
-                // untouched; they are logged so the scheduler survives a slow feed response.
-                _logger.LogError(ex, "An error occurred while processing the Leipzig waste schedule evaluation loop.");
-                _health.RecordFailure(FeatureKeys.LeipzigWaste, ex.Message);
-            }
-        }
+                await EvaluateScheduleAsync(DateTime.Now, token);
+            },
+            FeatureKeys.LeipzigWaste,
+            _health,
+            _logger,
+            TimeSpan.FromMinutes(1),
+            maxConsecutiveFailures: BackgroundServiceResilience.DefaultMaxConsecutiveFailures,
+            restartDelay: BackgroundServiceResilience.DefaultRestartDelay,
+            stoppingToken);
     }
 
     /// <summary>

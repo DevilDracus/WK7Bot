@@ -6,6 +6,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using WK7Bot.Core.Exceptions;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Modules;
 using WK7Bot.Services.Interfaces;
@@ -30,7 +31,7 @@ public class FoodModuleTests
             IRecipeSearchService recipeSearchService,
             ITextChannel? channel,
             IRandomSource? randomSource = null)
-            : base(geminiFoodService, recipeSearchService, NullLogger<FoodModule>.Instance, randomSource)
+            : base(geminiFoodService, recipeSearchService, new CommandRateLimiter(), NullLogger<FoodModule>.Instance, randomSource)
         {
             _channel = channel;
         }
@@ -118,12 +119,15 @@ public class FoodModuleTests
     [Fact]
     public void Constructor_Throws_WhenDependenciesAreNull()
     {
+        var rateLimiter = new CommandRateLimiter();
         Assert.Throws<ArgumentNullException>(() => new FoodModule(
-            null!, new Mock<IRecipeSearchService>().Object, NullLogger<FoodModule>.Instance));
+            null!, new Mock<IRecipeSearchService>().Object, rateLimiter, NullLogger<FoodModule>.Instance));
         Assert.Throws<ArgumentNullException>(() => new FoodModule(
-            new Mock<IGeminiFoodService>().Object, null!, NullLogger<FoodModule>.Instance));
+            new Mock<IGeminiFoodService>().Object, null!, rateLimiter, NullLogger<FoodModule>.Instance));
         Assert.Throws<ArgumentNullException>(() => new FoodModule(
-            new Mock<IGeminiFoodService>().Object, new Mock<IRecipeSearchService>().Object, null!));
+            new Mock<IGeminiFoodService>().Object, new Mock<IRecipeSearchService>().Object, null!, NullLogger<FoodModule>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new FoodModule(
+            new Mock<IGeminiFoodService>().Object, new Mock<IRecipeSearchService>().Object, rateLimiter, null!));
     }
 
     [Fact]

@@ -93,6 +93,7 @@ public static class ServiceCollectionExtensions
 
         // Shared resilience policy for DWD requests (retry + circuit breaker).
         services.AddSingleton<DwdResiliencePolicy>();
+        services.AddSingleton<CommandRateLimiter>();
         services.AddHttpClient<AlexaMentionNotificationService>(client =>
         {
             // The notification dispatch runs detached from the gateway handler, so bound the wait

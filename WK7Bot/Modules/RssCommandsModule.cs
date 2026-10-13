@@ -143,6 +143,47 @@ public class RssCommandsModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     /// <summary>
+    /// Lists all registered RSS feeds with their names, URLs, and target channels.
+    /// </summary>
+    /// <returns>A task representing the command response operation.</returns>
+    [SlashCommand("list", "Zeigt alle registrierten RSS-Feeds an")]
+    public async Task ListFeedsAsync()
+    {
+        try
+        {
+            var feeds = await _repository.GetAllFeedsAsync();
+
+            if (feeds.Count == 0)
+            {
+                await RespondAsync("Noch keine RSS-Feeds registriert. Füge einen mit `/rss add` hinzu.", ephemeral: true);
+                return;
+            }
+
+            var embed = new EmbedBuilder()
+                .WithTitle("📡 RSS-Feeds")
+                .WithColor(Color.Blue)
+                .WithTimestamp(DateTimeOffset.UtcNow)
+                .WithFooter("WK7 Bot • RSS-Verwaltung");
+
+            foreach (var feed in feeds)
+            {
+                var channelMention = feed.ChannelId > 0 ? $"<#{feed.ChannelId}>" : "nicht zugewiesen";
+                embed.AddField(
+                    feed.Name,
+                    $"{feed.Url}\nKanal: {channelMention}\nIntervall: {feed.RefreshIntervalMinutes} min",
+                    inline: false);
+            }
+
+            await RespondAsync(embed: embed.Build(), ephemeral: true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Listing RSS feeds failed.");
+            await RespondAsync("❌ Feeds konnten nicht geladen werden.", ephemeral: true);
+        }
+    }
+
+    /// <summary>
     /// Removes an existing RSS feed and updates the interactive dashboard.
     /// </summary>
     /// <param name="name">The name of the feed to remove.</param>
