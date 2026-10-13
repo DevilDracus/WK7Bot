@@ -30,8 +30,9 @@ public class FoodModuleTests
             IGeminiFoodService geminiFoodService,
             IRecipeSearchService recipeSearchService,
             ITextChannel? channel,
-            IRandomSource? randomSource = null)
-            : base(geminiFoodService, recipeSearchService, new CommandRateLimiter(), NullLogger<FoodModule>.Instance, randomSource)
+            IRandomSource? randomSource = null,
+            IOpenFoodFactsService? openFoodFactsService = null)
+            : base(geminiFoodService, recipeSearchService, openFoodFactsService ?? new Mock<IOpenFoodFactsService>().Object, new CommandRateLimiter(), NullLogger<FoodModule>.Instance, randomSource)
         {
             _channel = channel;
         }
@@ -71,13 +72,15 @@ public class FoodModuleTests
         ITextChannel? channel,
         IRecipeSearchService? searchService = null,
         string username = "Tester",
-        IRandomSource? randomSource = null)
+        IRandomSource? randomSource = null,
+        IOpenFoodFactsService? openFoodFactsService = null)
     {
         var module = new TestFoodModule(
             service,
             searchService ?? new Mock<IRecipeSearchService>().Object,
             channel,
-            randomSource ?? new StubRandomSource());
+            randomSource ?? new StubRandomSource(),
+            openFoodFactsService);
 
         var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
         DiscordTestDoubles.SetUser(context, username);
@@ -120,14 +123,17 @@ public class FoodModuleTests
     public void Constructor_Throws_WhenDependenciesAreNull()
     {
         var rateLimiter = new CommandRateLimiter();
+        var openFoodFacts = new Mock<IOpenFoodFactsService>().Object;
         Assert.Throws<ArgumentNullException>(() => new FoodModule(
-            null!, new Mock<IRecipeSearchService>().Object, rateLimiter, NullLogger<FoodModule>.Instance));
+            null!, new Mock<IRecipeSearchService>().Object, openFoodFacts, rateLimiter, NullLogger<FoodModule>.Instance));
         Assert.Throws<ArgumentNullException>(() => new FoodModule(
-            new Mock<IGeminiFoodService>().Object, null!, rateLimiter, NullLogger<FoodModule>.Instance));
+            new Mock<IGeminiFoodService>().Object, null!, openFoodFacts, rateLimiter, NullLogger<FoodModule>.Instance));
         Assert.Throws<ArgumentNullException>(() => new FoodModule(
-            new Mock<IGeminiFoodService>().Object, new Mock<IRecipeSearchService>().Object, null!, NullLogger<FoodModule>.Instance));
+            new Mock<IGeminiFoodService>().Object, new Mock<IRecipeSearchService>().Object, null!, rateLimiter, NullLogger<FoodModule>.Instance));
         Assert.Throws<ArgumentNullException>(() => new FoodModule(
-            new Mock<IGeminiFoodService>().Object, new Mock<IRecipeSearchService>().Object, rateLimiter, null!));
+            new Mock<IGeminiFoodService>().Object, new Mock<IRecipeSearchService>().Object, openFoodFacts, null!, NullLogger<FoodModule>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new FoodModule(
+            new Mock<IGeminiFoodService>().Object, new Mock<IRecipeSearchService>().Object, openFoodFacts, rateLimiter, null!));
     }
 
     [Fact]

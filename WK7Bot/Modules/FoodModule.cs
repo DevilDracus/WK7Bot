@@ -19,6 +19,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IGeminiFoodService _geminiFoodService;
     private readonly IRecipeSearchService _recipeSearchService;
+    private readonly IOpenFoodFactsService _openFoodFactsService;
     private readonly IRandomSource _randomSource;
     private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<FoodModule> _logger;
@@ -34,23 +35,29 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     /// <summary>Cooldown for seasonal produce commands (Gemini API).</summary>
     private static readonly TimeSpan SeasonalCooldown = TimeSpan.FromMinutes(1);
 
+    /// <summary>Cooldown for food nutritional lookup commands (Open Food Facts API).</summary>
+    private static readonly TimeSpan FoodCheckCooldown = TimeSpan.FromSeconds(30);
+
     /// <summary>
     /// Initializes a new instance of the <see cref="FoodModule"/> class.
     /// </summary>
     /// <param name="geminiFoodService">The Gemini food service instance.</param>
     /// <param name="recipeSearchService">The web recipe search service instance.</param>
+    /// <param name="openFoodFactsService">The Open Food Facts lookup service instance.</param>
     /// <param name="rateLimiter">The command rate limiter.</param>
     /// <param name="logger">The logger instance.</param>
     /// <param name="randomSource">The randomness used to pick seasonal terms; defaults to <see cref="SystemRandomSource"/>.</param>
     public FoodModule(
         IGeminiFoodService geminiFoodService,
         IRecipeSearchService recipeSearchService,
+        IOpenFoodFactsService openFoodFactsService,
         CommandRateLimiter rateLimiter,
         ILogger<FoodModule> logger,
         IRandomSource? randomSource = null)
     {
         _geminiFoodService = geminiFoodService ?? throw new ArgumentNullException(nameof(geminiFoodService));
         _recipeSearchService = recipeSearchService ?? throw new ArgumentNullException(nameof(recipeSearchService));
+        _openFoodFactsService = openFoodFactsService ?? throw new ArgumentNullException(nameof(openFoodFactsService));
         _rateLimiter = rateLimiter ?? throw new ArgumentNullException(nameof(rateLimiter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _randomSource = randomSource ?? new SystemRandomSource();
@@ -327,6 +334,49 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     /// <summary>
+    /// Queries Open Food Facts for a food product by name and returns nutritional data with a
+    /// renal safety assessment based on potassium, phosphorus, and sodium thresholds.
+    /// </summary>
+    /// <param name="query">The product or food name to look up (e.g. "Banane").</param>
+    /// <returns>A task tracking the asynchronous command execution.</returns>
+    [SlashCommand("check-food", "Checks a food product's nutritional data and renal safety via Open Food Facts.")]
+    public async Task CheckFoodAsync(
+        [Summary("query", "The food or product name to check, e.g. \"Banane\" or \"Hafermilch\"")] string query)
+    {
+        if (!_rateLimiter.CanExecute(Context.User.Id, "check-food", FoodCheckCooldown))
+        {
+            await RespondAsync("⏳ Bitte warte 30 Sekunden, bevor du ein weiteres Lebensmittel prüfst.", ephemeral: true);
+            return;
+        }
+
+        await DeferAsync(ephemeral: true);
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                await FollowupAsync("❌ Bitte gib einen Lebensmittelnamen an, z. B. `/check-food query:Banane`.", ephemeral: true);
+                return;
+            }
+
+            var product = await _openFoodFactsService.SearchProductAsync(query);
+            if (product == null)
+            {
+                await FollowupAsync($"❌ Kein Produkt für **{query}** bei Open Food Facts gefunden. Versuche eine andere Bezeichnung.", ephemeral: true);
+                return;
+            }
+
+            var embed = BuildOpenFoodFactsEmbed(product);
+            await FollowupAsync(embed: embed.Build(), ephemeral: true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Error occurred while executing /check-food slash command.");
+            await FollowupAsync("❌ Bei der Lebensmittelprüfung ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
+        }
+    }
+
+    /// <summary>
     /// Normalises a scraped recipe with Gemini so it matches the bot's embed format. Formatting is best effort:
     /// when Gemini is unavailable, fails, or returns unusable data, the raw parsed recipe is used instead.
     /// </summary>
@@ -344,5 +394,103 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
             _logger.LogWarning(ex, "Gemini recipe formatting failed; posting the raw parsed recipe instead.");
             return recipe;
         }
+    }
+
+    /// <summary>
+    /// Builds a Discord embed from an Open Food Facts product with renal safety indicators.
+    /// </summary>
+    /// <param name="product">The product data from Open Food Facts.</param>
+    /// <returns>The configured embed builder.</returns>
+    private static EmbedBuilder BuildOpenFoodFactsEmbed(OpenFoodFactsProduct product)
+    {
+        var embed = new EmbedBuilder()
+            .WithTitle($"🥜 {product.ProductName}")
+            .WithColor(Color.Green)
+            .WithTimestamp(DateTimeOffset.UtcNow)
+            .WithFooter("Daten von Open Food Facts • Pro 100 g");
+
+        if (!string.IsNullOrWhiteSpace(product.Brands))
+        {
+            embed.AddField("Marke", product.Brands, inline: true);
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.Quantity))
+        {
+            embed.AddField("Menge", product.Quantity, inline: true);
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.NutriScoreGrade))
+        {
+            var scoreUpper = product.NutriScoreGrade.ToUpperInvariant();
+            var scoreEmoji = scoreUpper switch
+            {
+                "A" => "🟢",
+                "B" => "🟡",
+                "C" => "🟠",
+                "D" => "🔴",
+                "E" => "⚫",
+                _ => "❓"
+            };
+            embed.AddField("Nutri-Score", $"{scoreEmoji} {scoreUpper}", inline: true);
+        }
+
+        var n = product.Nutriments;
+        var nutritionText = new System.Text.StringBuilder();
+        if (n.EnergyKcal.HasValue) nutritionText.AppendLine($"🔥 **Kalorien:** {n.EnergyKcal.Value:F0} kcal");
+        if (n.Proteins.HasValue) nutritionText.AppendLine($"🥩 **Eiweiß:** {n.Proteins.Value:F1} g");
+        if (n.Carbohydrates.HasValue) nutritionText.AppendLine($"🥤 **Kohlenhydrate:** {n.Carbohydrates.Value:F1} g");
+        if (n.Sugars.HasValue) nutritionText.AppendLine($"🍬 **Zucker:** {n.Sugars.Value:F1} g");
+        if (n.Fat.HasValue) nutritionText.AppendLine($"🧈 **Fett:** {n.Fat.Value:F1} g");
+        if (n.SaturatedFat.HasValue) nutritionText.AppendLine($"🧅 **Gesättigte Fettsäuren:** {n.SaturatedFat.Value:F1} g");
+        if (n.Salt.HasValue) nutritionText.AppendLine($"🧂 **Salz:** {n.Salt.Value:F2} g");
+        if (n.Fiber.HasValue) nutritionText.AppendLine($"🌿 **Ballaststoffe:** {n.Fiber.Value:F1} g");
+
+        if (nutritionText.Length > 0)
+        {
+            embed.AddField("📊 Nährwerte (pro 100 g)", nutritionText.ToString(), inline: false);
+        }
+
+        // Renal safety assessment
+        var renalText = new System.Text.StringBuilder();
+        var potassiumMg = n.Potassium.HasValue ? n.Potassium.Value * 1000 : (double?)null;
+        var phosphorusMg = n.Phosphorus.HasValue ? n.Phosphorus.Value * 1000 : (double?)null;
+        var sodiumMg = n.Sodium.HasValue ? n.Sodium.Value * 1000 : (double?)null;
+
+        if (potassiumMg.HasValue)
+        {
+            var status = potassiumMg.Value > 300 ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
+            renalText.AppendLine($"**Kalium:** {potassiumMg.Value:F0} mg — {status}");
+        }
+        if (phosphorusMg.HasValue)
+        {
+            var status = phosphorusMg.Value > 200 ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
+            renalText.AppendLine($"**Phosphor:** {phosphorusMg.Value:F0} mg — {status}");
+        }
+        if (sodiumMg.HasValue)
+        {
+            var status = sodiumMg.Value > 400 ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
+            renalText.AppendLine($"**Natrium:** {sodiumMg.Value:F0} mg — {status}");
+        }
+
+        if (renalText.Length > 0)
+        {
+            embed.AddField("🩺 Nieren-Sicherheit", renalText.ToString(), inline: false);
+        }
+        else
+        {
+            embed.AddField("🩺 Nieren-Sicherheit", "Keine Kalium-/Phosphor-/Natrium-Angaben vorhanden.", inline: false);
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.Url))
+        {
+            embed.WithUrl(product.Url);
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+        {
+            embed.WithThumbnailUrl(product.ImageUrl);
+        }
+
+        return embed;
     }
 }

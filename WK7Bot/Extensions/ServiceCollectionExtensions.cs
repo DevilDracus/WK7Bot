@@ -79,6 +79,10 @@ public static class ServiceCollectionExtensions
         {
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+        services.AddHttpClient<IOpenFoodFactsService, OpenFoodFactsService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
         services.AddHttpClient<IWeekendEventSource, LeipzigWeekendEventSource>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
