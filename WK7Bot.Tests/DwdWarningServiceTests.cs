@@ -96,7 +96,7 @@ public class DwdWarningServiceTests
         => new(
             new HttpClient(handler),
             NullLogger<DwdWarningService>.Instance,
-            new DwdResiliencePolicy(NullLogger<DwdWarningService>.Instance));
+            new DwdResiliencePolicy(NullLogger<DwdResiliencePolicy>.Instance));
 
     [Fact]
     public async Task FetchWarningsAsync_SelectsNewestGermanSnapshot_AndParsesItsAlerts()

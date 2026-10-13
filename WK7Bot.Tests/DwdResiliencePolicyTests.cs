@@ -15,7 +15,7 @@ namespace WK7Bot.Tests;
 public class DwdResiliencePolicyTests
 {
     private static DwdResiliencePolicy CreatePolicy()
-        => new(NullLogger<DwdWarningService>.Instance);
+        => new(NullLogger<DwdResiliencePolicy>.Instance);
 
     [Fact]
     public async Task ExecuteAsync_SucceedsFirstAttempt_ReturnsResult()

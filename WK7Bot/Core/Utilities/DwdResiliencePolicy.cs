@@ -18,7 +18,7 @@ using Microsoft.Extensions.Logging;
 /// </remarks>
 public sealed class DwdResiliencePolicy
 {
-    private readonly ILogger _logger;
+    private readonly ILogger<DwdResiliencePolicy> _logger;
     private readonly object _gate = new();
 
     private int _consecutiveFailures;
@@ -49,7 +49,7 @@ public sealed class DwdResiliencePolicy
     /// Initializes a new instance of the <see cref="DwdResiliencePolicy"/> class.
     /// </summary>
     /// <param name="logger">The logger instance for resilience diagnostics.</param>
-    public DwdResiliencePolicy(ILogger logger)
+    public DwdResiliencePolicy(ILogger<DwdResiliencePolicy> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
