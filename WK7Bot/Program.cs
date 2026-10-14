@@ -14,6 +14,10 @@ builder.Configuration.AddJsonFile("/data/options.json", optional: true, reloadOn
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=/data/wk7bot.db";
 
+// Replace the default ASP.NET Core console logger with our own so the minimum level
+// from appsettings.json ("Information") does not leak through a second provider.
+builder.Logging.ClearProviders();
+
 // Capture every Error/Critical log event for Discord direct message delivery in addition to the regular logs.
 var errorNotificationQueue = new ErrorNotificationQueue();
 builder.Services.AddSingleton(errorNotificationQueue);

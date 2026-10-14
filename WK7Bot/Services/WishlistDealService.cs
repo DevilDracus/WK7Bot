@@ -65,6 +65,15 @@ public sealed class WishlistDealService : IWishlistDealService
                 return Array.Empty<SteamWishlistItem>();
             }
 
+            // Steam occasionally returns HTML (rate limit, maintenance, login page) with 200 OK.
+            if (json.TrimStart().StartsWith('<'))
+            {
+                _logger.LogWarning(
+                    "Steam wishlist for {SteamId} returned HTML instead of JSON (likely rate-limited or unavailable).",
+                    steamId);
+                return Array.Empty<SteamWishlistItem>();
+            }
+
             var wishlist = JsonSerializer.Deserialize<SteamWishlistResponse>(json, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
