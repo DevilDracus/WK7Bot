@@ -10,8 +10,7 @@ namespace WK7Bot.Modules;
 /// Provides the slash commands for the RSS subscription dashboard (select menu).
 /// Feed lifecycle commands (add / list / remove) live in <see cref="RssFeedManagementModule"/>.
 /// </summary>
-[Group("rss", "Befehle zur Verwaltung von RSS-Newsfeeds und Abonnements")]
-public class RssDashboardModule : InteractionModuleBase<SocketInteractionContext>
+public class RssDashboardModule : RssModuleBase
 {
     internal const string CategoryName = "RSS Feeds";
 

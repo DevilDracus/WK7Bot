@@ -11,8 +11,7 @@ namespace WK7Bot.Modules;
 /// Provides slash commands for managing RSS news feeds: add, list, and remove.
 /// The subscription dashboard itself lives in <see cref="RssDashboardModule"/>.
 /// </summary>
-[Group("rss", "Befehle zur Verwaltung von RSS-Newsfeeds und Abonnements")]
-public class RssFeedManagementModule : InteractionModuleBase<SocketInteractionContext>
+public class RssFeedManagementModule : RssModuleBase
 {
     /// <summary>
     /// Upper bound for feed names: the role becomes "RSS: {name}" (100-char role limit) and the dashboard's
