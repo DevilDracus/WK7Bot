@@ -23,6 +23,7 @@ public class WishlistDealBackgroundService : BackgroundService
     private readonly ISteamService _steamService;
     private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
+    private readonly FeatureGate _featureGate;
     private readonly ILogger<WishlistDealBackgroundService> _logger;
 
     /// <summary>
@@ -44,6 +45,7 @@ public class WishlistDealBackgroundService : BackgroundService
     /// <param name="steamService">The Steam service for resolving Discord-to-Steam mappings.</param>
     /// <param name="health">The feature health tracker.</param>
     /// <param name="options">The application configuration options.</param>
+    /// <param name="featureGate">The consolidated feature gate.</param>
     /// <param name="logger">The logger instance.</param>
     public WishlistDealBackgroundService(
         IServiceProvider serviceProvider,
@@ -52,6 +54,7 @@ public class WishlistDealBackgroundService : BackgroundService
         ISteamService steamService,
         FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
+        FeatureGate featureGate,
         ILogger<WishlistDealBackgroundService> logger)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
@@ -61,12 +64,13 @@ public class WishlistDealBackgroundService : BackgroundService
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _featureGate = featureGate ?? throw new ArgumentNullException(nameof(featureGate));
     }
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_options.Features.IsEnabled(FeatureKeys.WishlistDealAlerts))
+        if (!_featureGate.IsEnabled(FeatureKeys.WishlistDealAlerts))
         {
             _logger.LogInformation("Wishlist deal alerts are disabled via feature options.");
             return;

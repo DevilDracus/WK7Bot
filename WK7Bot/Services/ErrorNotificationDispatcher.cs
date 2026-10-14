@@ -286,7 +286,8 @@ public class ErrorNotificationDispatcher : BackgroundService
     /// <summary>
     /// Builds a plain-text one-line summary of an error report for channels where embed bodies
     /// are not readable by external tools (e.g. the Discord API <c>fetch_messages</c> action).
-    /// The summary contains the service name, exception type, and a short message excerpt.
+    /// The summary contains the service name, exception type, a short message excerpt, and a
+    /// stack-trace hash so operators can grep for recurring failures efficiently.
     /// </summary>
     /// <param name="notification">The error report to summarise.</param>
     /// <returns>A plain-text summary string, max 200 characters.</returns>
@@ -297,14 +298,34 @@ public class ErrorNotificationDispatcher : BackgroundService
         var context = ShortContext(notification.Context);
         var exceptionType = notification.ExceptionType ?? "Error";
         var message = Truncate(notification.Message, 80);
+        var hash = ComputeStackTraceHash(notification.StackTrace);
 
-        var summary = $"⚠️ {context}: {exceptionType}";
+        var summary = $"⚠️ {context}: {exceptionType} [{hash}]";
         if (!string.IsNullOrWhiteSpace(message))
         {
             summary += $" — {message}";
         }
 
         return Truncate(summary, 200);
+    }
+
+    /// <summary>
+    /// Computes a deterministic 8-character hex hash from the first 500 characters of a stack trace.
+    /// Operators can use this to identify recurring failures without parsing the full stack trace.
+    /// </summary>
+    /// <param name="stackTrace">The full stack trace string, or <see langword="null"/>.</param>
+    /// <returns>An 8-character hex hash, or <c>"none"</c> when the input is empty.</returns>
+    private static string ComputeStackTraceHash(string? stackTrace)
+    {
+        if (string.IsNullOrWhiteSpace(stackTrace))
+        {
+            return "none";
+        }
+
+        var trimmed = stackTrace.Trim().Length > 500 ? stackTrace[..500] : stackTrace.Trim();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(trimmed);
+        var hash = System.Security.Cryptography.MD5.HashData(bytes);
+        return Convert.ToHexString(hash)[..8];
     }
 
     /// <summary>

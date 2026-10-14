@@ -49,6 +49,40 @@ public class ErrorNotificationDispatcherTests
     }
 
     [Fact]
+    public void BuildPlainTextMirror_IncludesStackTraceHash()
+    {
+        var notification = new ErrorNotification
+        {
+            Context = "WK7Bot.Services.SomeService",
+            ExceptionType = "System.Exception",
+            Message = "Test",
+            StackTrace = "at SomeService.DoWork()\r\nat OtherService.Run()",
+        };
+
+        var result = ErrorNotificationDispatcher.BuildPlainTextMirror(notification);
+
+        // Hash is an 8-character hex string in brackets after the exception type.
+        Assert.Matches(@"\[\b[0-9A-F]{8}\b\]", result);
+    }
+
+    [Fact]
+    public void BuildPlainTextMirror_HashIsDeterministic()
+    {
+        var notification = new ErrorNotification
+        {
+            Context = "WK7Bot.Services.StableService",
+            ExceptionType = "System.Exception",
+            Message = "Test",
+            StackTrace = "at StableService.DoWork()\r\nat OtherService.Run()",
+        };
+
+        var first = ErrorNotificationDispatcher.BuildPlainTextMirror(notification);
+        var second = ErrorNotificationDispatcher.BuildPlainTextMirror(notification);
+
+        Assert.Equal(first, second);
+    }
+
+    [Fact]
     public void BuildPlainTextMirror_IncludesMessageExcerpt()
     {
         var notification = new ErrorNotification
@@ -107,7 +141,8 @@ public class ErrorNotificationDispatcherTests
 
         var result = ErrorNotificationDispatcher.BuildPlainTextMirror(notification);
 
-        Assert.Equal("⚠️ UnhandledException: System.Exception", result);
+        // Hash is always included now; assert the stable prefix.
+        Assert.StartsWith("⚠️ UnhandledException: System.Exception", result);
     }
 
     [Fact]

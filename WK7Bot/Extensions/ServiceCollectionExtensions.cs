@@ -76,6 +76,12 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<ISteamService, SteamService>();
         services.AddHttpClient<IBattleNetService, BattleNetService>();
         services.AddHttpClient<IGeminiFoodService, GeminiFoodService>();
+
+        // Gemini circuit breaker — prevents hammering Gemini when unavailable.
+        services.AddSingleton<GeminiCircuitBreaker>();
+
+        // External dependency health checker for /health command.
+        services.AddScoped<IExternalDependencyHealthChecker, ExternalDependencyHealthChecker>();
         services.AddHttpClient<IRecipeSearchService, WebRecipeSearchService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
@@ -103,6 +109,9 @@ public static class ServiceCollectionExtensions
         // Shared resilience policy for DWD requests (retry + circuit breaker).
         services.AddSingleton<DwdResiliencePolicy>();
         services.AddSingleton<CommandRateLimiter>();
+
+        // Single source of truth for feature flag decisions.
+        services.AddSingleton<FeatureGate>();
         services.AddHttpClient<AlexaMentionNotificationService>(client =>
         {
             // The notification dispatch runs detached from the gateway handler, so bound the wait
@@ -136,25 +145,30 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<InteractionHandlingService>();
         services.AddHostedService<DiscordBotWorker>();
 
-        // Feature flags. Prefer the Wk7Bot section (appsettings.json); fall back to the
-        // root level (Home Assistant options.json / config.yaml). Services also re-check
-        // bound IOptions at runtime as a second line of defense.
-        if (IsFeatureEnabled(configuration, FeatureKeys.RssPolling))
+        // Replicate the same two-step binding that Program.cs uses for Configure<Wk7BotOptions>:
+        // first bind from the Wk7Bot section, then from root-level config (which overrides).
+        // This ensures the registration layer sees the same merged options as runtime services.
+        var wk7Options = new Wk7BotOptions();
+        configuration.GetSection(Wk7BotOptions.SectionName).Bind(wk7Options);
+        configuration.Bind(wk7Options);
+        var featureGate = new FeatureGate(Microsoft.Extensions.Options.Options.Create(wk7Options));
+
+        if (featureGate.IsEnabled(FeatureKeys.RssPolling))
         {
             services.AddHostedService<RssPollingBackgroundService>();
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.HomeAssistantNotifier))
+        if (featureGate.IsEnabled(FeatureKeys.HomeAssistantNotifier))
         {
             services.AddHostedService<HomeAssistantNotifierService>();
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.LeipzigWaste))
+        if (featureGate.IsEnabled(FeatureKeys.LeipzigWaste))
         {
             services.AddHostedService<LeipzigWasteBackgroundService>();
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.AlexaNotifications))
+        if (featureGate.IsEnabled(FeatureKeys.AlexaNotifications))
         {
             // Reuse the typed-client instance from AddBotDiscordAndClients instead of registering the
             // type a second time: the typed registration is the only one that supplies the HttpClient,
@@ -163,44 +177,44 @@ public static class ServiceCollectionExtensions
             services.AddHostedService(sp => sp.GetRequiredService<AlexaMentionNotificationService>());
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.DiscordPresenceMqtt))
+        if (featureGate.IsEnabled(FeatureKeys.DiscordPresenceMqtt))
         {
             services.AddHostedService<DiscordPresenceMqttService>();
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.FoodService))
+        if (featureGate.IsEnabled(FeatureKeys.FoodService))
         {
             services.AddHostedService<FoodPublisherService>();
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.SpontanTreff))
+        if (featureGate.IsEnabled(FeatureKeys.SpontanTreff))
         {
             services.AddHostedService<SpontanTreffExpiryService>();
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.WeekendDigest))
+        if (featureGate.IsEnabled(FeatureKeys.WeekendDigest))
         {
             services.AddHostedService<WeekendDigestBackgroundService>();
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.DwdWarning))
+        if (featureGate.IsEnabled(FeatureKeys.DwdWarning))
         {
             services.AddHostedService<DwdWarningBackgroundService>();
         }
 
         // Publishes the bot's own availability, uptime and per-feature health to Home Assistant via
         // MQTT discovery. Without this registration the entire status subsystem is dead code.
-        if (IsFeatureEnabled(configuration, FeatureKeys.MqttBotStatus))
+        if (featureGate.IsEnabled(FeatureKeys.MqttBotStatus))
         {
             services.AddHostedService<BotStatusMqttService>();
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.ErrorNotifications))
+        if (featureGate.IsEnabled(FeatureKeys.ErrorNotifications))
         {
             services.AddHostedService<ErrorNotificationDispatcher>();
         }
 
-        if (IsFeatureEnabled(configuration, FeatureKeys.WishlistDealAlerts))
+        if (featureGate.IsEnabled(FeatureKeys.WishlistDealAlerts))
         {
             services.AddHostedService<WishlistDealBackgroundService>();
         }
@@ -210,31 +224,5 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<DatabaseMaintenanceService>();
 
         return services;
-    }
-
-    /// <summary>
-    /// Resolves a feature toggle per key: the Wk7Bot section wins when it defines the key, otherwise the
-    /// configuration root (Home Assistant options.json / config.yaml) is consulted, otherwise the feature
-    /// defaults to enabled. Falling back per key (instead of per section) means a partially configured
-    /// section no longer shadows root-level feature flags.
-    /// </summary>
-    /// <param name="configuration">The configuration provider.</param>
-    /// <param name="featureKey">The snake_case feature key (e.g. rss_polling_enabled).</param>
-    /// <returns><see langword="true"/> when the feature is enabled or unset (defaults to enabled).</returns>
-    private static bool IsFeatureEnabled(IConfiguration configuration, string featureKey)
-    {
-        var wk7Value = configuration.GetSection($"{Wk7BotOptions.SectionName}:features").GetValue<bool?>(featureKey);
-        if (wk7Value.HasValue)
-        {
-            return wk7Value.Value;
-        }
-
-        var rootValue = configuration.GetSection("features").GetValue<bool?>(featureKey);
-        if (rootValue.HasValue)
-        {
-            return rootValue.Value;
-        }
-
-        return true;
     }
 }
