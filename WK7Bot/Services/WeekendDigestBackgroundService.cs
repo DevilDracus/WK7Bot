@@ -41,6 +41,7 @@ public class WeekendDigestBackgroundService : BackgroundService
     private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<WeekendDigestBackgroundService> _logger;
+    private readonly WeekendDigestDispatcher _dispatcher;
 
     private DateTime _attemptDay = DateTime.MinValue;
     private DateTime _nextAttemptAt = DateTime.MinValue;
@@ -56,13 +57,15 @@ public class WeekendDigestBackgroundService : BackgroundService
     /// <param name="health">The feature health tracker recording the outcome of each schedule evaluation.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
+    /// <param name="dispatcher">The guild-level digest dispatcher that handles channel resolution and posting.</param>
     public WeekendDigestBackgroundService(
         IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IWeekendEventSource eventSource,
         FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
-        ILogger<WeekendDigestBackgroundService> logger)
+        ILogger<WeekendDigestBackgroundService> logger,
+        WeekendDigestDispatcher dispatcher)
     {
         _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
@@ -70,6 +73,7 @@ public class WeekendDigestBackgroundService : BackgroundService
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
     }
 
     /// <summary>
@@ -189,23 +193,6 @@ public class WeekendDigestBackgroundService : BackgroundService
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
 
         var targetGuildIds = GetTargetGuildIds();
-        var pendingGuildIds = new List<ulong>();
-        foreach (var guildId in targetGuildIds)
-        {
-            if (!await dispatchRepository.HasSentAsync(DispatchKind, guildId, thursday, cancellationToken))
-            {
-                pendingGuildIds.Add(guildId);
-            }
-        }
-
-        if (pendingGuildIds.Count == 0)
-        {
-            _logger.LogInformation(
-                "Skipping weekend digest dispatch for {Thursday:dd.MM.yyyy}: already sent to all {Count} guild(s) before a restart.",
-                thursday,
-                targetGuildIds.Count);
-            return;
-        }
 
         var digest = _cachedDigest ?? await BuildDigestAsync(thursday, now, cancellationToken);
         if (digest is null)
@@ -214,34 +201,18 @@ public class WeekendDigestBackgroundService : BackgroundService
                 "No weekend events found for the weekend after {Thursday:dd.MM.yyyy}; marking the digest as handled.",
                 thursday);
 
-            foreach (var guildId in pendingGuildIds)
+            foreach (var guildId in targetGuildIds)
             {
-                await dispatchRepository.MarkSentAsync(DispatchKind, guildId, thursday, cancellationToken);
+                if (!await dispatchRepository.HasSentAsync(DispatchKind, guildId, thursday, cancellationToken))
+                {
+                    await dispatchRepository.MarkSentAsync(DispatchKind, guildId, thursday, cancellationToken);
+                }
             }
 
             return;
         }
 
-        foreach (var guildId in pendingGuildIds)
-        {
-            var channel = await GetOrCreateWeekendChannelAsync(guildId);
-            if (channel == null)
-            {
-                _logger.LogWarning("Could not resolve or create the weekend channel for guild {GuildId}; skipping.", guildId);
-                continue;
-            }
-
-            await PostToWeekendChannelAsync(channel, digest.Value.Embed, digest.Value.Poll);
-
-            // Record only after a successful send so a crash or failure retries this guild next attempt
-            // while guilds that already received the digest stay suppressed.
-            await dispatchRepository.MarkSentAsync(DispatchKind, guildId, thursday, cancellationToken);
-        }
-
-        _logger.LogDebug(
-            "Dispatched weekend digest for {Thursday:dd.MM.yyyy} to {Count} guild(s).",
-            thursday,
-            pendingGuildIds.Count);
+        await _dispatcher.DispatchAsync(thursday, digest.Value, dispatchRepository, targetGuildIds, cancellationToken);
     }
 
     /// <summary>
@@ -285,34 +256,4 @@ public class WeekendDigestBackgroundService : BackgroundService
             _discordClient.Guilds.Select(g => g.Id),
             _logger);
 
-    /// <summary>
-    /// Resolves the weekend digest channel for a guild by ID, creating a new channel when missing.
-    /// </summary>
-    /// <param name="guildId">The target guild where channel existence is evaluated.</param>
-    /// <returns>The text channel instance, or <see langword="null"/> when the guild cannot be resolved.</returns>
-    protected virtual Task<ITextChannel?> GetOrCreateWeekendChannelAsync(ulong guildId)
-    {
-        var guild = _discordClient.GetGuild(guildId);
-        return guild is null
-            ? Task.FromResult<ITextChannel?>(null)
-            : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
-                guild,
-                _discordClient.CurrentUser.Id,
-                TargetChannelName,
-                "Wochenend-Tipps aus Leipzig – Märkte, Kultur und Ausflüge mit Abstimmung.",
-                _logger,
-                allowReactions: true);
-    }
-
-    /// <summary>
-    /// Posts the constructed digest to the resolved weekend channel. Virtual for testability.
-    /// </summary>
-    /// <param name="channel">The channel that receives the digest.</param>
-    /// <param name="embed">The digest embed.</param>
-    /// <param name="poll">The poll to attach, or <see langword="null"/> when there is a single suggestion.</param>
-    /// <returns>A task that completes once the message has been sent.</returns>
-    protected virtual Task PostToWeekendChannelAsync(ITextChannel channel, Embed embed, PollProperties? poll)
-        => poll is null
-            ? channel.SendMessageAsync(embed: embed)
-            : channel.SendMessageAsync(embed: embed, poll: poll);
 }
