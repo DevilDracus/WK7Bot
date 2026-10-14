@@ -151,4 +151,29 @@ public class Wk7BotOptions
     /// </summary>
     [ConfigurationKeyName("deal_min_discount_percent")]
     public int DealMinDiscountPercent { get; set; } = 60;
+
+    /// <summary>
+    /// HTTP timeout ceilings. Each typed client registers its timeout from this value when an explicit
+    /// DI configuration is missing; explicit registration still wins.
+    /// </summary>
+    [ConfigurationKeyName("http_timeouts")]
+    public Wk7BotHttpClientTimeouts HttpTimeouts { get; set; } = new();
+}
+
+/// <summary>
+/// 3.1: Centralized HTTP timeout ceilings, grouped by expected latency.
+/// </summary>
+public sealed class Wk7BotHttpClientTimeouts
+{
+    /// <summary>Fast-path ceiling (seconds): health probes, Alexa notifications, HA supervisor proxy.</summary>
+    [ConfigurationKeyName("fast")]
+    public int FastSeconds { get; set; } = 10;
+
+    /// <summary>Default ceiling (seconds): API-grade HTTP clients.</summary>
+    [ConfigurationKeyName("default")]
+    public int DefaultSeconds { get; set; } = 30;
+
+    /// <summary>Slow ceiling (seconds): DWD warnings, recipe fetching — long-form payloads.</summary>
+    [ConfigurationKeyName("slow")]
+    public int SlowSeconds { get; set; } = 45;
 }
