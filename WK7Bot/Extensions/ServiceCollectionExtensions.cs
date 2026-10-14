@@ -195,6 +195,7 @@ public static class ServiceCollectionExtensions
 
         if (featureGate.IsEnabled(FeatureKeys.WeekendDigest))
         {
+            services.AddSingleton<WeekendDigestDispatcher>();
             services.AddHostedService<WeekendDigestBackgroundService>();
         }
 
