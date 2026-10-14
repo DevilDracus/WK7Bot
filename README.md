@@ -16,8 +16,11 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 - **DWD warnings** — 2-minute CAP feed polling, point-in-polygon matching, German embeds with onset countdown into `#⛈️weather-warnings`.
 - **Steam & Battle.net presence** — token-based mapping (no passwords), retries and caches, published to MQTT sensors for Home Assistant.
 - **Food & recipes** — DuckDuckGo/Chefkoch web search with JSON-LD parsing, Gemini-generated renal-safe recipes, monthly produce calendar and weekly seasonal recipe.
-- **Error notifications** — every `Error`/`Critical` log is buffered, throttled (5 min per signature) and posted to `#🤖WK7Errors❗` on the test server, pinging `error_notify_user_ids`, with DM fallback.
+- **Error notifications** — every `Error`/`Critical` log is buffered, throttled (5 min per signature) and posted to `#🤖WK7Errors❗` on the test server, pinging `error_notify_user_ids`, with DM fallback. Plain-text mirror includes an 8-character stack-trace hash for quick grepping.
 - **MQTT health sensors** — uptime, Discord connection state, guild count and a per-feature *enabled*/*problem* sensor for Home Assistant, with a last-will testament so a killed process reports OFFLINE.
+- **External dependency health checks** — `/health` now reports reachability and latency for Home Assistant, DWD, Steam, Gemini, Open Food Facts, and IsThereAnyDeal alongside background service status.
+- **Gemini circuit breaker** — after 3 consecutive Gemini API failures, the circuit opens for 5 minutes, preventing retry storms when the API is unavailable.
+- **Consolidated feature gate** — all feature flag decisions (DI registration + runtime) resolve through a single `FeatureGate` service, eliminating divergence between the two previous decision points.
 
 ## Slash Commands
 
@@ -34,6 +37,8 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `/spontan-treff <plan> [ort] [minuten]` | Meetup with ping + go/pass buttons | everyone |
 | `/ping` | Gateway latency | everyone |
 | `/ha-status` | Test the Home Assistant Supervisor API | everyone |
+| `/health` | Background service + external dependency status | everyone |
+| `/deals` | Check Steam wishlist deals on demand | everyone |
 
 ## Hosted Services
 
@@ -52,6 +57,7 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `DwdWarningBackgroundService` | CAP polling and warnings | `dwd_warning_enabled` |
 | `ErrorNotificationDispatcher` | Error embeds to the test server (DM fallback) | `error_notifications_enabled` |
 | `BotStatusMqttService` | Uptime + per-feature health to MQTT | `mqtt_bot_status_enabled` |
+| `WishlistDealBackgroundService` | 12-hour wishlist price polling + deal alerts | `wishlist_deal_alerts_enabled` |
 
 Flags resolve from `Wk7Bot:features`, then root-level `features`, then default enabled.
 
@@ -163,7 +169,7 @@ On Windows override `ConnectionStrings:DefaultConnection` to a writable path (e.
 dotnet test WK7Bot.sln
 ```
 
-551 tests cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite DDL replay for restart-safe dispatch, and all embed/poll/button builders.
+600 tests cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite DDL replay for restart-safe dispatch, circuit breaker logic, feature gate resolution, DM-context module safety, and all embed/poll/button builders.
 
 ## Stack
 

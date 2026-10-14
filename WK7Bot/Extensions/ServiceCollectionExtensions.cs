@@ -82,6 +82,7 @@ public static class ServiceCollectionExtensions
 
         // External dependency health checker for /health command.
         services.AddScoped<IExternalDependencyHealthChecker, ExternalDependencyHealthChecker>();
+        services.AddHttpClient<IExternalDependencyHealthChecker, ExternalDependencyHealthChecker>(client => client.Timeout = TimeSpan.FromSeconds(10));
         services.AddHttpClient<IRecipeSearchService, WebRecipeSearchService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
