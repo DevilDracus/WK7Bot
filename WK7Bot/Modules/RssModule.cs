@@ -1,5 +1,6 @@
 using Discord;
 using Discord.Interactions;
+using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
@@ -8,26 +9,33 @@ using WK7Bot.Core.Utilities;
 namespace WK7Bot.Modules;
 
 /// <summary>
-/// Provides slash commands for managing RSS news feeds: add, list, and remove.
-/// The subscription dashboard itself lives in <see cref="RssDashboardModule"/>.
+/// Provides slash commands for managing RSS news feeds: add, list, remove, dashboard, and refresh.
 /// </summary>
-public class RssFeedManagementModule : RssModuleBase
+[Group("rss", "Befehle zur Verwaltung von RSS-Newsfeeds und Abonnements")]
+public class RssModule : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>
     /// Upper bound for feed names: the role becomes "RSS: {name}" (100-char role limit) and the dashboard's
-    /// select-menu description "Benachrichtigungen für {name}" must fit into 100 characters.
+    /// select-menu description "Benachrichtigungen f\u00fcr {name}" must fit into 100 characters.
     /// </summary>
     private const int MaxFeedNameLength = 70;
 
-    private readonly IRssRepository _repository;
-    private readonly ILogger<RssFeedManagementModule> _logger;
+    internal const string CategoryName = "RSS Feeds";
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="RssFeedManagementModule"/> class.
+    /// Discord renders at most 25 options (and 25 selected values) in one select menu.
+    /// </summary>
+    private const int MaxDashboardOptions = 25;
+
+    private readonly IRssRepository _repository;
+    private readonly ILogger<RssModule> _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RssModule"/> class.
     /// </summary>
     /// <param name="repository">The repository used for RSS feed data persistence.</param>
     /// <param name="logger">Logger instance used to surface command failures.</param>
-    public RssFeedManagementModule(IRssRepository repository, ILogger<RssFeedManagementModule> logger)
+    public RssModule(IRssRepository repository, ILogger<RssModule> logger)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -39,7 +47,7 @@ public class RssFeedManagementModule : RssModuleBase
     /// <param name="name">The display name of the feed.</param>
     /// <param name="url">The RSS feed XML endpoint URL.</param>
     /// <returns>A task representing the command response operation.</returns>
-    [SlashCommand("add", "Fügt einen neuen RSS-Feed hinzu")]
+    [SlashCommand("add", "F\u00fcgt einen neuen RSS-Feed hinzu")]
     [RequireUserPermission(GuildPermission.ManageChannels)]
     public async Task AddFeedAsync(
         [Summary("name", "Name des Feeds (z. B. PD Leipzig)")] [MaxLength(MaxFeedNameLength)] string name,
@@ -52,14 +60,14 @@ public class RssFeedManagementModule : RssModuleBase
 
         if (string.IsNullOrWhiteSpace(name) || name.Length > MaxFeedNameLength)
         {
-            await FollowupAsync($"❌ Der Name muss zwischen 1 und {MaxFeedNameLength} Zeichen lang sein.", ephemeral: true);
+            await FollowupAsync($"\u274c Der Name muss zwischen 1 und {MaxFeedNameLength} Zeichen lang sein.", ephemeral: true);
             return;
         }
 
         var existing = await _repository.GetFeedByNameAsync(name);
         if (existing != null)
         {
-            await FollowupAsync($"❌ Ein Feed mit dem Namen '{name}' existiert bereits. Wähle einen anderen Namen oder entferne den vorhandenen Feed zuerst.", ephemeral: true);
+            await FollowupAsync($"\u274c Ein Feed mit dem Namen '{name}' existiert bereits. W\u00e4hle einen anderen Namen oder entferne den vorhandenen Feed zuerst.", ephemeral: true);
             return;
         }
 
@@ -71,12 +79,10 @@ public class RssFeedManagementModule : RssModuleBase
         {
             var guild = Context.Guild;
 
-            // Slugging strips punctuation, so two different feed names can sanitize to the same
-            // channel name; append a counter to keep the channels distinguishable.
             var baseChannelName = NameSanitizer.ToChannelSlug(name);
             var channelName = await RssChannelProvisioner.FindAvailableChannelNameAsync(guild, baseChannelName);
 
-            var category = await RssChannelProvisioner.GetOrCreateCategoryAsync(guild, RssDashboardModule.CategoryName);
+            var category = await RssChannelProvisioner.GetOrCreateCategoryAsync(guild, CategoryName);
             createdRole = await guild.CreateRoleAsync(
                 name: $"RSS: {name}",
                 permissions: GuildPermissions.None,
@@ -87,7 +93,7 @@ public class RssFeedManagementModule : RssModuleBase
             createdChannel = await guild.CreateTextChannelAsync(channelName, properties =>
             {
                 properties.CategoryId = category.Id;
-                properties.Topic = $"RSS-Feed für {name}. Verwalte deine Benachrichtigungen über das Abo-Menü.";
+                properties.Topic = $"RSS-Feed f\u00fcr {name}. Verwalte deine Benachrichtigungen \u00fcber das Abo-Men\u00fc.";
                 properties.PermissionOverwrites = new List<Overwrite>
                 {
                     new(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(viewChannel: PermValue.Deny)),
@@ -106,18 +112,18 @@ public class RssFeedManagementModule : RssModuleBase
             await _repository.AddFeedAsync(feedEntity);
             feedSaved = true;
 
-            var dashboardUpdated = await RssDashboardModule.TryRefreshDashboardAsync(Context, _repository);
+            var dashboardUpdated = await TryRefreshDashboardAsync(Context, _repository);
             if (dashboardUpdated)
             {
                 await FollowupAsync(
-                    $"✅ Privater Nur-Lese-Kanal <#{createdChannel.Id}> und Benachrichtigungsrolle <@&{createdRole.Id}> für den RSS-Feed **{name}** erstellt. Das Abo-Menü wurde aktualisiert.",
+                    $"\u2705 Privater Nur-Lese-Kanal <#{createdChannel.Id}> und Benachrichtigungsrolle <@&{createdRole.Id}> f\u00fcr den RSS-Feed **{name}** erstellt. Das Abo-Men\u00fc wurde aktualisiert.",
                     ephemeral: true);
                 return;
             }
 
             await FollowupAsync(
-                $"✅ Privater Nur-Lese-Kanal <#{createdChannel.Id}> und Benachrichtigungsrolle <@&{createdRole.Id}> für den RSS-Feed **{name}** erstellt. " +
-                "Es ist noch kein Abo-Menü vorhanden — erstelle eines mit `/rss dashboard`.",
+                $"\u2705 Privater Nur-Lese-Kanal <#{createdChannel.Id}> und Benachrichtigungsrolle <@&{createdRole.Id}> f\u00fcr den RSS-Feed **{name}** erstellt. " +
+                "Es ist noch kein Abo-Men\u00fc vorhanden \u2014 erstelle eines mit `/rss dashboard`.",
                 ephemeral: true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -128,13 +134,13 @@ public class RssFeedManagementModule : RssModuleBase
             {
                 await TryCleanupPartialCreationAsync(createdChannel, createdRole);
                 await FollowupAsync(
-                    $"❌ Das Erstellen des Feeds **{name}** ist fehlgeschlagen; teilweise erstellte Kanäle, Rollen und eine leere Kategorie wurden aufgeräumt. Bitte versuche es erneut.",
+                    $"\u274c Das Erstellen des Feeds **{name}** ist fehlgeschlagen; teilweise erstellte Kan\u00e4le, Rollen und eine leere Kategorie wurden aufger\u00e4umt. Bitte versuche es erneut.",
                     ephemeral: true);
             }
             else
             {
                 await FollowupAsync(
-                    $"✅ Der Feed **{name}** wurde erstellt, aber das Aktualisieren des Abo-Menüs ist fehlgeschlagen. Führe `/rss dashboard` aus, um ein neues zu posten.",
+                    $"\u2705 Der Feed **{name}** wurde erstellt, aber das Aktualisieren des Abo-Men\u00fcs ist fehlgeschlagen. F\u00fchre `/rss dashboard` aus, um ein neues zu posten.",
                     ephemeral: true);
             }
         }
@@ -153,15 +159,15 @@ public class RssFeedManagementModule : RssModuleBase
 
             if (feeds.Count == 0)
             {
-                await RespondAsync("Noch keine RSS-Feeds registriert. Füge einen mit `/rss add` hinzu.", ephemeral: true);
+                await RespondAsync("Noch keine RSS-Feeds registriert. F\u00fcge einen mit `/rss add` hinzu.", ephemeral: true);
                 return;
             }
 
             var embed = new EmbedBuilder()
-                .WithTitle("📡 RSS-Feeds")
+                .WithTitle("\ud83d\udce1 RSS-Feeds")
                 .WithColor(Color.Blue)
                 .WithTimestamp(DateTimeOffset.UtcNow)
-                .WithFooter("WK7 Bot • RSS-Verwaltung");
+                .WithFooter("WK7 Bot \u2022 RSS-Verwaltung");
 
             foreach (var feed in feeds)
             {
@@ -177,7 +183,7 @@ public class RssFeedManagementModule : RssModuleBase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Listing RSS feeds failed.");
-            await RespondAsync("❌ Feeds konnten nicht geladen werden.", ephemeral: true);
+            await RespondAsync("\u274c Feeds konnten nicht geladen werden.", ephemeral: true);
         }
     }
 
@@ -195,14 +201,14 @@ public class RssFeedManagementModule : RssModuleBase
         name = name.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
-            await FollowupAsync("❌ Bitte gib den Namen des zu entfernenden Feeds an.", ephemeral: true);
+            await FollowupAsync("\u274c Bitte gib den Namen des zu entfernenden Feeds an.", ephemeral: true);
             return;
         }
 
         var feed = await _repository.GetFeedByNameAsync(name);
         if (feed == null)
         {
-            await FollowupAsync($"❌ Kein Feed mit dem Namen '{name}' gefunden.", ephemeral: true);
+            await FollowupAsync($"\u274c Kein Feed mit dem Namen '{name}' gefunden.", ephemeral: true);
             return;
         }
 
@@ -213,7 +219,7 @@ public class RssFeedManagementModule : RssModuleBase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Removing an RSS feed from the database failed.");
-            await FollowupAsync($"❌ Das Entfernen von **{feed.Name}** aus der Datenbank ist fehlgeschlagen; es wurde nichts geändert. Bitte versuche es erneut.", ephemeral: true);
+            await FollowupAsync($"\u274c Das Entfernen von **{feed.Name}** aus der Datenbank ist fehlgeschlagen; es wurde nichts ge\u00e4ndert. Bitte versuche es erneut.", ephemeral: true);
             return;
         }
 
@@ -248,7 +254,7 @@ public class RssFeedManagementModule : RssModuleBase
 
         try
         {
-            await RssDashboardModule.TryRefreshDashboardAsync(Context, _repository);
+            await TryRefreshDashboardAsync(Context, _repository);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -257,9 +263,164 @@ public class RssFeedManagementModule : RssModuleBase
         }
 
         await FollowupAsync(cleanupProblem
-            ? $"✅ Feed **{feed.Name}** entfernt, aber das Aufräumen von Kanal/Rolle oder das Aktualisieren des Abo-Menüs ist fehlgeschlagen — bitte prüfe den Server."
-            : $"✅ Feed **{feed.Name}** entfernt, Kanal und Rolle gelöscht und das Abo-Menü aktualisiert.",
+            ? $"\u2705 Feed **{feed.Name}** entfernt, aber das Aufr\u00e4umen von Kanal/Rolle oder das Aktualisieren des Abo-Men\u00fcs ist fehlgeschlagen \u2014 bitte pr\u00fcfe den Server."
+            : $"\u2705 Feed **{feed.Name}** entfernt, Kanal und Rolle gel\u00f6scht und das Abo-Men\u00fc aktualisiert.",
             ephemeral: true);
+    }
+
+    /// <summary>
+    /// Posts or updates the interactive subscription dashboard select menu in the current channel and stores its location.
+    /// </summary>
+    /// <returns>A task representing the command response operation.</returns>
+    [SlashCommand("dashboard", "Postet das interaktive RSS-Abo-Men\u00fc")]
+    [RequireUserPermission(GuildPermission.ManageRoles)]
+    public async Task PostDashboardAsync()
+    {
+        var responseSent = false;
+        try
+        {
+            var feeds = await _repository.GetAllFeedsAsync();
+
+            if (!feeds.Any())
+            {
+                await RespondAsync("\u274c Es sind noch keine RSS-Feeds zum Abonnieren vorhanden.", ephemeral: true);
+                return;
+            }
+
+            var (embed, component) = BuildDashboardMessage(feeds);
+
+            await RespondAsync(embed: embed, components: component);
+            responseSent = true;
+
+            var responseMessage = await GetOriginalResponseAsync();
+            await _repository.SaveDashboardLocationAsync(Context.Channel.Id, responseMessage.Id);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Posting the RSS subscription dashboard failed.");
+
+            var message = responseSent
+                ? "\u26a0\ufe0f Das Abo-Men\u00fc wurde gepostet, aber seine Position konnte nicht gespeichert werden \u2014 automatische Aktualisierungen funktionieren erst, nachdem es erneut gepostet wurde."
+                : "\u274c Das Abo-Men\u00fc konnte nicht erstellt werden. Bitte versuche es sp\u00e4ter erneut.";
+
+            if (responseSent)
+            {
+                await FollowupAsync(message, ephemeral: true);
+            }
+            else
+            {
+                await RespondAsync(message, ephemeral: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Refreshes the stored subscription dashboard message with the latest RSS feed options.
+    /// </summary>
+    /// <param name="context">The interaction context that identifies the guild to look the stored message up in.</param>
+    /// <param name="repository">The RSS repository holding the dashboard location and feeds.</param>
+    /// <returns>
+    /// A task containing <see langword="true"/> when the stored dashboard message was updated, or
+    /// <see langword="false"/> when no (longer fetchable) dashboard exists.
+    /// </returns>
+    internal static async Task<bool> TryRefreshDashboardAsync(SocketInteractionContext context, IRssRepository repository)
+    {
+        var location = await repository.GetDashboardLocationAsync();
+        if (location == null)
+        {
+            return false;
+        }
+
+        if (context.Guild.GetChannel(location.Value.ChannelId) is not ITextChannel channel)
+        {
+            return false;
+        }
+
+        IMessage fetchedMessage;
+        try
+        {
+            fetchedMessage = await channel.GetMessageAsync(location.Value.MessageId);
+        }
+        catch (Discord.Net.HttpException ex) when (ex.HttpCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        if (fetchedMessage is not IUserMessage message)
+        {
+            return false;
+        }
+
+        var feeds = await repository.GetAllFeedsAsync();
+        if (!feeds.Any())
+        {
+            var emptyEmbed = new EmbedBuilder()
+                .WithTitle("RSS-Feed-Abos")
+                .WithDescription("Aktuell sind keine RSS-Feeds zum Abonnieren vorhanden.")
+                .WithColor(Color.DarkGrey)
+                .Build();
+
+            await message.ModifyAsync(props =>
+            {
+                props.Embed = emptyEmbed;
+                props.Components = new ComponentBuilder().Build();
+            });
+
+            return true;
+        }
+
+        var (embed, component) = BuildDashboardMessage(feeds);
+
+        await message.ModifyAsync(props =>
+        {
+            props.Embed = embed;
+            props.Components = component;
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// Constructs the Discord embed and select menu component for the RSS dashboard.
+    /// </summary>
+    /// <param name="feeds">The list of active RSS feeds.</param>
+    /// <returns>A tuple containing the constructed embed and message components.</returns>
+    private static (Embed Embed, MessageComponent Component) BuildDashboardMessage(List<RssFeed> feeds)
+    {
+        var shownFeeds = feeds.Take(MaxDashboardOptions).ToList();
+        var hiddenCount = feeds.Count - shownFeeds.Count;
+
+        var menuBuilder = new SelectMenuBuilder()
+            .WithCustomId("rss-subscription-select")
+            .WithPlaceholder("W\u00e4hle die RSS-Feeds aus, die du abonnieren m\u00f6chtest...")
+            .WithMinValues(0)
+            .WithMaxValues(shownFeeds.Count);
+
+        foreach (var feed in shownFeeds)
+        {
+            menuBuilder.AddOption(
+                label: feed.Name,
+                value: feed.RoleId.ToString(),
+                description: $"Benachrichtigungen f\u00fcr {feed.Name}");
+        }
+
+        var component = new ComponentBuilder()
+            .WithSelectMenu(menuBuilder)
+            .Build();
+
+        var description = "W\u00e4hle im Men\u00fc unten aus, welche lokalen Nachrichten und Polizeimeldungen du abonnieren m\u00f6chtest. Die Auswahl wirkt sich sofort auf deine Benachrichtigungsrollen aus.";
+        if (hiddenCount > 0)
+        {
+            description += $"\n\n\u26a0\ufe0f {hiddenCount} weitere Feeds sind eingerichtet, zeigt Discord in diesem Men\u00fc aus Platzgr\u00fcnden nicht an.";
+        }
+
+        var embed = new EmbedBuilder()
+            .WithTitle("RSS-Feed-Abos")
+            .WithDescription(description)
+            .WithColor(Color.Blue)
+            .Build();
+
+        return (embed, component);
     }
 
     /// <summary>
@@ -295,8 +456,6 @@ public class RssFeedManagementModule : RssModuleBase
             }
         }
 
-        // Remove the auto-created category when it is left empty; one that still holds channels of
-        // other feeds stays.
         try
         {
             if (Context.Guild is not IGuild guild)
@@ -305,7 +464,7 @@ public class RssFeedManagementModule : RssModuleBase
             }
 
             var categories = await guild.GetCategoriesAsync();
-            var category = categories.FirstOrDefault(c => c.Name.Equals(RssDashboardModule.CategoryName, StringComparison.OrdinalIgnoreCase));
+            var category = categories.FirstOrDefault(c => c.Name.Equals(CategoryName, StringComparison.OrdinalIgnoreCase));
             if (category == null)
             {
                 return;
