@@ -62,14 +62,18 @@ public class CommandUsageRepository
     {
         var cutoff = DateTimeOffset.UtcNow.AddDays(-days);
 
-        return await _dbContext.CommandUsageLogs
+        // Use an anonymous type for the EF Core projection — ValueTuple constructor
+        // calls cannot be translated to SQL and throw InvalidOperationException at runtime.
+        var query = await _dbContext.CommandUsageLogs
             .Where(e => e.InvokedAt >= cutoff)
             .GroupBy(e => e.CommandName)
-            .Select(g => new ValueTuple<string, int>(g.Key, g.Count()))
-            .OrderByDescending(x => x.Item2)
+            .Select(g => new { CommandName = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
             .Take(top)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+
+        return query.Select(x => (x.CommandName, x.Count)).ToList();
     }
 
     /// <summary>
