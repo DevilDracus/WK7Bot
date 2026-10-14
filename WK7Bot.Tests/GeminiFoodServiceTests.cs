@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using WK7Bot.Models;
 using WK7Bot.Options;
 using WK7Bot.Services;
+using WK7Bot.Core.Utilities;
 using Xunit;
 
 namespace WK7Bot.Tests;
@@ -109,7 +110,8 @@ public class GeminiFoodServiceTests
         return new GeminiFoodService(
             new HttpClient(handler),
             options,
-            NullLogger<GeminiFoodService>.Instance);
+            NullLogger<GeminiFoodService>.Instance,
+            new GeminiCircuitBreaker(NullLogger<GeminiCircuitBreaker>.Instance));
     }
 
     private static HttpResponseMessage Json(string json, HttpStatusCode statusCode = HttpStatusCode.OK)
@@ -155,9 +157,10 @@ public class GeminiFoodServiceTests
     {
         var options = Microsoft.Extensions.Options.Options.Create(new Wk7BotOptions { GeminiApiKey = TestApiKey });
 
-        Assert.Throws<ArgumentNullException>(() => new GeminiFoodService(null!, options, NullLogger<GeminiFoodService>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new GeminiFoodService(new HttpClient(), null!, NullLogger<GeminiFoodService>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new GeminiFoodService(new HttpClient(), options, null!));
+        Assert.Throws<ArgumentNullException>(() => new GeminiFoodService(null!, options, NullLogger<GeminiFoodService>.Instance, new GeminiCircuitBreaker(NullLogger<GeminiCircuitBreaker>.Instance)));
+        Assert.Throws<ArgumentNullException>(() => new GeminiFoodService(new HttpClient(), null!, NullLogger<GeminiFoodService>.Instance, new GeminiCircuitBreaker(NullLogger<GeminiCircuitBreaker>.Instance)));
+        Assert.Throws<ArgumentNullException>(() => new GeminiFoodService(new HttpClient(), options, null!, new GeminiCircuitBreaker(NullLogger<GeminiCircuitBreaker>.Instance)));
+        Assert.Throws<ArgumentNullException>(() => new GeminiFoodService(new HttpClient(), options, NullLogger<GeminiFoodService>.Instance, null!));
     }
 
     [Theory]
@@ -243,7 +246,7 @@ public class GeminiFoodServiceTests
         var payload = Assert.Single(handler.Payloads);
         Assert.Contains("Provide a complete list of seasonal produce", payload);
         Assert.Contains("\"responseMimeType\":\"application/json\"", payload);
-        Assert.Contains("\"responseSchema\"", payload);
+        Assert.Contains("\"jsonSchema\"", payload);
         Assert.Contains("\"maxOutputTokens\":8192", payload);
     }
 
@@ -438,7 +441,7 @@ public class GeminiFoodServiceTests
         Assert.Contains("Re-format it into the schema", payload);
         Assert.Contains("FAITHFUL", payload);
         Assert.Contains("200 g Mehl und 300 ml Milch und 2 Eier", payload);
-        Assert.Contains("\"responseSchema\"", payload);
+        Assert.Contains("\"jsonSchema\"", payload);
         Assert.Contains("\"instructions\"", payload);
         Assert.DoesNotContain("\"diet_tags\"", payload);
         Assert.DoesNotContain("transplant_safety_notes", payload);

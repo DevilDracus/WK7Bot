@@ -4,6 +4,7 @@ using System.Text;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
@@ -17,12 +18,13 @@ using WK7Bot.Services.Interfaces;
 /// </summary>
 public class WishlistDealBackgroundService : BackgroundService
 {
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IWishlistDealService _dealService;
     private readonly ISteamService _steamService;
     private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
+    private readonly FeatureGate _featureGate;
     private readonly ILogger<WishlistDealBackgroundService> _logger;
 
     /// <summary>
@@ -38,35 +40,38 @@ public class WishlistDealBackgroundService : BackgroundService
     /// <summary>
     /// Initializes a new instance of the <see cref="WishlistDealBackgroundService"/> class.
     /// </summary>
-    /// <param name="serviceProvider">The service provider for creating database scopes.</param>
+    /// <param name="scopeFactory">The scope factory for creating database scopes.</param>
     /// <param name="discordClient">The connected Discord socket client.</param>
     /// <param name="dealService">The wishlist deal evaluation service.</param>
     /// <param name="steamService">The Steam service for resolving Discord-to-Steam mappings.</param>
     /// <param name="health">The feature health tracker.</param>
     /// <param name="options">The application configuration options.</param>
+    /// <param name="featureGate">The consolidated feature gate.</param>
     /// <param name="logger">The logger instance.</param>
     public WishlistDealBackgroundService(
-        IServiceProvider serviceProvider,
+        IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IWishlistDealService dealService,
         ISteamService steamService,
         FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
+        FeatureGate featureGate,
         ILogger<WishlistDealBackgroundService> logger)
     {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _dealService = dealService ?? throw new ArgumentNullException(nameof(dealService));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _featureGate = featureGate ?? throw new ArgumentNullException(nameof(featureGate));
     }
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_options.Features.IsEnabled(FeatureKeys.WishlistDealAlerts))
+        if (!_featureGate.IsEnabled(FeatureKeys.WishlistDealAlerts))
         {
             _logger.LogInformation("Wishlist deal alerts are disabled via feature options.");
             return;
@@ -135,7 +140,7 @@ public class WishlistDealBackgroundService : BackgroundService
         _logger.LogInformation("Found {Count} unique wishlisted games across {Users} mapped users.", allAppIds.Count, wishlistsByDiscordId.Count);
 
         // Update tracked games in database
-        using (var scope = _serviceProvider.CreateScope())
+        using (var scope = _scopeFactory.CreateScope())
         {
             var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
             var games = allAppIds.Select(appId => new WishlistGame
@@ -175,7 +180,7 @@ public class WishlistDealBackgroundService : BackgroundService
 
         // Evaluate alerts
         var alerts = new List<WishlistDealAlert>();
-        using (var scope = _serviceProvider.CreateScope())
+        using (var scope = _scopeFactory.CreateScope())
         {
             var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
 

@@ -31,6 +31,7 @@ public sealed class BotStatusMqttService : BackgroundService
     private readonly MqttConnectionCoordinator _coordinator;
     private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
+    private readonly FeatureGate _featureGate;
     private readonly ILogger<BotStatusMqttService> _logger;
 
     private readonly DateTime _startedAtUtc = DateTime.UtcNow;
@@ -46,13 +47,15 @@ public sealed class BotStatusMqttService : BackgroundService
     /// <param name="health">The feature health tracker providing the per-feature state.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance.</param>
+    /// <param name="featureGate">The consolidated feature gate.</param>
     public BotStatusMqttService(
         DiscordSocketClient discordClient,
         IMqttClient mqttClient,
         MqttConnectionCoordinator coordinator,
         FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
-        ILogger<BotStatusMqttService> logger)
+        ILogger<BotStatusMqttService> logger,
+        FeatureGate featureGate)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
@@ -60,6 +63,7 @@ public sealed class BotStatusMqttService : BackgroundService
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _featureGate = featureGate ?? throw new ArgumentNullException(nameof(featureGate));
     }
 
     /// <summary>
@@ -217,7 +221,7 @@ public sealed class BotStatusMqttService : BackgroundService
         foreach (var feature in monitored)
         {
             desired[BotStatusEntities.EnabledStateTopic(feature)] =
-                BotStatusEntities.EnabledStatePayload(_options.Features.IsEnabled(feature.FeatureKey));
+                BotStatusEntities.EnabledStatePayload(_featureGate.IsEnabled(feature.FeatureKey));
 
             var snapshot = _health.Get(feature.FeatureKey);
             desired[BotStatusEntities.ProblemStateTopic(feature)] = BotStatusEntities.ProblemStatePayload(snapshot);

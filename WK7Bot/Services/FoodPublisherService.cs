@@ -27,7 +27,7 @@ public class FoodPublisherService : BackgroundService
     private readonly IGeminiFoodService _geminiFoodService;
     private readonly IRecipeSearchService _recipeSearchService;
     private readonly IRandomSource _randomSource;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<FoodPublisherService> _logger;
@@ -72,7 +72,7 @@ public class FoodPublisherService : BackgroundService
     /// <param name="geminiFoodService">The Gemini AI food and recipe service dependency.</param>
     /// <param name="recipeSearchService">The web recipe search service used for the weekly seasonal recipe.</param>
     /// <param name="options">Application options instance.</param>
-    /// <param name="serviceProvider">Root service provider used to resolve scoped database services.</param>
+    /// <param name="scopeFactory">Scope factory used to resolve scoped database services.</param>
     /// <param name="health">The feature health tracker recording the outcome of each publishing pass.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="randomSource">Randomness used to pick the seasonal search terms; defaults to <see cref="SystemRandomSource"/>.</param>
@@ -81,7 +81,7 @@ public class FoodPublisherService : BackgroundService
         IGeminiFoodService geminiFoodService,
         IRecipeSearchService recipeSearchService,
         IOptions<Wk7BotOptions> options,
-        IServiceProvider serviceProvider,
+        IServiceScopeFactory scopeFactory,
         FeatureHealthTracker health,
         ILogger<FoodPublisherService> logger,
         IRandomSource? randomSource = null)
@@ -90,7 +90,7 @@ public class FoodPublisherService : BackgroundService
         _geminiFoodService = geminiFoodService ?? throw new ArgumentNullException(nameof(geminiFoodService));
         _recipeSearchService = recipeSearchService ?? throw new ArgumentNullException(nameof(recipeSearchService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _randomSource = randomSource ?? new SystemRandomSource();
@@ -327,7 +327,7 @@ public class FoodPublisherService : BackgroundService
     {
         try
         {
-            using var scope = _serviceProvider.CreateScope();
+            using var scope = _scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<IFoodDispatchRepository>();
 
             await repository.MarkSentAsync(kind, now.Date, cancellationToken);
@@ -351,7 +351,7 @@ public class FoodPublisherService : BackgroundService
     {
         try
         {
-            using var scope = _serviceProvider.CreateScope();
+            using var scope = _scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<IFoodDispatchRepository>();
             return await repository.HasSentAsync(kind, now.Date, cancellationToken);
         }

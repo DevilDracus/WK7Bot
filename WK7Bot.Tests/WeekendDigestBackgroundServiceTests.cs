@@ -36,11 +36,11 @@ public class WeekendDigestBackgroundServiceTests
         public bool ChannelUnavailable { get; set; }
 
         public TestableWeekendDigestService(
-            IServiceProvider serviceProvider,
+            IServiceScopeFactory scopeFactory,
             IWeekendEventSource eventSource,
             IReadOnlyList<ulong> guildIds)
             : base(
-                serviceProvider,
+                scopeFactory,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
                 eventSource,
                 new Core.Utilities.FeatureHealthTracker(),
@@ -80,6 +80,7 @@ public class WeekendDigestBackgroundServiceTests
     private sealed class Fixture : IDisposable
     {
         public ServiceProvider Provider { get; }
+        public IServiceScopeFactory ScopeFactory => new ServiceProviderScopeFactory(Provider);
 
         public Fixture()
         {
@@ -143,7 +144,7 @@ public class WeekendDigestBackgroundServiceTests
             Market("Wochenmarkt", new DateTime(2026, 10, 10), "Augustusplatz"),
             Market("Flohmarkt", new DateTime(2026, 10, 11), "Leuthof"));
 
-        var first = new TestableWeekendDigestService(fixture.Provider, source.Object, new ulong[] { 100 });
+        var first = new TestableWeekendDigestService(fixture.ScopeFactory, source.Object, new ulong[] { 100 });
         await first.EvaluateAsync(Thursday1415);
 
         var post = Assert.Single(first.Posts);
@@ -152,7 +153,7 @@ public class WeekendDigestBackgroundServiceTests
         Assert.True(post.HasPoll);
 
         // Simulates a bot restart: fresh in-memory flags, same persistent database.
-        var restarted = new TestableWeekendDigestService(fixture.Provider, source.Object, new ulong[] { 100 });
+        var restarted = new TestableWeekendDigestService(fixture.ScopeFactory, source.Object, new ulong[] { 100 });
         await restarted.EvaluateAsync(Thursday1415);
 
         Assert.Empty(restarted.Posts);
@@ -164,7 +165,7 @@ public class WeekendDigestBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = EventSourceReturning(Market("Wochenmarkt", new DateTime(2026, 10, 10), "Augustusplatz"));
-        var service = new TestableWeekendDigestService(fixture.Provider, source.Object, new ulong[] { 100 });
+        var service = new TestableWeekendDigestService(fixture.ScopeFactory, source.Object, new ulong[] { 100 });
 
         await service.EvaluateAsync(Thursday1400);
 
@@ -179,7 +180,7 @@ public class WeekendDigestBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = EventSourceReturning(Market("Wochenmarkt", new DateTime(2026, 10, 10), "Augustusplatz"));
-        var service = new TestableWeekendDigestService(fixture.Provider, source.Object, new ulong[] { 100 });
+        var service = new TestableWeekendDigestService(fixture.ScopeFactory, source.Object, new ulong[] { 100 });
 
         await service.EvaluateAsync(Wednesday1415);
         await service.EvaluateAsync(Friday1415);
@@ -194,7 +195,7 @@ public class WeekendDigestBackgroundServiceTests
         using var fixture = new Fixture();
         var failing = FailingEventSource();
 
-        var first = new TestableWeekendDigestService(fixture.Provider, failing.Object, new ulong[] { 100 });
+        var first = new TestableWeekendDigestService(fixture.ScopeFactory, failing.Object, new ulong[] { 100 });
         await first.EvaluateAsync(Thursday1415);
 
         Assert.Empty(first.Posts);
@@ -202,7 +203,7 @@ public class WeekendDigestBackgroundServiceTests
 
         // 15-minute retry delay has passed; the second attempt succeeds.
         var healthy = EventSourceReturning(Market("Wochenmarkt", new DateTime(2026, 10, 10), "Augustusplatz"));
-        var retry = new TestableWeekendDigestService(fixture.Provider, healthy.Object, new ulong[] { 100 });
+        var retry = new TestableWeekendDigestService(fixture.ScopeFactory, healthy.Object, new ulong[] { 100 });
         await retry.EvaluateAsync(Thursday1431);
 
         Assert.Single(retry.Posts);
@@ -215,7 +216,7 @@ public class WeekendDigestBackgroundServiceTests
         using var fixture = new Fixture();
         var failing = FailingEventSource();
 
-        var service = new TestableWeekendDigestService(fixture.Provider, failing.Object, new ulong[] { 100 });
+        var service = new TestableWeekendDigestService(fixture.ScopeFactory, failing.Object, new ulong[] { 100 });
         await service.EvaluateAsync(Thursday1415);
         await service.EvaluateAsync(Thursday1415.AddMinutes(5));
 
@@ -230,7 +231,7 @@ public class WeekendDigestBackgroundServiceTests
         using var fixture = new Fixture();
         var failing = FailingEventSource();
 
-        var service = new TestableWeekendDigestService(fixture.Provider, failing.Object, new ulong[] { 100 });
+        var service = new TestableWeekendDigestService(fixture.ScopeFactory, failing.Object, new ulong[] { 100 });
 
         for (var attempt = 0; attempt < 4; attempt++)
         {
@@ -252,7 +253,7 @@ public class WeekendDigestBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = EventSourceReturning();
-        var service = new TestableWeekendDigestService(fixture.Provider, source.Object, new ulong[] { 100 });
+        var service = new TestableWeekendDigestService(fixture.ScopeFactory, source.Object, new ulong[] { 100 });
 
         await service.EvaluateAsync(Thursday1415);
 
@@ -265,7 +266,7 @@ public class WeekendDigestBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = EventSourceReturning(Market("Wochenmarkt", new DateTime(2026, 10, 10), "Augustusplatz"));
-        var service = new TestableWeekendDigestService(fixture.Provider, source.Object, new ulong[] { 100 })
+        var service = new TestableWeekendDigestService(fixture.ScopeFactory, source.Object, new ulong[] { 100 })
         {
             ChannelUnavailable = true
         };
@@ -282,7 +283,7 @@ public class WeekendDigestBackgroundServiceTests
         using var fixture = new Fixture();
         var source = EventSourceReturning(Market("Wochenmarkt", new DateTime(2026, 10, 10), "Augustusplatz"));
 
-        var partial = new TestableWeekendDigestService(fixture.Provider, source.Object, new ulong[] { 1, 2 });
+        var partial = new TestableWeekendDigestService(fixture.ScopeFactory, source.Object, new ulong[] { 1, 2 });
         partial.FailingGuilds.Add(2);
 
         await partial.EvaluateAsync(Thursday1415);
@@ -310,7 +311,7 @@ public class WeekendDigestBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = EventSourceReturning(Market("Wochenmarkt", new DateTime(2026, 10, 10), "Augustusplatz"));
-        var service = new TestableWeekendDigestService(fixture.Provider, source.Object, new ulong[] { 100 });
+        var service = new TestableWeekendDigestService(fixture.ScopeFactory, source.Object, new ulong[] { 100 });
 
         await service.EvaluateAsync(Thursday1415);
 

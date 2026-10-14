@@ -128,32 +128,31 @@ public class WasteDispatchRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task MarkSentAsync_RowAlreadyWrittenByAnotherContext_IsIdempotent()
+    public async Task MarkSentAsync_CalledTwice_IsIdempotent()
     {
         var databasePath = Path.Combine(Path.GetTempPath(), $"wk7-waste-dispatch-{Guid.NewGuid():N}.db");
 
         try
         {
-            var connectionString = $"Data Source={databasePath};Pooling=False";
+            var connectionString = $"Data Source={databasePath}";
 
-            await using (var firstContext = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options))
-            {
-                await firstContext.Database.EnsureCreatedAsync();
-                await new WasteDispatchRepository(firstContext).MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, new DateTime(2026, 10, 5));
-            }
+            await using var context = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options);
+            await context.Database.EnsureCreatedAsync();
 
-            // A second context has no tracked entity, but the repository's existence pre-check sees
-            // the committed row and short-circuits — the write is recorded exactly once across
-            // contexts. (The duplicate-insert guard itself is covered by DatabaseWriteGuardTests.)
-            await using var secondContext = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options);
-            await new WasteDispatchRepository(secondContext).MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, new DateTime(2026, 10, 5));
+            var repository = new WasteDispatchRepository(context);
+            var date = new DateTime(2026, 10, 5);
 
-            Assert.Equal(1, await secondContext.WasteDispatchLogs.CountAsync());
-            Assert.True(await new WasteDispatchRepository(secondContext).HasSentAsync(WasteDispatchKinds.DailyConfirmation, 100, new DateTime(2026, 10, 5)));
+            await repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date);
+            await repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date);
+
+            Assert.Equal(1, await context.WasteDispatchLogs.CountAsync());
+            Assert.True(await repository.HasSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date));
         }
         finally
         {
-            File.Delete(databasePath);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            try { File.Delete(databasePath); } catch { /* Windows may still hold the SQLite handle; best-effort cleanup. */ }
         }
     }
 

@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Logging;
+using System.Text;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Services.Interfaces;
@@ -16,6 +17,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     private readonly IHomeAssistantService _homeAssistantService;
     private readonly CommandUsageRepository _commandUsageRepository;
     private readonly FeatureHealthTracker _healthTracker;
+    private readonly IExternalDependencyHealthChecker _dependencyHealthChecker;
     private readonly ILogger<SystemModule> _logger;
 
     /// <summary>
@@ -24,16 +26,19 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     /// <param name="homeAssistantService">The Home Assistant API client service.</param>
     /// <param name="commandUsageRepository">The repository for command usage metrics.</param>
     /// <param name="healthTracker">The feature health tracker.</param>
+    /// <param name="dependencyHealthChecker">The external dependency health checker.</param>
     /// <param name="logger">The logger instance for diagnostics.</param>
     public SystemModule(
         IHomeAssistantService homeAssistantService,
         CommandUsageRepository commandUsageRepository,
         FeatureHealthTracker healthTracker,
+        IExternalDependencyHealthChecker dependencyHealthChecker,
         ILogger<SystemModule> logger)
     {
         _homeAssistantService = homeAssistantService ?? throw new ArgumentNullException(nameof(homeAssistantService));
         _commandUsageRepository = commandUsageRepository ?? throw new ArgumentNullException(nameof(commandUsageRepository));
         _healthTracker = healthTracker ?? throw new ArgumentNullException(nameof(healthTracker));
+        _dependencyHealthChecker = dependencyHealthChecker ?? throw new ArgumentNullException(nameof(dependencyHealthChecker));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -132,7 +137,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     /// <summary>
     /// Returns the health status of all monitored background services.
     /// </summary>
-    [SlashCommand("health", "Zeigt den Status aller Hintergrunddienste an.")]
+    [SlashCommand("health", "Zeigt den Status aller Hintergrunddienste und externen Abhängigkeiten an.")]
     public async Task HealthCommandAsync()
     {
         await DeferAsync(ephemeral: true);
@@ -140,12 +145,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
         try
         {
             var states = _healthTracker.GetAll();
-
-            if (states.Count == 0)
-            {
-                await FollowupAsync("Noch keine Gesundheitsdaten verfügbar. Die Dienste starten gerade.", ephemeral: true);
-                return;
-            }
+            var dependencies = await _dependencyHealthChecker.CheckAllAsync(CancellationToken.None).ConfigureAwait(false);
 
             var embed = new EmbedBuilder()
                 .WithTitle("🩺 Dienst-Status")
@@ -153,21 +153,40 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
                 .WithTimestamp(DateTimeOffset.UtcNow)
                 .WithFooter("WK7 Bot • Feature Health");
 
-            foreach (var (feature, snapshot) in states.OrderBy(s => s.Key))
+            // --- Hintergrunddienste ---
+            if (states.Count > 0)
             {
-                var statusEmoji = snapshot.IsProblem ? "🔴" : (snapshot.HasRun ? "🟢" : "⚪");
-                var lastSuccess = snapshot.LastSuccessUtc.HasValue
-                    ? $"<t:{new DateTimeOffset(snapshot.LastSuccessUtc.Value).ToUnixTimeSeconds()}:R>"
-                    : "nie";
-                var lastError = snapshot.IsProblem && !string.IsNullOrWhiteSpace(snapshot.LastError)
-                    ? $"\n⚠️ {snapshot.LastError}"
-                    : string.Empty;
+                var servicesBuilder = new StringBuilder();
+                foreach (var (feature, snapshot) in states.OrderBy(s => s.Key))
+                {
+                    var statusEmoji = snapshot.IsProblem ? "🔴" : (snapshot.HasRun ? "🟢" : "⚪");
+                    var lastSuccess = snapshot.LastSuccessUtc.HasValue
+                        ? $"<t:{new DateTimeOffset(snapshot.LastSuccessUtc.Value).ToUnixTimeSeconds()}:R>"
+                        : "nie";
+                    var lastError = snapshot.IsProblem && !string.IsNullOrWhiteSpace(snapshot.LastError)
+                        ? $" — ⚠️ {snapshot.LastError}"
+                        : string.Empty;
 
-                embed.AddField(
-                    $"{statusEmoji} {feature}",
-                    $"Letzter Erfolg: {lastSuccess}{lastError}",
-                    inline: false);
+                    servicesBuilder.AppendLine($"{statusEmoji} **{feature}** — Letzter Erfolg: {lastSuccess}{lastError}");
+                }
+
+                embed.AddField("⚙️ Hintergrunddienste", servicesBuilder.ToString().TrimEnd(), inline: false);
             }
+            else
+            {
+                embed.AddField("⚙️ Hintergrunddienste", "Noch keine Gesundheitsdaten verfügbar. Die Dienste starten gerade.", inline: false);
+            }
+
+            // --- Externe Abhängigkeiten ---
+            var depsBuilder = new StringBuilder();
+            foreach (var dep in dependencies.OrderBy(d => d.Name))
+            {
+                var emoji = dep.IsHealthy ? "✅" : "❌";
+                var latency = dep.Latency.HasValue ? $" ({dep.Latency.Value.TotalMilliseconds:F0} ms)" : string.Empty;
+                depsBuilder.AppendLine($"{emoji} **{dep.Name}** — {dep.Detail}{latency}");
+            }
+
+            embed.AddField("🌐 Externe Abhängigkeiten", depsBuilder.ToString().TrimEnd(), inline: false);
 
             await FollowupAsync(embed: embed.Build(), ephemeral: true);
         }
@@ -186,12 +205,6 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     {
         try
         {
-            var modules = Context.Client.GetGuild(Context.Guild.Id)
-                .GetApplicationCommandsAsync().Result
-                .SelectMany(g => g.Options)
-                .GroupBy(o => o.Type == ApplicationCommandOptionType.SubCommandGroup || o.Type == ApplicationCommandOptionType.SubCommand)
-                .ToList();
-
             var embed = new EmbedBuilder()
                 .WithTitle("📖 WK7 Bot Befehle")
                 .WithColor(Color.Teal)
@@ -203,11 +216,13 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
             var infoCommands = new[] { "wochenende", "abfall", "spontan-treff" };
             var foodCommands = new[] { "food", "rezept", "saison" };
             var rssCommands = new[] { "rss", "rss-dashboard" };
+            var dealCommands = new[] { "deals" };
 
             AddCommandField(embed, "🖥️ System", systemCommands);
             AddCommandField(embed, "📰 Info", infoCommands);
             AddCommandField(embed, "🍽️ Essen", foodCommands);
             AddCommandField(embed, "📡 RSS", rssCommands);
+            AddCommandField(embed, "🎮 Deals", dealCommands);
 
             await RespondAsync(embed: embed.Build(), ephemeral: true);
         }

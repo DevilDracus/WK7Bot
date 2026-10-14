@@ -22,6 +22,7 @@ public class GeminiFoodService : IGeminiFoodService
     private readonly HttpClient _httpClient;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<GeminiFoodService> _logger;
+    private readonly GeminiCircuitBreaker _circuitBreaker;
 
     /// <summary>
     /// Primary Gemini model used for structured output generation.
@@ -80,16 +81,19 @@ public class GeminiFoodService : IGeminiFoodService
     /// <param name="httpClient">The HTTP client instance.</param>
     /// <param name="options">The strongly-typed options instance containing configuration parameters.</param>
     /// <param name="logger">The logger instance.</param>
+    /// <param name="circuitBreaker">The circuit breaker for Gemini API calls.</param>
     /// <exception cref="ArgumentNullException">Thrown when required dependencies are null.</exception>
     public GeminiFoodService(
         HttpClient httpClient,
         IOptions<Wk7BotOptions> options,
-        ILogger<GeminiFoodService> logger)
+        ILogger<GeminiFoodService> logger,
+        GeminiCircuitBreaker circuitBreaker)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _httpClient.Timeout = RequestTimeout;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _circuitBreaker = circuitBreaker ?? throw new ArgumentNullException(nameof(circuitBreaker));
     }
 
     /// <summary>
@@ -100,6 +104,12 @@ public class GeminiFoodService : IGeminiFoodService
     /// <returns>A structured <see cref="SeasonalFoodData"/> instance or null if processing fails.</returns>
     public async Task<SeasonalFoodData?> GetSeasonalProduceAsync(DateTime dateTime, CancellationToken cancellationToken = default)
     {
+        if (_circuitBreaker.IsCircuitOpen())
+        {
+            _logger.LogWarning("Gemini circuit breaker is open; skipping seasonal produce request.");
+            return null;
+        }
+
         if (string.IsNullOrWhiteSpace(_options.GeminiApiKey))
         {
             _logger.LogWarning("Gemini API key is missing. Skipping seasonal produce generation.");
@@ -108,7 +118,7 @@ public class GeminiFoodService : IGeminiFoodService
 
         string monthName = dateTime.GermanMonthName();
         string prompt = $"Provide a complete list of seasonal produce for the month of {monthName} in Central Europe (Germany/Leipzig region). " +
-                       $"Categorize every item strictly into fruits, vegetables, herbs, and nuts.\n" + 
+                       $"Categorize every item strictly into fruits, vegetables, herbs, and nuts.\n" +
                        $"IMPORTANT: Use the GERMAN names for fruits, vegetables, herbs and nuts!";
 
         var jsonSchema = new JsonObject
@@ -125,7 +135,18 @@ public class GeminiFoodService : IGeminiFoodService
             ["required"] = new JsonArray { "month", "fruits", "vegetables", "herbs", "nuts" }
         };
 
-        return await RequestGeminiStructuredOutputAsync<SeasonalFoodData>(prompt, jsonSchema, cancellationToken);
+        var result = await RequestGeminiStructuredOutputAsync<SeasonalFoodData>(prompt, jsonSchema, cancellationToken);
+
+        if (result != null)
+        {
+            _circuitBreaker.RecordSuccess();
+        }
+        else
+        {
+            _circuitBreaker.RecordFailure();
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -136,6 +157,12 @@ public class GeminiFoodService : IGeminiFoodService
     /// <returns>A structured <see cref="RenalRecipeData"/> instance containing diet tags and instructions, or null if processing fails.</returns>
     public async Task<RenalRecipeData?> GetWeeklyRenalRecipeAsync(DateTime dateTime, CancellationToken cancellationToken = default)
     {
+        if (_circuitBreaker.IsCircuitOpen())
+        {
+            _logger.LogWarning("Gemini circuit breaker is open; skipping renal recipe request.");
+            return null;
+        }
+
         if (string.IsNullOrWhiteSpace(_options.GeminiApiKey))
         {
             _logger.LogWarning("Gemini API key is missing. Skipping renal recipe generation.");
@@ -191,7 +218,18 @@ public class GeminiFoodService : IGeminiFoodService
             ["required"] = new JsonArray { "title", "description", "prep_time", "cook_time", "servings", "seasonal_ingredients_used", "ingredients", "instructions", "transplant_safety_notes", "diet_tags" }
         };
 
-        return await RequestGeminiStructuredOutputAsync<RenalRecipeData>(prompt, jsonSchema, cancellationToken);
+        var result = await RequestGeminiStructuredOutputAsync<RenalRecipeData>(prompt, jsonSchema, cancellationToken);
+
+        if (result != null)
+        {
+            _circuitBreaker.RecordSuccess();
+        }
+        else
+        {
+            _circuitBreaker.RecordFailure();
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -250,11 +288,17 @@ public class GeminiFoodService : IGeminiFoodService
 
         var formatted = await RequestGeminiStructuredOutputAsync<RenalRecipeData>(prompt, jsonSchema, cancellationToken);
 
-        if (formatted == null
-            || string.IsNullOrWhiteSpace(formatted.Title)
+        if (formatted == null)
+        {
+            _circuitBreaker.RecordFailure();
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(formatted.Title)
             || formatted.Ingredients is not { Count: > 0 }
             || formatted.Instructions is not { Count: > 0 })
         {
+            _circuitBreaker.RecordFailure();
             _logger.LogWarning("Gemini returned an unusable formatted recipe (title/ingredients/steps missing).");
             return null;
         }
@@ -291,30 +335,36 @@ public class GeminiFoodService : IGeminiFoodService
     /// <summary>
     /// Submits a structured JSON generation payload to Gemini with automatic model fallback and retries on 503/429 errors.
     /// </summary>
-    private async Task<T?> RequestGeminiStructuredOutputAsync<T>(string prompt, JsonObject responseSchema, CancellationToken cancellationToken)
+    private async Task<TResponse?> RequestGeminiStructuredOutputAsync<TResponse>(string prompt, JsonObject jsonSchema, CancellationToken cancellationToken = default) where TResponse : class
     {
+        if (_circuitBreaker.IsCircuitOpen())
+        {
+            return null;
+        }
         // Try Primary Model first, then fall back to FallbackModel if unavailable
         string[] candidateModels = { PrimaryModel, FallbackModel };
 
         foreach (var modelName in candidateModels)
         {
-            var result = await TryExecuteRequestWithRetryAsync<T>(modelName, prompt, responseSchema, cancellationToken);
+            var result = await TryExecuteRequestWithRetryAsync<TResponse>(modelName, prompt, jsonSchema, cancellationToken);
             if (result != null)
             {
+                _circuitBreaker.RecordSuccess();
                 return result;
             }
 
             _logger.LogWarning("Model {ModelName} failed or was unavailable. Trying next candidate...", modelName);
         }
 
+        _circuitBreaker.RecordFailure();
         _logger.LogError("All candidate Gemini models failed to yield a response.");
-        return default;
+        return null;
     }
 
     /// <summary>
     /// Executes the HTTP REST API call to Gemini with exponential backoff for transient 503 / 429 status codes.
     /// </summary>
-    private async Task<T?> TryExecuteRequestWithRetryAsync<T>(string modelName, string prompt, JsonObject responseSchema, CancellationToken cancellationToken)
+    private async Task<TResponse?> TryExecuteRequestWithRetryAsync<TResponse>(string modelName, string prompt, JsonObject jsonSchema, CancellationToken cancellationToken)
     {
         int maxRetries = 3;
         int delayMs = (int)RetryDelay.TotalMilliseconds;
@@ -336,7 +386,7 @@ public class GeminiFoodService : IGeminiFoodService
             generationConfig = new
             {
                 responseMimeType = "application/json",
-                responseSchema = responseSchema,
+                jsonSchema = jsonSchema,
                 maxOutputTokens = 8192 // Ensures large structured recipes finish generating completely without truncation
             }
         };
@@ -364,7 +414,7 @@ public class GeminiFoodService : IGeminiFoodService
                             .GetProperty("text")
                             .GetString() ?? string.Empty;
 
-                        return JsonSerializer.Deserialize<T>(innerJson, StructuredAnswerOptions);
+                        return JsonSerializer.Deserialize<TResponse>(innerJson, StructuredAnswerOptions);
                     }
                 }
 

@@ -54,12 +54,11 @@ public class StartupConfigurationValidator : BackgroundService
 
             var report = BuildReport();
 
-            // Only post when there are actual problems, or when verbose mode is explicitly enabled.
-            // This prevents spamming the channel with identical reports on every routine restart.
+            // Always post a brief confirmation on successful start so the operator knows
+            // the bot is alive. Full embed only when there are problems or verbose mode is on.
             if (report.AllValid && !_options.StartupReportVerbose)
             {
-                _logger.LogInformation(
-                    "Startup configuration report suppressed (all valid, verbose mode off).");
+                await PostBriefConfirmationAsync(stoppingToken).ConfigureAwait(false);
                 return;
             }
 
@@ -145,6 +144,49 @@ public class StartupConfigurationValidator : BackgroundService
         }
 
         return report;
+    }
+
+    /// <summary>
+    /// Posts a brief one-line confirmation that the bot started successfully.
+    /// This gives the operator confidence without spamming a full embed on every restart.
+    /// </summary>
+    private async Task PostBriefConfirmationAsync(CancellationToken stoppingToken)
+    {
+        const string message = "✅ **WK7 Bot** started — all configuration items valid.";
+
+        // Try to post to the first guild's system channel
+        var guild = _discordClient.Guilds.FirstOrDefault();
+        if (guild?.SystemChannel is not null)
+        {
+            try
+            {
+                await guild.SystemChannel.SendMessageAsync(message).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not post brief startup confirmation to guild system channel.");
+            }
+        }
+
+        // Fallback: DM the first configured error user
+        if (_options.ErrorNotifyUserIds.Count > 0 &&
+            ulong.TryParse(_options.ErrorNotifyUserIds[0], out var userId))
+        {
+            try
+            {
+                var user = await _discordClient.GetUserAsync(userId).ConfigureAwait(false);
+                if (user is not null)
+                {
+                    var dm = await user.CreateDMChannelAsync().ConfigureAwait(false);
+                    await dm.SendMessageAsync(message).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not send brief startup confirmation via DM.");
+            }
+        }
     }
 
     /// <summary>
