@@ -18,11 +18,6 @@ using WK7Bot.Services.Interfaces;
 public class WeekendDigestBackgroundService : BackgroundService
 {
     /// <summary>
-    /// Name of the channel the digest is posted to; created when missing.
-    /// </summary>
-    private const string TargetChannelName = "📅wochenende";
-
-    /// <summary>
     /// Dispatch kind used for restart-safe duplicate suppression.
     /// </summary>
     public const string DispatchKind = "weekend_digest";
