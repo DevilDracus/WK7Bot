@@ -1,5 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Extensions;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Models;
@@ -16,6 +18,24 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 var errorNotificationQueue = new ErrorNotificationQueue();
 builder.Services.AddSingleton(errorNotificationQueue);
 builder.Logging.AddProvider(new DiscordErrorLoggerProvider(errorNotificationQueue));
+
+// Configure minimum log level from add-on options (defaults to Warning to keep HA log output concise).
+var configuredLevel = builder.Configuration["log_level"] ?? "Warning";
+if (Enum.TryParse<LogLevel>(configuredLevel, true, out var parsedLevel))
+{
+    builder.Logging.SetMinimumLevel(parsedLevel);
+}
+else
+{
+    builder.Logging.SetMinimumLevel(LogLevel.Warning);
+}
+
+// Add timestamps to every console log line so the Home Assistant add-on log is readable.
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.SingleLine = true;
+    options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
+});
 
 // Modular service registrations
 builder.Services.AddBotDatabase(connectionString);
@@ -36,6 +56,9 @@ if (wk7Section.Exists())
 builder.Services.Configure<Wk7BotOptions>(builder.Configuration);
 
 var app = builder.Build();
+
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("==== WK7 Bot v{Version} starting at {Timestamp:yyyy-MM-dd HH:mm:ss} ====", AppInformation.Version, DateTime.UtcNow);
 
 await app.InitializeDatabaseAsync();
 
