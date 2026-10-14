@@ -19,7 +19,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
     private readonly IHomeAssistantService _homeAssistantService;
     private readonly IOptions<Wk7BotOptions> _options;
     private readonly ILogger<ExternalDependencyHealthChecker> _logger;
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ExternalDependencyHealthChecker"/> class.
@@ -27,17 +27,17 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
     /// <param name="homeAssistantService">The Home Assistant API client.</param>
     /// <param name="options">The bot options.</param>
     /// <param name="logger">The logger instance.</param>
-    /// <param name="httpClient">The HTTP client for dependency checks.</param>
+    /// <param name="httpClientFactory">The HTTP client factory.</param>
     public ExternalDependencyHealthChecker(
         IHomeAssistantService homeAssistantService,
         IOptions<Wk7BotOptions> options,
         ILogger<ExternalDependencyHealthChecker> logger,
-        HttpClient httpClient)
+        IHttpClientFactory httpClientFactory)
     {
         _homeAssistantService = homeAssistantService ?? throw new ArgumentNullException(nameof(homeAssistantService));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
     }
 
     /// <inheritdoc />
@@ -83,9 +83,10 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         var sw = Stopwatch.StartNew();
         try
         {
-            _httpClient.Timeout = TimeSpan.FromSeconds(10);
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(10);
 
-            using var response = await _httpClient.GetAsync(
+            using var response = await client.GetAsync(
                 "https://opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/",
                 cancellationToken).ConfigureAwait(false);
 
@@ -111,9 +112,10 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         var sw = Stopwatch.StartNew();
         try
         {
-            _httpClient.Timeout = TimeSpan.FromSeconds(10);
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(10);
 
-            using var response = await _httpClient.GetAsync(
+            using var response = await client.GetAsync(
                 "https://store.steampowered.com/api/appdetails?appids=620",
                 cancellationToken).ConfigureAwait(false);
 
@@ -149,9 +151,10 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         var sw = Stopwatch.StartNew();
         try
         {
-            _httpClient.Timeout = TimeSpan.FromSeconds(10);
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(10);
 
-            using var response = await _httpClient.GetAsync(
+            using var response = await client.GetAsync(
                 "https://world.openfoodfacts.org/cgi/search.pl?search_terms=banana&json=1&page_size=1",
                 cancellationToken).ConfigureAwait(false);
 
@@ -177,9 +180,10 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         var sw = Stopwatch.StartNew();
         try
         {
-            _httpClient.Timeout = TimeSpan.FromSeconds(10);
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(10);
 
-            using var response = await _httpClient.GetAsync(
+            using var response = await client.GetAsync(
                 "https://api.isthereanydeal.com/v01/web/regions/",
                 cancellationToken).ConfigureAwait(false);
 
