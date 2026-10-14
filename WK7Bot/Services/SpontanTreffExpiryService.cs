@@ -24,7 +24,7 @@ public class SpontanTreffExpiryService : BackgroundService
     /// <summary>
     /// Initializes a new instance of the <see cref="SpontanTreffExpiryService"/> class.
     /// </summary>
-    /// <param name="serviceProvider">The service provider used to create database scopes.</param>
+    /// <param name="scopeFactory">The scope factory used to create database scopes.</param>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="health">The feature health tracker recording the outcome of each sweep.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>

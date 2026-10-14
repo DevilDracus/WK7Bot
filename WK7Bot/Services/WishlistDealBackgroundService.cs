@@ -40,7 +40,7 @@ public class WishlistDealBackgroundService : BackgroundService
     /// <summary>
     /// Initializes a new instance of the <see cref="WishlistDealBackgroundService"/> class.
     /// </summary>
-    /// <param name="serviceProvider">The service provider for creating database scopes.</param>
+    /// <param name="scopeFactory">The scope factory for creating database scopes.</param>
     /// <param name="discordClient">The connected Discord socket client.</param>
     /// <param name="dealService">The wishlist deal evaluation service.</param>
     /// <param name="steamService">The Steam service for resolving Discord-to-Steam mappings.</param>

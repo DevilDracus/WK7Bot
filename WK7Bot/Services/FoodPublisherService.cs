@@ -72,7 +72,7 @@ public class FoodPublisherService : BackgroundService
     /// <param name="geminiFoodService">The Gemini AI food and recipe service dependency.</param>
     /// <param name="recipeSearchService">The web recipe search service used for the weekly seasonal recipe.</param>
     /// <param name="options">Application options instance.</param>
-    /// <param name="serviceProvider">Root service provider used to resolve scoped database services.</param>
+    /// <param name="scopeFactory">Scope factory used to resolve scoped database services.</param>
     /// <param name="health">The feature health tracker recording the outcome of each publishing pass.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="randomSource">Randomness used to pick the seasonal search terms; defaults to <see cref="SystemRandomSource"/>.</param>

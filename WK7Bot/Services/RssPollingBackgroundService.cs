@@ -30,7 +30,7 @@ public class RssPollingBackgroundService : BackgroundService
     /// <summary>
     /// Initializes a new instance of the <see cref="RssPollingBackgroundService"/> class.
     /// </summary>
-    /// <param name="serviceProvider">The service provider to create database scopes.</param>
+    /// <param name="scopeFactory">The scope factory to create database scopes.</param>
     /// <param name="discordClient">The active Discord client instance.</param>
     /// <param name="health">The feature health tracker recording the outcome of each polling pass.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
