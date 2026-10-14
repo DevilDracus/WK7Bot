@@ -1,49 +1,59 @@
 namespace WK7Bot.Core.Utilities;
 
 using System;
+using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Polly;
+using Polly.CircuitBreaker;
+using Polly.Retry;
 
 /// <summary>
-/// Resilience policy for DWD warning feed requests. Combines retry-with-exponential-backoff
-/// and a circuit breaker to handle transient TLS failures, timeouts, and the intermittent
-/// 503/EOF errors observed from <c>opendata.dwd.de</c>.
+/// Resilience policy for DWD warning feed requests. 5.1 migration: the retry-with-exponential-backoff
+/// and the circuit breaker are expressed as one Polly <see cref="ResiliencePipeline{TResult}"/> applied
+/// to a normalized <c>object</c> result, so every caller — whether it fetches an
+/// <see cref="HttpResponseMessage"/>, a raw <c>string</c> or <c>byte[]</c> — is protected by the same
+/// policy instead of a special-cased fast path.
 /// </summary>
 /// <remarks>
-/// The DWD feed is a public government endpoint with no SLA. Transient failures are common:
-/// TLS handshake resets, connection timeouts, and occasional 503 responses. Without retry
-/// logic, a single transient failure kills the entire poll cycle and the service appears dead.
-/// The circuit breaker prevents the bot from spamming an already-unreachable host.
+/// <para>
+/// Cancellation is never treated as a failure: an <see cref="OperationCanceledException"/> (or a
+/// <see cref="TaskCanceledException"/> whose token is genuinely cancelled) passes straight through and
+/// neither advances the retry count nor trips the circuit breaker.
+/// </para>
+/// <para>
+/// Transient HTTP status codes (5xx, 408 RequestTimeout) are detected on the result as well as on the
+/// exception, so a Polly result-predicate can retry them without the caller inspecting the response.
+/// </para>
+/// <para>
+/// The circuit breaker translates Polly's <see cref="BrokenCircuitException{TResult}"/> into
+/// <see cref="DwdCircuitBreakerOpenException"/> so the existing DWD services and their tests keep
+/// their original contract.
+/// </para>
 /// </remarks>
 public sealed class DwdResiliencePolicy
 {
-    private readonly ILogger<DwdResiliencePolicy> _logger;
-    private readonly object _gate = new();
-
-    private int _consecutiveFailures;
-    private DateTime _circuitOpenedAtUtc;
-    private bool _circuitOpen;
-
     /// <summary>
-    /// Maximum number of retry attempts per request (1 initial + 2 retries = 3 total).
+    /// Maximum number of attempts per request (1 initial + 2 retries = 3 total).
     /// </summary>
     public const int MaxAttempts = 3;
 
-    /// <summary>
-    /// Base delay for exponential backoff. Attempt 1 waits 2s, attempt 2 waits 4s.
-    /// </summary>
     private static readonly TimeSpan BaseDelay = TimeSpan.FromSeconds(2);
-
-    /// <summary>
-    /// Number of consecutive failures before the circuit breaker opens.
-    /// </summary>
     private const int CircuitBreakerThreshold = 5;
+    private static readonly TimeSpan CircuitBreakerDuration = TimeSpan.FromMinutes(1);
 
     /// <summary>
-    /// How long the circuit breaker stays open before allowing a trial request.
+    /// Polly counts every individual attempt — including retries — towards the breaker's minimum
+    /// throughput, while the legacy contract counted one logical failure per <see cref="ExecuteAsync{T}"/>
+    /// call. Scaling the threshold by the attempt budget keeps "5 consecutive failed requests" meaning
+    /// five failed requests rather than five failed attempts.
     /// </summary>
-    private static readonly TimeSpan CircuitBreakerDuration = TimeSpan.FromMinutes(1);
+    private const int CircuitBreakerMinimumThroughput = CircuitBreakerThreshold * MaxAttempts;
+
+    private readonly ILogger<DwdResiliencePolicy> _logger;
+    private readonly ResiliencePipeline<object> _pipeline;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DwdResiliencePolicy"/> class.
@@ -52,6 +62,54 @@ public sealed class DwdResiliencePolicy
     public DwdResiliencePolicy(ILogger<DwdResiliencePolicy> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        // One shared predicate: an outcome is "handled" (retryable / breaker-visible) when it is a
+        // transient non-cancellation exception, or a result that represents a transient HTTP status.
+        // Cancellation is deliberately excluded so shutdown never trips the breaker.
+        static ValueTask<bool> ShouldHandle(RetryPredicateArguments<object> args)
+            => new(IsHandledOutcome(args.Outcome));
+
+
+
+        _pipeline = new ResiliencePipelineBuilder<object>()
+            .AddRetry(new RetryStrategyOptions<object>
+            {
+                ShouldHandle = ShouldHandle,
+                MaxRetryAttempts = MaxAttempts - 1,
+                BackoffType = DelayBackoffType.Exponential,
+                Delay = BaseDelay,
+                UseJitter = false,
+                OnRetry = args =>
+                {
+                    _logger.LogWarning(args.Outcome.Exception,
+                        "DWD request attempt {Attempt} failed (status/degraded). Retrying after {Delay}ms.",
+                        args.AttemptNumber + 1,
+                        args.RetryDelay.TotalMilliseconds);
+                    return ValueTask.CompletedTask;
+                },
+            })
+            .AddCircuitBreaker(new CircuitBreakerStrategyOptions<object>
+            {
+                ShouldHandle = (CircuitBreakerPredicateArguments<object> args) => new ValueTask<bool>(IsHandledOutcome(args.Outcome)),
+                FailureRatio = 1.0,
+                SamplingDuration = TimeSpan.FromMinutes(1),
+                MinimumThroughput = CircuitBreakerMinimumThroughput,
+                BreakDuration = CircuitBreakerDuration,
+                OnOpened = _ =>
+                {
+                    _logger.LogError(
+                        "DWD circuit breaker opened after {Threshold} consecutive failures. Will retry at {RetryTime:O}.",
+                        CircuitBreakerThreshold,
+                        DateTime.UtcNow + CircuitBreakerDuration);
+                    return ValueTask.CompletedTask;
+                },
+                OnClosed = _ =>
+                {
+                    _logger.LogInformation("DWD circuit breaker closed.");
+                    return ValueTask.CompletedTask;
+                },
+            })
+            .Build();
     }
 
     /// <summary>
@@ -62,133 +120,96 @@ public sealed class DwdResiliencePolicy
     /// <param name="cancellationToken">Cancellation token for the overall operation.</param>
     /// <returns>The result of the action.</returns>
     /// <exception cref="DwdCircuitBreakerOpenException">The circuit breaker is open and the host is considered unreachable.</exception>
-    /// <exception cref="HttpRequestException">All retry attempts were exhausted.</exception>
     public async Task<T> ExecuteAsync<T>(
         Func<CancellationToken, Task<T>> action,
         CancellationToken cancellationToken = default)
     {
-        if (IsCircuitOpen())
-        {
-            throw new DwdCircuitBreakerOpenException(
-                $"DWD circuit breaker is open (opened at {_circuitOpenedAtUtc:O}). Skipping request.");
-        }
+        ArgumentNullException.ThrowIfNull(action);
 
-        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
+        // Normalize every caller to object so the pipeline is built once. HttpResponseMessage is the
+        // result-polish case; string/byte[] results are always opaque values and never "transient".
+        // Polly refuses to start a pipeline whose token is already cancelled, so a pre-cancelled
+        // request invokes its action exactly once — mirroring the legacy contract and its tests.
+        if (cancellationToken.IsCancellationRequested)
         {
             try
             {
-                var result = await action(cancellationToken).ConfigureAwait(false);
-                RecordSuccess();
-                return result;
+                return await action(cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            finally
             {
-                throw;
-            }
-            catch (Exception ex) when (IsTransient(ex) && attempt < MaxAttempts)
-            {
-                var delay = TimeSpan.FromTicks(BaseDelay.Ticks * (1 << (attempt - 1)));
-                _logger.LogWarning(
-                    ex,
-                    "DWD request attempt {Attempt}/{MaxAttempts} failed: {Message}. Retrying in {DelayMs}ms.",
-                    attempt,
-                    MaxAttempts,
-                    ex.Message,
-                    delay.TotalMilliseconds);
-
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (IsTransient(ex))
-            {
-                RecordFailure();
-                _logger.LogError(
-                    ex,
-                    "DWD request failed after {MaxAttempts} attempts: {Message}",
-                    MaxAttempts,
-                    ex.Message);
-                throw;
+                cancellationToken.ThrowIfCancellationRequested();
             }
         }
 
-        // Unreachable: the loop either returns or throws.
-        throw new InvalidOperationException("DwdResiliencePolicy.ExecuteAsync fell through the retry loop.");
-    }
+        var adapted = new Func<CancellationToken, Task<object>>(async ct =>
+            (await action(ct).ConfigureAwait(false))!);
 
-    /// <summary>
-    /// Determines whether an exception is transient and worth retrying.
-    /// </summary>
-    /// <param name="ex">The exception to inspect.</param>
-    /// <returns><see langword="true"/> when the failure is likely transient.</returns>
-    private static bool IsTransient(Exception ex)
-    {
-        return ex is HttpRequestException
-            or TimeoutException
-            or TaskCanceledException
-            or IOException
-            or DwdCircuitBreakerOpenException;
-    }
-
-    /// <summary>
-    /// Records a successful request, resetting the circuit breaker.
-    /// </summary>
-    private void RecordSuccess()
-    {
-        lock (_gate)
+        try
         {
-            _consecutiveFailures = 0;
-            _circuitOpen = false;
+            var result = await _pipeline.ExecuteAsync<object>(_ => new ValueTask<object>(adapted(cancellationToken)), cancellationToken).ConfigureAwait(false);
+            return (T)result;
+        }
+        catch (Exception ex) when (ex is BrokenCircuitException<object> or BrokenCircuitException)
+        {
+            // Keep the historical contract for the DWD services (and their tests) intact.
+            throw new DwdCircuitBreakerOpenException(
+                $"DWD circuit breaker is open (will retry at {DateTime.UtcNow + CircuitBreakerDuration:O}). Skipping request.");
         }
     }
 
     /// <summary>
-    /// Records a failed request, opening the circuit breaker if the threshold is reached.
+    /// Determines whether an outcome should advance the retry count and the circuit breaker.
     /// </summary>
-    private void RecordFailure()
+    private static bool IsHandledOutcome(Outcome<object> outcome)
     {
-        lock (_gate)
+        if (outcome.Exception is TaskCanceledException taskCanceled)
         {
-            _consecutiveFailures++;
-            if (_consecutiveFailures >= CircuitBreakerThreshold && !_circuitOpen)
-            {
-                _circuitOpen = true;
-                _circuitOpenedAtUtc = DateTime.UtcNow;
-                _logger.LogError(
-                    "DWD circuit breaker opened after {Threshold} consecutive failures. Will retry at {RetryTime:O}.",
-                    CircuitBreakerThreshold,
-                    _circuitOpenedAtUtc + CircuitBreakerDuration);
-            }
+            // Genuine cancellation propagates; a TaskCanceledException with no cancelled token is a timeout.
+            return !taskCanceled.CancellationToken.IsCancellationRequested;
         }
-    }
 
-    /// <summary>
-    /// Checks whether the circuit breaker is currently open.
-    /// </summary>
-    /// <returns><see langword="true"/> when requests should be skipped.</returns>
-    private bool IsCircuitOpen()
-    {
-        lock (_gate)
+        // Genuine (non-Task) cancellation propagates untouched.
+        if (outcome.Exception is OperationCanceledException)
         {
-            if (!_circuitOpen)
-            {
-                return false;
-            }
+            return false;
+        }
 
-            if (DateTime.UtcNow - _circuitOpenedAtUtc >= CircuitBreakerDuration)
-            {
-                // Half-open: allow one trial request.
-                _circuitOpen = false;
-                _consecutiveFailures = 0;
-                _logger.LogInformation("DWD circuit breaker half-open: allowing trial request.");
-                return false;
-            }
+        if (outcome.Exception is HttpRequestException { StatusCode: { } code })
+        {
+            return IsTransientStatusCode(code);
+        }
 
+        if (outcome.Exception is HttpRequestException or IOException or TimeoutException)
+        {
             return true;
         }
+
+        return IsTransientResult(outcome.Result);
     }
+
+    /// <summary>
+    /// Treats responses that describe a transient HTTP status as handled, so Polly retries/punishes them
+    /// without the caller inspecting the status code itself.
+    /// </summary>
+    private static bool IsTransientResult(object? result)
+    {
+        switch (result)
+        {
+            case HttpResponseMessage response:
+                return IsTransientStatusCode(response.StatusCode);
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsTransientStatusCode(HttpStatusCode statusCode)
+        => (int)statusCode >= 500 || statusCode == HttpStatusCode.RequestTimeout;
 }
 
 /// <summary>
-/// Exception thrown when the DWD circuit breaker is open and the request is skipped.
+/// Exception thrown when the DWD circuit breaker is open and the request is skipped. Preserved as the
+/// public contract of <see cref="DwdResiliencePolicy"/> after the Polly migration.
 /// </summary>
 public sealed class DwdCircuitBreakerOpenException : Exception
 {
