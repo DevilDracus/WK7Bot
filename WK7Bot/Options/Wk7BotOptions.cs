@@ -20,6 +20,12 @@ public class Wk7BotOptions
     public string DiscordToken { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the minimum log level for the bot's console output (Debug, Information, Warning, Error).
+    /// </summary>
+    [ConfigurationKeyName("log_level")]
+    public string LogLevel { get; set; } = "Warning";
+
+    /// <summary>
     /// Gets or sets the MQTT broker hostname or container address.
     /// </summary>
     [ConfigurationKeyName("mqtt_host")]

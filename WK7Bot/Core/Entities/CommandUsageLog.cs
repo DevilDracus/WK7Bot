@@ -26,9 +26,9 @@ public class CommandUsageLog
     public ulong GuildId { get; set; }
 
     /// <summary>
-    /// Gets or sets the timestamp when the command was invoked.
+    /// Gets or sets the UTC timestamp when the command was invoked.
     /// </summary>
-    public DateTimeOffset InvokedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTime InvokedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
     /// Gets or sets whether the command executed successfully.

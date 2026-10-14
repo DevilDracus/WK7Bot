@@ -40,7 +40,7 @@ public class CommandUsageRepository
             CommandName = commandName,
             UserId = userId,
             GuildId = guildId,
-            InvokedAt = DateTimeOffset.UtcNow,
+            InvokedAt = DateTime.UtcNow,
             Succeeded = succeeded
         };
 
@@ -60,7 +60,7 @@ public class CommandUsageRepository
         int top,
         CancellationToken cancellationToken)
     {
-        var cutoff = DateTimeOffset.UtcNow.AddDays(-days);
+        var cutoff = DateTime.UtcNow.AddDays(-days);
 
         // Use an anonymous type for the EF Core projection — ValueTuple constructor
         // calls cannot be translated to SQL and throw InvalidOperationException at runtime.
@@ -81,7 +81,7 @@ public class CommandUsageRepository
     /// </summary>
     public async Task<int> PruneOldLogsAsync(int retentionDays, CancellationToken cancellationToken)
     {
-        var cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays);
+        var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
         var oldEntries = await _dbContext.CommandUsageLogs
             .Where(e => e.InvokedAt < cutoff)
             .ToListAsync(cancellationToken)
