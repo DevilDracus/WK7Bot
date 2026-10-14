@@ -3,6 +3,7 @@ namespace WK7Bot.Services;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
@@ -14,7 +15,7 @@ using WK7Bot.Options;
 /// </summary>
 public class SpontanTreffExpiryService : BackgroundService
 {
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
@@ -29,13 +30,13 @@ public class SpontanTreffExpiryService : BackgroundService
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public SpontanTreffExpiryService(
-        IServiceProvider serviceProvider,
+        IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<SpontanTreffExpiryService> logger)
     {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
@@ -89,7 +90,7 @@ public class SpontanTreffExpiryService : BackgroundService
     /// <returns><see langword="true"/> when every expired meetup was processed cleanly.</returns>
     protected virtual async Task<bool> SweepAsync(DateTime now, CancellationToken stoppingToken)
     {
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = _scopeFactory.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<ISpontanTreffRepository>();
 
         var expired = await repository.GetExpiredAsync(now, stoppingToken);

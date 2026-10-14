@@ -37,11 +37,11 @@ public class LeipzigWasteBackgroundServiceTests
         public bool ChannelUnavailable { get; set; }
 
         public TestableWasteBackgroundService(
-            IServiceProvider serviceProvider,
+            IServiceScopeFactory scopeFactory,
             ILeipzigWasteService wasteService,
             IReadOnlyList<ulong> guildIds)
             : base(
-                serviceProvider,
+                scopeFactory,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
                 wasteService,
                 new Core.Utilities.FeatureHealthTracker(),
@@ -81,6 +81,7 @@ public class LeipzigWasteBackgroundServiceTests
     private sealed class Fixture : IDisposable
     {
         public ServiceProvider Provider { get; }
+        public IServiceScopeFactory ScopeFactory => new ServiceProviderScopeFactory(Provider);
 
         public Fixture()
         {
@@ -123,14 +124,14 @@ public class LeipzigWasteBackgroundServiceTests
         using var fixture = new Fixture();
         var wasteService = WasteServiceReturning("Schwarze Tonne");
 
-        var first = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var first = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await first.EvaluateAsync(Monday0830);
 
         Assert.Single(first.Posts);
         Assert.Equal(DailyTitle, first.Posts[0].Title);
 
         // Simulates a bot restart: fresh in-memory flags, same persistent database.
-        var restarted = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var restarted = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await restarted.EvaluateAsync(Monday0830);
 
         Assert.Empty(restarted.Posts);
@@ -143,11 +144,11 @@ public class LeipzigWasteBackgroundServiceTests
         using var fixture = new Fixture();
         var wasteService = WasteServiceReturning("Schwarze Tonne");
 
-        var monday = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var monday = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await monday.EvaluateAsync(Monday0830);
         Assert.Single(monday.Posts);
 
-        var tuesday = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var tuesday = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await tuesday.EvaluateAsync(Tuesday0830);
 
         Assert.Single(tuesday.Posts);
@@ -158,7 +159,7 @@ public class LeipzigWasteBackgroundServiceTests
     public async Task DailyConfirmation_NotSent_Before8am()
     {
         using var fixture = new Fixture();
-        var service = new TestableWasteBackgroundService(fixture.Provider, WasteServiceReturning("Schwarze Tonne"), new ulong[] { 100 });
+        var service = new TestableWasteBackgroundService(fixture.ScopeFactory, WasteServiceReturning("Schwarze Tonne"), new ulong[] { 100 });
 
         await service.EvaluateAsync(Tuesday0755);
 
@@ -169,7 +170,7 @@ public class LeipzigWasteBackgroundServiceTests
     public async Task DailyConfirmation_NotSent_WhenNoCollections_AndNotMarked()
     {
         using var fixture = new Fixture();
-        var service = new TestableWasteBackgroundService(fixture.Provider, WasteServiceReturning(), new ulong[] { 100 });
+        var service = new TestableWasteBackgroundService(fixture.ScopeFactory, WasteServiceReturning(), new ulong[] { 100 });
 
         await service.EvaluateAsync(Monday0830);
 
@@ -183,14 +184,14 @@ public class LeipzigWasteBackgroundServiceTests
         using var fixture = new Fixture();
         var wasteService = WasteServiceReturning("Schwarze Tonne");
 
-        var first = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var first = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await first.EvaluateAsync(Monday0930);
 
         Assert.Equal(2, first.Posts.Count);
         Assert.Contains(first.Posts, p => p.Title == DailyTitle);
         Assert.Contains(first.Posts, p => p.Title == WeeklyTitle);
 
-        var restarted = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var restarted = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await restarted.EvaluateAsync(Monday1000);
 
         Assert.Empty(restarted.Posts);
@@ -203,14 +204,14 @@ public class LeipzigWasteBackgroundServiceTests
         using var fixture = new Fixture();
         var wasteService = WasteServiceReturning("Schwarze Tonne");
 
-        var morning = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var morning = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await morning.EvaluateAsync(Monday0830);
 
         Assert.Single(morning.Posts);
         Assert.True(await fixture.HasSentAsync(WasteDispatchKinds.DailyConfirmation, 100, Monday0830.Date));
         Assert.False(await fixture.HasSentAsync(WasteDispatchKinds.WeeklyOverview, 100, Monday0830.Date));
 
-        var restarted = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var restarted = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await restarted.EvaluateAsync(Monday0930);
 
         Assert.Single(restarted.Posts);
@@ -222,7 +223,7 @@ public class LeipzigWasteBackgroundServiceTests
     public async Task WeeklyOverview_NotSent_OnOtherDays()
     {
         using var fixture = new Fixture();
-        var service = new TestableWasteBackgroundService(fixture.Provider, WasteServiceReturning("Schwarze Tonne"), new ulong[] { 100 });
+        var service = new TestableWasteBackgroundService(fixture.ScopeFactory, WasteServiceReturning("Schwarze Tonne"), new ulong[] { 100 });
 
         await service.EvaluateAsync(Tuesday0930);
 
@@ -237,7 +238,7 @@ public class LeipzigWasteBackgroundServiceTests
         using var fixture = new Fixture();
         var wasteService = WasteServiceReturning("Schwarze Tonne");
 
-        var failing = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var failing = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         failing.FailingGuilds.Add(100);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => failing.EvaluateAsync(Monday0830));
@@ -245,13 +246,13 @@ public class LeipzigWasteBackgroundServiceTests
         Assert.Empty(failing.Posts);
         Assert.False(await fixture.HasSentAsync(WasteDispatchKinds.DailyConfirmation, 100, Monday0830.Date));
 
-        var retry = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var retry = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await retry.EvaluateAsync(Monday0830);
 
         Assert.Single(retry.Posts);
         Assert.True(await fixture.HasSentAsync(WasteDispatchKinds.DailyConfirmation, 100, Monday0830.Date));
 
-        var later = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 100 });
+        var later = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 100 });
         await later.EvaluateAsync(Monday0830);
 
         Assert.Empty(later.Posts);
@@ -263,7 +264,7 @@ public class LeipzigWasteBackgroundServiceTests
         using var fixture = new Fixture();
         var wasteService = WasteServiceReturning("Schwarze Tonne");
 
-        var partial = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 1, 2 });
+        var partial = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 1, 2 });
         partial.FailingGuilds.Add(2);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => partial.EvaluateAsync(Monday0830));
@@ -273,7 +274,7 @@ public class LeipzigWasteBackgroundServiceTests
         Assert.True(await fixture.HasSentAsync(WasteDispatchKinds.DailyConfirmation, 1, Monday0830.Date));
         Assert.False(await fixture.HasSentAsync(WasteDispatchKinds.DailyConfirmation, 2, Monday0830.Date));
 
-        var retry = new TestableWasteBackgroundService(fixture.Provider, wasteService, new ulong[] { 1, 2 });
+        var retry = new TestableWasteBackgroundService(fixture.ScopeFactory, wasteService, new ulong[] { 1, 2 });
         await retry.EvaluateAsync(Monday0830);
 
         Assert.Single(retry.Posts);
@@ -285,7 +286,7 @@ public class LeipzigWasteBackgroundServiceTests
     public async Task MissingChannel_SkipsGuild_WithoutMarking()
     {
         using var fixture = new Fixture();
-        var service = new TestableWasteBackgroundService(fixture.Provider, WasteServiceReturning("Schwarze Tonne"), new ulong[] { 100 })
+        var service = new TestableWasteBackgroundService(fixture.ScopeFactory, WasteServiceReturning("Schwarze Tonne"), new ulong[] { 100 })
         {
             ChannelUnavailable = true
         };

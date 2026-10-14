@@ -4,6 +4,7 @@ using System.Text;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
@@ -17,7 +18,7 @@ using WK7Bot.Services.Interfaces;
 /// </summary>
 public class WishlistDealBackgroundService : BackgroundService
 {
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IWishlistDealService _dealService;
     private readonly ISteamService _steamService;
@@ -48,7 +49,7 @@ public class WishlistDealBackgroundService : BackgroundService
     /// <param name="featureGate">The consolidated feature gate.</param>
     /// <param name="logger">The logger instance.</param>
     public WishlistDealBackgroundService(
-        IServiceProvider serviceProvider,
+        IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IWishlistDealService dealService,
         ISteamService steamService,
@@ -57,7 +58,7 @@ public class WishlistDealBackgroundService : BackgroundService
         FeatureGate featureGate,
         ILogger<WishlistDealBackgroundService> logger)
     {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _dealService = dealService ?? throw new ArgumentNullException(nameof(dealService));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
@@ -139,7 +140,7 @@ public class WishlistDealBackgroundService : BackgroundService
         _logger.LogInformation("Found {Count} unique wishlisted games across {Users} mapped users.", allAppIds.Count, wishlistsByDiscordId.Count);
 
         // Update tracked games in database
-        using (var scope = _serviceProvider.CreateScope())
+        using (var scope = _scopeFactory.CreateScope())
         {
             var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
             var games = allAppIds.Select(appId => new WishlistGame
@@ -179,7 +180,7 @@ public class WishlistDealBackgroundService : BackgroundService
 
         // Evaluate alerts
         var alerts = new List<WishlistDealAlert>();
-        using (var scope = _serviceProvider.CreateScope())
+        using (var scope = _scopeFactory.CreateScope())
         {
             var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
 

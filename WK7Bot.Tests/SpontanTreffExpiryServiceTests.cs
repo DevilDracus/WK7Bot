@@ -20,9 +20,9 @@ public class SpontanTreffExpiryServiceTests
         public List<(Embed Embed, MessageComponent Components)> Edits { get; } = new();
         public bool FailEdits { get; set; }
 
-        public TestableExpiryService(IServiceProvider serviceProvider, bool enabled = true)
+        public TestableExpiryService(IServiceScopeFactory scopeFactory, bool enabled = true)
             : base(
-                serviceProvider,
+                scopeFactory,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
                 new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(
@@ -49,6 +49,7 @@ public class SpontanTreffExpiryServiceTests
     private sealed class Fixture : IDisposable
     {
         public ServiceProvider Provider { get; }
+        public IServiceScopeFactory ScopeFactory => new ServiceProviderScopeFactory(Provider);
 
         public Fixture()
         {
@@ -135,7 +136,7 @@ public class SpontanTreffExpiryServiceTests
     {
         using var fixture = new Fixture();
         var meetup = await fixture.CreateMeetupAsync(DateTime.Now.AddMinutes(-1), withResponse: true);
-        var service = new TestableExpiryService(fixture.Provider);
+        var service = new TestableExpiryService(fixture.ScopeFactory);
 
         await service.EvaluateAsync(DateTime.Now);
 
@@ -154,7 +155,7 @@ public class SpontanTreffExpiryServiceTests
     {
         using var fixture = new Fixture();
         var meetup = await fixture.CreateMeetupAsync(DateTime.Now.AddMinutes(15));
-        var service = new TestableExpiryService(fixture.Provider);
+        var service = new TestableExpiryService(fixture.ScopeFactory);
 
         await service.EvaluateAsync(DateTime.Now);
 
@@ -168,7 +169,7 @@ public class SpontanTreffExpiryServiceTests
         using var fixture = new Fixture();
         var first = await fixture.CreateMeetupAsync(DateTime.Now.AddMinutes(-5));
         var second = await fixture.CreateMeetupAsync(DateTime.Now.AddMinutes(-2));
-        var service = new TestableExpiryService(fixture.Provider) { FailEdits = true };
+        var service = new TestableExpiryService(fixture.ScopeFactory) { FailEdits = true };
 
         await service.EvaluateAsync(DateTime.Now);
 
@@ -183,7 +184,7 @@ public class SpontanTreffExpiryServiceTests
     {
         using var fixture = new Fixture();
         await fixture.CreateMeetupAsync(DateTime.Now.AddMinutes(-1));
-        var service = new TestableExpiryService(fixture.Provider);
+        var service = new TestableExpiryService(fixture.ScopeFactory);
 
         await service.EvaluateAsync(DateTime.Now);
         await service.EvaluateAsync(DateTime.Now);
@@ -195,7 +196,7 @@ public class SpontanTreffExpiryServiceTests
     public async Task Sweep_WithNothingDue_DoesNotEditMessages()
     {
         using var fixture = new Fixture();
-        var service = new TestableExpiryService(fixture.Provider);
+        var service = new TestableExpiryService(fixture.ScopeFactory);
 
         await service.EvaluateAsync(DateTime.Now);
 

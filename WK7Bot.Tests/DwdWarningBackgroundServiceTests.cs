@@ -30,12 +30,12 @@ public class DwdWarningBackgroundServiceTests
         public bool ChannelUnavailable { get; set; }
 
         public TestableWarningBackgroundService(
-            IServiceProvider serviceProvider,
+            IServiceScopeFactory scopeFactory,
             IDwdWarningService warningSource,
             IReadOnlyList<ulong> guildIds,
             Wk7BotOptions? options = null)
             : base(
-                serviceProvider,
+                scopeFactory,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
                 warningSource,
                 new Core.Utilities.FeatureHealthTracker(),
@@ -75,6 +75,7 @@ public class DwdWarningBackgroundServiceTests
     private sealed class Fixture : IDisposable
     {
         public ServiceProvider Provider { get; }
+        public IServiceScopeFactory ScopeFactory => new ServiceProviderScopeFactory(Provider);
 
         public Fixture()
         {
@@ -164,7 +165,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = SourceReturning(RainWarning(Now));
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
         await service.RunAsync(Now);
 
@@ -182,7 +183,7 @@ public class DwdWarningBackgroundServiceTests
         var warning = RainWarning(Now);
         warning.Onset = Now.AddMinutes(60);
         var source = SourceReturning(warning);
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
         await service.RunAsync(Now);
 
@@ -197,7 +198,7 @@ public class DwdWarningBackgroundServiceTests
         var warning = RainWarning(Now);
         warning.Onset = Now.AddMinutes(-10);
         var source = SourceReturning(warning);
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
         await service.RunAsync(Now);
 
@@ -212,7 +213,7 @@ public class DwdWarningBackgroundServiceTests
         var warning = RainWarning(Now);
         warning.Onset = Now.AddMinutes(-3);
         var source = SourceReturning(warning);
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
         await service.RunAsync(Now);
 
@@ -227,7 +228,7 @@ public class DwdWarningBackgroundServiceTests
         var warning = RainWarning(Now);
         warning.Expires = Now;
         var source = SourceReturning(warning);
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
         await service.RunAsync(Now);
 
@@ -243,7 +244,7 @@ public class DwdWarningBackgroundServiceTests
         warning.Event = "NEBEL";
         warning.EventGroup = "FOG";
         var source = SourceReturning(warning);
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
         await service.RunAsync(Now);
 
@@ -258,7 +259,7 @@ public class DwdWarningBackgroundServiceTests
         var warning = RainWarning(Now);
         warning.Polygons = new List<IReadOnlyList<GeoPoint>> { Square(50.0, 8.0, 0.05) };
         var source = SourceReturning(warning);
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
         await service.RunAsync(Now);
 
@@ -272,12 +273,12 @@ public class DwdWarningBackgroundServiceTests
         using var fixture = new Fixture();
         var source = SourceReturning(RainWarning(Now));
 
-        var first = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var first = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
         await first.RunAsync(Now);
         Assert.Single(first.Posts);
 
         // Simulates a bot restart: fresh in-memory state, same persistent database.
-        var restarted = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var restarted = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
         await restarted.RunAsync(Now);
 
         Assert.Empty(restarted.Posts);
@@ -290,7 +291,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = SourceReturning(RainWarning(Now));
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions())
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions())
         {
             FailingGuilds = { 100 }
         };
@@ -311,7 +312,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = SourceReturning(RainWarning(Now));
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions())
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions())
         {
             ChannelUnavailable = true
         };
@@ -333,7 +334,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = SourceReturning(RainWarning(Now));
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 1, 2 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 1, 2 }, WarningOptions());
 
         await service.RunAsync(Now);
 
@@ -348,7 +349,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var source = SourceReturning(RainWarning(Now, "warn-rain-1"), RainWarning(Now, "warn-rain-2"));
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
         await service.RunAsync(Now);
 
@@ -362,7 +363,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var failing = FailingSource();
-        var service = new TestableWarningBackgroundService(fixture.Provider, failing.Object, new ulong[] { 100 }, WarningOptions());
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, failing.Object, new ulong[] { 100 }, WarningOptions());
 
         await Assert.ThrowsAsync<HttpRequestException>(() => service.RunAsync(Now));
 
@@ -381,7 +382,7 @@ public class DwdWarningBackgroundServiceTests
         var warning = RainWarning(Now);
         warning.Polygons = new List<IReadOnlyList<GeoPoint>>();
         var source = SourceReturning(warning);
-        var service = new TestableWarningBackgroundService(fixture.Provider, source.Object, new ulong[] { 100 }, options);
+        var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, options);
 
         await service.RunAsync(Now);
 

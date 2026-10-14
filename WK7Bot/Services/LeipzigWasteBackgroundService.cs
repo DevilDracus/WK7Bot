@@ -1,6 +1,7 @@
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
@@ -21,7 +22,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// <summary>Dispatch records older than this are pruned after each daily/weekly evaluation.</summary>
     private static readonly TimeSpan DispatchRetention = TimeSpan.FromDays(90);
 
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILeipzigWasteService _wasteService;
     private readonly FeatureHealthTracker _health;
@@ -34,21 +35,21 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// <summary>
     /// Initializes a new instance of the <see cref="LeipzigWasteBackgroundService"/> class.
     /// </summary>
-    /// <param name="serviceProvider">The service provider used to create database scopes for dispatch state.</param>
+    /// <param name="scopeFactory">The scope factory used to create database scopes for dispatch state.</param>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="wasteService">The Leipzig waste schedule parser service.</param>
     /// <param name="health">The feature health tracker recording the outcome of each schedule pass.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public LeipzigWasteBackgroundService(
-        IServiceProvider serviceProvider,
+        IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         ILeipzigWasteService wasteService,
         FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<LeipzigWasteBackgroundService> logger)
     {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _wasteService = wasteService ?? throw new ArgumentNullException(nameof(wasteService));
         _health = health ?? throw new ArgumentNullException(nameof(health));
@@ -167,7 +168,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// </returns>
     private async Task<bool> DispatchAsync(string kind, DateTime date, Func<Task<Embed?>> embedFactory, CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = _scopeFactory.CreateScope();
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
 
         // The waste table also stores weekend-digest records; keep it bounded by the same retention.

@@ -3,6 +3,7 @@ namespace WK7Bot.Services;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
@@ -34,7 +35,7 @@ public class WeekendDigestBackgroundService : BackgroundService
     /// </summary>
     private const int MaxAttemptsPerDay = 4;
 
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IWeekendEventSource _eventSource;
     private readonly FeatureHealthTracker _health;
@@ -49,21 +50,21 @@ public class WeekendDigestBackgroundService : BackgroundService
     /// <summary>
     /// Initializes a new instance of the <see cref="WeekendDigestBackgroundService"/> class.
     /// </summary>
-    /// <param name="serviceProvider">The service provider used to create database scopes for dispatch state.</param>
+    /// <param name="scopeFactory">The scope factory used to create database scopes for dispatch state.</param>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="eventSource">The weekend event source providing the listing data.</param>
     /// <param name="health">The feature health tracker recording the outcome of each schedule evaluation.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The logger instance for background execution diagnostics.</param>
     public WeekendDigestBackgroundService(
-        IServiceProvider serviceProvider,
+        IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IWeekendEventSource eventSource,
         FeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<WeekendDigestBackgroundService> logger)
     {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _eventSource = eventSource ?? throw new ArgumentNullException(nameof(eventSource));
         _health = health ?? throw new ArgumentNullException(nameof(health));
@@ -184,7 +185,7 @@ public class WeekendDigestBackgroundService : BackgroundService
     /// <returns>A task representing the asynchronous dispatch process.</returns>
     private async Task DispatchDigestAsync(DateTime thursday, DateTime now, CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = _scopeFactory.CreateScope();
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
 
         var targetGuildIds = GetTargetGuildIds();
