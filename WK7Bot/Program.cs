@@ -7,6 +7,7 @@ using WK7Bot.Infrastructure.Data;
 using WK7Bot.Models;
 using WK7Bot.Options;
 using WK7Bot.Services;
+using WK7Bot.Testing;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -86,6 +87,8 @@ TaskScheduler.UnobservedTaskException += (_, eventArgs) =>
         errorNotificationQueue.Enqueue(ErrorNotification.FromException("TaskScheduler.UnobservedTaskException", exception));
     }
 };
+
+app.MapTestCommandEndpoints();
 
 await app.RunAsync();
 
