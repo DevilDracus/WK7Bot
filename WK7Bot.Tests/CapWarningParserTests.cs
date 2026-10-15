@@ -282,8 +282,8 @@ public class CapWarningParserTests
     public void MatchesEvent_NoMatchForUnrelatedWarning()
     {
         var warning = WarningWithoutPolygon();
-        warning.Event = "NEBEL";
-        warning.EventGroup = "FOG";
+        warning = warning with { Event = "NEBEL" };
+        warning = warning with { EventGroup = "FOG" };
 
         Assert.False(CapWarningParser.MatchesEvent(warning, new[] { "STARKREGEN", "HAGEL", "STORM" }));
     }

@@ -238,11 +238,14 @@ public class GeminiFoodService : IGeminiFoodService
         }
 
         // Formatting must never carry provenance away or introduce unverified medical claims.
-        formatted.SourceUrl = recipe.SourceUrl;
-        formatted.ImageUrl = recipe.ImageUrl;
-        formatted.SeasonalIngredientsUsed = new List<string>();
-        formatted.DietTags = new List<string>();
-        formatted.TransplantSafetyNotes = string.Empty;
+        formatted = formatted with
+        {
+            SourceUrl = recipe.SourceUrl,
+            ImageUrl = recipe.ImageUrl,
+            SeasonalIngredientsUsed = new List<string>(),
+            DietTags = new List<string>(),
+            TransplantSafetyNotes = string.Empty
+        };
 
         return formatted;
     }
@@ -279,32 +282,14 @@ public class GeminiFoodService : IGeminiFoodService
     /// <summary>
     /// Executes the HTTP REST API call to Gemini with exponential backoff for transient 503 / 429 status codes.
     /// </summary>
-    private async Task<TResponse?> TryExecuteRequestWithRetryAsync<TResponse>(string modelName, string prompt, JsonObject jsonSchema, CancellationToken cancellationToken)
+    private async Task<TResponse?> TryExecuteRequestWithRetryAsync<TResponse>(string modelName, string prompt, JsonObject jsonSchema, CancellationToken cancellationToken) where TResponse : class
     {
         int maxRetries = 3;
         int delayMs = (int)RetryDelay.TotalMilliseconds;
 
         string requestUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent?key={_options.GeminiApiKey}";
 
-        var requestPayload = new
-        {
-            contents = new[]
-            {
-                new
-                {
-                    parts = new[]
-                    {
-                        new { text = prompt }
-                    }
-                }
-            },
-            generationConfig = new
-            {
-                responseMimeType = "application/json",
-                jsonSchema = jsonSchema,
-                maxOutputTokens = 8192 // Ensures large structured recipes finish generating completely without truncation
-            }
-        };
+        var requestPayload = BuildGeminiRequestPayload(prompt, jsonSchema);
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
@@ -318,19 +303,12 @@ public class GeminiFoodService : IGeminiFoodService
                 if (response.IsSuccessStatusCode)
                 {
                     string responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    using var doc = JsonDocument.Parse(responseJson);
-
-                    var root = doc.RootElement;
-                    if (root.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+                    var parsed = ParseGeminiResponse<TResponse>(responseJson);
+                    if (parsed is not null)
                     {
-                        string innerJson = candidates[0]
-                            .GetProperty("content")
-                            .GetProperty("parts")[0]
-                            .GetProperty("text")
-                            .GetString() ?? string.Empty;
-
-                        return JsonSerializer.Deserialize<TResponse>(innerJson, StructuredAnswerOptions);
+                        return parsed;
                     }
+                    break;
                 }
 
                 int statusCode = (int)response.StatusCode;
@@ -385,6 +363,59 @@ public class GeminiFoodService : IGeminiFoodService
                     modelName, maxRetries, ex.Message);
                 break;
             }
+        }
+
+        return default;
+    }
+
+    /// <summary>
+    /// Builds the structured JSON request payload sent to the Gemini generateContent endpoint.
+    /// </summary>
+    /// <param name="prompt">The prompt text submitted to the model.</param>
+    /// <param name="jsonSchema">The JSON schema constraining the structured output.</param>
+    /// <returns>The request payload object ready for serialization.</returns>
+    private object BuildGeminiRequestPayload(string prompt, JsonObject jsonSchema)
+    {
+        return new
+        {
+            contents = new[]
+            {
+                new
+                {
+                    parts = new[]
+                    {
+                        new { text = prompt }
+                    }
+                }
+            },
+            generationConfig = new
+            {
+                responseMimeType = "application/json",
+                responseJsonSchema = jsonSchema,
+                maxOutputTokens = 8192 // Ensures large structured recipes finish generating completely without truncation
+            }
+        };
+    }
+
+    /// <summary>
+    /// Parses a Gemini generateContent response JSON into the requested structured type.
+    /// </summary>
+    /// <typeparam name="TResponse">The target structured response type.</typeparam>
+    /// <param name="responseJson">The raw JSON returned by the Gemini endpoint.</param>
+    /// <returns>The deserialized response, or <see langword="null"/> when no usable candidate exists.</returns>
+    private static TResponse? ParseGeminiResponse<TResponse>(string responseJson) where TResponse : class
+    {
+        using var doc = JsonDocument.Parse(responseJson);
+        var root = doc.RootElement;
+        if (root.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+        {
+            string innerJson = candidates[0]
+                .GetProperty("content")
+                .GetProperty("parts")[0]
+                .GetProperty("text")
+                .GetString() ?? string.Empty;
+
+            return JsonSerializer.Deserialize<TResponse>(innerJson, StructuredAnswerOptions);
         }
 
         return default;

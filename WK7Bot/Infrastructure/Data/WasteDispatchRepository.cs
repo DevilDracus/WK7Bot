@@ -9,15 +9,15 @@ namespace WK7Bot.Infrastructure.Data;
 /// </summary>
 public class WasteDispatchRepository : IWasteDispatchRepository
 {
-    private readonly BotDbContext _dbContext;
+    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="WasteDispatchRepository"/> class.
+    /// Initializes a new instance of the <see cref="WasteDispatchRepository" /> class.
     /// </summary>
-    /// <param name="dbContext">The database context instance.</param>
-    public WasteDispatchRepository(BotDbContext dbContext)
+    /// <param name="dbContextFactory">The database context factory.</param>
+    public WasteDispatchRepository(IDbContextFactory<BotDbContext> dbContextFactory)
     {
-        _dbContext = dbContext;
+        _dbContextFactory = dbContextFactory;
     }
 
     /// <summary>
@@ -27,12 +27,13 @@ public class WasteDispatchRepository : IWasteDispatchRepository
     /// <param name="guildId">The target Discord guild ID.</param>
     /// <param name="sentOn">The calendar date the message would be sent on.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
-    /// <returns><see langword="true"/> when the message was already sent; otherwise <see langword="false"/>.</returns>
+    /// <returns><see langword="true" /> when the message was already sent; otherwise, <see langword="false" />.</returns>
     public async Task<bool> HasSentAsync(string kind, ulong guildId, DateTime sentOn, CancellationToken cancellationToken = default)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var normalizedDate = sentOn.Date;
 
-        return await _dbContext.WasteDispatchLogs
+        return await context.WasteDispatchLogs
             .AsNoTracking()
             .AnyAsync(
                 log => log.Kind == kind && log.GuildId == guildId && log.SentOn == normalizedDate,
@@ -49,9 +50,10 @@ public class WasteDispatchRepository : IWasteDispatchRepository
     /// <returns>A task representing the asynchronous storage operation.</returns>
     public async Task MarkSentAsync(string kind, ulong guildId, DateTime sentOn, CancellationToken cancellationToken = default)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var normalizedDate = sentOn.Date;
 
-        var alreadySent = await _dbContext.WasteDispatchLogs
+        var alreadySent = await context.WasteDispatchLogs
             .AnyAsync(
                 log => log.Kind == kind && log.GuildId == guildId && log.SentOn == normalizedDate,
                 cancellationToken);
@@ -62,17 +64,17 @@ public class WasteDispatchRepository : IWasteDispatchRepository
         }
 
         var log = new WasteDispatchLog { Kind = kind, GuildId = guildId, SentOn = normalizedDate };
-        await _dbContext.WasteDispatchLogs.AddAsync(log, cancellationToken);
+        await context.WasteDispatchLogs.AddAsync(log, cancellationToken);
 
         try
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException ex) when (DatabaseWriteGuard.IsUniqueConstraintViolation(ex))
         {
             // Lost the race against a concurrent dispatcher — the row already exists, which is the
             // desired state. Detach the failed insert so the shared context stays usable.
-            _dbContext.Entry(log).State = EntityState.Detached;
+            context.Entry(log).State = EntityState.Detached;
         }
     }
 
@@ -85,9 +87,10 @@ public class WasteDispatchRepository : IWasteDispatchRepository
     /// <returns>The number of records removed.</returns>
     public async Task<int> PruneAsync(DateTime olderThan, CancellationToken cancellationToken = default)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var cutoff = olderThan.Date;
 
-        var stale = await _dbContext.WasteDispatchLogs
+        var stale = await context.WasteDispatchLogs
             .Where(log => log.SentOn < cutoff)
             .ToListAsync(cancellationToken);
 
@@ -96,8 +99,8 @@ public class WasteDispatchRepository : IWasteDispatchRepository
             return 0;
         }
 
-        _dbContext.WasteDispatchLogs.RemoveRange(stale);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        context.WasteDispatchLogs.RemoveRange(stale);
+        await context.SaveChangesAsync(cancellationToken);
         return stale.Count;
     }
 }

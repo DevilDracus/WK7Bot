@@ -8,7 +8,7 @@ namespace WK7Bot.Tests;
 
 public class SpontanTreffRepositoryTests : IDisposable
 {
-    private readonly BotDbContext _context;
+    private readonly IDbContextFactory<BotDbContext> _factory;
     private readonly ISpontanTreffRepository _repository;
 
     public SpontanTreffRepositoryTests()
@@ -17,13 +17,12 @@ public class SpontanTreffRepositoryTests : IDisposable
             .UseInMemoryDatabase(databaseName: $"spontan-treff-tests-{Guid.NewGuid()}")
             .Options;
 
-        _context = new BotDbContext(options);
-        _repository = new SpontanTreffRepository(_context);
+        _factory = new PooledDbContextFactory<BotDbContext>(options);
+        _repository = new SpontanTreffRepository(_factory);
     }
 
     public void Dispose()
     {
-        _context.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -179,7 +178,7 @@ public class SpontanTreffRepositoryTests : IDisposable
     public async Task SqliteStartupSequence_EnsureCreatedPlusRawSql_RoundTrips()
     {
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:")
+            .UseSqlite("Data Source=:memory:;Cache=Shared")
             .Options;
 
         await using var context = new BotDbContext(options);
@@ -189,14 +188,15 @@ public class SpontanTreffRepositoryTests : IDisposable
         await context.Database.EnsureCreatedAsync();
         await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateSpontanTreffSql);
 
-        await AssertRoundTripAsync(context);
+        var factory = new PooledDbContextFactory<BotDbContext>(options);
+        await AssertRoundTripAsync(factory);
     }
 
     [Fact]
     public async Task SqliteMigrationSequence_RawSql_CreatesMissingTableIdempotently_And_RoundTrips()
     {
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:")
+            .UseSqlite("Data Source=:memory:;Cache=Shared")
             .Options;
 
         await using var context = new BotDbContext(options);
@@ -207,7 +207,8 @@ public class SpontanTreffRepositoryTests : IDisposable
         await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateSpontanTreffSql);
         await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateSpontanTreffSql);
 
-        await AssertRoundTripAsync(context);
+        var factory = new PooledDbContextFactory<BotDbContext>(options);
+        await AssertRoundTripAsync(factory);
     }
 
     [Fact]
@@ -231,9 +232,9 @@ public class SpontanTreffRepositoryTests : IDisposable
         await _repository.RemoveAsync(meetup.Id + 999);
     }
 
-    private static async Task AssertRoundTripAsync(BotDbContext context)
+    private static async Task AssertRoundTripAsync(IDbContextFactory<BotDbContext> factory)
     {
-        var repository = new SpontanTreffRepository(context);
+        var repository = new SpontanTreffRepository(factory);
         var expiresAt = new DateTime(2026, 10, 6, 18, 30, 0);
 
         var meetup = await repository.AddAsync(new SpontanTreff

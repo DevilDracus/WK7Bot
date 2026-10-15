@@ -40,6 +40,8 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
         Func<Task<HttpResponseMessage>> sendFactory,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(sendFactory);
+
         await ApiThrottle.WaitAsync(cancellationToken);
         try
         {
@@ -57,6 +59,8 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
         string operationName,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(sendFactory);
+
         var response = await SendThrottledAsync(sendFactory, cancellationToken);
 
         for (var attempt = 1; attempt < MaxAttempts && IsTransientFailure(response); attempt++)

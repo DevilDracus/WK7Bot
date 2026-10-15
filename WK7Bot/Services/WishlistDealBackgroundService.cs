@@ -109,11 +109,51 @@ public class WishlistDealBackgroundService : BackgroundService
             return;
         }
 
-        // Fetch wishlists for all mapped users
+        var (wishlistsByDiscordId, allAppIds) = await FetchWishlistsAsync(cancellationToken);
+        if (allAppIds.Count == 0)
+        {
+            _logger.LogInformation("No wishlist items found for any mapped user.");
+            return;
+        }
+
+        _logger.LogInformation("Found {Count} unique wishlisted games across {Users} mapped users.", allAppIds.Count, wishlistsByDiscordId.Count);
+
+        await UpsertTrackedGamesAsync(wishlistsByDiscordId, allAppIds, cancellationToken);
+
+        // Fetch current prices
+        var prices = await _dealService.FetchPricesAsync(allAppIds, cancellationToken);
+        if (prices.Count == 0)
+        {
+            _logger.LogWarning("No price data returned from IsThereAnyDeal.");
+            return;
+        }
+
+        // Evaluate alerts
+        var alerts = await EvaluateAlertsAsync(wishlistsByDiscordId, prices, cancellationToken);
+
+        if (alerts.Count == 0)
+        {
+            _logger.LogInformation("No deal alerts met the threshold criteria.");
+            return;
+        }
+
+        _logger.LogInformation("{Count} deal alerts triggered; posting to channel.", alerts.Count);
+
+        // Post alerts
+        await PostAlertsAsync(alerts, cancellationToken);
+    }
+
+    /// <summary>
+    /// Fetches the wishlists for every configured Discord-Steam mapping.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>A tuple containing the wishlists grouped by Discord user id and the set of all wishlisted application ids.</returns>
+    private async Task<(Dictionary<ulong, List<SteamWishlistItem>> WishlistsByDiscordId, HashSet<uint> AllAppIds)> FetchWishlistsAsync(CancellationToken cancellationToken)
+    {
         var wishlistsByDiscordId = new Dictionary<ulong, List<SteamWishlistItem>>();
         var allAppIds = new HashSet<uint>();
 
-        foreach (var mapping in mappings)
+        foreach (var mapping in _options.DiscordSteamMappings)
         {
             if (!ulong.TryParse(mapping.DiscordUserId, out var discordUserId))
             {
@@ -131,15 +171,21 @@ public class WishlistDealBackgroundService : BackgroundService
             }
         }
 
-        if (allAppIds.Count == 0)
-        {
-            _logger.LogInformation("No wishlist items found for any mapped user.");
-            return;
-        }
+        return (wishlistsByDiscordId, allAppIds);
+    }
 
-        _logger.LogInformation("Found {Count} unique wishlisted games across {Users} mapped users.", allAppIds.Count, wishlistsByDiscordId.Count);
-
-        // Update tracked games in database
+    /// <summary>
+    /// Replaces the tracked wishlist games in the database and prunes aged alert history.
+    /// </summary>
+    /// <param name="wishlistsByDiscordId">Wishlists grouped by Discord user id.</param>
+    /// <param name="allAppIds">The set of all wishlisted application ids.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>A task tracking the asynchronous operation.</returns>
+    private async Task UpsertTrackedGamesAsync(
+        Dictionary<ulong, List<SteamWishlistItem>> wishlistsByDiscordId,
+        HashSet<uint> allAppIds,
+        CancellationToken cancellationToken)
+    {
         using (var scope = _scopeFactory.CreateScope())
         {
             var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
@@ -155,15 +201,20 @@ public class WishlistDealBackgroundService : BackgroundService
             await repository.ReplaceTrackedGamesAsync(games, cancellationToken);
             await repository.PruneAlertHistoryAsync(AlertRetention, cancellationToken);
         }
+    }
 
-        // Fetch current prices
-        var prices = await _dealService.FetchPricesAsync(allAppIds, cancellationToken);
-        if (prices.Count == 0)
-        {
-            _logger.LogWarning("No price data returned from IsThereAnyDeal.");
-            return;
-        }
-
+    /// <summary>
+    /// Evaluates deal alerts for the current prices and records triggered alerts.
+    /// </summary>
+    /// <param name="wishlistsByDiscordId">Wishlists grouped by Discord user id.</param>
+    /// <param name="prices">The current price data keyed by application id.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The list of triggered alerts.</returns>
+    private async Task<List<WishlistDealAlert>> EvaluateAlertsAsync(
+        Dictionary<ulong, List<SteamWishlistItem>> wishlistsByDiscordId,
+        IReadOnlyDictionary<uint, ItadPriceData> prices,
+        CancellationToken cancellationToken)
+    {
         // Build reverse mapping: appId -> list of Discord user IDs who wishlisted it
         var usersByAppId = new Dictionary<uint, List<ulong>>();
         foreach (var (discordUserId, items) in wishlistsByDiscordId)
@@ -178,7 +229,6 @@ public class WishlistDealBackgroundService : BackgroundService
             }
         }
 
-        // Evaluate alerts
         var alerts = new List<WishlistDealAlert>();
         using (var scope = _scopeFactory.CreateScope())
         {
@@ -209,16 +259,7 @@ public class WishlistDealBackgroundService : BackgroundService
             }
         }
 
-        if (alerts.Count == 0)
-        {
-            _logger.LogInformation("No deal alerts met the threshold criteria.");
-            return;
-        }
-
-        _logger.LogInformation("{Count} deal alerts triggered; posting to channel.", alerts.Count);
-
-        // Post alerts
-        await PostAlertsAsync(alerts, cancellationToken);
+        return alerts;
     }
 
     /// <summary>

@@ -9,15 +9,15 @@ namespace WK7Bot.Infrastructure.Data;
 /// </summary>
 public class WarningDispatchRepository : IWarningDispatchRepository
 {
-    private readonly BotDbContext _dbContext;
+    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="WarningDispatchRepository"/> class.
+    /// Initializes a new instance of the <see cref="WarningDispatchRepository" /> class.
     /// </summary>
-    /// <param name="dbContext">The database context instance.</param>
-    public WarningDispatchRepository(BotDbContext dbContext)
+    /// <param name="dbContextFactory">The database context factory.</param>
+    public WarningDispatchRepository(IDbContextFactory<BotDbContext> dbContextFactory)
     {
-        _dbContext = dbContext;
+        _dbContextFactory = dbContextFactory;
     }
 
     /// <summary>
@@ -26,10 +26,11 @@ public class WarningDispatchRepository : IWarningDispatchRepository
     /// <param name="warningId">The stable CAP warning identifier.</param>
     /// <param name="guildId">The target Discord guild ID.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
-    /// <returns><see langword="true"/> when the warning was already posted; otherwise <see langword="false"/>.</returns>
+    /// <returns><see langword="true" /> when the warning was already posted; otherwise, <see langword="false" />.</returns>
     public async Task<bool> HasSentAsync(string warningId, ulong guildId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.WarningDispatchLogs
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await context.WarningDispatchLogs
             .AsNoTracking()
             .AnyAsync(
                 log => log.WarningId == warningId && log.GuildId == guildId,
@@ -43,10 +44,11 @@ public class WarningDispatchRepository : IWarningDispatchRepository
     /// <param name="guildId">The target Discord guild ID.</param>
     /// <param name="sentAt">The local time the message was sent.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
-    /// <returns>A task representing the asynchronous storage operation.</returns>
+    /// <returns>A task representing the asynchronous cleanup operation.</returns>
     public async Task MarkSentAsync(string warningId, ulong guildId, DateTime sentAt, CancellationToken cancellationToken = default)
     {
-        var alreadySent = await _dbContext.WarningDispatchLogs
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var alreadySent = await context.WarningDispatchLogs
             .AnyAsync(
                 log => log.WarningId == warningId && log.GuildId == guildId,
                 cancellationToken);
@@ -57,17 +59,17 @@ public class WarningDispatchRepository : IWarningDispatchRepository
         }
 
         var log = new WarningDispatchLog { WarningId = warningId, GuildId = guildId, SentAt = sentAt };
-        await _dbContext.WarningDispatchLogs.AddAsync(log, cancellationToken);
+        await context.WarningDispatchLogs.AddAsync(log, cancellationToken);
 
         try
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException ex) when (DatabaseWriteGuard.IsUniqueConstraintViolation(ex))
         {
             // Lost the race against a concurrent dispatcher — the row already exists, which is the
             // desired state. Detach the failed insert so the shared context stays usable.
-            _dbContext.Entry(log).State = EntityState.Detached;
+            context.Entry(log).State = EntityState.Detached;
         }
     }
 
@@ -79,7 +81,8 @@ public class WarningDispatchRepository : IWarningDispatchRepository
     /// <returns>A task representing the asynchronous cleanup operation.</returns>
     public async Task PruneAsync(DateTime cutoff, CancellationToken cancellationToken = default)
     {
-        var stale = await _dbContext.WarningDispatchLogs
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var stale = await context.WarningDispatchLogs
             .Where(log => log.SentAt < cutoff)
             .ToListAsync(cancellationToken);
 
@@ -88,7 +91,7 @@ public class WarningDispatchRepository : IWarningDispatchRepository
             return;
         }
 
-        _dbContext.WarningDispatchLogs.RemoveRange(stale);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        context.WarningDispatchLogs.RemoveRange(stale);
+        await context.SaveChangesAsync(cancellationToken);
     }
 }

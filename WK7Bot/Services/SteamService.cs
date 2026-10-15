@@ -104,77 +104,7 @@ public partial class SteamService : BaseGameApiClient, ISteamService
 
             await EnrichRecentGamesAsync(userData, cancellationToken);
 
-            var appIdsToFetch = new HashSet<uint>();
-
-            if (userData.CurrentGameAppId.HasValue)
-            {
-                appIdsToFetch.Add(userData.CurrentGameAppId.Value);
-            }
-
-            foreach (var recentGame in userData.RecentGames.Take(5))
-            {
-                appIdsToFetch.Add(recentGame.AppId);
-            }
-
-            if (appIdsToFetch.Count == 0)
-            {
-                _logger.LogInformation(
-                    "No current game and no recently played games for Steam ID {SteamId}; skipping achievement fetch.",
-                    steamId);
-            }
-            else
-            {
-                var appIds = appIdsToFetch.ToArray();
-                var fetchTasks = appIds.Select(appId => GetEnrichedAchievementsAsync(steamId, appId, cancellationToken));
-                var achievementsArrays = await Task.WhenAll(fetchTasks);
-
-                for (int i = 0; i < appIds.Length; i++)
-                {
-                    _logger.LogDebug(
-                        "Steam achievements for AppId {AppId}: {Count} unlocked for Steam ID {SteamId}",
-                        appIds[i],
-                        achievementsArrays[i].Count,
-                        steamId);
-                }
-
-                var progressByAppId = new Dictionary<uint, (int Unlocked, int Total)>();
-                for (int i = 0; i < appIds.Length; i++)
-                {
-                    var schema = await GetGameSchemaAsync(appIds[i], cancellationToken);
-                    int unlocked = achievementsArrays[i].Count;
-                    int total = schema.Count;
-                    progressByAppId[appIds[i]] = (unlocked, total);
-
-                    if (userData.CurrentGameAppId.HasValue
-                        && userData.CurrentGameAppId.Value == appIds[i]
-                        && total > 0)
-                    {
-                        userData.CurrentGameAchievementsUnlocked = unlocked;
-                        userData.CurrentGameAchievementsTotal = total;
-                    }
-                }
-
-                foreach (var recentGame in userData.RecentGames)
-                {
-                    if (progressByAppId.TryGetValue(recentGame.AppId, out var progress) && progress.Total > 0)
-                    {
-                        recentGame.AchievementsUnlocked = progress.Unlocked;
-                        recentGame.AchievementsTotal = progress.Total;
-                    }
-                }
-
-                userData.RecentAchievements = achievementsArrays
-                    .SelectMany(a => a)
-                    .OrderByDescending(a => a.UnlockTime)
-                    .Take(5)
-                    .ToList();
-
-                _logger.LogDebug(
-                    "Steam ID {SteamId}: {Unlocked} recent achievements selected from {Apps} games.",
-                    steamId,
-                    userData.RecentAchievements.Count,
-                    appIds.Length);
-            }
+            await EnrichAchievementsAsync(userData, cancellationToken);
 
             return userData;
         }

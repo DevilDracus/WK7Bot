@@ -5,7 +5,7 @@ using System;
 /// <summary>
 /// Represents a captured error report destined for Discord direct message delivery.
 /// </summary>
-public class ErrorNotification
+public sealed record ErrorNotification
 {
     /// <summary>
     /// Gets or sets the originating context, typically the logger category or global exception hook name.

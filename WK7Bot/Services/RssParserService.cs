@@ -30,6 +30,8 @@ public class RssParserService
     /// <returns>A list of newly published feed items ordered by publication date ascending.</returns>
     public async Task<List<FeedItem>> FetchNewItemsAsync(RssFeed feed, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(feed);
+
         var newItems = new List<FeedItem>();
 
         try

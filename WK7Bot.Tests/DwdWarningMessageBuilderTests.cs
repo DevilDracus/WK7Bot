@@ -68,7 +68,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_PastOnset_ShowsRunningSince()
     {
         var warning = Warning(PostTime);
-        warning.Onset = PostTime.AddMinutes(-3);
+        warning = warning with { Onset = PostTime.AddMinutes(-3) };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -82,7 +82,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_LongOnsetDuration_UsesHours()
     {
         var warning = Warning(PostTime);
-        warning.Onset = PostTime.AddMinutes(125);
+        warning = warning with { Onset = PostTime.AddMinutes(125) };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -103,7 +103,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_ExpiryOnAnotherDay_IncludesDate()
     {
         var warning = Warning(PostTime);
-        warning.Expires = new DateTime(2026, 10, 7, 9, 30, 0);
+        warning = warning with { Expires = new DateTime(2026, 10, 7, 9, 30, 0) };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -114,7 +114,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_MissingExpiry_OmitsTheField()
     {
         var warning = Warning(PostTime);
-        warning.Expires = DateTime.MaxValue;
+        warning = warning with { Expires = DateTime.MaxValue };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -125,7 +125,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_AreaField_CountsAdditionalPlaces()
     {
         var warning = Warning(PostTime);
-        warning.AreaDescriptions = new List<string> { "polygonal event area", "Stadt Leipzig", "Gemeinde Möckern" };
+        warning = warning with { AreaDescriptions = new List<string> { "polygonal event area", "Stadt Leipzig", "Gemeinde Möckern" } };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -140,7 +140,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_SeverityLabels(string severity, string expected)
     {
         var warning = Warning(PostTime);
-        warning.Severity = severity;
+        warning = warning with { Severity = severity };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -155,7 +155,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_SeverityColors(string severity, byte red, byte green, byte blue)
     {
         var warning = Warning(PostTime);
-        warning.Severity = severity;
+        warning = warning with { Severity = severity };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -166,7 +166,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_LongEvent_TruncatesTitleToDiscordLimit()
     {
         var warning = Warning(PostTime);
-        warning.Event = new string('X', 300);
+        warning = warning with { Event = new string('X', 300) };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -179,7 +179,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_LongDescription_IsTruncatedToFieldLimit()
     {
         var warning = Warning(PostTime);
-        warning.Description = new string('Y', 2000);
+        warning = warning with { Description = new string('Y', 2000) };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -195,7 +195,7 @@ public class DwdWarningMessageBuilderTests
         var options = Options();
         options.AreaNames = new List<string>();
         var warning = Warning(PostTime);
-        warning.AreaDescriptions = new List<string> { "polygonal event area", "Stadt Gohlis", "Gemeinde Möckern" };
+        warning = warning with { AreaDescriptions = new List<string> { "polygonal event area", "Stadt Gohlis", "Gemeinde Möckern" } };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, options);
 
@@ -209,7 +209,7 @@ public class DwdWarningMessageBuilderTests
         var options = Options();
         options.AreaNames = new List<string>();
         var warning = Warning(PostTime);
-        warning.AreaDescriptions = new List<string> { "polygonal event area" };
+        warning = warning with { AreaDescriptions = new List<string> { "polygonal event area" } };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, options);
 
@@ -231,7 +231,7 @@ public class DwdWarningMessageBuilderTests
     public void Build_WithoutWeb_OmitsUrl()
     {
         var warning = Warning(PostTime);
-        warning.Web = string.Empty;
+        warning = warning with { Web = string.Empty };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 
@@ -242,9 +242,9 @@ public class DwdWarningMessageBuilderTests
     public void Build_WithoutHeadlineDescriptionAndInstruction_OmitsDescriptionAndActionFields()
     {
         var warning = Warning(PostTime);
-        warning.Headline = string.Empty;
-        warning.Description = string.Empty;
-        warning.Instruction = string.Empty;
+        warning = warning with { Headline = string.Empty };
+        warning = warning with { Description = string.Empty };
+        warning = warning with { Instruction = string.Empty };
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, Options());
 

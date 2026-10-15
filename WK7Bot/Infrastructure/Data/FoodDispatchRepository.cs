@@ -9,15 +9,15 @@ namespace WK7Bot.Infrastructure.Data;
 /// </summary>
 public class FoodDispatchRepository : IFoodDispatchRepository
 {
-    private readonly BotDbContext _dbContext;
+    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="FoodDispatchRepository"/> class.
+    /// Initializes a new instance of the <see cref="FoodDispatchRepository" /> class.
     /// </summary>
-    /// <param name="dbContext">The database context instance.</param>
-    public FoodDispatchRepository(BotDbContext dbContext)
+    /// <param name="dbContextFactory">The database context factory.</param>
+    public FoodDispatchRepository(IDbContextFactory<BotDbContext> dbContextFactory)
     {
-        _dbContext = dbContext;
+        _dbContextFactory = dbContextFactory;
     }
 
     /// <summary>
@@ -26,12 +26,13 @@ public class FoodDispatchRepository : IFoodDispatchRepository
     /// <param name="kind">The dispatch kind (see <c>FoodDispatchKinds</c>).</param>
     /// <param name="sentOn">The calendar date the message would be sent on.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
-    /// <returns><see langword="true"/> when the message was already sent; otherwise <see langword="false"/>.</returns>
+    /// <returns><see langword="true" /> when the message was already sent; otherwise, <see langword="false" />.</returns>
     public async Task<bool> HasSentAsync(string kind, DateTime sentOn, CancellationToken cancellationToken = default)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var normalizedDate = sentOn.Date;
 
-        return await _dbContext.FoodDispatchLogs
+        return await context.FoodDispatchLogs
             .AsNoTracking()
             .AnyAsync(
                 log => log.Kind == kind && log.SentOn == normalizedDate,
@@ -47,9 +48,10 @@ public class FoodDispatchRepository : IFoodDispatchRepository
     /// <returns>A task representing the asynchronous storage operation.</returns>
     public async Task MarkSentAsync(string kind, DateTime sentOn, CancellationToken cancellationToken = default)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var normalizedDate = sentOn.Date;
 
-        var alreadySent = await _dbContext.FoodDispatchLogs
+        var alreadySent = await context.FoodDispatchLogs
             .AnyAsync(
                 log => log.Kind == kind && log.SentOn == normalizedDate,
                 cancellationToken);
@@ -60,17 +62,17 @@ public class FoodDispatchRepository : IFoodDispatchRepository
         }
 
         var log = new FoodDispatchLog { Kind = kind, SentOn = normalizedDate };
-        await _dbContext.FoodDispatchLogs.AddAsync(log, cancellationToken);
+        await context.FoodDispatchLogs.AddAsync(log, cancellationToken);
 
         try
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException ex) when (DatabaseWriteGuard.IsUniqueConstraintViolation(ex))
         {
             // Lost the race against a concurrent dispatcher — the row already exists, which is the
             // desired state. Detach the failed insert so the shared context stays usable.
-            _dbContext.Entry(log).State = EntityState.Detached;
+            context.Entry(log).State = EntityState.Detached;
         }
     }
 
@@ -82,9 +84,10 @@ public class FoodDispatchRepository : IFoodDispatchRepository
     /// <returns>The number of records removed.</returns>
     public async Task<int> PruneAsync(DateTime olderThan, CancellationToken cancellationToken = default)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var cutoff = olderThan.Date;
 
-        var stale = await _dbContext.FoodDispatchLogs
+        var stale = await context.FoodDispatchLogs
             .Where(log => log.SentOn < cutoff)
             .ToListAsync(cancellationToken);
 
@@ -93,8 +96,8 @@ public class FoodDispatchRepository : IFoodDispatchRepository
             return 0;
         }
 
-        _dbContext.FoodDispatchLogs.RemoveRange(stale);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        context.FoodDispatchLogs.RemoveRange(stale);
+        await context.SaveChangesAsync(cancellationToken);
         return stale.Count;
     }
 }

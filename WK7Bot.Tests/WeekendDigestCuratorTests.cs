@@ -119,7 +119,7 @@ public class WeekendDigestCuratorTests
     public void PickSuggestions_IncludesMultiDayEventsOverlappingTheWeekend()
     {
         var multiDay = Event("Europacup im Speedklettern", new DateTime(2026, 10, 10));
-        multiDay.EndDate = new DateTime(2026, 10, 12);
+        multiDay = multiDay with { EndDate = new DateTime(2026, 10, 12) };
 
         var picks = WeekendDigestCurator.PickSuggestions(new[] { multiDay }, Friday);
 

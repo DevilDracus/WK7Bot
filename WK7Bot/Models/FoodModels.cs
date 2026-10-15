@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 /// <summary>
 /// Container model representing seasonal regional produce returned by Gemini structured outputs.
 /// </summary>
-public class SeasonalFoodData
+public sealed record SeasonalFoodData
 {
     /// <summary>
     /// Gets or sets the target month name.
@@ -42,7 +42,7 @@ public class SeasonalFoodData
 /// <summary>
 /// Dialysis and immunosuppressive friendly weekly recipe structure generated via Gemini API.
 /// </summary>
-public class RenalRecipeData
+public sealed record RenalRecipeData
 {
     /// <summary>
     /// Gets or sets the recipe title.

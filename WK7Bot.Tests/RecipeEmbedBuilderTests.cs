@@ -39,10 +39,10 @@ public class RecipeEmbedBuilderTests
     public void BuildSearched_LinksSource_AndAddsDisclaimer()
     {
         var recipe = CreateRecipe();
-        recipe.SourceUrl = "https://www.chefkoch.de/rezepte/123/pfannkuchen.html";
-        recipe.ImageUrl = "https://images.example.com/auflauf.jpg";
-        recipe.DietTags = new List<string>();
-        recipe.TransplantSafetyNotes = string.Empty;
+        recipe = recipe with { SourceUrl = "https://www.chefkoch.de/rezepte/123/pfannkuchen.html" };
+        recipe = recipe with { ImageUrl = "https://images.example.com/auflauf.jpg" };
+        recipe = recipe with { DietTags = new List<string>() };
+        recipe = recipe with { TransplantSafetyNotes = string.Empty };
 
         var embed = RecipeEmbedBuilder.BuildSearched(recipe, "Requested by @Tester • Rezept aus dem Web");
 
@@ -76,7 +76,7 @@ public class RecipeEmbedBuilderTests
     public void BuildGenerated_ChunksOversizedField_WithoutLosingContent()
     {
         var recipe = CreateRecipe();
-        recipe.Ingredients = new List<string> { new('x', 2000) };
+        recipe = recipe with { Ingredients = new List<string> { new('x', 2000) } };
 
         var embed = RecipeEmbedBuilder.BuildGenerated(recipe, "footer");
 

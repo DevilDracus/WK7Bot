@@ -9,21 +9,22 @@ using WK7Bot.Core.Interfaces;
 /// </summary>
 public class WishlistDealRepository : IWishlistDealRepository
 {
-    private readonly BotDbContext _context;
+    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="WishlistDealRepository"/> class.
+    /// Initializes a new instance of the <see cref="WishlistDealRepository" /> class.
     /// </summary>
-    /// <param name="context">The database context instance.</param>
-    public WishlistDealRepository(BotDbContext context)
+    /// <param name="dbContextFactory">The database context factory.</param>
+    public WishlistDealRepository(IDbContextFactory<BotDbContext> dbContextFactory)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<WishlistGame>> GetAllTrackedGamesAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.WishlistGames
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await context.WishlistGames
             .AsNoTracking()
             .ToListAsync(cancellationToken);
     }
@@ -31,12 +32,13 @@ public class WishlistDealRepository : IWishlistDealRepository
     /// <inheritdoc />
     public async Task ReplaceTrackedGamesAsync(IEnumerable<WishlistGame> games, CancellationToken cancellationToken = default)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            await _context.WishlistGames.ExecuteDeleteAsync(cancellationToken);
-            await _context.WishlistGames.AddRangeAsync(games, cancellationToken);
-            await _context.SaveChangesAsync(cancellationToken);
+            await context.WishlistGames.ExecuteDeleteAsync(cancellationToken);
+            await context.WishlistGames.AddRangeAsync(games, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
         catch
@@ -49,8 +51,9 @@ public class WishlistDealRepository : IWishlistDealRepository
     /// <inheritdoc />
     public async Task<bool> IsOnCooldownAsync(uint appId, TimeSpan cooldown, CancellationToken cancellationToken = default)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var cutoff = DateTimeOffset.UtcNow - cooldown;
-        return await _context.WishlistAlertHistories
+        return await context.WishlistAlertHistories
             .AsNoTracking()
             .AnyAsync(h => h.AppId == appId && h.AlertedAt >= cutoff, cancellationToken);
     }
@@ -58,20 +61,22 @@ public class WishlistDealRepository : IWishlistDealRepository
     /// <inheritdoc />
     public async Task RecordAlertAsync(uint appId, bool isHistoricalLow, CancellationToken cancellationToken = default)
     {
-        _context.WishlistAlertHistories.Add(new WishlistAlertHistory
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        context.WishlistAlertHistories.Add(new WishlistAlertHistory
         {
             AppId = appId,
             AlertedAt = DateTimeOffset.UtcNow,
             WasHistoricalLow = isHistoricalLow
         });
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     /// <inheritdoc />
     public async Task PruneAlertHistoryAsync(TimeSpan retention, CancellationToken cancellationToken = default)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var cutoff = DateTimeOffset.UtcNow - retention;
-        await _context.WishlistAlertHistories
+        await context.WishlistAlertHistories
             .Where(h => h.AlertedAt < cutoff)
             .ExecuteDeleteAsync(cancellationToken);
     }

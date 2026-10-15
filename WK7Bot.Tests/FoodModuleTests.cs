@@ -255,9 +255,9 @@ public class FoodModuleTests
     public async Task SearchRecipeAsync_PostsEmbedWithSourceLink_WhenSearchSucceeds()
     {
         var recipe = CreateRecipe();
-        recipe.SourceUrl = "https://www.chefkoch.de/rezepte/pfannkuchen.html";
-        recipe.DietTags = new List<string>();
-        recipe.TransplantSafetyNotes = string.Empty;
+        recipe = recipe with { SourceUrl = "https://www.chefkoch.de/rezepte/pfannkuchen.html" };
+        recipe = recipe with { DietTags = new List<string>() };
+        recipe = recipe with { TransplantSafetyNotes = string.Empty };
 
         var gemini = new Mock<IGeminiFoodService>();
         var search = new Mock<IRecipeSearchService>();
@@ -368,14 +368,14 @@ public class FoodModuleTests
     public async Task SearchRecipeAsync_PostsGeminiFormattedRecipe_WhenFormattingSucceeds()
     {
         var raw = CreateRecipe();
-        raw.SourceUrl = "https://www.chefkoch.de/rezepte/123/pfannkuchen.html";
+        raw = raw with { SourceUrl = "https://www.chefkoch.de/rezepte/123/pfannkuchen.html" };
 
         var formatted = CreateRecipe();
-        formatted.Title = "Sauber formatierter Titel";
-        formatted.Ingredients = new List<string> { "200 g Mehl", "300 ml Milch" };
-        formatted.SourceUrl = raw.SourceUrl;
-        formatted.DietTags = new List<string>();
-        formatted.TransplantSafetyNotes = string.Empty;
+        formatted = formatted with { Title = "Sauber formatierter Titel" };
+        formatted = formatted with { Ingredients = new List<string> { "200 g Mehl", "300 ml Milch" } };
+        formatted = formatted with { SourceUrl = raw.SourceUrl };
+        formatted = formatted with { DietTags = new List<string>() };
+        formatted = formatted with { TransplantSafetyNotes = string.Empty };
 
         var gemini = new Mock<IGeminiFoodService>();
         gemini.Setup(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()))
@@ -403,7 +403,7 @@ public class FoodModuleTests
     public async Task SearchRecipeAsync_PostsRawRecipe_WhenFormattingFails()
     {
         var raw = CreateRecipe();
-        raw.SourceUrl = "https://www.chefkoch.de/rezepte/123/pfannkuchen.html";
+        raw = raw with { SourceUrl = "https://www.chefkoch.de/rezepte/123/pfannkuchen.html" };
 
         var gemini = new Mock<IGeminiFoodService>();
         gemini.Setup(s => s.FormatRecipeAsync(It.IsAny<RenalRecipeData>(), It.IsAny<CancellationToken>()))
@@ -451,9 +451,9 @@ public class FoodModuleTests
             .Returns((RenalRecipeData input, CancellationToken _) => Task.FromResult<RenalRecipeData?>(input));
 
         var recipe = CreateRecipe();
-        recipe.SourceUrl = "https://www.chefkoch.de/rezepte/42/saison.html";
-        recipe.DietTags = new List<string>();
-        recipe.TransplantSafetyNotes = string.Empty;
+        recipe = recipe with { SourceUrl = "https://www.chefkoch.de/rezepte/42/saison.html" };
+        recipe = recipe with { DietTags = new List<string>() };
+        recipe = recipe with { TransplantSafetyNotes = string.Empty };
 
         var search = new Mock<IRecipeSearchService>();
         search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -491,7 +491,7 @@ public class FoodModuleTests
             .ReturnsAsync(CreateProduce());
 
         var recipe = CreateRecipe();
-        recipe.SourceUrl = "https://www.chefkoch.de/rezepte/42/saison.html";
+        recipe = recipe with { SourceUrl = "https://www.chefkoch.de/rezepte/42/saison.html" };
 
         var search = new Mock<IRecipeSearchService>();
         search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -517,7 +517,7 @@ public class FoodModuleTests
             .ReturnsAsync(CreateProduce());
 
         var recipe = CreateRecipe();
-        recipe.SourceUrl = "https://www.chefkoch.de/rezepte/42/saison.html";
+        recipe = recipe with { SourceUrl = "https://www.chefkoch.de/rezepte/42/saison.html" };
 
         var search = new Mock<IRecipeSearchService>();
         search.Setup(s => s.SearchWebRecipeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -684,7 +684,7 @@ public class FoodModuleTests
     public async Task GetSeasonalProduceAsync_PostsPlaceholder_WhenCategoryIsEmpty()
     {
         var produce = CreateProduce();
-        produce.Nuts = new List<string>();
+        produce = produce with { Nuts = new List<string>() };
 
         var service = new Mock<IGeminiFoodService>();
         service.Setup(s => s.GetSeasonalProduceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))

@@ -8,7 +8,7 @@ namespace WK7Bot.Tests;
 
 public class WasteDispatchRepositoryTests : IDisposable
 {
-    private readonly BotDbContext _context;
+    private readonly IDbContextFactory<BotDbContext> _factory;
     private readonly IWasteDispatchRepository _repository;
 
     public WasteDispatchRepositoryTests()
@@ -17,13 +17,12 @@ public class WasteDispatchRepositoryTests : IDisposable
             .UseInMemoryDatabase(databaseName: $"waste-dispatch-tests-{Guid.NewGuid()}")
             .Options;
 
-        _context = new BotDbContext(options);
-        _repository = new WasteDispatchRepository(_context);
+        _factory = new PooledDbContextFactory<BotDbContext>(options);
+        _repository = new WasteDispatchRepository(_factory);
     }
 
     public void Dispose()
     {
-        _context.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -49,7 +48,8 @@ public class WasteDispatchRepositoryTests : IDisposable
         await _repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date);
         await _repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date);
 
-        Assert.Equal(1, _context.WasteDispatchLogs.Count());
+        using var verifyWaste = _factory.CreateDbContext();
+        Assert.Equal(1, verifyWaste.WasteDispatchLogs.Count());
     }
 
     [Fact]
@@ -88,7 +88,8 @@ public class WasteDispatchRepositoryTests : IDisposable
         await _repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, withTime);
 
         Assert.True(await _repository.HasSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date));
-        var stored = Assert.Single(_context.WasteDispatchLogs.AsNoTracking());
+        var verifyWaste = _factory.CreateDbContext();
+        var stored = Assert.Single(verifyWaste.WasteDispatchLogs.AsNoTracking());
         Assert.Equal(date, stored.SentOn);
     }
 
@@ -96,7 +97,7 @@ public class WasteDispatchRepositoryTests : IDisposable
     public async Task SqliteStartupSequence_EnsureCreatedPlusRawSql_RoundTrips()
     {
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:")
+            .UseSqlite("Data Source=:memory:;Cache=Shared")
             .Options;
 
         await using var context = new BotDbContext(options);
@@ -106,14 +107,15 @@ public class WasteDispatchRepositoryTests : IDisposable
         await context.Database.EnsureCreatedAsync();
         await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateWasteDispatchLogsSql);
 
-        await AssertRoundTripAsync(context);
+        var factory = new PooledDbContextFactory<BotDbContext>(options);
+        await AssertRoundTripAsync(factory);
     }
 
     [Fact]
     public async Task SqliteMigrationSequence_RawSql_CreatesMissingTableIdempotently_And_RoundTrips()
     {
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:")
+            .UseSqlite("Data Source=:memory:;Cache=Shared")
             .Options;
 
         await using var context = new BotDbContext(options);
@@ -124,7 +126,8 @@ public class WasteDispatchRepositoryTests : IDisposable
         await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateWasteDispatchLogsSql);
         await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateWasteDispatchLogsSql);
 
-        await AssertRoundTripAsync(context);
+        var factory = new PooledDbContextFactory<BotDbContext>(options);
+        await AssertRoundTripAsync(factory);
     }
 
     [Fact]
@@ -136,10 +139,12 @@ public class WasteDispatchRepositoryTests : IDisposable
         {
             var connectionString = $"Data Source={databasePath}";
 
-            await using var context = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options);
+            var options = new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options;
+            await using var context = new BotDbContext(options);
             await context.Database.EnsureCreatedAsync();
 
-            var repository = new WasteDispatchRepository(context);
+            var factory = new PooledDbContextFactory<BotDbContext>(options);
+            var repository = new WasteDispatchRepository(factory);
             var date = new DateTime(2026, 10, 5);
 
             await repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date);
@@ -156,9 +161,9 @@ public class WasteDispatchRepositoryTests : IDisposable
         }
     }
 
-    private static async Task AssertRoundTripAsync(BotDbContext context)
+    private static async Task AssertRoundTripAsync(IDbContextFactory<BotDbContext> factory)
     {
-        var repository = new WasteDispatchRepository(context);
+        var repository = new WasteDispatchRepository(factory);
         var date = new DateTime(2026, 10, 5);
 
         Assert.False(await repository.HasSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date));
@@ -166,6 +171,7 @@ public class WasteDispatchRepositoryTests : IDisposable
         await repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date);
         Assert.True(await repository.HasSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date));
         Assert.False(await repository.HasSentAsync(WasteDispatchKinds.WeeklyOverview, 100, date));
-        Assert.Single(context.WasteDispatchLogs.AsNoTracking());
+        using var verifyWaste = factory.CreateDbContext();
+        Assert.Single(verifyWaste.WasteDispatchLogs.AsNoTracking());
     }
 }

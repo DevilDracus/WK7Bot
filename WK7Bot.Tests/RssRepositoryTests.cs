@@ -7,7 +7,7 @@ namespace WK7Bot.Tests;
 
 public class RssRepositoryTests : IDisposable
 {
-    private readonly BotDbContext _context;
+    private readonly IDbContextFactory<BotDbContext> _factory;
     private readonly RssRepository _repository;
 
     public RssRepositoryTests()
@@ -16,13 +16,12 @@ public class RssRepositoryTests : IDisposable
             .UseInMemoryDatabase(databaseName: $"rss-tests-{Guid.NewGuid()}")
             .Options;
 
-        _context = new BotDbContext(options);
-        _repository = new RssRepository(_context);
+        _factory = new PooledDbContextFactory<BotDbContext>(options);
+        _repository = new RssRepository(_factory);
     }
 
     public void Dispose()
     {
-        _context.Dispose();
         GC.SuppressFinalize(this);
     }
 

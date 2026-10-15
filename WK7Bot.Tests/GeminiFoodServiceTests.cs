@@ -246,7 +246,7 @@ public class GeminiFoodServiceTests
         var payload = Assert.Single(handler.Payloads);
         Assert.Contains("Provide a complete list of seasonal produce", payload);
         Assert.Contains("\"responseMimeType\":\"application/json\"", payload);
-        Assert.Contains("\"jsonSchema\"", payload);
+        Assert.Contains("\"responseJsonSchema\"", payload);
         Assert.Contains("\"maxOutputTokens\":8192", payload);
     }
 
@@ -416,11 +416,13 @@ public class GeminiFoodServiceTests
         var handler = new StubHttpMessageHandler(_ => Json(Envelope(StepsDroppedFormattedRecipeJson)));
         var service = CreateService(handler);
 
-        var scraped = ScrapedRecipe();
-        scraped.Instructions = new List<string>
+        var scraped = ScrapedRecipe() with
         {
-            "Teig rühren",
-            "In der Pfanne goldbraun backen"
+            Instructions = new List<string>
+            {
+                "Teig rühren",
+                "In der Pfanne goldbraun backen"
+            }
         };
 
         var result = await service.FormatRecipeAsync(scraped);
@@ -441,7 +443,7 @@ public class GeminiFoodServiceTests
         Assert.Contains("Re-format it into the schema", payload);
         Assert.Contains("FAITHFUL", payload);
         Assert.Contains("200 g Mehl und 300 ml Milch und 2 Eier", payload);
-        Assert.Contains("\"jsonSchema\"", payload);
+        Assert.Contains("\"responseJsonSchema\"", payload);
         Assert.Contains("\"instructions\"", payload);
         Assert.DoesNotContain("\"diet_tags\"", payload);
         Assert.DoesNotContain("transplant_safety_notes", payload);

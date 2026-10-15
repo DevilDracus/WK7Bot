@@ -100,6 +100,8 @@ public sealed class WishlistDealService : IWishlistDealService
     /// <inheritdoc />
     public async Task<IReadOnlyDictionary<uint, ItadPriceData>> FetchPricesAsync(IEnumerable<uint> appIds, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(appIds);
+
         var appIdList = appIds.Distinct().ToList();
         if (appIdList.Count == 0)
         {
@@ -226,36 +228,26 @@ public sealed class WishlistDealService : IWishlistDealService
         };
     }
 
-    private async Task<HttpResponseMessage> GetWithRetryAsync(string url, CancellationToken cancellationToken)
+    internal async Task<HttpResponseMessage> GetWithRetryAsync(string url, CancellationToken cancellationToken = default)
+        => await ExecuteWithRetryAsync(() => _httpClient.GetAsync(url, cancellationToken), cancellationToken);
+
+    internal async Task<HttpResponseMessage> PostWithRetryAsync(string url, object payload, CancellationToken cancellationToken = default)
+        => await ExecuteWithRetryAsync(
+            async () =>
+            {
+                using var content = JsonContent.Create(payload);
+                return await _httpClient.PostAsync(url, content, cancellationToken);
+            },
+            cancellationToken);
+
+    internal async Task<HttpResponseMessage> ExecuteWithRetryAsync(Func<Task<HttpResponseMessage>> sendFactory, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(sendFactory);
+
         for (int attempt = 1; attempt <= MaxAttempts; attempt++)
         {
-            var response = await _httpClient.GetAsync(url, cancellationToken);
+            var response = await sendFactory();
             if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Forbidden)
-            {
-                return response;
-            }
-
-            if (attempt < MaxAttempts)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
-            }
-            else
-            {
-                return response;
-            }
-        }
-
-        return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
-    }
-
-    private async Task<HttpResponseMessage> PostWithRetryAsync(string url, object payload, CancellationToken cancellationToken)
-    {
-        for (int attempt = 1; attempt <= MaxAttempts; attempt++)
-        {
-            using var content = JsonContent.Create(payload);
-            var response = await _httpClient.PostAsync(url, content, cancellationToken);
-            if (response.IsSuccessStatusCode)
             {
                 return response;
             }

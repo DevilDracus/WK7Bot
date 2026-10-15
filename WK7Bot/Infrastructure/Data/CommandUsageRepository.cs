@@ -8,15 +8,15 @@ using WK7Bot.Core.Entities;
 /// </summary>
 public class CommandUsageRepository
 {
-    private readonly BotDbContext _dbContext;
+    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CommandUsageRepository"/> class.
+    /// Initializes a new instance of the <see cref="CommandUsageRepository" /> class.
     /// </summary>
-    /// <param name="dbContext">The database context.</param>
-    public CommandUsageRepository(BotDbContext dbContext)
+    /// <param name="dbContextFactory">The database context factory.</param>
+    public CommandUsageRepository(IDbContextFactory<BotDbContext> dbContextFactory)
     {
-        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
     }
 
     /// <summary>
@@ -35,6 +35,7 @@ public class CommandUsageRepository
         bool succeeded = true,
         CancellationToken cancellationToken = default)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var entry = new CommandUsageLog
         {
             CommandName = commandName,
@@ -44,8 +45,8 @@ public class CommandUsageRepository
             Succeeded = succeeded
         };
 
-        _dbContext.CommandUsageLogs.Add(entry);
-        await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        context.CommandUsageLogs.Add(entry);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -60,11 +61,12 @@ public class CommandUsageRepository
         int top,
         CancellationToken cancellationToken)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var cutoff = DateTime.UtcNow.AddDays(-days);
 
         // Use an anonymous type for the EF Core projection — ValueTuple constructor
         // calls cannot be translated to SQL and throw InvalidOperationException at runtime.
-        var query = await _dbContext.CommandUsageLogs
+        var query = await context.CommandUsageLogs
             .Where(e => e.InvokedAt >= cutoff)
             .GroupBy(e => e.CommandName)
             .Select(g => new { CommandName = g.Key, Count = g.Count() })
@@ -81,8 +83,9 @@ public class CommandUsageRepository
     /// </summary>
     public async Task<int> PruneOldLogsAsync(int retentionDays, CancellationToken cancellationToken)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
-        var oldEntries = await _dbContext.CommandUsageLogs
+        var oldEntries = await context.CommandUsageLogs
             .Where(e => e.InvokedAt < cutoff)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -92,8 +95,8 @@ public class CommandUsageRepository
             return 0;
         }
 
-        _dbContext.CommandUsageLogs.RemoveRange(oldEntries);
-        await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        context.CommandUsageLogs.RemoveRange(oldEntries);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return oldEntries.Count;
     }
 }

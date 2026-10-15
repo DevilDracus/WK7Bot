@@ -8,7 +8,7 @@ namespace WK7Bot.Tests;
 
 public class FoodDispatchRepositoryTests : IDisposable
 {
-    private readonly BotDbContext _context;
+    private readonly IDbContextFactory<BotDbContext> _factory;
     private readonly IFoodDispatchRepository _repository;
 
     public FoodDispatchRepositoryTests()
@@ -17,13 +17,12 @@ public class FoodDispatchRepositoryTests : IDisposable
             .UseInMemoryDatabase(databaseName: $"food-dispatch-tests-{Guid.NewGuid()}")
             .Options;
 
-        _context = new BotDbContext(options);
-        _repository = new FoodDispatchRepository(_context);
+        _factory = new PooledDbContextFactory<BotDbContext>(options);
+        _repository = new FoodDispatchRepository(_factory);
     }
 
     public void Dispose()
     {
-        _context.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -49,7 +48,8 @@ public class FoodDispatchRepositoryTests : IDisposable
         await _repository.MarkSentAsync(FoodDispatchKinds.MonthlyProduce, date);
         await _repository.MarkSentAsync(FoodDispatchKinds.MonthlyProduce, date);
 
-        Assert.Equal(1, _context.FoodDispatchLogs.Count());
+        using var verifyFood = _factory.CreateDbContext();
+        Assert.Equal(1, verifyFood.FoodDispatchLogs.Count());
     }
 
     [Fact]
@@ -81,7 +81,8 @@ public class FoodDispatchRepositoryTests : IDisposable
         await _repository.MarkSentAsync(FoodDispatchKinds.WeeklyRecipe, withTime);
 
         Assert.True(await _repository.HasSentAsync(FoodDispatchKinds.WeeklyRecipe, date));
-        var stored = Assert.Single(_context.FoodDispatchLogs.AsNoTracking());
+        var verifyFood = _factory.CreateDbContext();
+        var stored = Assert.Single(verifyFood.FoodDispatchLogs.AsNoTracking());
         Assert.Equal(date, stored.SentOn);
     }
 
@@ -94,7 +95,8 @@ public class FoodDispatchRepositoryTests : IDisposable
         var removed = await _repository.PruneAsync(new DateTime(2026, 9, 15));
 
         Assert.Equal(1, removed);
-        Assert.Equal(1, _context.FoodDispatchLogs.Count());
+        using var verifyFood = _factory.CreateDbContext();
+        Assert.Equal(1, verifyFood.FoodDispatchLogs.Count());
         Assert.True(await _repository.HasSentAsync(FoodDispatchKinds.WeeklyRecipe, new DateTime(2026, 10, 1)));
     }
 
@@ -106,14 +108,15 @@ public class FoodDispatchRepositoryTests : IDisposable
         var removed = await _repository.PruneAsync(new DateTime(2026, 9, 15));
 
         Assert.Equal(0, removed);
-        Assert.Equal(1, _context.FoodDispatchLogs.Count());
+        using var verifyFood = _factory.CreateDbContext();
+        Assert.Equal(1, verifyFood.FoodDispatchLogs.Count());
     }
 
     [Fact]
     public async Task SqliteStartupSequence_EnsureCreatedPlusRawSql_RoundTrips()
     {
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:")
+            .UseSqlite("Data Source=:memory:;Cache=Shared")
             .Options;
 
         await using var context = new BotDbContext(options);
@@ -123,14 +126,15 @@ public class FoodDispatchRepositoryTests : IDisposable
         await context.Database.EnsureCreatedAsync();
         await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateFoodDispatchLogsSql);
 
-        await AssertRoundTripAsync(context);
+        var factory = new PooledDbContextFactory<BotDbContext>(options);
+        await AssertRoundTripAsync(factory);
     }
 
     [Fact]
     public async Task SqliteMigrationSequence_RawSql_CreatesMissingTableIdempotently_And_RoundTrips()
     {
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:")
+            .UseSqlite("Data Source=:memory:;Cache=Shared")
             .Options;
 
         await using var context = new BotDbContext(options);
@@ -141,12 +145,13 @@ public class FoodDispatchRepositoryTests : IDisposable
         await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateFoodDispatchLogsSql);
         await context.Database.ExecuteSqlRawAsync(DatabaseInitializationExtensions.CreateFoodDispatchLogsSql);
 
-        await AssertRoundTripAsync(context);
+        var factory = new PooledDbContextFactory<BotDbContext>(options);
+        await AssertRoundTripAsync(factory);
     }
 
-    private static async Task AssertRoundTripAsync(BotDbContext context)
+    private static async Task AssertRoundTripAsync(IDbContextFactory<BotDbContext> factory)
     {
-        var repository = new FoodDispatchRepository(context);
+        var repository = new FoodDispatchRepository(factory);
         var date = new DateTime(2026, 10, 1);
 
         Assert.False(await repository.HasSentAsync(FoodDispatchKinds.MonthlyProduce, date));
@@ -154,6 +159,7 @@ public class FoodDispatchRepositoryTests : IDisposable
         await repository.MarkSentAsync(FoodDispatchKinds.MonthlyProduce, date);
         Assert.True(await repository.HasSentAsync(FoodDispatchKinds.MonthlyProduce, date));
         Assert.False(await repository.HasSentAsync(FoodDispatchKinds.WeeklyRecipe, date));
-        Assert.Single(context.FoodDispatchLogs.AsNoTracking());
+        using var verifyFood = factory.CreateDbContext();
+        Assert.Single(verifyFood.FoodDispatchLogs.AsNoTracking());
     }
 }

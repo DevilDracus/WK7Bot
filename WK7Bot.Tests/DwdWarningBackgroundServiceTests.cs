@@ -181,7 +181,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var warning = RainWarning(Now);
-        warning.Onset = Now.AddMinutes(60);
+        warning = warning with { Onset = Now.AddMinutes(60) };
         var source = SourceReturning(warning);
         var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
@@ -196,7 +196,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var warning = RainWarning(Now);
-        warning.Onset = Now.AddMinutes(-10);
+        warning = warning with { Onset = Now.AddMinutes(-10) };
         var source = SourceReturning(warning);
         var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
@@ -211,7 +211,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var warning = RainWarning(Now);
-        warning.Onset = Now.AddMinutes(-3);
+        warning = warning with { Onset = Now.AddMinutes(-3) };
         var source = SourceReturning(warning);
         var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
@@ -226,7 +226,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var warning = RainWarning(Now);
-        warning.Expires = Now;
+        warning = warning with { Expires = Now };
         var source = SourceReturning(warning);
         var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
@@ -241,8 +241,8 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var warning = RainWarning(Now);
-        warning.Event = "NEBEL";
-        warning.EventGroup = "FOG";
+        warning = warning with { Event = "NEBEL" };
+        warning = warning with { EventGroup = "FOG" };
         var source = SourceReturning(warning);
         var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
@@ -257,7 +257,7 @@ public class DwdWarningBackgroundServiceTests
     {
         using var fixture = new Fixture();
         var warning = RainWarning(Now);
-        warning.Polygons = new List<IReadOnlyList<GeoPoint>> { Square(50.0, 8.0, 0.05) };
+        warning = warning with { Polygons = new List<IReadOnlyList<GeoPoint>> { Square(50.0, 8.0, 0.05) } };
         var source = SourceReturning(warning);
         var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, WarningOptions());
 
@@ -380,7 +380,7 @@ public class DwdWarningBackgroundServiceTests
         options.DwdWarning.Longitude = 0;
 
         var warning = RainWarning(Now);
-        warning.Polygons = new List<IReadOnlyList<GeoPoint>>();
+        warning = warning with { Polygons = new List<IReadOnlyList<GeoPoint>>() };
         var source = SourceReturning(warning);
         var service = new TestableWarningBackgroundService(fixture.ScopeFactory, source.Object, new ulong[] { 100 }, options);
 
