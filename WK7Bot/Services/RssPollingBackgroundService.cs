@@ -19,7 +19,7 @@ public class RssPollingBackgroundService : BackgroundService
     private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<RssPollingBackgroundService> _logger;
-    private bool _isClientReady;
+    private volatile bool _isClientReady;
 
     /// <summary>Loop tick; individual feeds are polled at their own <see cref="RssFeed.RefreshIntervalMinutes"/>.</summary>
     private static readonly TimeSpan PollTick = TimeSpan.FromMinutes(1);

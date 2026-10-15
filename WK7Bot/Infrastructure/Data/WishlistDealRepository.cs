@@ -31,9 +31,19 @@ public class WishlistDealRepository : IWishlistDealRepository
     /// <inheritdoc />
     public async Task ReplaceTrackedGamesAsync(IEnumerable<WishlistGame> games, CancellationToken cancellationToken = default)
     {
-        await _context.WishlistGames.ExecuteDeleteAsync(cancellationToken);
-        await _context.WishlistGames.AddRangeAsync(games, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _context.WishlistGames.ExecuteDeleteAsync(cancellationToken);
+            await _context.WishlistGames.AddRangeAsync(games, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     /// <inheritdoc />

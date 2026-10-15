@@ -39,14 +39,24 @@ public class SpontanTreffRepository : ISpontanTreffRepository
             return;
         }
 
-        // The raw schema has no foreign key cascade, so the answers are removed explicitly.
-        var responses = await _dbContext.SpontanTreffResponses
-            .Where(r => r.MeetupId == meetupId)
-            .ToListAsync(cancellationToken);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // The raw schema has no foreign key cascade, so the answers are removed explicitly.
+            var responses = await _dbContext.SpontanTreffResponses
+                .Where(r => r.MeetupId == meetupId)
+                .ToListAsync(cancellationToken);
 
-        _dbContext.SpontanTreffResponses.RemoveRange(responses);
-        _dbContext.SpontanTreffs.Remove(meetup);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            _dbContext.SpontanTreffResponses.RemoveRange(responses);
+            _dbContext.SpontanTreffs.Remove(meetup);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     /// <inheritdoc/>

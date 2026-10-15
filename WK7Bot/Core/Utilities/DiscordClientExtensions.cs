@@ -39,7 +39,7 @@ public static class DiscordClientExtensions
             {
                 if (!user.IsBot && filter(user))
                 {
-                    await action(user);
+                    await action(user).ConfigureAwait(false);
                 }
             }
         }

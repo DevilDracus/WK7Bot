@@ -147,7 +147,9 @@ public sealed class DwdResiliencePolicy
 
         try
         {
-            var result = await _pipeline.ExecuteAsync<object>(_ => new ValueTask<object>(adapted(cancellationToken)), cancellationToken).ConfigureAwait(false);
+            var result = await _pipeline
+                .ExecuteAsync<object>(_ => new ValueTask<object>(adapted(cancellationToken)), cancellationToken)
+                .ConfigureAwait(false);
             return (T)result;
         }
         catch (Exception ex) when (ex is BrokenCircuitException<object> or BrokenCircuitException)
