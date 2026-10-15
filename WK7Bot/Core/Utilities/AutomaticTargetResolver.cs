@@ -39,11 +39,10 @@ public static class AutomaticTargetResolver
         var guildIds = availableGuildIds as IReadOnlyList<ulong> ?? availableGuildIds.ToList();
 
         logger?.LogWarning(
-            "servers.wk7_server_id / servers.test_server_id are not configured for feature {Feature}; posting to all {Count} guild(s) the bot is in.",
-            featureKey,
-            guildIds.Count);
+            "servers.wk7_server_id / servers.test_server_id are not configured for feature {Feature}; configured server IDs are required, so automatic posting is skipped.",
+            featureKey);
 
-        return guildIds;
+        return Array.Empty<ulong>();
     }
 
     /// <summary>

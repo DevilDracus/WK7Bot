@@ -69,18 +69,17 @@ public class AutomaticTargetResolverTests
     }
 
     [Fact]
-    public void Resolve_PlaceholderIds_FallBackToAllGuilds_AndLogWarning()
+    public void Resolve_PlaceholderIds_ReturnsEmpty_AndLogWarning()
     {
         var servers = Configured("YOUR_WK7_SERVER_ID", "YOUR_BOT_TEST_SERVER_ID");
         var logger = new ListLogger();
 
         var targets = AutomaticTargetResolver.Resolve(servers, "leipzig_waste", AvailableGuilds, logger);
 
-        Assert.Equal(AvailableGuilds, targets);
+        Assert.Empty(targets);
         var warning = Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
         Assert.Contains("leipzig_waste", warning.Message);
     }
-
     [Fact]
     public void Resolve_ConfiguredServerNotInGuildList_StillTargetsThatServer()
     {

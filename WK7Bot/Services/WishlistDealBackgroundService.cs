@@ -189,12 +189,16 @@ public class WishlistDealBackgroundService : BackgroundService
         using (var scope = _scopeFactory.CreateScope())
         {
             var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
+            // Look up each game name once instead of rescanning all wishlists for every appId.
+            var nameByAppId = wishlistsByDiscordId
+                .SelectMany(x => x.Value)
+                .GroupBy(item => item.AppId)
+                .ToDictionary(group => group.Key, group => group.First().Name);
+
             var games = allAppIds.Select(appId => new WishlistGame
             {
                 AppId = appId,
-                Name = wishlistsByDiscordId
-                    .SelectMany(x => x.Value)
-                    .FirstOrDefault(g => g.AppId == appId)?.Name ?? string.Empty,
+                Name = nameByAppId.GetValueOrDefault(appId, string.Empty),
                 LastUpdated = DateTimeOffset.UtcNow
             }).ToList();
 
