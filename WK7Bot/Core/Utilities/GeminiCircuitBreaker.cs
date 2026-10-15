@@ -39,10 +39,10 @@ public sealed class GeminiCircuitBreaker
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref=\"GeminiCircuitBreaker\"/> class.
+    /// Initializes a new instance of the <see cref="GeminiCircuitBreaker" /> class.
     /// </summary>
-    /// <param name=\"logger\">The logger instance for circuit breaker diagnostics.</param>
-    /// <param name=\"utcNowProvider\">Optional UTC-now provider; injectable for deterministic tests. Defaults to <see cref=\"DateTime.UtcNow\"/>.</param>
+    /// <param name="logger">The logger instance for circuit breaker diagnostics.</param>
+    /// <param name="utcNowProvider">Optional UTC-now provider; injectable for deterministic tests. Defaults to <see cref="DateTime.UtcNow" />.</param>
     public GeminiCircuitBreaker(ILogger<GeminiCircuitBreaker> logger, Func<DateTime>? utcNowProvider)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

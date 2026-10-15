@@ -15,7 +15,7 @@ public class DatabaseMaintenanceService : BackgroundService
     private static readonly TimeSpan RunInterval = TimeSpan.FromHours(24);
     private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(5);
 
-    private readonly BotDbContext _dbContext;
+    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
     private readonly CommandUsageRepository _commandUsageRepository;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DatabaseMaintenanceService> _logger;
@@ -39,12 +39,12 @@ public class DatabaseMaintenanceService : BackgroundService
     /// Initializes a new instance of the <see cref="DatabaseMaintenanceService"/> class.
     /// </summary>
     public DatabaseMaintenanceService(
-        BotDbContext dbContext,
+        IDbContextFactory<BotDbContext> dbContextFactory,
         CommandUsageRepository commandUsageRepository,
         IOptions<Wk7BotOptions> options,
         ILogger<DatabaseMaintenanceService> logger)
     {
-        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
         _commandUsageRepository = commandUsageRepository ?? throw new ArgumentNullException(nameof(commandUsageRepository));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -191,7 +191,8 @@ public class DatabaseMaintenanceService : BackgroundService
             var cutoff = DateTime.UtcNow.AddDays(-DefaultLogRetentionDays);
             var cutoffString = cutoff.ToString("O");
 
-            await using var connection = _dbContext.Database.GetDbConnection();
+            await using var dbContext = await _dbContextFactory.CreateDbContextAsync(stoppingToken).ConfigureAwait(false);
+            await using var connection = dbContext.Database.GetDbConnection();
             await connection.OpenAsync(stoppingToken).ConfigureAwait(false);
 
             int wastePruned = 0, warningPruned = 0, foodPruned = 0;
@@ -245,7 +246,8 @@ public class DatabaseMaintenanceService : BackgroundService
     /// </summary>
     private string? GetDatabasePath()
     {
-        var connectionString = _dbContext.Database.GetConnectionString();
+        using var dbContext = _dbContextFactory.CreateDbContext();
+        var connectionString = dbContext.Database.GetConnectionString();
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             return null;

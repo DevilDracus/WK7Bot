@@ -1,7 +1,7 @@
 namespace WK7Bot.Services;
 
 using System.Net.Http.Json;
-using System.Web;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using WK7Bot.Models;
 using WK7Bot.Services.Interfaces;
@@ -18,16 +18,19 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenFoodFactsService> _logger;
+    private readonly IMemoryCache _cache;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OpenFoodFactsService"/> class.
     /// </summary>
     /// <param name="httpClient">The HTTP client used for API requests.</param>
     /// <param name="logger">The logger instance.</param>
-    public OpenFoodFactsService(HttpClient httpClient, ILogger<OpenFoodFactsService> logger)
+    /// <param name="cache">The memory cache instance holding results for one hour.</param>
+    public OpenFoodFactsService(HttpClient httpClient, ILogger<OpenFoodFactsService> logger, IMemoryCache cache)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
     }
 
     /// <inheritdoc />
@@ -38,7 +41,14 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
             return null;
         }
 
-        var url = $"{SearchEndpoint}?search_terms={HttpUtility.UrlEncode(query.Trim())}&search_simple=1&action=process&json=1&page_size=5";
+        var normalizedQuery = query.Trim();
+        var cacheKey = $"openfoodfacts:{normalizedQuery.ToLowerInvariant()}";
+        if (_cache.TryGetValue(cacheKey, out OpenFoodFactsProduct? cached))
+        {
+            return cached;
+        }
+
+        var url = $"{SearchEndpoint}?search_terms={Uri.EscapeDataString(normalizedQuery)}&search_simple=1&action=process&json=1&page_size=5";
 
         try
         {
@@ -54,10 +64,11 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
             if (product == null)
             {
                 _logger.LogInformation("No Open Food Facts product found for query '{Query}'.", query);
+                _cache.Set<OpenFoodFactsProduct?>(cacheKey, null, CacheLifetime);
                 return null;
-            }
-
+                }
             _logger.LogInformation("Found product '{ProductName}' for query '{Query}'.", product.ProductName, query);
+            _cache.Set(cacheKey, product, CacheLifetime);
             return product;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

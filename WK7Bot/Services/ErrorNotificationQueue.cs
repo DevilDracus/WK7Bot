@@ -97,12 +97,13 @@ public class ErrorNotificationQueue
     /// <param name="now">The current clock reading.</param>
     private void PruneExpiredEntries(DateTimeOffset now)
     {
-        foreach (var entry in _lastReported)
+        var expiredKeys = _lastReported.Keys
+            .Where(key => _lastReported.TryGetValue(key, out var value) && now - value >= _throttleWindow)
+            .ToList();
+
+        foreach (var key in expiredKeys)
         {
-            if (now - entry.Value >= _throttleWindow)
-            {
-                ((ICollection<KeyValuePair<string, DateTimeOffset>>)_lastReported).Remove(entry);
-            }
+            _lastReported.TryRemove(key, out _);
         }
     }
 }

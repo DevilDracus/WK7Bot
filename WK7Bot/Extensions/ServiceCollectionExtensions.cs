@@ -81,7 +81,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
         services.AddHttpClient<ISteamService, SteamService>();
         services.AddHttpClient<IBattleNetService, BattleNetService>();
-        services.AddHttpClient<IGeminiFoodService, GeminiFoodService>();
+        services.AddHttpClient<IGeminiFoodService, GeminiFoodService>(client => client.Timeout = TimeSpan.FromSeconds(30));
 
         // Gemini circuit breaker — prevents hammering Gemini when unavailable.
         services.AddSingleton<GeminiCircuitBreaker>();
@@ -128,7 +128,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<RssParserService>();
 
         // Command usage metrics repository
-        services.AddScoped<CommandUsageRepository>();
+        services.AddSingleton<CommandUsageRepository>();
 
         services.AddSingleton<IMqttClient>(sp => new MqttClientFactory().CreateMqttClient());
 

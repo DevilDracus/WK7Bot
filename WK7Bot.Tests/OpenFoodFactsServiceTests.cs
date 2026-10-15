@@ -1,6 +1,7 @@
 namespace WK7Bot.Tests;
 
 using System.Net;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Moq.Protected;
@@ -27,8 +28,8 @@ public class OpenFoodFactsServiceTests
         };
     }
 
-    private static OpenFoodFactsService CreateService(HttpClient client)
-        => new(client, NullLogger<OpenFoodFactsService>.Instance);
+    private static OpenFoodFactsService CreateService(HttpClient client, IMemoryCache? cache = null)
+        => new(client, NullLogger<OpenFoodFactsService>.Instance, cache ?? new MemoryCache(new MemoryCacheOptions()));
 
     [Fact]
     public async Task SearchProductAsync_ReturnsFirstProductWithName_WhenResultsExist()
@@ -106,7 +107,8 @@ public class OpenFoodFactsServiceTests
     [Fact]
     public void Constructor_Throws_WhenDependenciesAreNull()
     {
-        Assert.Throws<ArgumentNullException>(() => new OpenFoodFactsService(null!, NullLogger<OpenFoodFactsService>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new OpenFoodFactsService(new HttpClient(), null!));
+        Assert.Throws<ArgumentNullException>(() => new OpenFoodFactsService(null!, NullLogger<OpenFoodFactsService>.Instance, new MemoryCache(new MemoryCacheOptions())));
+        Assert.Throws<ArgumentNullException>(() => new OpenFoodFactsService(new HttpClient(), null!, new MemoryCache(new MemoryCacheOptions())));
+        Assert.Throws<ArgumentNullException>(() => new OpenFoodFactsService(new HttpClient(), NullLogger<OpenFoodFactsService>.Instance, null!));
     }
 }

@@ -247,11 +247,12 @@ public class DiscordPresenceMqttService : BackgroundService
                 }
             }
 
-            if (!_discoveredUsers.ContainsKey(user.Id))
+            if (_discoveredUsers.TryAdd(user.Id, true))
             {
-                if (await PublishHomeAssistantDiscoveryAsync(presenceEntity))
+                var published = await PublishHomeAssistantDiscoveryAsync(presenceEntity);
+                if (!published)
                 {
-                    _discoveredUsers.TryAdd(user.Id, true);
+                    _discoveredUsers.TryRemove(user.Id, out _);
                 }
             }
 

@@ -83,7 +83,6 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         var sw = Stopwatch.StartNew();
         try
         {
-            _httpClient.Timeout = TimeSpan.FromSeconds(10);
 
             using var response = await _httpClient.GetAsync(
                 "https://opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/",
@@ -111,7 +110,6 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         var sw = Stopwatch.StartNew();
         try
         {
-            _httpClient.Timeout = TimeSpan.FromSeconds(10);
 
             using var response = await _httpClient.GetAsync(
                 "https://store.steampowered.com/api/appdetails?appids=620",
@@ -149,7 +147,6 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         var sw = Stopwatch.StartNew();
         try
         {
-            _httpClient.Timeout = TimeSpan.FromSeconds(10);
 
             using var response = await _httpClient.GetAsync(
                 "https://world.openfoodfacts.org/cgi/search.pl?search_terms=banana&json=1&page_size=1",
@@ -177,7 +174,6 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         var sw = Stopwatch.StartNew();
         try
         {
-            _httpClient.Timeout = TimeSpan.FromSeconds(10);
 
             using var response = await _httpClient.GetAsync(
                 "https://api.isthereanydeal.com/v01/web/regions/",

@@ -90,7 +90,7 @@ public class GeminiFoodService : IGeminiFoodService
         GeminiCircuitBreaker circuitBreaker)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _httpClient.Timeout = RequestTimeout;
+        // Typed HTTP client timeout is configured centrally in ServiceCollectionExtensions.
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _circuitBreaker = circuitBreaker ?? throw new ArgumentNullException(nameof(circuitBreaker));
