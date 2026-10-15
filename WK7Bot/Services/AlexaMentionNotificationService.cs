@@ -25,6 +25,7 @@ public class AlexaMentionNotificationService : IHostedService
     private readonly HttpClient _httpClient;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<AlexaMentionNotificationService> _logger;
+    private readonly CancellationTokenSource _shutdownCts = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AlexaMentionNotificationService"/> class.
@@ -69,6 +70,7 @@ public class AlexaMentionNotificationService : IHostedService
     /// <returns>A completed task representing shutdown cleanup.</returns>
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        _shutdownCts.Cancel();
         if (_options.Features.AlexaNotificationsEnabled)
         {
             _discordClient.MessageReceived -= HandleMessageReceivedAsync;
@@ -110,13 +112,13 @@ public class AlexaMentionNotificationService : IHostedService
                 {
                     try
                     {
-                        await SendAlexaNotificationAsync(notificationText);
+                        await SendAlexaNotificationAsync(notificationText, _shutdownCts.Token);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, "Alexa notification dispatch failed.");
                     }
-                });
+                }, _shutdownCts.Token);
             }
         }
         catch (Exception ex)
@@ -130,7 +132,7 @@ public class AlexaMentionNotificationService : IHostedService
     /// </summary>
     /// <param name="notificationText">The formatted message content to be queued for Alexa.</param>
     /// <returns>A task representing the asynchronous HTTP request operation.</returns>
-    private async Task SendAlexaNotificationAsync(string notificationText)
+    private async Task SendAlexaNotificationAsync(string notificationText, CancellationToken cancellationToken = default)
     {
         var apiToken = _options.AlexaNotification.ApiToken;
         var apiSecret = _options.AlexaNotification.ApiSecret;
@@ -161,7 +163,7 @@ public class AlexaMentionNotificationService : IHostedService
 
         try
         {
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
             _logger.LogInformation("Successfully dispatched persistent notification to getnotify.me API.");

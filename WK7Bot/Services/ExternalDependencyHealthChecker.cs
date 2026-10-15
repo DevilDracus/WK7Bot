@@ -43,14 +43,13 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
     /// <inheritdoc />
     public async Task<IReadOnlyList<DependencyHealthStatus>> CheckAllAsync(CancellationToken cancellationToken = default)
     {
-        var results = new List<DependencyHealthStatus>();
-
-        results.Add(await CheckHomeAssistantAsync(cancellationToken).ConfigureAwait(false));
-        results.Add(await CheckDwdAsync(cancellationToken).ConfigureAwait(false));
-        results.Add(await CheckSteamAsync(cancellationToken).ConfigureAwait(false));
-        results.Add(await CheckGeminiAsync(cancellationToken).ConfigureAwait(false));
-        results.Add(await CheckOpenFoodFactsAsync(cancellationToken).ConfigureAwait(false));
-        results.Add(await CheckIsThereAnyDealAsync(cancellationToken).ConfigureAwait(false));
+        var results = await Task.WhenAll(
+            CheckHomeAssistantAsync(cancellationToken),
+            CheckDwdAsync(cancellationToken),
+            CheckSteamAsync(cancellationToken),
+            CheckGeminiAsync(cancellationToken),
+            CheckOpenFoodFactsAsync(cancellationToken),
+            CheckIsThereAnyDealAsync(cancellationToken)).ConfigureAwait(false);
 
         return results;
     }

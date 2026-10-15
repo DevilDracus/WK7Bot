@@ -213,9 +213,9 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
                 .WithFooter("WK7 Bot • Hilfe");
 
             var systemCommands = new[] { "ping", "ha-status", "stats", "health", "help" };
-            var infoCommands = new[] { "wochenende", "abfall", "spontan-treff" };
-            var foodCommands = new[] { "food", "rezept", "saison" };
-            var rssCommands = new[] { "rss", "rss-dashboard" };
+            var infoCommands = new[] { "check-waste", "spontan-treff" };
+            var foodCommands = new[] { "recipe", "recipe-seasonal", "recipe-generate", "seasonal-produce", "check-food" };
+            var rssCommands = new[] { "rss", "rss add", "rss list", "rss remove", "rss dashboard" };
             var dealCommands = new[] { "deals" };
 
             AddCommandField(embed, "🖥️ System", systemCommands);
