@@ -21,9 +21,9 @@ namespace WK7Bot.Services;
 /// <summary>
 /// Communicates with Valve Steam Web API endpoints to fetch player profiles, recent activity, and enriched achievement metrics.
 /// </summary>
-public partial class SteamService : ISteamService
+public partial class SteamService : BaseGameApiClient, ISteamService
 {
-    private const int MaxAttempts = 3;
+    private const int MaxAttemptsValue = 3;
 
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _cache;
@@ -31,10 +31,20 @@ public partial class SteamService : ISteamService
     private readonly ILogger<SteamService> _logger;
     private readonly SemaphoreSlim _achievementApiThrottle = new(2, 2);
 
-    /// <summary>
-    /// Gets the base delay applied between retry attempts for transient Steam API failures. Virtual for testability.
-    /// </summary>
-    protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(500);
+    /// <inheritdoc/>
+    protected override int MaxAttempts => MaxAttemptsValue;
+
+    /// <inheritdoc/>
+    protected override TimeSpan RetryDelay => TimeSpan.FromMilliseconds(500);
+
+    /// <inheritdoc/>
+    protected override SemaphoreSlim ApiThrottle => _achievementApiThrottle;
+
+    /// <inheritdoc/>
+    protected override ILogger Logger => _logger;
+
+    /// <inheritdoc/>
+    protected override string ServiceName => "Steam";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SteamService"/> class.

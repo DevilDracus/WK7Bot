@@ -61,6 +61,7 @@ public static class ErrorEmbedBuilder
 
         var context = string.IsNullOrWhiteSpace(notification.Context) ? "Unbekannt" : notification.Context;
         builder.AddField("Kontext", EmbedText.Truncate(context, EmbedText.FieldValueLimit), false);
+        builder.AddField("Version", EmbedText.Truncate(AppInformation.Version, EmbedText.FieldValueLimit), false);
         builder.AddField("Zeitpunkt", notification.Timestamp.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss zzz"), false);
 
         return builder.Build();

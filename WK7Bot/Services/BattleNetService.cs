@@ -26,9 +26,9 @@ namespace WK7Bot.Services;
 /// Communicates with the Battle.net OAuth 2.0 endpoints and Blizzard game APIs to fetch account
 /// identity, World of Warcraft characters, and Diablo heroes for linked accounts.
 /// </summary>
-public partial class BattleNetService : IBattleNetService
+public partial class BattleNetService : BaseGameApiClient, IBattleNetService
 {
-    private const int MaxAttempts = 3;
+    private const int MaxAttemptsValue = 3;
     private const int MaxWowCharacters = 5;
 
     private readonly HttpClient _httpClient;
@@ -36,6 +36,9 @@ public partial class BattleNetService : IBattleNetService
     private readonly Wk7BotOptions _options;
     private readonly ILogger<BattleNetService> _logger;
     private readonly SemaphoreSlim _apiThrottle = new(2, 2);
+
+    /// <inheritdoc/>
+    protected override int MaxAttempts => MaxAttemptsValue;
 
     /// <summary>
     /// Serializes OAuth token exchanges across all service instances, so concurrent callers share one
@@ -47,7 +50,16 @@ public partial class BattleNetService : IBattleNetService
     /// <summary>
     /// Gets the base delay applied between retry attempts for transient Battle.net API failures. Virtual for testability.
     /// </summary>
-    protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(500);
+    protected override TimeSpan RetryDelay => TimeSpan.FromMilliseconds(500);
+
+    /// <inheritdoc/>
+    protected override SemaphoreSlim ApiThrottle => _apiThrottle;
+
+    /// <inheritdoc/>
+    protected override ILogger Logger => _logger;
+
+    /// <inheritdoc/>
+    protected override string ServiceName => "Battle.net";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BattleNetService"/> class.

@@ -31,8 +31,9 @@ public class ErrorEmbedBuilderTests
         Assert.Contains(embed.Fields, f => f.Name == "Meldung" && f.Value == "```\nFeed gaming failed\n```");
         Assert.Contains(embed.Fields, f => f.Name == "Stack-Trace" && f.Value.Contains("at RssPolling.Execute()"));
         Assert.Contains(embed.Fields, f => f.Name == "Kontext" && f.Value == "WK7Bot.Services.RssPollingBackgroundService");
+        Assert.Contains(embed.Fields, f => f.Name == "Version" && f.Value == AppInformation.Version);
         Assert.Contains(embed.Fields, f => f.Name == "Zeitpunkt" && f.Value == notification.Timestamp.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss zzz"));
-        Assert.Equal(5, embed.Fields.Length);
+        Assert.Equal(6, embed.Fields.Length);
     }
 
     [Fact]
@@ -43,7 +44,8 @@ public class ErrorEmbedBuilderTests
         Assert.DoesNotContain(embed.Fields, f => f.Name == "Ausnahme");
         Assert.DoesNotContain(embed.Fields, f => f.Name == "Stack-Trace");
         Assert.Contains(embed.Fields, f => f.Name == "Meldung");
-        Assert.Equal(3, embed.Fields.Length);
+        Assert.Contains(embed.Fields, f => f.Name == "Version");
+        Assert.Equal(4, embed.Fields.Length);
     }
 
     [Fact]
