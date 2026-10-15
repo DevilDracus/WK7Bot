@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Infrastructure.Data;
@@ -109,12 +111,14 @@ public class WarningDispatchRepositoryTests : IDisposable
     [Fact]
     public async Task SqliteStartupSequence_EnsureCreatedPlusRawSql_RoundTrips()
     {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:;Cache=Shared")
+            .UseSqlite(connection)
             .Options;
 
         await using var context = new BotDbContext(options);
-        await context.Database.OpenConnectionAsync();
 
         // Mirrors the startup sequence in Program.cs for a brand-new database.
         await context.Database.EnsureCreatedAsync();
@@ -127,12 +131,14 @@ public class WarningDispatchRepositoryTests : IDisposable
     [Fact]
     public async Task SqliteMigrationSequence_RawSql_CreatesMissingTableIdempotently_And_RoundTrips()
     {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:;Cache=Shared")
+            .UseSqlite(connection)
             .Options;
 
         await using var context = new BotDbContext(options);
-        await context.Database.OpenConnectionAsync();
 
         // An existing database predating the WarningDispatchLogs table only receives the raw SQL
         // (EnsureCreated is a no-op for existing files) — it must create the table and be re-runnable.

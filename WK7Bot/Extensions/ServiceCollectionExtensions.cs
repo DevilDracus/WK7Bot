@@ -154,8 +154,21 @@ public static class ServiceCollectionExtensions
         // Replicate the same two-step binding that Program.cs uses for Configure<Wk7BotOptions>:
         // first bind from the Wk7Bot section, then from root-level config (which overrides).
         // This ensures the registration layer sees the same merged options as runtime services.
-        // Note: Program.cs must configure Wk7BotOptions before calling AddBotHostedServices.
-        var featureGate = services.BuildServiceProvider().GetRequiredService<FeatureGate>();
+        FeatureGate featureGate;
+        try
+        {
+            // When AddBotDiscordAndClients has registered the singleton with full metrics-binding,
+            // reuse that instance so registration and runtime decisions agree.
+            featureGate = services.BuildServiceProvider().GetRequiredService<FeatureGate>();
+        }
+        catch (InvalidOperationException)
+        {
+            // Test/standalone callers may register no FeatureGate; fall back to binding the configuration.
+            var wk7Options = new Wk7BotOptions();
+            configuration.GetSection(Wk7BotOptions.SectionName).Bind(wk7Options);
+            configuration.Bind(wk7Options);
+            featureGate = new FeatureGate(Microsoft.Extensions.Options.Options.Create(wk7Options));
+        }
 
         if (featureGate.IsEnabled(FeatureKeys.RssPolling))
         {

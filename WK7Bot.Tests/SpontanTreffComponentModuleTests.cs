@@ -4,6 +4,7 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -74,10 +75,12 @@ public class SpontanTreffComponentModuleTests
         {
             var options = new DbContextOptionsBuilder<BotDbContext>()
                 .UseInMemoryDatabase(databaseName: $"spontan-treff-component-tests-{Guid.NewGuid()}")
+                .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             Context = new BotDbContext(options);
-            Repository = new SpontanTreffRepository(Context);
+            var factory = new PooledDbContextFactory<BotDbContext>(options);
+            Repository = new SpontanTreffRepository(factory);
         }
 
         public void Dispose()

@@ -102,6 +102,8 @@ public class WeekendDigestBackgroundServiceTests
             services.AddLogging();
             services.AddDbContext<BotDbContext>(options =>
                 options.UseInMemoryDatabase(databaseName: dbName));
+            services.AddDbContextFactory<BotDbContext>(options =>
+                options.UseInMemoryDatabase(databaseName: dbName));
             services.AddScoped<IWasteDispatchRepository, WasteDispatchRepository>();
             Provider = services.BuildServiceProvider();
         }

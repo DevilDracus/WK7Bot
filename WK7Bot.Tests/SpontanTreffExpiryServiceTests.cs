@@ -61,6 +61,8 @@ public class SpontanTreffExpiryServiceTests
             services.AddLogging();
             services.AddDbContext<BotDbContext>(options =>
                 options.UseInMemoryDatabase(databaseName: databaseName));
+            services.AddDbContextFactory<BotDbContext>(options =>
+                options.UseInMemoryDatabase(databaseName: databaseName));
             services.AddScoped<ISpontanTreffRepository, SpontanTreffRepository>();
             Provider = services.BuildServiceProvider();
         }

@@ -3,6 +3,7 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using WK7Bot.Core.Utilities;
@@ -55,13 +56,14 @@ public sealed class SystemModuleTests
 
     private static TestSystemModule CreateModule(SocketInteractionContext context)
     {
-        var db = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>()
+        var options = new DbContextOptionsBuilder<BotDbContext>()
             .UseInMemoryDatabase(databaseName: $"system-tests-{Guid.NewGuid()}")
-            .Options);
+            .Options;
+        var db = new BotDbContext(options);
 
         var module = new TestSystemModule(
             new Mock<IHomeAssistantService>().Object,
-            new CommandUsageRepository(db),
+            new CommandUsageRepository(new PooledDbContextFactory<BotDbContext>(options)),
             new FeatureHealthTracker(),
             new Mock<IExternalDependencyHealthChecker>().Object);
 

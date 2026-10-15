@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Infrastructure.Data;
@@ -15,6 +17,7 @@ public class SpontanTreffRepositoryTests : IDisposable
     {
         var options = new DbContextOptionsBuilder<BotDbContext>()
             .UseInMemoryDatabase(databaseName: $"spontan-treff-tests-{Guid.NewGuid()}")
+            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         _factory = new PooledDbContextFactory<BotDbContext>(options);
@@ -177,12 +180,14 @@ public class SpontanTreffRepositoryTests : IDisposable
     [Fact]
     public async Task SqliteStartupSequence_EnsureCreatedPlusRawSql_RoundTrips()
     {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:;Cache=Shared")
+            .UseSqlite(connection)
             .Options;
 
         await using var context = new BotDbContext(options);
-        await context.Database.OpenConnectionAsync();
 
         // Mirrors the startup sequence in Program.cs for a brand-new database.
         await context.Database.EnsureCreatedAsync();
@@ -195,12 +200,14 @@ public class SpontanTreffRepositoryTests : IDisposable
     [Fact]
     public async Task SqliteMigrationSequence_RawSql_CreatesMissingTableIdempotently_And_RoundTrips()
     {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
         var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("Data Source=:memory:;Cache=Shared")
+            .UseSqlite(connection)
             .Options;
 
         await using var context = new BotDbContext(options);
-        await context.Database.OpenConnectionAsync();
 
         // An existing database predating the feature only receives the raw SQL (EnsureCreated is a no-op for
         // existing files) — it must create both tables and be re-runnable.

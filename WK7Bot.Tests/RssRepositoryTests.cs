@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using WK7Bot.Core.Entities;
 using WK7Bot.Infrastructure.Data;
 using Xunit;

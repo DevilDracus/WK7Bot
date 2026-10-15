@@ -85,6 +85,8 @@ public class DwdWarningBackgroundServiceTests
             services.AddLogging();
             services.AddDbContext<BotDbContext>(options =>
                 options.UseInMemoryDatabase(databaseName: dbName));
+            services.AddDbContextFactory<BotDbContext>(options =>
+                options.UseInMemoryDatabase(databaseName: dbName));
             services.AddScoped<IWarningDispatchRepository, WarningDispatchRepository>();
             Provider = services.BuildServiceProvider();
         }
