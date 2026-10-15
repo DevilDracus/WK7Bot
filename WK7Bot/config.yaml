@@ -1,8 +1,14 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.77"
+version: "1.0.78"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
+ingress: true
+ingress_port: 8080
+ports:
+  8080/tcp: 8080
+ports_description:
+  8080/tcp: "WK7 Bot health and test API"
 init: false
 arch:
   - aarch64
