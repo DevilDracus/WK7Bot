@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 public sealed class GeminiCircuitBreaker
 {
     private readonly ILogger<GeminiCircuitBreaker> _logger;
+    private readonly Func<DateTime> _utcNow;
     private readonly object _gate = new();
 
     private int _consecutiveFailures;
@@ -33,8 +34,19 @@ public sealed class GeminiCircuitBreaker
     /// </summary>
     /// <param name="logger">The logger instance for circuit breaker diagnostics.</param>
     public GeminiCircuitBreaker(ILogger<GeminiCircuitBreaker> logger)
+        : this(logger, () => DateTime.UtcNow)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref=\"GeminiCircuitBreaker\"/> class.
+    /// </summary>
+    /// <param name=\"logger\">The logger instance for circuit breaker diagnostics.</param>
+    /// <param name=\"utcNowProvider\">Optional UTC-now provider; injectable for deterministic tests. Defaults to <see cref=\"DateTime.UtcNow\"/>.</param>
+    public GeminiCircuitBreaker(ILogger<GeminiCircuitBreaker> logger, Func<DateTime>? utcNowProvider)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _utcNow = utcNowProvider ?? (() => DateTime.UtcNow);
     }
 
     /// <summary>
@@ -50,7 +62,7 @@ public sealed class GeminiCircuitBreaker
                 return false;
             }
 
-            if (DateTime.UtcNow - _circuitOpenedAtUtc >= CircuitBreakerDuration)
+            if (_utcNow() - _circuitOpenedAtUtc >= CircuitBreakerDuration)
             {
                 _circuitOpen = false;
                 _consecutiveFailures = 0;
@@ -85,7 +97,7 @@ public sealed class GeminiCircuitBreaker
             if (_consecutiveFailures >= CircuitBreakerThreshold && !_circuitOpen)
             {
                 _circuitOpen = true;
-                _circuitOpenedAtUtc = DateTime.UtcNow;
+                _circuitOpenedAtUtc = _utcNow();
                 _logger.LogError(
                     "Gemini circuit breaker opened after {Threshold} consecutive failures. Will retry at {RetryTime:O}.",
                     CircuitBreakerThreshold,

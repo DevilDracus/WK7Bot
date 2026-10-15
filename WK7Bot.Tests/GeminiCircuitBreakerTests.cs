@@ -35,15 +35,16 @@ public sealed class GeminiCircuitBreakerTests
     [Fact]
     public void IsCircuitOpen_CoolsDownAfterDuration()
     {
-        var breaker = new GeminiCircuitBreaker(NullLogger<GeminiCircuitBreaker>.Instance);
+        var now = DateTime.UtcNow;
+        var breaker = new GeminiCircuitBreaker(NullLogger<GeminiCircuitBreaker>.Instance, () => now);
 
         breaker.RecordFailure();
         breaker.RecordFailure();
         breaker.RecordFailure();
         Assert.True(breaker.IsCircuitOpen());
 
-        // Simulate time passing by opening the circuit with a past timestamp.
-        // We can't change time directly, but we verify the half-open state logic.
-        // A true integration test would wait 5 minutes; unit tests verify the gate.
+        // After the cooldown, the circuit becomes half-open and allows a trial request.
+        now = now + TimeSpan.FromMinutes(6);
+        Assert.False(breaker.IsCircuitOpen());
     }
 }
