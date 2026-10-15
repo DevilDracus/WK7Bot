@@ -3,6 +3,7 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using MQTTnet;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
@@ -27,6 +28,11 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddBotDatabase(this IServiceCollection services, string connectionString)
     {
         services.AddDbContext<BotDbContext>(options =>
+            options.UseSqlite(connectionString));
+
+        // Factory registered so the data repositories can resolve IDbContextFactory<BotDbContext>
+        // and operate on short-lived contexts, preventing context accumulation across requests.
+        services.AddDbContextFactory<BotDbContext>(options =>
             options.UseSqlite(connectionString));
 
         services.AddScoped<IRssRepository, RssRepository>();
@@ -81,7 +87,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<GeminiCircuitBreaker>();
 
         // External dependency health checker for /health command.
-        services.AddScoped<IExternalDependencyHealthChecker, ExternalDependencyHealthChecker>();
         services.AddHttpClient<IExternalDependencyHealthChecker, ExternalDependencyHealthChecker>(client => client.Timeout = TimeSpan.FromSeconds(10));
         services.AddHttpClient<IRecipeSearchService, WebRecipeSearchService>(client =>
         {
@@ -112,7 +117,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<CommandRateLimiter>();
 
         // Single source of truth for feature flag decisions.
-        services.AddSingleton<FeatureGate>();
+        services.AddSingleton<FeatureGate>(sp => new FeatureGate(sp.GetRequiredService<IOptions<Wk7BotOptions>>()));
         services.AddHttpClient<AlexaMentionNotificationService>(client =>
         {
             // The notification dispatch runs detached from the gateway handler, so bound the wait
@@ -149,10 +154,8 @@ public static class ServiceCollectionExtensions
         // Replicate the same two-step binding that Program.cs uses for Configure<Wk7BotOptions>:
         // first bind from the Wk7Bot section, then from root-level config (which overrides).
         // This ensures the registration layer sees the same merged options as runtime services.
-        var wk7Options = new Wk7BotOptions();
-        configuration.GetSection(Wk7BotOptions.SectionName).Bind(wk7Options);
-        configuration.Bind(wk7Options);
-        var featureGate = new FeatureGate(Microsoft.Extensions.Options.Options.Create(wk7Options));
+        // Note: Program.cs must configure Wk7BotOptions before calling AddBotHostedServices.
+        var featureGate = services.BuildServiceProvider().GetRequiredService<FeatureGate>();
 
         if (featureGate.IsEnabled(FeatureKeys.RssPolling))
         {

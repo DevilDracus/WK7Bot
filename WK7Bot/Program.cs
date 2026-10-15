@@ -44,20 +44,16 @@ builder.Logging.AddSimpleConsole(options =>
 // Modular service registrations
 builder.Services.AddBotDatabase(connectionString);
 builder.Services.AddBotDiscordAndClients();
-builder.Services.AddBotHostedServices(builder.Configuration);
 
+// Configure Wk7BotOptions first so FeatureGate (resolved in AddBotHostedServices via DI) sees bound values.
 var wk7Section = builder.Configuration.GetSection(Wk7BotOptions.SectionName);
-
-// Bind the appsettings "Wk7Bot" section first so its defaults fill the gaps, then re-bind from the
-// configuration root (Home Assistant /data/options.json) so user-provided flat values override the
-// shipped defaults for every key they actually define. Binding only the section (the old
-// section-else-root logic) let appsettings shadow the HA add-on's runtime options entirely.
 if (wk7Section.Exists())
 {
     builder.Services.Configure<Wk7BotOptions>(wk7Section);
 }
-
 builder.Services.Configure<Wk7BotOptions>(builder.Configuration);
+
+builder.Services.AddBotHostedServices(builder.Configuration);
 
 var app = builder.Build();
 
