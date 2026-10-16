@@ -189,7 +189,7 @@ public class DatabaseMaintenanceService : BackgroundService
         try
         {
             var cutoff = DateTime.UtcNow.AddDays(-DefaultLogRetentionDays);
-            var cutoffString = cutoff.ToString("O");
+            var cutoffString = cutoff.ToString("yyyy-MM-dd HH:mm:ss.ffffff");
 
             await using var dbContext = await _dbContextFactory.CreateDbContextAsync(stoppingToken).ConfigureAwait(false);
             await using var connection = dbContext.Database.GetDbConnection();
@@ -253,17 +253,7 @@ public class DatabaseMaintenanceService : BackgroundService
             return null;
         }
 
-        // Parse Data Source=/data/wk7bot.db
-        var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries);
-        foreach (var part in parts)
-        {
-            var kv = part.Split('=', 2);
-            if (kv.Length == 2 && kv[0].Trim().Equals("Data Source", StringComparison.OrdinalIgnoreCase))
-            {
-                return kv[1].Trim();
-            }
-        }
-
-        return null;
+        var dataSource = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(connectionString).DataSource;
+        return string.IsNullOrWhiteSpace(dataSource) ? null : dataSource;
     }
 }

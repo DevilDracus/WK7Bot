@@ -131,16 +131,29 @@ public class ErrorNotificationDispatcher : BackgroundService
         var channel = await ResolveErrorChannelAsync(stoppingToken);
         if (channel != null)
         {
+            var embedSent = false;
             try
             {
                 var ping = BuildChannelPing(_options.ErrorNotifyUserIds);
                 await channel.SendMessageAsync(text: ping, embed: embed);
+                embedSent = true;
 
-                // Send a plain-text companion message so that external tools (e.g. the Discord
-                // API fetch_messages action) can read the error summary even though embed bodies
-                // are not surfaced by the API.
-                await channel.SendMessageAsync(text: plainTextMirror);
-                return;
+                try
+                {
+                    await channel.SendMessageAsync(text: plainTextMirror);
+                    return;
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // The embed reached the channel but the mirror did not. Do not fall back to
+                    // direct messages here, because that would duplicate the already-delivered report.
+                    _logger.LogWarning(ex, "Error notification embed was delivered, but its plain-text mirror failed; continuing without DM fallback.");
+                    return;
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -148,9 +161,15 @@ public class ErrorNotificationDispatcher : BackgroundService
             }
             catch (Exception ex)
             {
-                // Stable message text so repeated failures collapse into one throttled report
-                // instead of one per delivery attempt.
-                _logger.LogWarning(ex, "Could not deliver error notification to the error channel; falling back to direct messages.");
+                if (embedSent)
+                {
+                    // Defensive only: the mirror-only path above already returns. Regardless, no
+                    // DM duplication should occur after at least one channel delivery.
+                    _logger.LogWarning(ex, "Error notification partial delivery failure; DM fallback skipped.");
+                    return;
+                }
+
+                _logger.LogWarning(ex, "Could not deliver error notification embed to the error channel; falling back to direct messages.");
             }
         }
 

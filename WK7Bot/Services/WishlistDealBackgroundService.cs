@@ -140,7 +140,15 @@ public class WishlistDealBackgroundService : BackgroundService
         _logger.LogInformation("{Count} deal alerts triggered; posting to channel.", alerts.Count);
 
         // Post alerts
-        await PostAlertsAsync(alerts, cancellationToken);
+        var posted = await PostAlertsAsync(alerts, cancellationToken);
+        if (posted)
+        {
+            await RecordTriggeredAlertsAsync(alerts, cancellationToken);
+        }
+        else
+        {
+            _logger.LogWarning("No deal alerts could be delivered to any target guild.");
+        }
     }
 
     /// <summary>
@@ -258,7 +266,6 @@ public class WishlistDealBackgroundService : BackgroundService
                 if (alert != null)
                 {
                     alerts.Add(alert);
-                    await repository.RecordAlertAsync(appId, alert.IsHistoricalLow, cancellationToken);
                 }
             }
         }
@@ -271,9 +278,10 @@ public class WishlistDealBackgroundService : BackgroundService
     /// </summary>
     /// <param name="alerts">The alerts to post.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task PostAlertsAsync(IReadOnlyList<WishlistDealAlert> alerts, CancellationToken cancellationToken)
+    private async Task<bool> PostAlertsAsync(IReadOnlyList<WishlistDealAlert> alerts, CancellationToken cancellationToken)
     {
         var targetGuildIds = GetTargetGuildIds();
+        var postedAny = false;
 
         foreach (var guildId in targetGuildIds)
         {
@@ -289,6 +297,26 @@ public class WishlistDealBackgroundService : BackgroundService
                 var embed = BuildDealEmbed(alert);
                 var mentions = string.Join(" ", alert.NotifiedUserIds.Select(id => $"<@{id}>"));
                 await channel.SendMessageAsync(text: mentions, embed: embed, allowedMentions: new AllowedMentions { UserIds = alert.NotifiedUserIds });
+                postedAny = true;
+            }
+        }
+
+        return postedAny;
+    }
+
+    /// <summary>
+    /// Records cooldown entries only after the alert round was successfully delivered, so a send failure
+    /// still leaves the next pass free to retry.
+    /// </summary>
+    private async Task RecordTriggeredAlertsAsync(IReadOnlyList<WishlistDealAlert> alerts, CancellationToken cancellationToken)
+    {
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
+
+            foreach (var alert in alerts)
+            {
+                await repository.RecordAlertAsync(alert.AppId, alert.IsHistoricalLow, cancellationToken);
             }
         }
     }

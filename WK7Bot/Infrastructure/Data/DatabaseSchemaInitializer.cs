@@ -62,6 +62,10 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateRssDashboardSettingsSql);
         await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffExpiryIndexSql);
         await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageLogsSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateWishlistGamesSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateWishlistAlertHistoriesSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateWishlistIndexesSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageIndexesSql);
 
         // Late-added columns: CREATE TABLE IF NOT EXISTS never alters an existing table, and
         // EnsureCreated does nothing on databases that already exist, so older deployments need
@@ -258,5 +262,50 @@ public static class DatabaseSchemaInitializer
             RespondedAt TEXT    NOT NULL,
             PRIMARY KEY (MeetupId, UserId)
         );
+        """;
+
+
+    /// <summary>
+    /// Raw DDL for lingering wishlist tracking tables so deployments made before the feature shipped gain the collection.
+    /// </summary>
+    public const string CreateWishlistGamesSql =
+        """
+        CREATE TABLE IF NOT EXISTS WishlistGames (
+            Id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            AppId       INTEGER NOT NULL UNIQUE,
+            Name        TEXT    NOT NULL,
+            LastUpdated TEXT    NOT NULL
+        );
+        """;
+
+    /// <summary>
+    /// Raw DDL for lingering wishlist alert history rows.
+    /// </summary>
+    public const string CreateWishlistAlertHistoriesSql =
+        """
+        CREATE TABLE IF NOT EXISTS WishlistAlertHistories (
+            Id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            AppId            INTEGER NOT NULL,
+            AlertedAt        TEXT    NOT NULL,
+            WasHistoricalLow INTEGER NOT NULL
+        );
+        """;
+
+    /// <summary>
+    /// Companion indexes for the wishlist history table on older deployments.
+    /// </summary>
+    public const string CreateWishlistIndexesSql =
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_WishlistGames_AppId ON WishlistGames (AppId);
+        CREATE INDEX IF NOT EXISTS IX_WishlistAlertHistories_AppId_AlertedAt ON WishlistAlertHistories (AppId, AlertedAt);
+        """;
+
+    /// <summary>
+    /// Companion indexes for delayed command usage log deployments.
+    /// </summary>
+    public const string CreateCommandUsageIndexesSql =
+        """
+        CREATE INDEX IF NOT EXISTS IX_CommandUsageLogs_InvokedAt ON CommandUsageLogs (InvokedAt);
+        CREATE INDEX IF NOT EXISTS IX_CommandUsageLogs_CommandName ON CommandUsageLogs (CommandName);
         """;
 }
