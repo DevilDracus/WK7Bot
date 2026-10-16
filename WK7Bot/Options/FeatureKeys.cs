@@ -49,6 +49,12 @@ public static class FeatureKeys
     /// <summary>Key of the Steam wishlist deal alert feature.</summary>
     public const string WishlistDealAlerts = "wishlist_deal_alerts_enabled";
 
+    /// <summary>Key of the Steam/Battle.net leaderboard feature.</summary>
+    public const string Leaderboard = "leaderboard_enabled";
+
+    /// <summary>Key of the per-user deal watchlist feature.</summary>
+    public const string DealWatchlist = "deal_watchlist_enabled";
+
     /// <summary>
     /// The keys of the features that post automatically and therefore honour
     /// <c>servers.testing_features</c> routing.
@@ -72,5 +78,8 @@ public static class FeatureKeys
 
         /// <summary>Routing key of the wishlist deal alerts.</summary>
         public const string WishlistDealAlerts = "wishlist_deal_alerts";
+
+        /// <summary>Routing key of the weekly leaderboard post.</summary>
+        public const string Leaderboard = "leaderboard";
     }
 }

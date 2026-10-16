@@ -41,6 +41,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWarningDispatchRepository, WarningDispatchRepository>();
         services.AddScoped<IFoodDispatchRepository, FoodDispatchRepository>();
         services.AddScoped<IWishlistDealRepository, WishlistDealRepository>();
+        services.AddScoped<IUserAccountLinkRepository, UserAccountLinkRepository>();
+        services.AddScoped<IDealWatchRepository, DealWatchRepository>();
         return services;
     }
 
@@ -106,6 +108,21 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddHttpClient<IWishlistDealService, WishlistDealService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddHttpClient<AddOnOptionsWriter>(client =>
+        {
+            client.BaseAddress = new Uri("http://supervisor/");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
+        services.AddHttpClient<IAccountLinkService, AccountLinkService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        services.AddTransient<IWeatherService, WeatherService>();
+        services.AddTransient<ILeaderboardService, LeaderboardService>();
+        services.AddHttpClient<IDealWatchlistService, DealWatchlistService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
         });
@@ -244,6 +261,16 @@ public static class ServiceCollectionExtensions
         if (featureGate.IsEnabled(FeatureKeys.WishlistDealAlerts))
         {
             services.AddHostedService<WishlistDealBackgroundService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.Leaderboard))
+        {
+            services.AddHostedService<LeaderboardBackgroundService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.DealWatchlist))
+        {
+            services.AddHostedService<DealWatchlistBackgroundService>();
         }
 
         // Always-on infrastructure services

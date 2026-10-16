@@ -203,6 +203,8 @@ public class InteractionHandlingService : IHostedService
             _logger.LogWarning(ex, "Failed to record command usage for {CommandName}.", commandName);
         }
 
+        Core.Utilities.MetricsRegistry.Instance.RecordCommand(commandName, succeeded);
+
         if (result is ExecuteResult { Exception: { } exception })
         {
             _logger.LogError(exception, "Unhandled exception in interaction command {CommandName}: {Reason}", commandName, result.ErrorReason);

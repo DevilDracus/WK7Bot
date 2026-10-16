@@ -69,6 +69,7 @@ public class ErrorNotificationQueue
 
         _queue.Enqueue(notification);
         _lastReported[notification.Signature] = now;
+        Core.Utilities.MetricsRegistry.Instance.RecordError();
         return true;
     }
 

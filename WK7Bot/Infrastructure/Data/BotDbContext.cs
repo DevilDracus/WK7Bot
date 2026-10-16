@@ -67,6 +67,16 @@ public class BotDbContext : DbContext
     public DbSet<WishlistAlertHistory> WishlistAlertHistories => Set<WishlistAlertHistory>();
 
     /// <summary>
+    /// Gets or sets the database set for Discord user to external gaming account links.
+    /// </summary>
+    public DbSet<UserAccountLink> UserAccountLinks => Set<UserAccountLink>();
+
+    /// <summary>
+    /// Gets or sets the database set for per-user deal watchlist entries.
+    /// </summary>
+    public DbSet<DealWatchItem> DealWatchItems => Set<DealWatchItem>();
+
+    /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
     /// <param name="modelBuilder">The builder instance used to define entity structure and keys.</param>
@@ -149,6 +159,27 @@ public class BotDbContext : DbContext
             entity.ToTable("WishlistAlertHistories");
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.AppId, e.AlertedAt });
+        });
+
+        modelBuilder.Entity<UserAccountLink>(entity =>
+        {
+            entity.ToTable("UserAccountLinks");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.DiscordUserId, e.Provider }).IsUnique();
+            entity.Property(e => e.Provider).IsRequired().HasMaxLength(32);
+            entity.Property(e => e.ExternalId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DisplayName).HasMaxLength(200);
+            entity.Property(e => e.Region).HasMaxLength(16);
+            entity.Property(e => e.WishlistUrl).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<DealWatchItem>(entity =>
+        {
+            entity.ToTable("DealWatchItems");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.DiscordUserId, e.GameName }).IsUnique();
+            entity.Property(e => e.GameName).IsRequired().HasMaxLength(300);
+            entity.Property(e => e.ItadId).HasMaxLength(100);
         });
     }
 }

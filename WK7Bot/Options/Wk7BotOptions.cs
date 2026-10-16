@@ -153,10 +153,58 @@ public class Wk7BotOptions
     public int DealCheckIntervalHours { get; set; } = 12;
 
     /// <summary>
+    /// Gets or sets the interval in hours between per-user deal watchlist checks.
+    /// </summary>
+    [ConfigurationKeyName("deal_watchlist_check_interval_hours")]
+    public int DealWatchlistCheckIntervalHours { get; set; } = 6;
+
+    /// <summary>
+    /// Gets or sets the minimum discount percentage required for a per-user deal watchlist alert.
+    /// </summary>
+    [ConfigurationKeyName("deal_watchlist_min_discount_percent")]
+    public int DealWatchlistMinDiscountPercent { get; set; } = 40;
+
+    /// <summary>
     /// Gets or sets the minimum discount percentage required to trigger a non-historical-low deal alert.
     /// </summary>
     [ConfigurationKeyName("deal_min_discount_percent")]
     public int DealMinDiscountPercent { get; set; } = 60;
+
+    /// <summary>
+    /// Gets or sets the Home Assistant weather entity used by the /weather command.
+    /// </summary>
+    [ConfigurationKeyName("weather_entity")]
+    public string WeatherEntity { get; set; } = "weather.home";
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the Prometheus /metrics endpoint is exposed.
+    /// </summary>
+    [ConfigurationKeyName("metrics_enabled")]
+    public bool MetricsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether /link writes new mappings back to the add-on options.
+    /// </summary>
+    [ConfigurationKeyName("link_auto_write_options")]
+    public bool LinkAutoWriteOptions { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the Discord channel name for the weekly leaderboard post.
+    /// </summary>
+    [ConfigurationKeyName("leaderboard_channel_name")]
+    public string LeaderboardChannelName { get; set; } = "leaderboard";
+
+    /// <summary>
+    /// Gets or sets the weekday of the weekly leaderboard post (e.g. Monday).
+    /// </summary>
+    [ConfigurationKeyName("leaderboard_post_weekday")]
+    public string LeaderboardPostWeekday { get; set; } = "Monday";
+
+    /// <summary>
+    /// Gets or sets the local time (HH:mm) of the weekly leaderboard post.
+    /// </summary>
+    [ConfigurationKeyName("leaderboard_post_time")]
+    public string LeaderboardPostTime { get; set; } = "18:00";
 
     /// <summary>
     /// HTTP timeout ceilings. Each typed client registers its timeout from this value when an explicit
