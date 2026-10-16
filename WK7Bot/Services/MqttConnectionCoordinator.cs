@@ -224,6 +224,10 @@ public sealed class MqttConnectionCoordinator
         {
             // Host shutdown while awaiting the gate or connecting.
         }
+        catch (Exception ex) when (!_stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogError(ex, "MQTT reconnect loop failed; reconnect will be retried.");
+        }
         finally
         {
             Volatile.Write(ref _reconnectRunning, 0);
