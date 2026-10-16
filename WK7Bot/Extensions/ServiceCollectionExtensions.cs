@@ -79,8 +79,17 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(10);
         });
         services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
-        services.AddHttpClient<ISteamService, SteamService>();
-        services.AddHttpClient<IBattleNetService, BattleNetService>();
+        services.AddHttpClient<ISteamService, SteamService>(client =>
+        {
+            // Bound external Steam calls so one slow API response cannot block the presence refresh
+            // for the HttpClient default of 100 seconds. 30 s matches the API-grade default ceiling.
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddHttpClient<IBattleNetService, BattleNetService>(client =>
+        {
+            // Keep the Battle.net presence refresh from stalling on slow external responses.
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
         services.AddHttpClient<IGeminiFoodService, GeminiFoodService>(client => client.Timeout = TimeSpan.FromSeconds(30));
 
         // Gemini circuit breaker — prevents hammering Gemini when unavailable.
