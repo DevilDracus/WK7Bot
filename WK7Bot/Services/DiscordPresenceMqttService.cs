@@ -431,6 +431,11 @@ public class DiscordPresenceMqttService : BackgroundService
 
         string topic = $"wk7bot/presence/users/{entity.DiscordUserId}";
 
+        // The payload intentionally duplicates a few values in two forms:
+        //   1. Flattened top-level keys consumed by Home Assistant sensors / value templates.
+        //   2. Nested SteamData / BattleNetData blocks used by the dashboard for richer drill-down.
+        // Do not remove either shape without migrating every consumer in Personal/HomeAssistant/WK7DiscordView/DiscordView.yml,
+        // or HA cards will break after upgrading.
         var payloadObj = new
         {
             entity.Username,
