@@ -7,7 +7,6 @@ using System.Text.Json.Nodes;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
