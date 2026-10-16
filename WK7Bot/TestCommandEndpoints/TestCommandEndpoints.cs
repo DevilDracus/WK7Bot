@@ -66,6 +66,15 @@ public static class TestCommandEndpoints
             var result = await TestCommandRunner.RunAsync(services, command, request, TestGuildId, TestUserId, TestUsername, ct);
             return Results.Ok(result);
         });
+
+        // The skill/docs contract uses POST /test/commands/{command}; keep the legacy /run route
+        // working for callers that discovered the original path first.
+        group.MapPost("/commands/{command}", async (string command, TestRunRequest request, IServiceProvider services, CancellationToken ct) =>
+        {
+            request ??= new TestRunRequest();
+            var result = await TestCommandRunner.RunAsync(services, command, request, TestGuildId, TestUserId, TestUsername, ct);
+            return Results.Ok(result);
+        });
     }
 }
 

@@ -408,3 +408,6 @@ FodyWeavers.xsd
 
 # Local progress notes (not part of the repo)
 notes.md
+
+# Local secrets and environment files
+.env
