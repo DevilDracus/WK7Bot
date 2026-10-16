@@ -67,9 +67,9 @@ Flags resolve from `Wk7Bot:features`, then root-level `features`, then default e
 
 | Entity | States |
 | --- | --- |
-| `sensor.wk7bot_status` | uptime in seconds; attributes `version`, `started_at_utc`, `uptime_seconds`, `discord_connection`, `guilds`, `features_total`, `features_problem` |
-| `binary_sensor.wk7bot_<feature>_enabled` | ON while the feature flag is set |
-| `binary_sensor.wk7bot_<feature>_problem` | ON while the feature's last pass failed; attributes `last_success_utc`, `last_failure_utc`, `last_error` |
+| `sensor.wk7_bot_status` | uptime in seconds; attributes `version`, `started_at_utc`, `uptime_seconds`, `discord_connection`, `guilds`, `features_total`, `features_problem` |
+| `binary_sensor.wk7_bot_<feature>_enabled` | ON while the feature flag is set |
+| `binary_sensor.wk7_bot_<feature>_problem` | ON while the feature's last pass failed; attributes `last_success_utc`, `last_failure_utc`, `last_error` |
 
 `<feature>` ∈ `food`, `rss`, `leipzig_waste`, `weekend_digest`, `dwd_warning`, `spontan_treff`. All entities expire to `unavailable` within 2–5 minutes if the heartbeat stops, so a dead bot is visible immediately.
 
@@ -80,43 +80,43 @@ Example dashboard cards (Mushroom + grid layout):
   alignment: end
   chips:
     - type: entity
-      entity: sensor.wk7bot_status
+      entity: sensor.wk7_bot_status
       name: WK7 Bot
       icon: mdi:robot
       icon_color: |-
-        {% if is_state('sensor.wk7bot_status', 'unavailable') %}red
-        {% elif state_attr('sensor.wk7bot_status', 'discord_connection') != 'Connected' %}orange
+        {% if is_state('sensor.wk7_bot_status', 'unavailable') %}red
+        {% elif state_attr('sensor.wk7_bot_status', 'discord_connection') != 'Connected' %}orange
         {% else %}green{% endif %}
     - type: entity
-      entity: binary_sensor.wk7bot_rss_problem
+      entity: binary_sensor.wk7_bot_rss_problem
       name: RSS
       icon: mdi:rss
       icon_color: |-
-        {% if is_state('binary_sensor.wk7bot_rss_problem', 'on') %}red{% else %}green{% endif %}
+        {% if is_state('binary_sensor.wk7_bot_rss_problem', 'on') %}red{% else %}green{% endif %}
     - type: entity
-      entity: binary_sensor.wk7bot_leipzig_waste_problem
+      entity: binary_sensor.wk7_bot_leipzig_waste_problem
       name: Müll
       icon: mdi:trash-can
       icon_color: |-
-        {% if is_state('binary_sensor.wk7bot_leipzig_waste_problem', 'on') %}red{% else %}green{% endif %}
+        {% if is_state('binary_sensor.wk7_bot_leipzig_waste_problem', 'on') %}red{% else %}green{% endif %}
     - type: entity
-      entity: binary_sensor.wk7bot_weekend_digest_problem
+      entity: binary_sensor.wk7_bot_weekend_digest_problem
       name: Digset
       icon: mdi:calendar-weekend
       icon_color: |-
-        {% if is_state('binary_sensor.wk7bot_weekend_digest_problem', 'on') %}red{% else %}green{% endif %}
+        {% if is_state('binary_sensor.wk7_bot_weekend_digest_problem', 'on') %}red{% else %}green{% endif %}
     - type: entity
-      entity: binary_sensor.wk7bot_dwd_warning_problem
+      entity: binary_sensor.wk7_bot_dwd_warning_problem
       name: DWD
       icon: mdi:weather-lightning
       icon_color: |-
-        {% if is_state('binary_sensor.wk7bot_dwd_warning_problem', 'on') %}red{% else %}green{% endif %}
+        {% if is_state('binary_sensor.wk7_bot_dwd_warning_problem', 'on') %}red{% else %}green{% endif %}
     - type: entity
-      entity: binary_sensor.wk7bot_food_problem
+      entity: binary_sensor.wk7_bot_food_problem
       name: Food
       icon: mdi:food
       icon_color: |-
-        {% if is_state('binary_sensor.wk7bot_food_problem', 'on') %}red{% else %}green{% endif %}
+        {% if is_state('binary_sensor.wk7_bot_food_problem', 'on') %}red{% else %}green{% endif %}
 ```
 
 ## Configuration
