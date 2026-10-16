@@ -333,8 +333,8 @@ internal sealed class TestableSystemModule : SystemModule
 
 internal sealed class TestableLeipzigWasteModule : LeipzigWasteModule
 {
-    public TestableLeipzigWasteModule(ILeipzigWasteService wasteService, ILogger<LeipzigWasteModule> logger)
-        : base(wasteService, logger) { }
+    public TestableLeipzigWasteModule(ILeipzigWasteService wasteService, CommandRateLimiter rateLimiter, ILogger<LeipzigWasteModule> logger)
+        : base(wasteService, rateLimiter, logger) { }
 
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
     protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);

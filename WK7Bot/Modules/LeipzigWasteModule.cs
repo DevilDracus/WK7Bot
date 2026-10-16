@@ -12,17 +12,27 @@ namespace WK7Bot.Modules;
 /// </summary>
 public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext>
 {
+    private const string CommandKey = "check-waste";
+
+    private static readonly TimeSpan WasteCheckCooldown = TimeSpan.FromSeconds(30);
+
     private readonly ILeipzigWasteService _wasteService;
+    private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<LeipzigWasteModule> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LeipzigWasteModule"/> class.
     /// </summary>
     /// <param name="wasteService">The waste calendar service instance.</param>
+    /// <param name="rateLimiter">Per-user command cooldown guard.</param>
     /// <param name="logger">The logger instance for diagnostics.</param>
-    public LeipzigWasteModule(ILeipzigWasteService wasteService, ILogger<LeipzigWasteModule> logger)
+    public LeipzigWasteModule(
+        ILeipzigWasteService wasteService,
+        CommandRateLimiter rateLimiter,
+        ILogger<LeipzigWasteModule> logger)
     {
         _wasteService = wasteService ?? throw new ArgumentNullException(nameof(wasteService));
+        _rateLimiter = rateLimiter ?? throw new ArgumentNullException(nameof(rateLimiter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -37,6 +47,12 @@ public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext
         [Summary("days", "Anzahl der Tage in der Zukunft, die abgefragt werden sollen (z. B. 7).")] int? days = null,
         [Summary("datum", "Spezifisches Datum (z. B. 20.09.2026 oder 2026-09-20).")] string? dateInput = null)
     {
+        if (!_rateLimiter.CanExecute(Context.User.Id, CommandKey, WasteCheckCooldown))
+        {
+            await RespondAsync("⏳ Bitte warte 30 Sekunden, bevor du die Müllabholtermine erneut abfragst.", ephemeral: true);
+            return;
+        }
+
         await DeferAsync(ephemeral: true);
 
         try
