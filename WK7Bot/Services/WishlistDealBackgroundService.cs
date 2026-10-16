@@ -30,7 +30,7 @@ public class WishlistDealBackgroundService : BackgroundService
     /// <summary>
     /// Cooldown between alerts for the same game to prevent spam.
     /// </summary>
-    private static readonly TimeSpan AlertCooldown = TimeSpan.FromHours(24);
+    private static readonly TimeSpan AlertCooldown = ServiceCooldowns.WishlistDealAlert;
 
     /// <summary>
     /// Maximum age of alert history entries to retain.

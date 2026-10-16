@@ -174,6 +174,17 @@ public partial class SteamService : BaseGameApiClient, ISteamService
         {
             throw;
         }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // External timeout, not shutdown. Return partial data and keep the event at warning level
+            // so a slow Steam endpoint cannot monopolize the error-notification channel.
+            _logger.LogWarning(
+                ex,
+                "Steam achievement enrichment timed out for AppId {AppId} and SteamID {SteamId}; returning partial achievement data.",
+                appId,
+                steamId);
+            return Array.Empty<SteamAchievement>();
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to retrieve enriched achievements for AppId {AppId} and SteamID {SteamId}", appId, steamId);

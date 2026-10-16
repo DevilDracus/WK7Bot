@@ -18,7 +18,14 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     private readonly CommandUsageRepository _commandUsageRepository;
     private readonly FeatureHealthTracker _healthTracker;
     private readonly IExternalDependencyHealthChecker _dependencyHealthChecker;
+    private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<SystemModule> _logger;
+
+    private const string HomeAssistantStatusCommandKey = "ha-status";
+    private const string HealthCommandKey = "health";
+
+    private static readonly TimeSpan HomeAssistantStatusCooldown = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan HealthCooldown = TimeSpan.FromSeconds(15);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SystemModule"/> class.
@@ -27,18 +34,21 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     /// <param name="commandUsageRepository">The repository for command usage metrics.</param>
     /// <param name="healthTracker">The feature health tracker.</param>
     /// <param name="dependencyHealthChecker">The external dependency health checker.</param>
-    /// <param name="logger">The logger instance for diagnostics.</param>
+    /// <param name="rateLimiter">Per-user command cooldown guard.</param>
+    /// <param name="logger">The logging service instance for diagnostics.</param>
     public SystemModule(
         IHomeAssistantService homeAssistantService,
         CommandUsageRepository commandUsageRepository,
         FeatureHealthTracker healthTracker,
         IExternalDependencyHealthChecker dependencyHealthChecker,
+        CommandRateLimiter rateLimiter,
         ILogger<SystemModule> logger)
     {
         _homeAssistantService = homeAssistantService ?? throw new ArgumentNullException(nameof(homeAssistantService));
         _commandUsageRepository = commandUsageRepository ?? throw new ArgumentNullException(nameof(commandUsageRepository));
         _healthTracker = healthTracker ?? throw new ArgumentNullException(nameof(healthTracker));
         _dependencyHealthChecker = dependencyHealthChecker ?? throw new ArgumentNullException(nameof(dependencyHealthChecker));
+        _rateLimiter = rateLimiter ?? throw new ArgumentNullException(nameof(rateLimiter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -60,6 +70,12 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     [SlashCommand("ha-status", "Testet die Verbindung zur internen Home-Assistant-API.")]
     public async Task HomeAssistantStatusCommandAsync()
     {
+        if (!_rateLimiter.CanExecute(Context.User.Id, HomeAssistantStatusCommandKey, HomeAssistantStatusCooldown))
+        {
+            await RespondAsync("⏳ Bitte warte 15 Sekunden, bevor du den Home-Assistant-Status erneut prüfst.", ephemeral: true);
+            return;
+        }
+
         // Defer first: the Supervisor round-trip can take longer than Discord's 3-second
         // initial-response window, which would otherwise fail the interaction entirely.
         await DeferAsync(ephemeral: true);
@@ -140,6 +156,12 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     [SlashCommand("health", "Zeigt den Status aller Hintergrunddienste und externen Abhängigkeiten an.")]
     public async Task HealthCommandAsync()
     {
+        if (!_rateLimiter.CanExecute(Context.User.Id, HealthCommandKey, HealthCooldown))
+        {
+            await RespondAsync("⏳ Bitte warte 15 Sekunden, bevor du den Dienst-Status erneut abrufst.", ephemeral: true);
+            return;
+        }
+
         await DeferAsync(ephemeral: true);
 
         try

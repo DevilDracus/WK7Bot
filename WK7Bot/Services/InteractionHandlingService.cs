@@ -19,6 +19,10 @@ public class InteractionHandlingService : IHostedService
 {
     private readonly DiscordSocketClient _client;
     private readonly InteractionService _interactionService;
+
+    // The interaction runtime itself requires an IServiceProvider: InteractionService resolves command
+    // modules from it and, with AutoServiceScopes enabled, creates one DI scope per command execution.
+    // Do not replace this with a narrower service-locator abstraction.
     private readonly IServiceProvider _services;
     private readonly IConfiguration _configuration;
     private readonly ILogger<InteractionHandlingService> _logger;

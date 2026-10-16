@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Exceptions;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Services.Interfaces;
 
@@ -41,7 +42,7 @@ public class WebRecipeSearchService : IRecipeSearchService
     /// <summary>
     /// How long a failing/challenged primary search provider is skipped before it is tried again.
     /// </summary>
-    private static readonly TimeSpan PrimarySearchCooldown = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan PrimarySearchCooldown = ServiceCooldowns.PrimaryRecipeSearchProvider;
 
     /// <summary>
     /// Rolling memory of the most recently served source URLs, used to avoid handing out the same recipe over and over.

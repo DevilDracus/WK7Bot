@@ -7,7 +7,6 @@ using System.Text.Json.Nodes;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,7 +36,7 @@ internal static class TestCommandRunner
 
         try
         {
-            var context = CreateContext(services, guildId, userId, username);
+            var context = SocketInteractionContextFactory.Create(services, guildId, userId, username);
             var message = await ExecuteAsync(services, normalized, request.Args, context, ct);
             return new TestCommandResult
             {
@@ -236,75 +235,6 @@ internal static class TestCommandRunner
         method!.Invoke(module, new object?[] { context });
     }
 
-    private static SocketInteractionContext CreateContext(IServiceProvider services, ulong guildId, ulong userId, string username)
-    {
-        var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
-        var userField = FindField(context.GetType(), "<User>k__BackingField")
-            ?? throw new InvalidOperationException("SocketInteractionContext user backing field not found.");
-        userField.SetValue(context, CreateUser(username, userId));
-
-        var client = services.GetRequiredService<DiscordSocketClient>();
-        SetField(context, context.GetType(), "<Client>k__BackingField", client);
-        SetField(context, context.GetType(), "_client", client);
-
-        var guild = client.GetGuild(guildId);
-        SetField(context, context.GetType(), "<Guild>k__BackingField", guild);
-        SetField(context, context.GetType(), "_guild", guild);
-
-        return context;
-    }
-
-    private static SocketUser CreateUser(string username, ulong? id)
-    {
-        var userType = typeof(SocketUser).Assembly.GetType("Discord.WebSocket.SocketGlobalUser")
-            ?? throw new InvalidOperationException("Discord.WebSocket.SocketGlobalUser type not found.");
-
-        var user = (SocketUser)RuntimeHelpers.GetUninitializedObject(userType);
-        SetPropertyOrField(user, userType, "Username", username);
-        if (id.HasValue)
-        {
-            SetPropertyOrField(user, userType, "Id", id.Value);
-        }
-
-        return user;
-    }
-
-    private static void SetPropertyOrField(object target, Type type, string name, object value)
-    {
-        var property = type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (property?.SetMethod is not null)
-        {
-            property.SetValue(target, value);
-            return;
-        }
-
-        var field = FindField(type, $"<{name}>k__BackingField")
-            ?? throw new InvalidOperationException($"{type.Name} {name} backing field not found.");
-        field.SetValue(target, value);
-    }
-
-    private static FieldInfo? FindField(Type type, string? fieldName)
-    {
-        while (type is not null)
-        {
-            var field = type.GetField(fieldName ?? string.Empty, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (field is not null)
-            {
-                return field;
-            }
-
-            type = type.BaseType!;
-        }
-
-        return null;
-    }
-
-    private static void SetField(object target, Type type, string fieldName, object? value)
-    {
-        var field = FindField(type, fieldName);
-        field?.SetValue(target, value);
-    }
-
     private static bool TryParseInt(string? value, out int result) =>
         int.TryParse(value, out result);
 
@@ -317,8 +247,9 @@ internal sealed class TestableSystemModule : SystemModule
         IHomeAssistantService homeAssistantService,
         IDbContextFactory<BotDbContext> dbContextFactory,
         FeatureHealthTracker healthTracker,
-        IExternalDependencyHealthChecker dependencyHealthChecker)
-        : base(homeAssistantService, new CommandUsageRepository(dbContextFactory), healthTracker, dependencyHealthChecker, NullLogger<SystemModule>.Instance)
+        IExternalDependencyHealthChecker dependencyHealthChecker,
+        CommandRateLimiter rateLimiter)
+        : base(homeAssistantService, new CommandUsageRepository(dbContextFactory), healthTracker, dependencyHealthChecker, rateLimiter, NullLogger<SystemModule>.Instance)
     {
     }
 
@@ -334,8 +265,8 @@ internal sealed class TestableSystemModule : SystemModule
 
 internal sealed class TestableLeipzigWasteModule : LeipzigWasteModule
 {
-    public TestableLeipzigWasteModule(ILeipzigWasteService wasteService, ILogger<LeipzigWasteModule> logger)
-        : base(wasteService, logger) { }
+    public TestableLeipzigWasteModule(ILeipzigWasteService wasteService, CommandRateLimiter rateLimiter, ILogger<LeipzigWasteModule> logger)
+        : base(wasteService, rateLimiter, logger) { }
 
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
     protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);

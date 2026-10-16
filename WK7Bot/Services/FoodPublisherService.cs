@@ -30,6 +30,7 @@ public class FoodPublisherService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly FeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<FoodPublisherService> _logger;
 
     private const string TargetChannelName = "🍎food";
@@ -76,6 +77,7 @@ public class FoodPublisherService : BackgroundService
     /// <param name="health">The feature health tracker recording the outcome of each publishing pass.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="randomSource">Randomness used to pick the seasonal search terms; defaults to <see cref="SystemRandomSource"/>.</param>
+    /// <param name="timeProvider">Optional time source used for scheduling checks; defaults to the system clock.</param>
     public FoodPublisherService(
         DiscordSocketClient discordClient,
         IGeminiFoodService geminiFoodService,
@@ -84,7 +86,8 @@ public class FoodPublisherService : BackgroundService
         IServiceScopeFactory scopeFactory,
         FeatureHealthTracker health,
         ILogger<FoodPublisherService> logger,
-        IRandomSource? randomSource = null)
+        IRandomSource? randomSource = null,
+        TimeProvider? timeProvider = null)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _geminiFoodService = geminiFoodService ?? throw new ArgumentNullException(nameof(geminiFoodService));
@@ -94,6 +97,7 @@ public class FoodPublisherService : BackgroundService
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _randomSource = randomSource ?? new SystemRandomSource();
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -115,7 +119,7 @@ public class FoodPublisherService : BackgroundService
         {
             try
             {
-                var now = DateTime.Now;
+                var now = _timeProvider.GetLocalNow().DateTime;
 
                 if (ShouldPublishMonthlyProduce(now))
                 {
@@ -153,7 +157,7 @@ public class FoodPublisherService : BackgroundService
     /// not yet posted this month, and the retry backoff elapsed. The window (instead of an exact-minute gate)
     /// means a restart or a transient failure no longer loses the post for the whole month.
     /// </summary>
-    private bool ShouldPublishMonthlyProduce(DateTime now)
+    protected virtual bool ShouldPublishMonthlyProduce(DateTime now)
     {
         if (now.Day != 1) return false;
         if (now.TimeOfDay < MonthlyWindowOpen) return false;
@@ -169,7 +173,7 @@ public class FoodPublisherService : BackgroundService
     /// Determines whether the weekly renal recipe should trigger: Thursday 15:30 or later, not yet posted today,
     /// and the retry backoff elapsed.
     /// </summary>
-    private bool ShouldPublishWeeklyRecipe(DateTime now)
+    protected virtual bool ShouldPublishWeeklyRecipe(DateTime now)
     {
         if (now.DayOfWeek != DayOfWeek.Thursday) return false;
         if (now.TimeOfDay < WeeklyWindowOpen) return false;
@@ -410,7 +414,7 @@ public class FoodPublisherService : BackgroundService
     /// <c>food_service</c> is listed in <c>servers.testing_features</c>), falling back to every
     /// guild the bot is in while no server ID is configured.
     /// </summary>
-    private SocketTextChannel? ResolveTargetChannel()
+    protected virtual SocketTextChannel? ResolveTargetChannel()
     {
         var targetGuildIds = AutomaticTargetResolver.Resolve(
             _options.Servers,
