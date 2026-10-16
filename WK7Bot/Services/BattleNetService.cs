@@ -167,6 +167,13 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
 
             return userData;
         }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // External cancellation after the configured timeout. Keep this at warning level and avoid an
+            // error-notification storm for a slow external Battle.net endpoint.
+            _logger.LogWarning(ex, "Battle.net data retrieval timed out after the configured HTTP timeout.");
+            return null;
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while fetching Battle.net data.");

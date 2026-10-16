@@ -237,6 +237,11 @@ public partial class SteamService
             _cache.Set(cacheKey, schemaMap, TimeSpan.FromHours(24));
             return schemaMap;
         }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve game schema for AppId {AppId}; Steam schema may be slow or unavailable", appId);
+            return new Dictionary<string, SchemaAchievementItem>();
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Failed to retrieve game schema for AppId {AppId}. Schema is not cached.", appId);
