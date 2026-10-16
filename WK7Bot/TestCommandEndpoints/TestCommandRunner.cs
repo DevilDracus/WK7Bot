@@ -247,8 +247,9 @@ internal sealed class TestableSystemModule : SystemModule
         IHomeAssistantService homeAssistantService,
         IDbContextFactory<BotDbContext> dbContextFactory,
         FeatureHealthTracker healthTracker,
-        IExternalDependencyHealthChecker dependencyHealthChecker)
-        : base(homeAssistantService, new CommandUsageRepository(dbContextFactory), healthTracker, dependencyHealthChecker, NullLogger<SystemModule>.Instance)
+        IExternalDependencyHealthChecker dependencyHealthChecker,
+        CommandRateLimiter rateLimiter)
+        : base(homeAssistantService, new CommandUsageRepository(dbContextFactory), healthTracker, dependencyHealthChecker, rateLimiter, NullLogger<SystemModule>.Instance)
     {
     }
 

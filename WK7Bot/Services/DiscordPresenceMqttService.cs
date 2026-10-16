@@ -33,15 +33,15 @@ public class DiscordPresenceMqttService : BackgroundService
     private readonly ILogger<DiscordPresenceMqttService> _logger;
     private readonly ConcurrentDictionary<ulong, bool> _discoveredUsers = new();
 
-    private static readonly TimeSpan SteamFetchCooldown = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan BattleNetFetchCooldown = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan SteamFetchCooldown = ServiceCooldowns.SteamPresenceData;
+    private static readonly TimeSpan BattleNetFetchCooldown = ServiceCooldowns.BattleNetPresenceData;
 
     /// <summary>
     /// How often mapped users are re-fetched from Steam/Battle.net and republished, independent of Discord
     /// presence events. Without this sweep, playtime and achievement progress would only refresh when the
     /// user's Discord presence changed (status/game switch) or the bot restarted.
     /// </summary>
-    private static readonly TimeSpan PresenceRefreshInterval = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan PresenceRefreshInterval = ServiceCooldowns.PresenceRefresh;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordPresenceMqttService"/> class.
