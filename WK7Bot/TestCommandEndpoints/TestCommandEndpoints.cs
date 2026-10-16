@@ -16,12 +16,19 @@ using WK7Bot.Modules;
 using WK7Bot.Services;
 using WK7Bot.Services.Interfaces;
 
+/// <summary>
+/// Maps the optional HTTP test API used for live command smoke tests without a Discord client.
+/// </summary>
 public static class TestCommandEndpoints
 {
     private const ulong TestGuildId = 551130054776717323ul;
     private const ulong TestUserId = 162201162257399808ul;
     private const string TestUsername = "Dracus";
 
+    /// <summary>
+    /// Maps the <c>/test</c> endpoint group when the feature is enabled and a test API key is configured.
+    /// </summary>
+    /// <param name="app">The web application whose endpoint route builder should be extended.</param>
     public static void MapTestCommandEndpoints(this WebApplication app)
     {
         var testApiEnabled = app.Configuration.GetValue<bool>("test_api_enabled");
@@ -62,16 +69,44 @@ public static class TestCommandEndpoints
     }
 }
 
+/// <summary>
+/// Request payload accepted by the HTTP command test runner.
+/// </summary>
 public sealed class TestRunRequest
 {
+    /// <summary>
+    /// Gets or sets the command argument map keyed by argument name.
+    /// </summary>
     public Dictionary<string, string?> Args { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets or sets the optional username used for the synthetic interaction context.
+    /// </summary>
     public string? Username { get; set; }
 }
 
+/// <summary>
+/// Result payload returned by the HTTP command test runner.
+/// </summary>
 public sealed class TestCommandResult
 {
+    /// <summary>
+    /// Gets or sets a value indicating whether the requested command completed successfully.
+    /// </summary>
     public bool Success { get; set; }
+
+    /// <summary>
+    /// Gets or sets the normalized command name.
+    /// </summary>
     public string Command { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the human-readable success message returned by the runner.
+    /// </summary>
     public string? Message { get; set; }
+
+    /// <summary>
+    /// Gets or sets the exception text when execution failed.
+    /// </summary>
     public string? Error { get; set; }
 }

@@ -131,6 +131,7 @@ public class AlexaMentionNotificationService : IHostedService
     /// Dispatches the formatted notification payload to getnotify.me using HTTP Basic Authentication.
     /// </summary>
     /// <param name="notificationText">The formatted message content to be queued for Alexa.</param>
+    /// <param name="cancellationToken">Cancellation token used to abort the HTTP dispatch during shutdown.</param>
     /// <returns>A task representing the asynchronous HTTP request operation.</returns>
     private async Task SendAlexaNotificationAsync(string notificationText, CancellationToken cancellationToken = default)
     {
