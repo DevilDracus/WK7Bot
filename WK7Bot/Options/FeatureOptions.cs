@@ -93,6 +93,18 @@ public class FeatureOptions
     public bool WishlistDealAlertsEnabled { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the Steam/Battle.net leaderboard is enabled.
+    /// </summary>
+    [ConfigurationKeyName("leaderboard_enabled")]
+    public bool LeaderboardEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether per-user deal watchlists are enabled.
+    /// </summary>
+    [ConfigurationKeyName("deal_watchlist_enabled")]
+    public bool DealWatchlistEnabled { get; set; } = true;
+
+    /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
     /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
     /// feature on older configuration.
@@ -115,6 +127,8 @@ public class FeatureOptions
         FeatureKeys.ErrorNotifications => ErrorNotificationsEnabled,
         FeatureKeys.MqttBotStatus => MqttBotStatusEnabled,
         FeatureKeys.WishlistDealAlerts => WishlistDealAlertsEnabled,
+        FeatureKeys.Leaderboard => LeaderboardEnabled,
+        FeatureKeys.DealWatchlist => DealWatchlistEnabled,
         _ => true
     };
 }

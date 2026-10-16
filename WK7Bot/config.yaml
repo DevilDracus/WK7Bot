@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.82"
+version: "1.0.83"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 ingress: true
@@ -23,6 +23,22 @@ options:
   test_api_enabled: false
   test_api_key: ""
   log_level: "Warning"
+  startup_report_verbose: false
+  weather_entity: "weather.home"
+  metrics_enabled: true
+  link_auto_write_options: true
+  deal_alert_channel_name: "game-deals"
+  deal_check_interval_hours: 12
+  deal_min_discount_percent: 60
+  deal_watchlist_check_interval_hours: 6
+  deal_watchlist_min_discount_percent: 40
+  leaderboard_channel_name: "leaderboard"
+  leaderboard_post_weekday: "Monday"
+  leaderboard_post_time: "18:00"
+  http_timeouts:
+    fast: 10
+    default: 30
+    slow: 45
   mqtt_host: "core-mosquitto"
   mqtt_port: 1883
   mqtt_username: ""
@@ -57,6 +73,9 @@ options:
     dwd_warning_enabled: true
     error_notifications_enabled: true
     mqtt_bot_status_enabled: true
+    wishlist_deal_alerts_enabled: true
+    leaderboard_enabled: true
+    deal_watchlist_enabled: true
   servers:
     wk7_server_id: "YOUR_WK7_SERVER_ID"
     test_server_id: "YOUR_BOT_TEST_SERVER_ID"
@@ -85,6 +104,22 @@ schema:
   test_api_enabled: bool
   test_api_key: str?
   log_level: str
+  startup_report_verbose: bool
+  weather_entity: str
+  metrics_enabled: bool
+  link_auto_write_options: bool
+  deal_alert_channel_name: str
+  deal_check_interval_hours: int
+  deal_min_discount_percent: int
+  deal_watchlist_check_interval_hours: int
+  deal_watchlist_min_discount_percent: int
+  leaderboard_channel_name: str
+  leaderboard_post_weekday: str
+  leaderboard_post_time: str
+  http_timeouts:
+    fast: int
+    default: int
+    slow: int
   mqtt_host: str
   mqtt_port: int
   mqtt_username: str?
@@ -127,6 +162,9 @@ schema:
     dwd_warning_enabled: bool
     error_notifications_enabled: bool
     mqtt_bot_status_enabled: bool
+    wishlist_deal_alerts_enabled: bool
+    leaderboard_enabled: bool
+    deal_watchlist_enabled: bool
   servers:
     wk7_server_id: str
     test_server_id: str

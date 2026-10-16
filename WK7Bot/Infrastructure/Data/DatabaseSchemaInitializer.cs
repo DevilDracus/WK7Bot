@@ -66,6 +66,8 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateWishlistAlertHistoriesSql);
         await ExecuteWithBusyRetryAsync(connection, CreateWishlistIndexesSql);
         await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageIndexesSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateUserAccountLinksSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql);
 
         // Late-added columns: CREATE TABLE IF NOT EXISTS never alters an existing table, and
         // EnsureCreated does nothing on databases that already exist, so older deployments need
@@ -298,6 +300,45 @@ public static class DatabaseSchemaInitializer
         """
         CREATE UNIQUE INDEX IF NOT EXISTS IX_WishlistGames_AppId ON WishlistGames (AppId);
         CREATE INDEX IF NOT EXISTS IX_WishlistAlertHistories_AppId_AlertedAt ON WishlistAlertHistories (AppId, AlertedAt);
+        """;
+
+    /// <summary>
+    /// Raw DDL for Discord user to external account links so deployments created before the feature gain the table.
+    /// </summary>
+    public const string CreateUserAccountLinksSql =
+        """
+        CREATE TABLE IF NOT EXISTS UserAccountLinks (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId INTEGER NOT NULL,
+            Provider      TEXT    NOT NULL,
+            ExternalId    TEXT    NOT NULL,
+            DisplayName   TEXT    NULL,
+            RefreshToken  TEXT    NULL,
+            Region        TEXT    NULL,
+            WishlistUrl   TEXT    NULL,
+            LinkedAt      TEXT    NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_UserAccountLinks_DiscordUserId_Provider ON UserAccountLinks (DiscordUserId, Provider);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the per-user deal watchlist table so deployments created before the feature gain the table.
+    /// </summary>
+    public const string CreateDealWatchItemsSql =
+        """
+        CREATE TABLE IF NOT EXISTS DealWatchItems (
+            Id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId      INTEGER NOT NULL,
+            GameName           TEXT    NOT NULL,
+            ItadId             TEXT    NULL,
+            MinDiscountPercent INTEGER NOT NULL DEFAULT 40,
+            TargetPrice        TEXT    NULL,
+            LastKnownPrice     TEXT    NULL,
+            LastKnownDiscount  INTEGER NOT NULL DEFAULT 0,
+            CreatedAt          TEXT    NOT NULL,
+            LastAlertedAt      TEXT    NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_DealWatchItems_DiscordUserId_GameName ON DealWatchItems (DiscordUserId, GameName);
         """;
 
     /// <summary>

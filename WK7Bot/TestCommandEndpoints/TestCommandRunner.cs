@@ -219,6 +219,81 @@ internal static class TestCommandRunner
                     await module.PostDashboardAsync();
                     return "rss dashboard completed";
                 }
+            case "link-steam":
+                {
+                    var module = CreateModule<TestableLinkModule>(services);
+                    SetContext(module, context);
+                    await module.LinkSteamAsync(Arg("steam"));
+                    return "link-steam completed";
+                }
+            case "link-battlenet":
+                {
+                    var module = CreateModule<TestableLinkModule>(services);
+                    SetContext(module, context);
+                    await module.LinkBattleNetAsync(
+                        Arg("refresh_token"),
+                        string.IsNullOrWhiteSpace(Arg("region")) ? null : Arg("region"),
+                        string.IsNullOrWhiteSpace(Arg("battle_tag")) ? null : Arg("battle_tag"));
+                    return "link-battlenet completed";
+                }
+            case "link-status":
+                {
+                    var module = CreateModule<TestableLinkModule>(services);
+                    SetContext(module, context);
+                    await module.LinkStatusAsync();
+                    return "link-status completed";
+                }
+            case "link-remove":
+                {
+                    var module = CreateModule<TestableLinkModule>(services);
+                    SetContext(module, context);
+                    await module.LinkRemoveAsync(Arg("provider"));
+                    return "link-remove completed";
+                }
+            case "wishlist-add":
+                {
+                    var module = CreateModule<TestableLinkModule>(services);
+                    SetContext(module, context);
+                    await module.WishlistAddAsync(Arg("url"));
+                    return "wishlist-add completed";
+                }
+            case "weather":
+                {
+                    var module = CreateModule<TestableWeatherModule>(services);
+                    SetContext(module, context);
+                    await module.WeatherAsync(string.IsNullOrWhiteSpace(Arg("entity")) ? null : Arg("entity"));
+                    return "weather completed";
+                }
+            case "leaderboard":
+                {
+                    var module = CreateModule<TestableLeaderboardModule>(services);
+                    SetContext(module, context);
+                    var type = string.IsNullOrWhiteSpace(Arg("type")) ? "steam-playtime" : Arg("type");
+                    var limit = TryParseInt(Arg("limit"), out var parsedLimit) ? parsedLimit : 10;
+                    await module.LeaderboardAsync(type, limit);
+                    return "leaderboard completed";
+                }
+            case "watch":
+                {
+                    var module = CreateModule<TestableDealWatchlistModule>(services);
+                    SetContext(module, context);
+                    await module.WatchAsync(Arg("game"), TryParseInt(Arg("min_discount"), out var discount) ? discount : null, null);
+                    return "watch completed";
+                }
+            case "unwatch":
+                {
+                    var module = CreateModule<TestableDealWatchlistModule>(services);
+                    SetContext(module, context);
+                    await module.UnwatchAsync(Arg("game"));
+                    return "unwatch completed";
+                }
+            case "watchlist":
+                {
+                    var module = CreateModule<TestableDealWatchlistModule>(services);
+                    SetContext(module, context);
+                    await module.WatchlistAsync();
+                    return "watchlist completed";
+                }
             default:
                 throw new NotSupportedException($"Unknown test command: {command}");
         }
@@ -319,6 +394,50 @@ internal sealed class TestableSpontanTreffModule : SpontanTreffModule
     public TestableSpontanTreffModule(ISpontanTreffRepository repository, ILogger<SpontanTreffModule> logger)
         : base(repository, logger) { }
 
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableLinkModule : LinkModule
+{
+    public TestableLinkModule(IAccountLinkService accountLinkService, ILogger<LinkModule> logger)
+        : base(accountLinkService, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableWeatherModule : WeatherModule
+{
+    public TestableWeatherModule(IWeatherService weatherService, ILogger<WeatherModule> logger)
+        : base(weatherService, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableLeaderboardModule : LeaderboardModule
+{
+    public TestableLeaderboardModule(ILeaderboardService leaderboardService, ILogger<LeaderboardModule> logger)
+        : base(leaderboardService, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableDealWatchlistModule : DealWatchlistModule
+{
+    public TestableDealWatchlistModule(IDealWatchlistService watchlistService, ILogger<DealWatchlistModule> logger)
+        : base(watchlistService, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+        Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
     protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
 }

@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Extensions;
 using WK7Bot.Infrastructure.Data;
@@ -75,6 +76,16 @@ logger.LogInformation("==== WK7 Bot v{Version} starting at {Timestamp:yyyy-MM-dd
 await app.InitializeDatabaseAsync();
 
 app.MapGet("/health", () => Results.Ok("WK7 Bot is healthy."));
+
+app.MapGet("/metrics", (FeatureHealthTracker health, IOptions<Wk7BotOptions> options) =>
+{
+    if (!options.Value.MetricsEnabled)
+    {
+        return Results.NotFound();
+    }
+
+    return Results.Text(MetricsRegistry.Instance.RenderPrometheus(health), "text/plain; version=0.0.4; charset=utf-8");
+});
 
 // Route process-level exception escapes into the Discord error notification queue as well.
 AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
