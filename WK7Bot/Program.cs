@@ -35,6 +35,17 @@ else
     builder.Logging.SetMinimumLevel(LogLevel.Warning);
 }
 
+// Replace all framework logging filter rules (including appsettings.json) with the single
+// operator-selected minimum so no category can emit below Warning unless explicitly configured.
+builder.Services.PostConfigure<LoggerFilterOptions>(options =>
+{
+    options.Rules.Clear();
+    options.AddFilter((_, level) => level >= parsedLevel);
+});
+
+// Avoid using "SetMinimumLevel" alone, which can leave category-specific rules in place.
+builder.Logging.AddFilter((_, level) => level >= parsedLevel);
+
 // Add timestamps to every console log line so the Home Assistant add-on log is readable.
 builder.Logging.AddSimpleConsole(options =>
 {
