@@ -112,7 +112,7 @@ public class DiscordPresenceMqttService : BackgroundService
             {
                 try
                 {
-                    await RefreshMappedPresenceAsync();
+                    await RefreshMappedPresenceAsync(stoppingToken);
                 }
                 catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
                 {
@@ -149,12 +149,13 @@ public class DiscordPresenceMqttService : BackgroundService
     /// bypassing the short-lived data caches so playtime and achievement progress advance even when Discord
     /// fires no presence change events during a game session.
     /// </summary>
+    /// <param name="cancellationToken">Cancellation token passed to MQTT operations during the refresh.</param>
     /// <returns>A task tracking the refresh sweep.</returns>
-    private async Task RefreshMappedPresenceAsync()
+    private async Task RefreshMappedPresenceAsync(CancellationToken cancellationToken)
     {
         await _discordClient.ForEachGuildUserAsync(
             HasExternalMapping,
-            user => ProcessUserPresenceAsync(user, null, forceRefresh: true));
+            user => ProcessUserPresenceAsync(user, null, forceRefresh: true, cancellationToken: cancellationToken));
     }
 
     /// <summary>
@@ -213,7 +214,7 @@ public class DiscordPresenceMqttService : BackgroundService
             return;
         }
 
-        await ProcessUserPresenceAsync(user, after);
+        await ProcessUserPresenceAsync(user, after, cancellationToken: CancellationToken.None);
     }
 
     /// <summary>
@@ -222,8 +223,9 @@ public class DiscordPresenceMqttService : BackgroundService
     /// <param name="user">The socket user target.</param>
     /// <param name="presence">The active presence object containing status and activities, if available.</param>
     /// <param name="forceRefresh">When true, still-fresh Steam/Battle.net cache entries are bypassed so the periodic refresh sweep publishes current data.</param>
+    /// <param name="cancellationToken">Cancellation token used for MQTT connection and publish operations.</param>
     /// <returns>A task tracking discovery and state publishing operations.</returns>
-    private async Task ProcessUserPresenceAsync(SocketUser user, SocketPresence? presence = null, bool forceRefresh = false)
+    private async Task ProcessUserPresenceAsync(SocketUser user, SocketPresence? presence = null, bool forceRefresh = false, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -249,14 +251,14 @@ public class DiscordPresenceMqttService : BackgroundService
 
             if (_discoveredUsers.TryAdd(user.Id, true))
             {
-                var published = await PublishHomeAssistantDiscoveryAsync(presenceEntity);
+                var published = await PublishHomeAssistantDiscoveryAsync(presenceEntity, cancellationToken);
                 if (!published)
                 {
                     _discoveredUsers.TryRemove(user.Id, out _);
                 }
             }
 
-            await PublishPresenceEntityAsync(presenceEntity);
+            await PublishPresenceEntityAsync(presenceEntity, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -361,12 +363,13 @@ public class DiscordPresenceMqttService : BackgroundService
     /// Transmits a single Home Assistant MQTT Auto-Discovery configuration payload to dynamically register a unified user presence entity with all metadata attributes.
     /// </summary>
     /// <param name="entity">The presence entity instance containing user metadata.</param>
+    /// <param name="cancellationToken">Cancellation token for connection and publish operations.</param>
     /// <returns><see langword="true"/> when the discovery payload was published; <see langword="false"/> when MQTT was unavailable, in which case the user is retried on the next update.</returns>
-    private async Task<bool> PublishHomeAssistantDiscoveryAsync(UserPresenceEntity entity)
+    private async Task<bool> PublishHomeAssistantDiscoveryAsync(UserPresenceEntity entity, CancellationToken cancellationToken)
     {
         if (!_mqttClient.IsConnected)
         {
-            if (!await _coordinator.EnsureConnectedAsync(CancellationToken.None))
+            if (!await _coordinator.EnsureConnectedAsync(cancellationToken).ConfigureAwait(false))
             {
                 return false;
             }
@@ -416,10 +419,11 @@ public class DiscordPresenceMqttService : BackgroundService
     /// Retries once on a broken connection (the TCP socket may die between the <c>IsConnected</c> check and the actual publish).
     /// </summary>
     /// <param name="entity">The presence entity instance containing user data.</param>
+    /// <param name="cancellationToken">Cancellation token used for MQTT connection and publish operations.</param>
     /// <returns>A task tracking asynchronous MQTT publication.</returns>
-    private async Task PublishPresenceEntityAsync(UserPresenceEntity entity)
+    private async Task PublishPresenceEntityAsync(UserPresenceEntity entity, CancellationToken cancellationToken)
     {
-        if (!await EnsureMqttConnectedAsync())
+        if (!await EnsureMqttConnectedAsync(cancellationToken).ConfigureAwait(false))
         {
             _logger.LogWarning("MQTT client disconnected. Skipping presence broadcast for {Username}", entity.Username);
             return;
@@ -473,7 +477,7 @@ public class DiscordPresenceMqttService : BackgroundService
                 "MQTT publish failed for {Username} (broken connection). Attempting reconnect and retry...",
                 entity.Username);
 
-            if (await EnsureMqttConnectedAsync())
+            if (await EnsureMqttConnectedAsync(cancellationToken).ConfigureAwait(false))
             {
                 try
                 {
@@ -497,13 +501,13 @@ public class DiscordPresenceMqttService : BackgroundService
     /// Ensures the MQTT client is connected, attempting to reconnect when necessary.
     /// </summary>
     /// <returns><see langword="true"/> when the client is connected.</returns>
-    private async Task<bool> EnsureMqttConnectedAsync()
+    private async Task<bool> EnsureMqttConnectedAsync(CancellationToken cancellationToken)
     {
         if (_mqttClient.IsConnected)
         {
             return true;
         }
 
-        return await _coordinator.EnsureConnectedAsync(CancellationToken.None).ConfigureAwait(false);
+        return await _coordinator.EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
     }
 }
