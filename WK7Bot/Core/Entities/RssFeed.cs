@@ -49,4 +49,10 @@ public class RssFeed
     /// Gets or sets the timestamp when the feed was last polled.
     /// </summary>
     public DateTimeOffset? LastPolledAt { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether polling for this feed is paused. A paused feed keeps its
+    /// channel, role and baseline; it is simply skipped by the polling sweep until it is resumed.
+    /// </summary>
+    public bool IsPaused { get; set; }
 }

@@ -124,6 +124,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddTransient<IWeatherService, WeatherService>();
         services.AddTransient<ILeaderboardService, LeaderboardService>();
+        services.AddTransient<IProfileService, ProfileService>();
         services.AddSingleton<IDiscordScheduledEventService, DiscordScheduledEventService>();
         services.AddHttpClient<IDealWatchlistService, DealWatchlistService>(client =>
         {
@@ -155,6 +156,11 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddTransient<RssParserService>();
+        services.AddHttpClient<IOpmlService, OpmlService>(client =>
+        {
+            // OPML files are small; a stalled download should not hold the interaction for 100 s.
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
 
         // Command usage metrics repository
         services.AddSingleton<CommandUsageRepository>();
