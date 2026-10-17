@@ -59,6 +59,31 @@ public static class FeatureKeys
     public const string DiscordEvents = "discord_events_enabled";
 
     /// <summary>
+    /// Every known feature key. Used by the runtime <c>/config feature</c> command to validate input
+    /// and to render the current state of all switches.
+    /// </summary>
+    public static readonly string[] All =
+    {
+        RssPolling,
+        HomeAssistantNotifier,
+        LeipzigWaste,
+        AlexaNotifications,
+        DiscordPresenceMqtt,
+        SteamPresence,
+        BattleNetPresence,
+        FoodService,
+        SpontanTreff,
+        WeekendDigest,
+        DwdWarning,
+        ErrorNotifications,
+        MqttBotStatus,
+        WishlistDealAlerts,
+        Leaderboard,
+        DealWatchlist,
+        DiscordEvents
+    };
+
+    /// <summary>
     /// The keys of the features that post automatically and therefore honour
     /// <c>servers.testing_features</c> routing.
     /// </summary>

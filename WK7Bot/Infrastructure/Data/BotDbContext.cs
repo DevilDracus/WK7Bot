@@ -96,6 +96,7 @@ public class BotDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Url).IsRequired().HasMaxLength(500);
             entity.Property(e => e.LastItemGuid).HasMaxLength(250);
+            entity.Property(e => e.IsPaused).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<RssDashboardSetting>(entity =>

@@ -1,6 +1,7 @@
 ﻿using CodeHollow.FeedReader;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Utilities;
+using WK7Bot.Models;
 
 namespace WK7Bot.Services;
 
@@ -78,5 +79,41 @@ public class RssParserService
         }
 
         return newItems;
+    }
+
+    /// <summary>
+    /// Fetches and parses a feed URL without any database interaction so <c>/rss test</c> can show a
+    /// preview of the newest items before a feed is registered.
+    /// </summary>
+    /// <param name="url">The feed URL to preview.</param>
+    /// <param name="maxItems">Maximum number of items to return (clamped to 1-10).</param>
+    /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+    /// <returns>The parsed preview, or <see langword="null"/> when the feed could not be read.</returns>
+    public async Task<FeedPreview?> PreviewAsync(string url, int maxItems = 5, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        try
+        {
+            var parsedFeed = await FeedReader.ReadAsync(url, cancellationToken);
+            var items = parsedFeed.Items
+                .OrderByDescending(item => item.PublishingDate ?? DateTimeOffset.MinValue)
+                .Take(Math.Clamp(maxItems, 1, 10))
+                .Select(item => new FeedPreviewItem(
+                    string.IsNullOrWhiteSpace(item.Title) ? "(ohne Titel)" : item.Title,
+                    item.Link,
+                    item.PublishingDate))
+                .ToList();
+
+            return new FeedPreview(parsedFeed.Title, parsedFeed.Link, items);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Could not preview RSS feed '{FeedUrl}'.", url);
+            return null;
+        }
     }
 }

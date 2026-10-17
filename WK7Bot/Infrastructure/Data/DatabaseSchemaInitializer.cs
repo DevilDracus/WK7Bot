@@ -79,6 +79,7 @@ public static class DatabaseSchemaInitializer
         await AddColumnIfMissingAsync(connection, "RssFeeds", "LastPublishedDate", "TEXT NULL");
         await AddColumnIfMissingAsync(connection, "RssFeeds", "LastPolledAt", "TEXT NULL");
         await AddColumnIfMissingAsync(connection, "RssFeeds", "RefreshIntervalMinutes", "INTEGER NOT NULL DEFAULT 15");
+        await AddColumnIfMissingAsync(connection, "RssFeeds", "IsPaused", "INTEGER NOT NULL DEFAULT 0");
     }
 
     /// <summary>

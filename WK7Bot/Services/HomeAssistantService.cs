@@ -1,4 +1,6 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Diagnostics;
+using System.Net.Http.Headers;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;
 
 namespace WK7Bot.Services;
@@ -43,6 +45,7 @@ public class HomeAssistantService : IHomeAssistantService
     /// <returns>The raw string payload returned by the Home Assistant API, or null when the call failed.</returns>
     public async Task<string?> GetApiStateAsync(string endpoint, CancellationToken cancellationToken = default)
     {
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             // The authorization header is attached per request: that keeps the Supervisor credential
@@ -56,10 +59,17 @@ public class HomeAssistantService : IHomeAssistantService
 
             var response = await _httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsStringAsync(cancellationToken);
+            var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            stopwatch.Stop();
+            MetricsRegistry.Instance.RecordHttp($"HomeAssistant:{endpoint}", stopwatch.Elapsed.TotalMilliseconds, true);
+            return payload;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
+            stopwatch.Stop();
+            MetricsRegistry.Instance.RecordHttp($"HomeAssistant:{endpoint}", stopwatch.Elapsed.TotalMilliseconds, false);
+
             // Shutdown cancellation is not a Home Assistant problem; everything else is reported.
             _logger.LogError(ex, "Failed to communicate with Home Assistant API endpoint: {Endpoint}", endpoint);
             return null;

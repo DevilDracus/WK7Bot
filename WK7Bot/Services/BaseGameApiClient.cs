@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using Microsoft.Extensions.Logging;
+using WK7Bot.Core.Utilities;
 
 namespace WK7Bot.Services;
 
@@ -61,6 +63,7 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
     {
         ArgumentNullException.ThrowIfNull(sendFactory);
 
+        var stopwatch = Stopwatch.StartNew();
         var response = await SendThrottledAsync(sendFactory, cancellationToken);
 
         for (var attempt = 1; attempt < MaxAttempts && IsTransientFailure(response); attempt++)
@@ -89,6 +92,12 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
                 response.StatusCode,
                 MaxAttempts);
         }
+
+        stopwatch.Stop();
+        MetricsRegistry.Instance.RecordHttp(
+            $"{ServiceName}:{operationName}",
+            stopwatch.Elapsed.TotalMilliseconds,
+            response.IsSuccessStatusCode);
 
         return response;
     }

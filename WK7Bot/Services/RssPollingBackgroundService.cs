@@ -131,6 +131,11 @@ public class RssPollingBackgroundService : BackgroundService
 
         foreach (var feed in feeds)
         {
+            if (feed.IsPaused)
+            {
+                continue;
+            }
+
             if (!IsDue(feed))
             {
                 continue;
