@@ -76,6 +76,7 @@ options:
     wishlist_deal_alerts_enabled: true
     leaderboard_enabled: true
     deal_watchlist_enabled: true
+    discord_events_enabled: true
   servers:
     wk7_server_id: "YOUR_WK7_SERVER_ID"
     test_server_id: "YOUR_BOT_TEST_SERVER_ID"
@@ -165,6 +166,7 @@ schema:
     wishlist_deal_alerts_enabled: bool
     leaderboard_enabled: bool
     deal_watchlist_enabled: bool
+    discord_events_enabled: bool
   servers:
     wk7_server_id: str
     test_server_id: str

@@ -12,6 +12,7 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 - **RSS syndication** — per-feed intervals, backlog-free first poll, duplicate suppression by `LastItemGuid`/`LastPublishedDate`, `/rss add|list|remove|dashboard` with auto-created role + private channel and role-based subscription menus.
 - **Leipzig waste reminders** — Stadtreinigung `.ics` parsing, daily confirmation and Monday overview, `/check-waste`, restart-safe dedup per guild.
 - **Spontan-Treff** — `/spontan-treff` posts a meetup with an `@everyone` ping (graceful 403 fallback), go/pass buttons that re-render live, and a 30-minute default window auto-closed by `SpontanTreffExpiryService`.
+- **Native Discord events** — Spontan-Treff and the Thursday weekend digest create a guild scheduled event (external) so members get native reminders; `DiscordScheduledEventCleanupService` deletes them after their end time (`discord_events_enabled`).
 - **Weekend digest** — Thursdays 14:15 the curated leipzig.de digest posts with a native Discord poll, retrying up to 4×.
 - **DWD warnings** — 2-minute CAP feed polling, point-in-polygon matching, German embeds with onset countdown into `#⛈️weather-warnings`.
 - **Steam & Battle.net presence** — token-based mapping (no passwords), retries and caches, published to MQTT sensors for Home Assistant.

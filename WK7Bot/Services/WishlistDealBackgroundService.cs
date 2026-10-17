@@ -102,14 +102,20 @@ public class WishlistDealBackgroundService : BackgroundService
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     private async Task CheckDealsAsync(CancellationToken cancellationToken)
     {
-        var mappings = _options.DiscordSteamMappings;
+        IReadOnlyList<SteamAccountLink> mappings;
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var resolver = scope.ServiceProvider.GetRequiredService<IAccountLinkResolver>();
+            mappings = await resolver.GetSteamLinksAsync(cancellationToken);
+        }
+
         if (mappings.Count == 0)
         {
             _logger.LogInformation("No Discord-Steam mappings configured; skipping wishlist deal check.");
             return;
         }
 
-        var (wishlistsByDiscordId, allAppIds) = await FetchWishlistsAsync(cancellationToken);
+        var (wishlistsByDiscordId, allAppIds) = await FetchWishlistsAsync(mappings, cancellationToken);
         if (allAppIds.Count == 0)
         {
             _logger.LogInformation("No wishlist items found for any mapped user.");
@@ -152,22 +158,21 @@ public class WishlistDealBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Fetches the wishlists for every configured Discord-Steam mapping.
+    /// Fetches the wishlists for every effective Discord-Steam mapping (options plus runtime links).
     /// </summary>
+    /// <param name="mappings">The merged Discord-Steam mappings.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>A tuple containing the wishlists grouped by Discord user id and the set of all wishlisted application ids.</returns>
-    private async Task<(Dictionary<ulong, List<SteamWishlistItem>> WishlistsByDiscordId, HashSet<uint> AllAppIds)> FetchWishlistsAsync(CancellationToken cancellationToken)
+    private async Task<(Dictionary<ulong, List<SteamWishlistItem>> WishlistsByDiscordId, HashSet<uint> AllAppIds)> FetchWishlistsAsync(
+        IReadOnlyList<SteamAccountLink> mappings,
+        CancellationToken cancellationToken)
     {
         var wishlistsByDiscordId = new Dictionary<ulong, List<SteamWishlistItem>>();
         var allAppIds = new HashSet<uint>();
 
-        foreach (var mapping in _options.DiscordSteamMappings)
+        foreach (var mapping in mappings)
         {
-            if (!ulong.TryParse(mapping.DiscordUserId, out var discordUserId))
-            {
-                continue;
-            }
-
+            var discordUserId = mapping.DiscordUserId;
             var wishlist = await _dealService.FetchWishlistAsync(mapping.SteamId, cancellationToken);
             if (wishlist.Count > 0)
             {

@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
+using WK7Bot.Services.Interfaces;
 
 namespace WK7Bot.Services;
 
@@ -14,16 +15,22 @@ public class WeekendDigestDispatcher
 {
     private const string TargetChannelName = "📅wochenende";
     private readonly DiscordSocketClient _discordClient;
+    private readonly IDiscordScheduledEventService _scheduledEventService;
     private readonly ILogger<WeekendDigestDispatcher> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WeekendDigestDispatcher"/> class.
     /// </summary>
     /// <param name="discordClient">The connected Discord socket client.</param>
+    /// <param name="scheduledEventService">The service that creates the native Discord event for the digest.</param>
     /// <param name="logger">Logger for dispatch diagnostics.</param>
-    public WeekendDigestDispatcher(DiscordSocketClient discordClient, ILogger<WeekendDigestDispatcher> logger)
+    public WeekendDigestDispatcher(
+        DiscordSocketClient discordClient,
+        IDiscordScheduledEventService scheduledEventService,
+        ILogger<WeekendDigestDispatcher> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
+        _scheduledEventService = scheduledEventService ?? throw new ArgumentNullException(nameof(scheduledEventService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -73,6 +80,19 @@ public class WeekendDigestDispatcher
 
             await PostToWeekendChannelAsync(channel, digest.Embed, digest.Poll);
             dispatchedCount++;
+
+            if (channel.Guild is not null)
+            {
+                var now = DateTimeOffset.Now;
+                await _scheduledEventService.CreateAsync(
+                    channel.Guild,
+                    "Wochenend-Digest",
+                    "Die Wochenend-Tipps und die Abstimmung sind da.",
+                    channel.Name,
+                    now,
+                    now.AddHours(2),
+                    "weekend_digest");
+            }
 
             // Record only after a successful send so a crash or failure retries this guild next attempt
             // while guilds that already received the digest stay suppressed.
