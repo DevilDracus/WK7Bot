@@ -141,7 +141,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
 
             embed.WithDescription($"Gesamt: {total} Befehlsaufrufe");
 
-            await FollowupAsync(embed: embed.Build(), ephemeral: true);
+            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
         }
         catch (Exception ex)
         {
@@ -210,7 +210,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
 
             embed.AddField("🌐 Externe Abhängigkeiten", depsBuilder.ToString().TrimEnd(), inline: false);
 
-            await FollowupAsync(embed: embed.Build(), ephemeral: true);
+            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
         }
         catch (Exception ex)
         {
@@ -246,7 +246,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
             AddCommandField(embed, "📡 RSS", rssCommands);
             AddCommandField(embed, "🎮 Deals", dealCommands);
 
-            await RespondAsync(embed: embed.Build(), ephemeral: true);
+            await RespondAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
         }
         catch (Exception ex)
         {

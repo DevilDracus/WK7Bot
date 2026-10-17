@@ -24,6 +24,7 @@ public sealed class SystemModuleTests
         public Mock<IExternalDependencyHealthChecker> DependencyHealthChecker { get; }
 
         public List<Embed> RespondedEmbeds { get; } = new();
+        public List<MessageComponent> RespondedComponents { get; } = new();
         public List<string> RespondedTexts { get; } = new();
 
         public int DeferCount { get; private set; }
@@ -60,7 +61,8 @@ public sealed class SystemModuleTests
             RequestOptions options,
             MessageComponent components,
             Embed embed,
-            PollProperties poll)
+            PollProperties? poll = null,
+            MessageFlags flags = MessageFlags.None)
         {
             RespondedTexts.Add(text ?? string.Empty);
             return Task.FromResult<IUserMessage>(null!);
@@ -75,10 +77,13 @@ public sealed class SystemModuleTests
             RequestOptions? options = null,
             MessageComponent? components = null,
             Embed? embed = null,
-            PollProperties? poll = null)
+            PollProperties? poll = null,
+            MessageFlags flags = MessageFlags.None)
         {
             if (embed != null)
                 RespondedEmbeds.Add(embed);
+            if (components != null)
+                RespondedComponents.Add(components);
             if (text != null)
                 RespondedTexts.Add(text);
             return Task.CompletedTask;
@@ -122,7 +127,7 @@ public sealed class SystemModuleTests
         // Act & Assert: must not throw — before the fix, .Result on guild lookups threw NRE in DMs.
         await module.HelpCommandAsync();
 
-        Assert.Single(module.RespondedEmbeds);
+        Assert.Single(module.RespondedComponents);
     }
 
     [Fact]

@@ -9,6 +9,7 @@ using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
+using WK7Bot.Core.Utilities;
 
 /// <summary>
 /// Stores per-user deal watchlist entries, resolves game names through the Steam store search API,
@@ -140,7 +141,7 @@ public class DealWatchlistService : IDealWatchlistService
                     .WithColor(price.IsHistoricalLow ? Color.Gold : Color.Green)
                     .WithTimestamp(DateTimeOffset.UtcNow)
                     .WithFooter("WK7 Bot • Deal-Watchlist");
-                await dm.SendMessageAsync(embed: embed.Build()).ConfigureAwait(false);
+                await CardSender.SendCardAsync(dm, CardBuilder.FromEmbed(embed.Build()), embed.Build(), _logger, cancellationToken).ConfigureAwait(false);
                 await _repository.UpdatePriceAsync(item.Id, price.CurrentPrice, price.DiscountPercent, DateTime.UtcNow, cancellationToken).ConfigureAwait(false);
                 alerts++;
             }

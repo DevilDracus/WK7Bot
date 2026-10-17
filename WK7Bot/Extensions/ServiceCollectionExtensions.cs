@@ -43,6 +43,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWishlistDealRepository, WishlistDealRepository>();
         services.AddScoped<IUserAccountLinkRepository, UserAccountLinkRepository>();
         services.AddScoped<IDealWatchRepository, DealWatchRepository>();
+        services.AddScoped<IAccountLinkResolver, AccountLinkResolver>();
+        services.AddScoped<IDiscordScheduledEventRepository, DiscordScheduledEventRepository>();
+        services.AddScoped<IReminderRepository, ReminderRepository>();
         return services;
     }
 
@@ -122,6 +125,8 @@ public static class ServiceCollectionExtensions
         });
         services.AddTransient<IWeatherService, WeatherService>();
         services.AddTransient<ILeaderboardService, LeaderboardService>();
+        services.AddTransient<IProfileService, ProfileService>();
+        services.AddSingleton<IDiscordScheduledEventService, DiscordScheduledEventService>();
         services.AddHttpClient<IDealWatchlistService, DealWatchlistService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
@@ -129,6 +134,11 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IWeekendEventSource, LeipzigWeekendEventSource>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddHttpClient<IPollenService, PollenService>(client =>
+        {
+            // Same host as the CAP warnings: a slow open-data response must not hang the caller.
+            client.Timeout = TimeSpan.FromSeconds(45);
         });
         services.AddHttpClient<IDwdWarningService, DwdWarningService>(client =>
         {
@@ -152,6 +162,11 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddTransient<RssParserService>();
+        services.AddHttpClient<IOpmlService, OpmlService>(client =>
+        {
+            // OPML files are small; a stalled download should not hold the interaction for 100 s.
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
 
         // Command usage metrics repository
         services.AddSingleton<CommandUsageRepository>();
@@ -271,6 +286,21 @@ public static class ServiceCollectionExtensions
         if (featureGate.IsEnabled(FeatureKeys.DealWatchlist))
         {
             services.AddHostedService<DealWatchlistBackgroundService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.DiscordEvents))
+        {
+            services.AddHostedService<DiscordScheduledEventCleanupService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.PollenAlerts))
+        {
+            services.AddHostedService<PollenBackgroundService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.Reminders))
+        {
+            services.AddHostedService<ReminderBackgroundService>();
         }
 
         // Always-on infrastructure services

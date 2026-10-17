@@ -55,6 +55,42 @@ public static class FeatureKeys
     /// <summary>Key of the per-user deal watchlist feature.</summary>
     public const string DealWatchlist = "deal_watchlist_enabled";
 
+    /// <summary>Key of the Discord guild scheduled events feature.</summary>
+    public const string DiscordEvents = "discord_events_enabled";
+
+    /// <summary>Key of the daily DWD pollen and UV index post.</summary>
+    public const string PollenAlerts = "pollen_alerts_enabled";
+
+    /// <summary>Key of the personal reminder delivery service.</summary>
+    public const string Reminders = "reminders_enabled";
+
+    /// <summary>
+    /// Every known feature key. Used by the runtime <c>/config feature</c> command to validate input
+    /// and to render the current state of all switches.
+    /// </summary>
+    public static readonly string[] All =
+    {
+        RssPolling,
+        HomeAssistantNotifier,
+        LeipzigWaste,
+        AlexaNotifications,
+        DiscordPresenceMqtt,
+        SteamPresence,
+        BattleNetPresence,
+        FoodService,
+        SpontanTreff,
+        WeekendDigest,
+        DwdWarning,
+        ErrorNotifications,
+        MqttBotStatus,
+        WishlistDealAlerts,
+        Leaderboard,
+        DealWatchlist,
+        DiscordEvents,
+        PollenAlerts,
+        Reminders
+    };
+
     /// <summary>
     /// The keys of the features that post automatically and therefore honour
     /// <c>servers.testing_features</c> routing.
@@ -81,5 +117,8 @@ public static class FeatureKeys
 
         /// <summary>Routing key of the weekly leaderboard post.</summary>
         public const string Leaderboard = "leaderboard";
+
+        /// <summary>Routing key of the daily pollen and UV index post.</summary>
+        public const string PollenAlerts = "pollen_alerts";
     }
 }

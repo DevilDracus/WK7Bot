@@ -62,16 +62,50 @@ public class AddOnOptionsWriter
     /// <returns><see langword="true"/> when the Supervisor accepted the update.</returns>
     public async Task<bool> MergeAsync(IDictionary<string, object?> patch, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(_supervisorToken))
-        {
-            _logger.LogDebug("SUPERVISOR_TOKEN is not set; skipping add-on options write.");
-            return false;
-        }
-
         var options = ReadCurrentOptions();
         foreach (var (key, value) in patch)
         {
             options[key] = JsonSerializer.SerializeToNode(value);
+        }
+
+        return await WriteOptionsAsync(options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Merges a single <c>features.&lt;key&gt;</c> switch into the current options and writes the result
+    /// through the Supervisor API. Used by the runtime <c>/config feature</c> command.
+    /// </summary>
+    /// <param name="featureKey">The snake_case feature key (e.g. <c>food_service_enabled</c>).</param>
+    /// <param name="enabled">The new state.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns><see langword="true"/> when the Supervisor accepted the update.</returns>
+    public async Task<bool> MergeFeatureAsync(string featureKey, bool enabled, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(featureKey))
+        {
+            return false;
+        }
+
+        var options = ReadCurrentOptions();
+        var features = options["features"] as JsonObject ?? new JsonObject();
+        features[featureKey] = enabled;
+        options["features"] = features;
+
+        return await WriteOptionsAsync(options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts a fully merged options document to the Supervisor self-options endpoint.
+    /// </summary>
+    /// <param name="options">The options document to persist.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns><see langword="true"/> when the Supervisor accepted the update.</returns>
+    private async Task<bool> WriteOptionsAsync(JsonObject options, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(_supervisorToken))
+        {
+            _logger.LogDebug("SUPERVISOR_TOKEN is not set; skipping add-on options write.");
+            return false;
         }
 
         var payload = JsonSerializer.Serialize(new { options });

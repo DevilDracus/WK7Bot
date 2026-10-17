@@ -26,6 +26,7 @@ public class SpontanTreffMessageBuilderTests
 
     private static List<ButtonComponent> Buttons(MessageComponent component)
         => component.Components
+            .OfType<ActionRowComponent>()
             .SelectMany(row => row.Components)
             .OfType<ButtonComponent>()
             .ToList();

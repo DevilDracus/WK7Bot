@@ -271,7 +271,7 @@ public class FoodPublisherService : BackgroundService
             now.GermanMonthName(),
             "Gesendet vom WK7 Bot • Regionale Saisonware");
 
-        await channel.SendMessageAsync(embed: embed);
+        await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger);
         return true;
     }
 
@@ -308,7 +308,7 @@ public class FoodPublisherService : BackgroundService
                 recipe,
                 $"Automatisch veröffentlicht • Saisonale Zutaten: {string.Join(", ", seasonalTerms)}");
 
-            await channel.SendMessageAsync(embed: embed);
+            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger);
             return true;
         }
 

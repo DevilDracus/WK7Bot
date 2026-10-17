@@ -57,8 +57,10 @@ public static class TestCommandEndpoints
                 "ping", "ha-status", "stats", "health", "help", "check-waste", "check-waste-day",
                 "check-food", "seasonal-produce", "recipe", "recipe-seasonal", "recipe-generate",
                 "deals", "spontan-treff", "rss-list", "rss-add", "rss-remove", "rss-dashboard",
+                "rss-pause", "rss-resume", "rss-test", "rss-export", "rss-import",
                 "link-steam", "link-battlenet", "link-status", "link-remove", "wishlist-add", "weather", "leaderboard",
-                "watch", "unwatch", "watchlist"
+                "watch", "unwatch", "watchlist", "config-feature", "config-list", "profile", "poll",
+                "pollen", "remind", "reminders", "remind-cancel"
             }
         }));
 

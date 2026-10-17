@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
 
@@ -50,6 +51,17 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
             CheckGeminiAsync(cancellationToken),
             CheckOpenFoodFactsAsync(cancellationToken),
             CheckIsThereAnyDealAsync(cancellationToken)).ConfigureAwait(false);
+
+        // Project the per-dependency outcome into the Prometheus registry here instead of inside each
+        // check: the fan-out is the single place that sees every result, so one loop instruments all
+        // six dependencies (including the key-only Gemini check, which reports no latency).
+        foreach (var result in results)
+        {
+            MetricsRegistry.Instance.RecordHttp(
+                $"HealthCheck:{result.Name}",
+                result.Latency?.TotalMilliseconds ?? 0,
+                result.IsHealthy);
+        }
 
         return results;
     }

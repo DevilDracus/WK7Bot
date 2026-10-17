@@ -14,6 +14,7 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IWishlistDealService _dealService;
     private readonly ISteamService _steamService;
+    private readonly IAccountLinkResolver _accountLinkResolver;
     private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<DealsModule> _logger;
 
@@ -24,16 +25,19 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     /// <param name="dealService">The wishlist deal service.</param>
     /// <param name="steamService">The Steam service for resolving user mappings.</param>
+    /// <param name="accountLinkResolver">The resolver for runtime account links created via /link.</param>
     /// <param name="rateLimiter">The command rate limiter.</param>
     /// <param name="logger">The logger instance.</param>
     public DealsModule(
         IWishlistDealService dealService,
         ISteamService steamService,
+        IAccountLinkResolver accountLinkResolver,
         CommandRateLimiter rateLimiter,
         ILogger<DealsModule> logger)
     {
         _dealService = dealService ?? throw new ArgumentNullException(nameof(dealService));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
+        _accountLinkResolver = accountLinkResolver ?? throw new ArgumentNullException(nameof(accountLinkResolver));
         _rateLimiter = rateLimiter ?? throw new ArgumentNullException(nameof(rateLimiter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -59,6 +63,11 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
             var steamId = _steamService.GetSteamIdForDiscordUser(discordUserId);
             if (string.IsNullOrWhiteSpace(steamId))
             {
+                steamId = await _accountLinkResolver.GetSteamIdAsync(Context.User.Id);
+            }
+
+            if (string.IsNullOrWhiteSpace(steamId))
+            {
                 await FollowupAsync("❌ Du hast keinen Steam-Account mit deinem Discord-Profil verknüpft.", ephemeral: true);
                 return;
             }
@@ -78,7 +87,7 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
             }
 
             var embed = BuildDealsEmbed(wishlist, prices);
-            await FollowupAsync(embed: embed.Build(), ephemeral: true);
+            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

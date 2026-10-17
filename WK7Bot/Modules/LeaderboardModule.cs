@@ -3,10 +3,12 @@ namespace WK7Bot.Modules;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Logging;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>
-/// Slash command that posts Steam and Battle.net leaderboards for the linked guild members.
+/// Slash command that posts Steam and Battle.net leaderboards for the linked guild members as a
+/// Components V2 card.
 /// </summary>
 public class LeaderboardModule : InteractionModuleBase<SocketInteractionContext>
 {
@@ -14,6 +16,8 @@ public class LeaderboardModule : InteractionModuleBase<SocketInteractionContext>
     private readonly ILogger<LeaderboardModule> _logger;
 
     /// <summary>Initializes a new instance of the <see cref="LeaderboardModule"/> class.</summary>
+    /// <param name="leaderboardService">The leaderboard aggregation service.</param>
+    /// <param name="logger">The logger instance.</param>
     public LeaderboardModule(ILeaderboardService leaderboardService, ILogger<LeaderboardModule> logger)
     {
         _leaderboardService = leaderboardService ?? throw new ArgumentNullException(nameof(leaderboardService));
@@ -41,21 +45,8 @@ public class LeaderboardModule : InteractionModuleBase<SocketInteractionContext>
             return;
         }
 
-        var embed = new EmbedBuilder()
-            .WithTitle(result.Title)
-            .WithColor(Color.Gold)
-            .WithTimestamp(DateTimeOffset.UtcNow);
-
-        foreach (var entry in result.Entries)
-        {
-            embed.AddField($"#{entry.Rank} {entry.DisplayName}", $"{entry.Value}" + (string.IsNullOrWhiteSpace(entry.Detail) ? string.Empty : $" · {entry.Detail}"), inline: false);
-        }
-
-        if (!string.IsNullOrWhiteSpace(result.Footer))
-        {
-            embed.WithFooter(result.Footer);
-        }
-
-        await FollowupAsync(embed: embed.Build());
+        await FollowupAsync(
+            components: LeaderboardCardBuilder.Build(result),
+            flags: MessageFlags.ComponentsV2);
     }
 }

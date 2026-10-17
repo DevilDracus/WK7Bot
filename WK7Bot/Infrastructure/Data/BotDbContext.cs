@@ -77,6 +77,16 @@ public class BotDbContext : DbContext
     public DbSet<DealWatchItem> DealWatchItems => Set<DealWatchItem>();
 
     /// <summary>
+    /// Gets or sets the database set for Discord guild scheduled events created by the bot.
+    /// </summary>
+    public DbSet<DiscordScheduledEvent> DiscordScheduledEvents => Set<DiscordScheduledEvent>();
+
+    /// <summary>
+    /// Gets or sets the database set for personal reminders.
+    /// </summary>
+    public DbSet<Reminder> Reminders => Set<Reminder>();
+
+    /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
     /// <param name="modelBuilder">The builder instance used to define entity structure and keys.</param>
@@ -91,6 +101,7 @@ public class BotDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Url).IsRequired().HasMaxLength(500);
             entity.Property(e => e.LastItemGuid).HasMaxLength(250);
+            entity.Property(e => e.IsPaused).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<RssDashboardSetting>(entity =>
@@ -180,6 +191,26 @@ public class BotDbContext : DbContext
             entity.HasIndex(e => new { e.DiscordUserId, e.GameName }).IsUnique();
             entity.Property(e => e.GameName).IsRequired().HasMaxLength(300);
             entity.Property(e => e.ItadId).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<DiscordScheduledEvent>(entity =>
+        {
+            entity.ToTable("DiscordScheduledEvents");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.EndAt);
+            entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<Reminder>(entity =>
+        {
+            entity.ToTable("Reminders");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Text).IsRequired().HasMaxLength(500);
+
+            // Backs the delivery sweep (DeliveredAt IS NULL AND DueAt <= now) and the per-user list.
+            entity.HasIndex(e => new { e.DeliveredAt, e.DueAt });
+            entity.HasIndex(e => e.DiscordUserId);
         });
     }
 }

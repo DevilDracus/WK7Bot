@@ -177,6 +177,38 @@ public class Wk7BotOptions
     public string WeatherEntity { get; set; } = "weather.home";
 
     /// <summary>
+    /// Gets or sets the DWD pollen region name used by /pollen (substring match against the feed's
+    /// region names, e.g. "Sachsen").
+    /// </summary>
+    [ConfigurationKeyName("pollen_region_name")]
+    public string PollenRegionName { get; set; } = "Sachsen";
+
+    /// <summary>
+    /// Gets or sets the DWD pollen part-region name used by /pollen (substring match, e.g.
+    /// "Tiefland Sachsen" for Leipzig).
+    /// </summary>
+    [ConfigurationKeyName("pollen_partregion_name")]
+    public string PollenPartRegionName { get; set; } = "Tiefland Sachsen";
+
+    /// <summary>
+    /// Gets or sets the city whose DWD UV index is shown by /pollen.
+    /// </summary>
+    [ConfigurationKeyName("uv_city")]
+    public string UvCity { get; set; } = "Leipzig";
+
+    /// <summary>
+    /// Gets or sets the Discord channel name that receives the daily pollen/UV post.
+    /// </summary>
+    [ConfigurationKeyName("pollen_channel_name")]
+    public string PollenChannelName { get; set; } = "\u26c8\ufe0fweather-warnings";
+
+    /// <summary>
+    /// Gets or sets the local time (HH:mm) of the daily pollen/UV post.
+    /// </summary>
+    [ConfigurationKeyName("pollen_post_time")]
+    public string PollenPostTime { get; set; } = "07:00";
+
+    /// <summary>
     /// Gets or sets a value indicating whether the Prometheus /metrics endpoint is exposed.
     /// </summary>
     [ConfigurationKeyName("metrics_enabled")]

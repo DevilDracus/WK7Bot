@@ -12,6 +12,7 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 - **RSS syndication** — per-feed intervals, backlog-free first poll, duplicate suppression by `LastItemGuid`/`LastPublishedDate`, `/rss add|list|remove|dashboard` with auto-created role + private channel and role-based subscription menus.
 - **Leipzig waste reminders** — Stadtreinigung `.ics` parsing, daily confirmation and Monday overview, `/check-waste`, restart-safe dedup per guild.
 - **Spontan-Treff** — `/spontan-treff` posts a meetup with an `@everyone` ping (graceful 403 fallback), go/pass buttons that re-render live, and a 30-minute default window auto-closed by `SpontanTreffExpiryService`.
+- **Native Discord events** — Spontan-Treff and the Thursday weekend digest create a guild scheduled event (external) so members get native reminders; `DiscordScheduledEventCleanupService` deletes them after their end time (`discord_events_enabled`).
 - **Weekend digest** — Thursdays 14:15 the curated leipzig.de digest posts with a native Discord poll, retrying up to 4×.
 - **DWD warnings** — 2-minute CAP feed polling, point-in-polygon matching, German embeds with onset countdown into `#⛈️weather-warnings`.
 - **Steam & Battle.net presence** — token-based mapping (no passwords), retries and caches, published to MQTT sensors for Home Assistant.
@@ -21,7 +22,17 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 - **Weather** — `/weather [entity]` reads a configurable Home Assistant weather entity (`weather_entity`) and posts current conditions plus an optional forecast.
 - **Leaderboards** — `/leaderboard` ranks linked members by Steam playtime, Steam achievements, WoW level or Diablo Paragon; a weekly post goes to `leaderboard_channel_name` on `leaderboard_post_weekday` at `leaderboard_post_time`.
 - **Per-user deal watchlist** — `/watch`, `/unwatch` and `/watchlist` with background price checks and DM alerts (`deal_watchlist_*` options).
-- **Prometheus metrics** — `GET /metrics` exposes command, error, feature-health and uptime metrics when `metrics_enabled` is true.
+- **Prometheus metrics** — `GET /metrics` exposes command, error, feature-health, uptime and per-operation HTTP request/failure/duration metrics when `metrics_enabled` is true; the game API clients, the Supervisor client and the dependency health checks feed the HTTP counters.
+- **Pollen & UV index** — `/pollen` renders the DWD pollen hazard index (eight pollen types, today/tomorrow/the day after) for the configured region plus the DWD UV index of the configured city; a daily post goes to `pollen_channel_name` at `pollen_post_time` (`pollen_alerts_enabled`). Same open-data host and resilience policy as the CAP warnings.
+- **Personal reminders** — `/remind <wann> <text> [hier]` schedules a reminder (`in 30m`, `in 2h`, `18:30`, `morgen 08:00`), delivered as a DM or as a channel post; `/reminders` lists the pending ones and `/remind-cancel <id>` removes one (`reminders_enabled`).
+- **Components V2 cards everywhere** — every embed the bot used to send is rendered as a Components V2 container: `/profile` and `/leaderboard` (accent colour, dividers, avatar thumbnail), `/deals`, `/check-food`, recipes, `/check-waste`, `/weather`, `/pollen`, `/stats`, `/health`, `/help`, the weekly leaderboard post, the daily waste/pollen/food posts and the deal-watchlist DMs. `CardBuilder.FromEmbed` projects title, description, fields, thumbnail, full-width image, title link, footer and timestamp into text displays, a section accessory and a media gallery; the per-message text budget and the 40-child container limit are enforced.
+- **Card delivery is fail-safe** — channel notifications go through `CardSender`, which falls back to the original embed when Discord rejects a card, so a presentation change can never silently swallow an alert. Interaction responses pass `ephemeral` and the Components V2 flag together; Discord.Net OR-combines both (`flags |= ComponentsV2`, `flags |= Ephemeral`), so ephemeral answers stay ephemeral.
+- **Still embed-based by design** — messages that must carry a mention or a native poll (RSS feed posts and wishlist deal alerts with role/user pings, the Spontan-Treff post with its `@everyone` ping, the weekend digest with its poll, the error notifications) stay embeds: a Components V2 message cannot carry `content` or `embeds`.
+- **OPML import/export** — `/rss export` downloads every registered feed as an OPML 2.0 file; `/rss import <datei>` creates feeds from an OPML attachment (max 15 entries, existing names are skipped).
+- **Feed preview & pause** — `/rss test <url>` previews the newest items of any feed URL without registering it; `/rss pause`/`/rss resume` stop and restart polling while keeping the channel, role and baseline.
+- **Runtime feature toggles** — `/config feature <key> <on|off>` (administrator) applies a `FeatureGate` override immediately and persists it to the add-on options via the Supervisor API; `/config list` shows every switch and whether a runtime override is active.
+- **Profile cards** — `/profile [user]` renders Steam persona, 14-day playtime and achievements plus the WoW characters and Diablo heroes of the linked Battle.net account.
+- **Ad-hoc polls** — `/poll <frage> <optionen>` posts a native Discord poll (2-10 answers, 1-168 h, optional multiselect); answers are separated by `|` or line breaks.
 - **Food & recipes** — DuckDuckGo/Chefkoch web search with JSON-LD parsing, Gemini-generated renal-safe recipes, monthly produce calendar, weekly seasonal recipe, and `/check-food` nutrition/renal-safety checks via Open Food Facts.
 - **Home Assistant notifier** — listens for MQTT notify messages and forwards them to configured Discord channels or DMs.
 - **Alexa mention notifications** — forwards Discord mentions to Alexa through the configured getnotify.me endpoint.
@@ -43,6 +54,11 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `/rss list` | List all registered feeds | everyone |
 | `/rss remove <name>` | Remove a feed and clean up its channel/role | `ManageChannels` |
 | `/rss dashboard` | Post the interactive subscription menu | `ManageRoles` |
+| `/rss pause <name>` | Pause polling for a feed (keeps channel/role/baseline) | `ManageChannels` |
+| `/rss resume <name>` | Resume polling for a paused feed | `ManageChannels` |
+| `/rss test <url>` | Preview the newest items of a feed URL | everyone |
+| `/rss export` | Download all feeds as an OPML 2.0 file | `ManageChannels` |
+| `/rss import <datei>` | Import feeds from an OPML attachment | `ManageChannels` |
 | `/check-waste [days] [datum]` | Query Leipzig waste dates | everyone |
 | `/recipe query:<text>` | Web-search a recipe and post it to `#🍎food` | everyone |
 | `/recipe-seasonal [query]` | Search seeded with seasonal ingredients | everyone |
@@ -61,6 +77,14 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `/unwatch <game>` | Remove a game from your watchlist | everyone |
 | `/watchlist` | List your watched games | everyone |
 | `/spontan-treff <plan> [ort] [minuten]` | Meetup with ping + go/pass buttons | everyone |
+| `/profile [user]` | Steam/Battle.net profile card (Components V2) | everyone |
+| `/pollen` | DWD pollen hazard index + UV index | everyone |
+| `/remind <wann> <text> [hier]` | Schedule a reminder (DM or channel) | everyone |
+| `/reminders` | List your pending reminders | everyone |
+| `/remind-cancel <id>` | Cancel a pending reminder | everyone |
+| `/poll <frage> <optionen> [dauer_stunden] [mehrfachauswahl]` | Native Discord poll | everyone |
+| `/config feature <key> <on\|off>` | Enable/disable a feature at runtime and persist it | `Administrator` |
+| `/config list` | List all feature switches and their state | `Administrator` |
 | `/ping` | Gateway latency | everyone |
 | `/ha-status` | Test the Home Assistant Supervisor API | everyone |
 | `/stats` | Top commands of the last 7 days | everyone |
@@ -89,6 +113,9 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `WishlistDealBackgroundService` | 12-hour wishlist price polling + deal alerts | `wishlist_deal_alerts_enabled` |
 | `LeaderboardBackgroundService` | Weekly leaderboard post | `leaderboard_enabled` |
 | `DealWatchlistBackgroundService` | Per-user deal watchlist price checks + DM alerts | `deal_watchlist_enabled` |
+| `DiscordScheduledEventCleanupService` | Delete finished Discord scheduled events | `discord_events_enabled` |
+| `PollenBackgroundService` | Daily DWD pollen/UV post | `pollen_alerts_enabled` |
+| `ReminderBackgroundService` | Deliver due personal reminders | `reminders_enabled` |
 
 `WeekendDigestDispatcher` is registered as a singleton helper used by `WeekendDigestBackgroundService` for channel resolution and per-guild dispatch deduplication.
 
@@ -246,11 +273,11 @@ On Windows override `ConnectionStrings:DefaultConnection` to a writable path (e.
 dotnet test WK7Bot.sln
 ```
 
-**644 tests** cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite DDL replay for restart-safe dispatch, circuit breaker logic, feature gate resolution, DM-context module safety, command cooldowns and usage metrics, startup validation, and all embed/poll/button builders. Last verified: 644 passed, 0 failed.
+**702 tests** cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite DDL replay for restart-safe dispatch, circuit breaker logic, feature gate resolution (including runtime overrides), DM-context module safety, command cooldowns and usage metrics, startup validation, reminder time parsing, DWD pollen/UV parsing, OPML import/export, Components V2 card structure, and all embed/poll/button builders. Last verified: 702 passed, 0 failed.
 
 ## Stack
 
-.NET 10 (C# 14) · `Discord.Net` / `Discord.Interactions` · EF Core + SQLite · `MQTTnet` · Polly 8 · `CodeHollow.FeedReader`, `Ical.Net`, JSON-LD recipes · DuckDuckGo/Chefkoch search · Open Food Facts · Steam Web API, Battle.net OAuth and IsThereAnyDeal · DWD CAP open data · Google Gemini · xUnit, Moq, EF InMemory · Docker, Home Assistant Supervisor Add-On.
+.NET 10 (C# 14) · `Discord.Net` 3.19 (`Discord.Interactions`, Components V2) · EF Core + SQLite · `MQTTnet` · Polly 8 · `CodeHollow.FeedReader`, `Ical.Net`, JSON-LD recipes · DuckDuckGo/Chefkoch search · Open Food Facts · Steam Web API, Battle.net OAuth and IsThereAnyDeal · DWD CAP open data · Google Gemini · xUnit, Moq, EF InMemory · Docker, Home Assistant Supervisor Add-On.
 
 ## License
 
