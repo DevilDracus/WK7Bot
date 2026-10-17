@@ -60,7 +60,8 @@ public sealed class SystemModuleTests
             RequestOptions options,
             MessageComponent components,
             Embed embed,
-            PollProperties poll)
+            PollProperties? poll = null,
+            MessageFlags flags = MessageFlags.None)
         {
             RespondedTexts.Add(text ?? string.Empty);
             return Task.FromResult<IUserMessage>(null!);
@@ -75,7 +76,8 @@ public sealed class SystemModuleTests
             RequestOptions? options = null,
             MessageComponent? components = null,
             Embed? embed = null,
-            PollProperties? poll = null)
+            PollProperties? poll = null,
+            MessageFlags flags = MessageFlags.None)
         {
             if (embed != null)
                 RespondedEmbeds.Add(embed);

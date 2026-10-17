@@ -59,7 +59,8 @@ public static class TestCommandEndpoints
                 "deals", "spontan-treff", "rss-list", "rss-add", "rss-remove", "rss-dashboard",
                 "rss-pause", "rss-resume", "rss-test", "rss-export", "rss-import",
                 "link-steam", "link-battlenet", "link-status", "link-remove", "wishlist-add", "weather", "leaderboard",
-                "watch", "unwatch", "watchlist", "config-feature", "config-list", "profile", "poll"
+                "watch", "unwatch", "watchlist", "config-feature", "config-list", "profile", "poll",
+                "pollen", "remind", "reminders", "remind-cancel"
             }
         }));
 

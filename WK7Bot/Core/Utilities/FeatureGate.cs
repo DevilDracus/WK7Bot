@@ -101,6 +101,8 @@ public sealed class FeatureGate
         FeatureKeys.Leaderboard => _options.Features.LeaderboardEnabled,
         FeatureKeys.DealWatchlist => _options.Features.DealWatchlistEnabled,
         FeatureKeys.DiscordEvents => _options.Features.DiscordEventsEnabled,
+        FeatureKeys.PollenAlerts => _options.Features.PollenAlertsEnabled,
+        FeatureKeys.Reminders => _options.Features.RemindersEnabled,
         _ => true
     };
 }

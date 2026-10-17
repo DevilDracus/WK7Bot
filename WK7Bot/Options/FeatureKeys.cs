@@ -58,6 +58,12 @@ public static class FeatureKeys
     /// <summary>Key of the Discord guild scheduled events feature.</summary>
     public const string DiscordEvents = "discord_events_enabled";
 
+    /// <summary>Key of the daily DWD pollen and UV index post.</summary>
+    public const string PollenAlerts = "pollen_alerts_enabled";
+
+    /// <summary>Key of the personal reminder delivery service.</summary>
+    public const string Reminders = "reminders_enabled";
+
     /// <summary>
     /// Every known feature key. Used by the runtime <c>/config feature</c> command to validate input
     /// and to render the current state of all switches.
@@ -80,7 +86,9 @@ public static class FeatureKeys
         WishlistDealAlerts,
         Leaderboard,
         DealWatchlist,
-        DiscordEvents
+        DiscordEvents,
+        PollenAlerts,
+        Reminders
     };
 
     /// <summary>
@@ -109,5 +117,8 @@ public static class FeatureKeys
 
         /// <summary>Routing key of the weekly leaderboard post.</summary>
         public const string Leaderboard = "leaderboard";
+
+        /// <summary>Routing key of the daily pollen and UV index post.</summary>
+        public const string PollenAlerts = "pollen_alerts";
     }
 }

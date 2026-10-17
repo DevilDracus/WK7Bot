@@ -60,7 +60,8 @@ public class FoodModuleTests
             RequestOptions options,
             MessageComponent components,
             Embed embed,
-            PollProperties poll)
+            PollProperties? poll = null,
+            MessageFlags flags = MessageFlags.None)
         {
             Followups.Add(text ?? string.Empty);
             return Task.FromResult<IUserMessage>(null!);

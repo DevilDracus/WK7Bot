@@ -69,6 +69,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateUserAccountLinksSql);
         await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql);
         await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql);
 
         // Late-added columns: CREATE TABLE IF NOT EXISTS never alters an existing table, and
         // EnsureCreated does nothing on databases that already exist, so older deployments need
@@ -358,6 +359,25 @@ public static class DatabaseSchemaInitializer
             CreatedAt TEXT    NOT NULL
         );
         CREATE INDEX IF NOT EXISTS IX_DiscordScheduledEvents_EndAt ON DiscordScheduledEvents (EndAt);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the personal reminder table so deployments created before the feature gain it.
+    /// </summary>
+    public const string CreateRemindersSql =
+        """
+        CREATE TABLE IF NOT EXISTS Reminders (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId INTEGER NOT NULL,
+            GuildId       INTEGER NOT NULL DEFAULT 0,
+            ChannelId     INTEGER NOT NULL DEFAULT 0,
+            Text          TEXT    NOT NULL,
+            DueAt         TEXT    NOT NULL,
+            CreatedAt     TEXT    NOT NULL,
+            DeliveredAt   TEXT    NULL
+        );
+        CREATE INDEX IF NOT EXISTS IX_Reminders_DeliveredAt_DueAt ON Reminders (DeliveredAt, DueAt);
+        CREATE INDEX IF NOT EXISTS IX_Reminders_DiscordUserId ON Reminders (DiscordUserId);
         """;
 
     /// <summary>

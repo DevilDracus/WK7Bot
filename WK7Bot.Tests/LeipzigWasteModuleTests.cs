@@ -41,7 +41,8 @@ public class LeipzigWasteModuleTests
             RequestOptions? options = null,
             MessageComponent? components = null,
             Embed? embed = null,
-            PollProperties? poll = null)
+            PollProperties? poll = null,
+            MessageFlags flags = MessageFlags.None)
         {
             ResponseCount++;
             return Task.CompletedTask;
@@ -62,7 +63,8 @@ public class LeipzigWasteModuleTests
             RequestOptions options,
             MessageComponent components,
             Embed embed,
-            PollProperties poll)
+            PollProperties? poll = null,
+            MessageFlags flags = MessageFlags.None)
         {
             Followups.Add(text ?? string.Empty);
             return Task.FromResult<IUserMessage>(null!);

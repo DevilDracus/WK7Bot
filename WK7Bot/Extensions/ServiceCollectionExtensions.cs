@@ -45,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDealWatchRepository, DealWatchRepository>();
         services.AddScoped<IAccountLinkResolver, AccountLinkResolver>();
         services.AddScoped<IDiscordScheduledEventRepository, DiscordScheduledEventRepository>();
+        services.AddScoped<IReminderRepository, ReminderRepository>();
         return services;
     }
 
@@ -133,6 +134,11 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IWeekendEventSource, LeipzigWeekendEventSource>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddHttpClient<IPollenService, PollenService>(client =>
+        {
+            // Same host as the CAP warnings: a slow open-data response must not hang the caller.
+            client.Timeout = TimeSpan.FromSeconds(45);
         });
         services.AddHttpClient<IDwdWarningService, DwdWarningService>(client =>
         {
@@ -285,6 +291,16 @@ public static class ServiceCollectionExtensions
         if (featureGate.IsEnabled(FeatureKeys.DiscordEvents))
         {
             services.AddHostedService<DiscordScheduledEventCleanupService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.PollenAlerts))
+        {
+            services.AddHostedService<PollenBackgroundService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.Reminders))
+        {
+            services.AddHostedService<ReminderBackgroundService>();
         }
 
         // Always-on infrastructure services

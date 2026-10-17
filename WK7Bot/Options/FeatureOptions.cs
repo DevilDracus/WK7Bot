@@ -112,6 +112,18 @@ public class FeatureOptions
     public bool DiscordEventsEnabled { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the daily DWD pollen and UV index post is enabled.
+    /// </summary>
+    [ConfigurationKeyName("pollen_alerts_enabled")]
+    public bool PollenAlertsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether personal reminders (<c>/remind</c>) are delivered.
+    /// </summary>
+    [ConfigurationKeyName("reminders_enabled")]
+    public bool RemindersEnabled { get; set; } = true;
+
+    /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
     /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
     /// feature on older configuration.
@@ -137,6 +149,8 @@ public class FeatureOptions
         FeatureKeys.Leaderboard => LeaderboardEnabled,
         FeatureKeys.DealWatchlist => DealWatchlistEnabled,
         FeatureKeys.DiscordEvents => DiscordEventsEnabled,
+        FeatureKeys.PollenAlerts => PollenAlertsEnabled,
+        FeatureKeys.Reminders => RemindersEnabled,
         _ => true
     };
 }

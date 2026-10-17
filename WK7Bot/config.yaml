@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.84"
+version: "1.0.85"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 ingress: true
@@ -25,6 +25,11 @@ options:
   log_level: "Warning"
   startup_report_verbose: false
   weather_entity: "weather.home"
+  pollen_region_name: "Sachsen"
+  pollen_partregion_name: "Tiefland Sachsen"
+  uv_city: "Leipzig"
+  pollen_channel_name: "\u26c8\ufe0fweather-warnings"
+  pollen_post_time: "07:00"
   metrics_enabled: true
   link_auto_write_options: true
   deal_alert_channel_name: "game-deals"
@@ -77,6 +82,8 @@ options:
     leaderboard_enabled: true
     deal_watchlist_enabled: true
     discord_events_enabled: true
+    pollen_alerts_enabled: true
+    reminders_enabled: true
   servers:
     wk7_server_id: "YOUR_WK7_SERVER_ID"
     test_server_id: "YOUR_BOT_TEST_SERVER_ID"
@@ -107,6 +114,11 @@ schema:
   log_level: str
   startup_report_verbose: bool
   weather_entity: str
+  pollen_region_name: str
+  pollen_partregion_name: str
+  uv_city: str
+  pollen_channel_name: str
+  pollen_post_time: str
   metrics_enabled: bool
   link_auto_write_options: bool
   deal_alert_channel_name: str
@@ -167,6 +179,8 @@ schema:
     leaderboard_enabled: bool
     deal_watchlist_enabled: bool
     discord_events_enabled: bool
+    pollen_alerts_enabled: bool
+    reminders_enabled: bool
   servers:
     wk7_server_id: str
     test_server_id: str

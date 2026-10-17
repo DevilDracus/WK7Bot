@@ -284,6 +284,38 @@ internal static class TestCommandRunner
                     await module.ProfileAsync(null);
                     return "profile completed";
                 }
+            case "pollen":
+                {
+                    var module = CreateModule<TestablePollenModule>(services);
+                    SetContext(module, context);
+                    await module.PollenAsync();
+                    return "pollen completed";
+                }
+            case "remind":
+                {
+                    var wann = string.IsNullOrWhiteSpace(Arg("wann")) ? "in 30m" : Arg("wann");
+                    var text = string.IsNullOrWhiteSpace(Arg("text")) ? "Test-Erinnerung" : Arg("text");
+                    var hier = string.Equals(Arg("hier"), "true", StringComparison.OrdinalIgnoreCase);
+                    var module = CreateModule<TestableRemindModule>(services);
+                    SetContext(module, context);
+                    await module.RemindAsync(wann, text, hier);
+                    return $"remind completed ({wann})";
+                }
+            case "reminders":
+                {
+                    var module = CreateModule<TestableRemindModule>(services);
+                    SetContext(module, context);
+                    await module.ListAsync();
+                    return "reminders completed";
+                }
+            case "remind-cancel":
+                {
+                    var id = TryParseInt(Arg("id"), out var parsedId) ? parsedId : 1;
+                    var module = CreateModule<TestableRemindModule>(services);
+                    SetContext(module, context);
+                    await module.CancelAsync(id);
+                    return $"remind-cancel completed ({id})";
+                }
             case "poll":
                 {
                     var frage = string.IsNullOrWhiteSpace(Arg("frage")) ? "Testumfrage" : Arg("frage");
@@ -403,13 +435,13 @@ internal sealed class TestableSystemModule : SystemModule
     {
     }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
 
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) =>
         Task.CompletedTask;
 
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) =>
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.FromResult<IUserMessage>(null!);
 }
 
@@ -419,7 +451,7 @@ internal sealed class TestableLeipzigWasteModule : LeipzigWasteModule
         : base(wasteService, rateLimiter, logger) { }
 
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableFoodModule : FoodModule
@@ -432,10 +464,10 @@ internal sealed class TestableFoodModule : FoodModule
         ILogger<FoodModule> logger)
         : base(geminiFoodService, recipeSearchService, openFoodFactsService, rateLimiter, logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableDealsModule : DealsModule
@@ -448,10 +480,10 @@ internal sealed class TestableDealsModule : DealsModule
         ILogger<DealsModule> logger)
         : base(dealService, steamService, accountLinkResolver, rateLimiter, logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableRssModule : RssModule
@@ -459,11 +491,11 @@ internal sealed class TestableRssModule : RssModule
     public TestableRssModule(IRssRepository repository, RssParserService parser, IOpmlService opmlService, ILogger<RssModule> logger)
         : base(repository, parser, opmlService, logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
-    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableConfigModule : ConfigModule
@@ -471,10 +503,10 @@ internal sealed class TestableConfigModule : ConfigModule
     public TestableConfigModule(FeatureGate featureGate, AddOnOptionsWriter optionsWriter, ILogger<ConfigModule> logger)
         : base(featureGate, optionsWriter, logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableProfileModule : ProfileModule
@@ -482,10 +514,10 @@ internal sealed class TestableProfileModule : ProfileModule
     public TestableProfileModule(IProfileService profileService, ILogger<ProfileModule> logger)
         : base(profileService, logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestablePollModule : PollModule
@@ -493,10 +525,10 @@ internal sealed class TestablePollModule : PollModule
     public TestablePollModule(ILogger<PollModule> logger)
         : base(logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableSpontanTreffModule : SpontanTreffModule
@@ -505,7 +537,7 @@ internal sealed class TestableSpontanTreffModule : SpontanTreffModule
         : base(repository, scheduledEventService, logger) { }
 
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableLinkModule : LinkModule
@@ -513,10 +545,10 @@ internal sealed class TestableLinkModule : LinkModule
     public TestableLinkModule(IAccountLinkService accountLinkService, ILogger<LinkModule> logger)
         : base(accountLinkService, logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableWeatherModule : WeatherModule
@@ -524,10 +556,10 @@ internal sealed class TestableWeatherModule : WeatherModule
     public TestableWeatherModule(IWeatherService weatherService, ILogger<WeatherModule> logger)
         : base(weatherService, logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableLeaderboardModule : LeaderboardModule
@@ -535,10 +567,32 @@ internal sealed class TestableLeaderboardModule : LeaderboardModule
     public TestableLeaderboardModule(ILeaderboardService leaderboardService, ILogger<LeaderboardModule> logger)
         : base(leaderboardService, logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestablePollenModule : PollenModule
+{
+    public TestablePollenModule(IPollenService pollenService, ILogger<PollenModule> logger)
+        : base(pollenService, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableRemindModule : RemindModule
+{
+    public TestableRemindModule(IReminderRepository repository, ILogger<RemindModule> logger)
+        : base(repository, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }
 
 internal sealed class TestableDealWatchlistModule : DealWatchlistModule
@@ -546,8 +600,8 @@ internal sealed class TestableDealWatchlistModule : DealWatchlistModule
     public TestableDealWatchlistModule(IDealWatchlistService watchlistService, ILogger<DealWatchlistModule> logger)
         : base(watchlistService, logger) { }
 
-    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
-    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }

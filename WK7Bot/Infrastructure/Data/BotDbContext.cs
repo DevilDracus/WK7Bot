@@ -82,6 +82,11 @@ public class BotDbContext : DbContext
     public DbSet<DiscordScheduledEvent> DiscordScheduledEvents => Set<DiscordScheduledEvent>();
 
     /// <summary>
+    /// Gets or sets the database set for personal reminders.
+    /// </summary>
+    public DbSet<Reminder> Reminders => Set<Reminder>();
+
+    /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
     /// <param name="modelBuilder">The builder instance used to define entity structure and keys.</param>
@@ -195,6 +200,17 @@ public class BotDbContext : DbContext
             entity.HasIndex(e => e.EndAt);
             entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<Reminder>(entity =>
+        {
+            entity.ToTable("Reminders");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Text).IsRequired().HasMaxLength(500);
+
+            // Backs the delivery sweep (DeliveredAt IS NULL AND DueAt <= now) and the per-user list.
+            entity.HasIndex(e => new { e.DeliveredAt, e.DueAt });
+            entity.HasIndex(e => e.DiscordUserId);
         });
     }
 }
