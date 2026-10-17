@@ -2,6 +2,7 @@
 
 using Discord;
 using Discord.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -31,7 +32,10 @@ public class DiscordPresenceMqttService : BackgroundService
     private readonly BattleNetDataCache _battleNetDataCache;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DiscordPresenceMqttService> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ConcurrentDictionary<ulong, bool> _discoveredUsers = new();
+    private readonly ConcurrentDictionary<ulong, string> _steamLinks = new();
+    private readonly ConcurrentDictionary<ulong, string> _battleNetLinks = new();
 
     private static readonly TimeSpan SteamFetchCooldown = ServiceCooldowns.SteamPresenceData;
     private static readonly TimeSpan BattleNetFetchCooldown = ServiceCooldowns.BattleNetPresenceData;
@@ -49,6 +53,7 @@ public class DiscordPresenceMqttService : BackgroundService
     /// <param name="discordClient">The active Discord socket client handling server connections.</param>
     /// <param name="mqttClient">The connected MQTT client instance responsible for broker communication.</param>
     /// <param name="coordinator">The shared MQTT connection coordinator owning connect/reconnect behavior.</param>
+    /// <param name="scopeFactory">The scope factory used to load runtime account links from SQLite.</param>
     /// <param name="steamService">The Steam service instance used to fetch Steam metadata.</param>
     /// <param name="battleNetService">The Battle.net service instance used to fetch Battle.net profile data.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
@@ -57,6 +62,7 @@ public class DiscordPresenceMqttService : BackgroundService
         DiscordSocketClient discordClient,
         IMqttClient mqttClient,
         MqttConnectionCoordinator coordinator,
+        IServiceScopeFactory scopeFactory,
         ISteamService steamService,
         IBattleNetService battleNetService,
         IOptions<Wk7BotOptions> options,
@@ -65,6 +71,7 @@ public class DiscordPresenceMqttService : BackgroundService
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
         _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
         _steamDataCache = new SteamDataCache(steamService, SteamFetchCooldown);
         _battleNetService = battleNetService ?? throw new ArgumentNullException(nameof(battleNetService));
@@ -85,6 +92,8 @@ public class DiscordPresenceMqttService : BackgroundService
             _logger.LogInformation("Discord presence MQTT service is disabled via feature options.");
             return;
         }
+
+        await RefreshAccountLinksAsync(stoppingToken);
 
         _discordClient.PresenceUpdated += OnPresenceUpdatedAsync;
         _discordClient.Ready += OnDiscordReadyAsync;
@@ -112,6 +121,7 @@ public class DiscordPresenceMqttService : BackgroundService
             {
                 try
                 {
+                    await RefreshAccountLinksAsync(stoppingToken);
                     await RefreshMappedPresenceAsync(stoppingToken);
                 }
                 catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
@@ -159,6 +169,32 @@ public class DiscordPresenceMqttService : BackgroundService
     }
 
     /// <summary>
+    /// Loads the effective runtime account links from SQLite into the in-memory maps so <c>/link</c> and
+    /// <c>/wishlist-add</c> take effect without an add-on restart.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token for the database read.</param>
+    /// <returns>A task representing the refresh operation.</returns>
+    private async Task RefreshAccountLinksAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var resolver = scope.ServiceProvider.GetRequiredService<IAccountLinkResolver>();
+
+        var steamLinks = await resolver.GetSteamLinksAsync(cancellationToken);
+        _steamLinks.Clear();
+        foreach (var link in steamLinks)
+        {
+            _steamLinks[link.DiscordUserId] = link.SteamId;
+        }
+
+        var battleNetLinks = await resolver.GetBattleNetLinksAsync(cancellationToken);
+        _battleNetLinks.Clear();
+        foreach (var link in battleNetLinks)
+        {
+            _battleNetLinks[link.DiscordUserId] = link.RefreshToken;
+        }
+    }
+
+    /// <summary>
     /// Determines whether the user has a Steam or Battle.net mapping whose feature is enabled, i.e. whether
     /// enriched external data would be attached to their presence state.
     /// </summary>
@@ -169,13 +205,13 @@ public class DiscordPresenceMqttService : BackgroundService
         string userId = user.Id.ToString();
 
         if (_options.Features.SteamPresenceEnabled
-            && !string.IsNullOrWhiteSpace(_steamService.GetSteamIdForDiscordUser(userId)))
+            && (_steamLinks.ContainsKey(user.Id) || !string.IsNullOrWhiteSpace(_steamService.GetSteamIdForDiscordUser(userId))))
         {
             return true;
         }
 
         return _options.Features.BattleNetPresenceEnabled
-            && !string.IsNullOrWhiteSpace(_battleNetService.GetMappingForDiscordUser(userId)?.RefreshToken);
+            && (_battleNetLinks.ContainsKey(user.Id) || !string.IsNullOrWhiteSpace(_battleNetService.GetMappingForDiscordUser(userId)?.RefreshToken));
     }
 
     /// <summary>
@@ -233,7 +269,9 @@ public class DiscordPresenceMqttService : BackgroundService
 
             if (_options.Features.SteamPresenceEnabled)
             {
-                string? userSteamId = _steamService.GetSteamIdForDiscordUser(user.Id.ToString());
+                string? userSteamId = _steamLinks.TryGetValue(user.Id, out var linkedSteamId)
+                    ? linkedSteamId
+                    : _steamService.GetSteamIdForDiscordUser(user.Id.ToString());
                 if (!string.IsNullOrWhiteSpace(userSteamId))
                 {
                     presenceEntity.SteamData = await _steamDataCache.GetSteamUserDataAsync(userSteamId, forceRefresh);
@@ -242,10 +280,12 @@ public class DiscordPresenceMqttService : BackgroundService
 
             if (_options.Features.BattleNetPresenceEnabled)
             {
-                var battleNetMapping = _battleNetService.GetMappingForDiscordUser(user.Id.ToString());
-                if (!string.IsNullOrWhiteSpace(battleNetMapping?.RefreshToken))
+                var refreshToken = _battleNetLinks.TryGetValue(user.Id, out var linkedRefreshToken)
+                    ? linkedRefreshToken
+                    : _battleNetService.GetMappingForDiscordUser(user.Id.ToString())?.RefreshToken;
+                if (!string.IsNullOrWhiteSpace(refreshToken))
                 {
-                    presenceEntity.BattleNetData = await _battleNetDataCache.GetBattleNetUserDataAsync(battleNetMapping.RefreshToken, forceRefresh);
+                    presenceEntity.BattleNetData = await _battleNetDataCache.GetBattleNetUserDataAsync(refreshToken, forceRefresh);
                 }
             }
 

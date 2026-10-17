@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
+using WK7Bot.Services.Interfaces;
 
 /// <summary>
 /// Provides the <c>/spontan-treff</c> slash command that announces a last-minute hangout with one-click
@@ -21,16 +22,22 @@ public class SpontanTreffModule : InteractionModuleBase<SocketInteractionContext
     private const int MaxOpenMinutes = 1440;
 
     private readonly ISpontanTreffRepository _repository;
+    private readonly IDiscordScheduledEventService _scheduledEventService;
     private readonly ILogger<SpontanTreffModule> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SpontanTreffModule"/> class.
     /// </summary>
     /// <param name="repository">The repository used for meetup and answer persistence.</param>
+    /// <param name="scheduledEventService">The service that creates the native Discord event for the meetup.</param>
     /// <param name="logger">The logger instance.</param>
-    public SpontanTreffModule(ISpontanTreffRepository repository, ILogger<SpontanTreffModule> logger)
+    public SpontanTreffModule(
+        ISpontanTreffRepository repository,
+        IDiscordScheduledEventService scheduledEventService,
+        ILogger<SpontanTreffModule> logger)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _scheduledEventService = scheduledEventService ?? throw new ArgumentNullException(nameof(scheduledEventService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -121,6 +128,19 @@ public class SpontanTreffModule : InteractionModuleBase<SocketInteractionContext
             {
                 var message = await PostMeetupAsync(targetChannel, embed, components);
                 await _repository.SetMessageAsync(meetup.Id, targetChannel.Id, message.Id);
+
+                if (Context.Guild is not null)
+                {
+                    var eventLocation = string.IsNullOrWhiteSpace(meetup.Location) ? "Discord #🎉spontan-treff" : meetup.Location!;
+                    await _scheduledEventService.CreateAsync(
+                        Context.Guild,
+                        $"Spontan-Treff: {meetup.Plan}",
+                        string.IsNullOrWhiteSpace(meetup.Location) ? "Kurzfristiges Treffen" : $"Treffpunkt: {meetup.Location}",
+                        eventLocation,
+                        new DateTimeOffset(meetup.CreatedAt),
+                        new DateTimeOffset(meetup.ExpiresAt),
+                        "spontan_treff");
+                }
 
                 await FollowupAsync(
                     $"✅ Spontan-Treff gepostet in {targetChannel.Mention}: [Zum Treff](https://discord.com/channels/{meetup.GuildId}/{targetChannel.Id}/{message.Id})",

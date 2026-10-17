@@ -68,6 +68,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageIndexesSql);
         await ExecuteWithBusyRetryAsync(connection, CreateUserAccountLinksSql);
         await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql);
 
         // Late-added columns: CREATE TABLE IF NOT EXISTS never alters an existing table, and
         // EnsureCreated does nothing on databases that already exist, so older deployments need
@@ -339,6 +340,23 @@ public static class DatabaseSchemaInitializer
             LastAlertedAt      TEXT    NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS IX_DealWatchItems_DiscordUserId_GameName ON DealWatchItems (DiscordUserId, GameName);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the Discord guild scheduled event tracking table so expired events can be deleted.
+    /// </summary>
+    public const string CreateDiscordScheduledEventsSql =
+        """
+        CREATE TABLE IF NOT EXISTS DiscordScheduledEvents (
+            Id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            GuildId   INTEGER NOT NULL,
+            EventId   INTEGER NOT NULL,
+            Kind      TEXT    NOT NULL,
+            Name      TEXT    NOT NULL,
+            EndAt     TEXT    NOT NULL,
+            CreatedAt TEXT    NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS IX_DiscordScheduledEvents_EndAt ON DiscordScheduledEvents (EndAt);
         """;
 
     /// <summary>

@@ -36,6 +36,7 @@ public class WeekendDigestBackgroundServiceTests
         public TestableDispatcher()
             : base(
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
+                new Mock<IDiscordScheduledEventService>().Object,
                 NullLogger<WeekendDigestDispatcher>.Instance)
         {
         }

@@ -105,6 +105,13 @@ public class FeatureOptions
     public bool DealWatchlistEnabled { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether native Discord guild scheduled events are created
+    /// for Spontan-Treff and the weekend digest.
+    /// </summary>
+    [ConfigurationKeyName("discord_events_enabled")]
+    public bool DiscordEventsEnabled { get; set; } = true;
+
+    /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
     /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
     /// feature on older configuration.
@@ -129,6 +136,7 @@ public class FeatureOptions
         FeatureKeys.WishlistDealAlerts => WishlistDealAlertsEnabled,
         FeatureKeys.Leaderboard => LeaderboardEnabled,
         FeatureKeys.DealWatchlist => DealWatchlistEnabled,
+        FeatureKeys.DiscordEvents => DiscordEventsEnabled,
         _ => true
     };
 }

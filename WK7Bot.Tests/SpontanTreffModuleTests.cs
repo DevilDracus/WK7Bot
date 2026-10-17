@@ -14,6 +14,7 @@ using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Modules;
+using WK7Bot.Services.Interfaces;
 using Xunit;
 
 namespace WK7Bot.Tests;
@@ -34,7 +35,7 @@ public class SpontanTreffModuleTests
         public ulong PostedMessageId { get; } = 424242;
 
         public TestSpontanTreffModule(ISpontanTreffRepository repository, ITextChannel? channel, bool denyPingOnce = false)
-            : base(repository, NullLogger<SpontanTreffModule>.Instance)
+            : base(repository, new Mock<IDiscordScheduledEventService>().Object, NullLogger<SpontanTreffModule>.Instance)
         {
             _channel = channel;
             _denyPingOnce = denyPingOnce;
@@ -276,7 +277,7 @@ public class SpontanTreffModuleTests
         public List<string> Followups { get; } = new();
 
         public ThrowingModule(ISpontanTreffRepository repository)
-            : base(repository, NullLogger<SpontanTreffModule>.Instance)
+            : base(repository, new Mock<IDiscordScheduledEventService>().Object, NullLogger<SpontanTreffModule>.Instance)
         {
         }
 

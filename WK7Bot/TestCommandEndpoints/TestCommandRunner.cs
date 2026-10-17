@@ -368,9 +368,10 @@ internal sealed class TestableDealsModule : DealsModule
     public TestableDealsModule(
         IWishlistDealService dealService,
         ISteamService steamService,
+        IAccountLinkResolver accountLinkResolver,
         CommandRateLimiter rateLimiter,
         ILogger<DealsModule> logger)
-        : base(dealService, steamService, rateLimiter, logger) { }
+        : base(dealService, steamService, accountLinkResolver, rateLimiter, logger) { }
 
     protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null) =>
         Task.CompletedTask;
@@ -391,8 +392,8 @@ internal sealed class TestableRssModule : RssModule
 
 internal sealed class TestableSpontanTreffModule : SpontanTreffModule
 {
-    public TestableSpontanTreffModule(ISpontanTreffRepository repository, ILogger<SpontanTreffModule> logger)
-        : base(repository, logger) { }
+    public TestableSpontanTreffModule(ISpontanTreffRepository repository, IDiscordScheduledEventService scheduledEventService, ILogger<SpontanTreffModule> logger)
+        : base(repository, scheduledEventService, logger) { }
 
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
     protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties poll) => Task.FromResult<IUserMessage>(null!);

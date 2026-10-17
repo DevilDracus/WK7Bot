@@ -77,6 +77,11 @@ public class BotDbContext : DbContext
     public DbSet<DealWatchItem> DealWatchItems => Set<DealWatchItem>();
 
     /// <summary>
+    /// Gets or sets the database set for Discord guild scheduled events created by the bot.
+    /// </summary>
+    public DbSet<DiscordScheduledEvent> DiscordScheduledEvents => Set<DiscordScheduledEvent>();
+
+    /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
     /// <param name="modelBuilder">The builder instance used to define entity structure and keys.</param>
@@ -180,6 +185,15 @@ public class BotDbContext : DbContext
             entity.HasIndex(e => new { e.DiscordUserId, e.GameName }).IsUnique();
             entity.Property(e => e.GameName).IsRequired().HasMaxLength(300);
             entity.Property(e => e.ItadId).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<DiscordScheduledEvent>(entity =>
+        {
+            entity.ToTable("DiscordScheduledEvents");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.EndAt);
+            entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
         });
     }
 }

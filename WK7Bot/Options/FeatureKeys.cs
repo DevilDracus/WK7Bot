@@ -55,6 +55,9 @@ public static class FeatureKeys
     /// <summary>Key of the per-user deal watchlist feature.</summary>
     public const string DealWatchlist = "deal_watchlist_enabled";
 
+    /// <summary>Key of the Discord guild scheduled events feature.</summary>
+    public const string DiscordEvents = "discord_events_enabled";
+
     /// <summary>
     /// The keys of the features that post automatically and therefore honour
     /// <c>servers.testing_features</c> routing.

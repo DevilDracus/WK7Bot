@@ -43,6 +43,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWishlistDealRepository, WishlistDealRepository>();
         services.AddScoped<IUserAccountLinkRepository, UserAccountLinkRepository>();
         services.AddScoped<IDealWatchRepository, DealWatchRepository>();
+        services.AddScoped<IAccountLinkResolver, AccountLinkResolver>();
+        services.AddScoped<IDiscordScheduledEventRepository, DiscordScheduledEventRepository>();
         return services;
     }
 
@@ -122,6 +124,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddTransient<IWeatherService, WeatherService>();
         services.AddTransient<ILeaderboardService, LeaderboardService>();
+        services.AddSingleton<IDiscordScheduledEventService, DiscordScheduledEventService>();
         services.AddHttpClient<IDealWatchlistService, DealWatchlistService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
@@ -271,6 +274,11 @@ public static class ServiceCollectionExtensions
         if (featureGate.IsEnabled(FeatureKeys.DealWatchlist))
         {
             services.AddHostedService<DealWatchlistBackgroundService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.DiscordEvents))
+        {
+            services.AddHostedService<DiscordScheduledEventCleanupService>();
         }
 
         // Always-on infrastructure services
