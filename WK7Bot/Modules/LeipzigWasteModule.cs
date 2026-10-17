@@ -102,7 +102,7 @@ public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext
             .WithCurrentTimestamp()
             .Build();
 
-        await FollowupAsync(embed: embed, ephemeral: true);
+        await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true);
     }
 
     /// <summary>
@@ -154,6 +154,6 @@ public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext
             embedBuilder.WithDescription($"In den nächsten {daysCount} Tagen stehen keine Müllabholungen an.");
         }
 
-        await FollowupAsync(embed: embedBuilder.Build(), ephemeral: true);
+        await FollowupAsync(components: CardBuilder.FromEmbed(embedBuilder.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
     }
 }

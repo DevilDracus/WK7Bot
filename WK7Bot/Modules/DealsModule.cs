@@ -87,7 +87,7 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
             }
 
             var embed = BuildDealsEmbed(wishlist, prices);
-            await FollowupAsync(embed: embed.Build(), ephemeral: true);
+            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

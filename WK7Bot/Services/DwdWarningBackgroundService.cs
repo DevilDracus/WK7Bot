@@ -277,5 +277,5 @@ public class DwdWarningBackgroundService : BackgroundService
     /// <param name="embed">The warning embed.</param>
     /// <returns>A task that completes once the message has been sent.</returns>
     protected virtual Task PostToWarningChannelAsync(ITextChannel channel, Embed embed)
-        => channel.SendMessageAsync(embed: embed);
+        => CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger);
 }

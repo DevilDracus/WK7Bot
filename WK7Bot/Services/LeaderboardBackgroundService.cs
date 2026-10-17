@@ -131,7 +131,7 @@ public class LeaderboardBackgroundService : BackgroundService
                 embed.AddField($"#{entry.Rank} {entry.DisplayName}", $"{entry.Value}" + (string.IsNullOrWhiteSpace(entry.Detail) ? string.Empty : $" · {entry.Detail}"), inline: false);
             }
 
-            await channel.SendMessageAsync(embed: embed.Build());
+            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed.Build()), embed.Build(), _logger, cancellationToken);
         }
 
         _lastPostedWeek = week;

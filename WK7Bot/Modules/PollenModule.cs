@@ -42,6 +42,6 @@ public class PollenModule : InteractionModuleBase<SocketInteractionContext>
             return;
         }
 
-        await FollowupAsync(embed: embed, ephemeral: true);
+        await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true);
     }
 }

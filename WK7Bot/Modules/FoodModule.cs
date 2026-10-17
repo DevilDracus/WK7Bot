@@ -77,7 +77,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     /// <param name="embed">The embed to publish.</param>
     /// <returns>A task that completes once the message has been sent.</returns>
     protected virtual Task PostToFoodChannelAsync(ITextChannel channel, Embed embed)
-        => channel.SendMessageAsync(embed: embed);
+        => CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger);
 
     /// <summary>
     /// Searches the web for a recipe matching the query, parses the structured recipe data of the best candidate and
@@ -367,7 +367,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
             }
 
             var embed = OpenFoodFactsEmbedBuilder.Build(product);
-            await FollowupAsync(embed: embed, ephemeral: true);
+            await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

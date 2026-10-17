@@ -133,7 +133,7 @@ public class PollenBackgroundService : BackgroundService
                 continue;
             }
 
-            await channel.SendMessageAsync(embed: embed);
+            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger, stoppingToken);
             await dispatchRepository.MarkSentAsync(DispatchKind, guildId, now.Date, stoppingToken);
         }
     }

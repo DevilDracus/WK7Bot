@@ -335,5 +335,5 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// <param name="embed">The embed to publish.</param>
     /// <returns>A task that completes once the message has been sent.</returns>
     protected virtual Task PostToWasteChannelAsync(ITextChannel channel, Embed embed)
-        => channel.SendMessageAsync(embed: embed);
+        => CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger);
 }

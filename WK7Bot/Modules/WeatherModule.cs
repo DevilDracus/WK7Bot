@@ -4,6 +4,7 @@ using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Logging;
 using WK7Bot.Services.Interfaces;
+using WK7Bot.Core.Utilities;
 
 /// <summary>
 /// Slash command that reports the current weather and optional forecast from a Home Assistant weather entity.
@@ -54,6 +55,6 @@ public class WeatherModule : InteractionModuleBase<SocketInteractionContext>
             embed.AddField("Vorhersage", string.Join("\n", lines), inline: false);
         }
 
-        await FollowupAsync(embed: embed.Build(), ephemeral: true);
+        await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
     }
 }
