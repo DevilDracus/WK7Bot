@@ -12,7 +12,7 @@ public interface IRssRepository
     /// </summary>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>A collection of all configured RSS feeds.</returns>
-    Task<List<RssFeed>> GetAllFeedsAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<RssFeed>> GetAllFeedsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves a specific RSS feed by its display name.

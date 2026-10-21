@@ -25,7 +25,7 @@ public class RssRepository : IRssRepository
     /// </summary>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>A collection of all configured RSS feeds.</returns>
-    public async Task<List<RssFeed>> GetAllFeedsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<RssFeed>> GetAllFeedsAsync(CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await context.RssFeeds.AsNoTracking().ToListAsync(cancellationToken);

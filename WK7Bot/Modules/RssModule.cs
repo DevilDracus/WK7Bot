@@ -684,7 +684,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     /// <param name="feeds">The list of active RSS feeds.</param>
     /// <returns>A tuple containing the constructed embed and message components.</returns>
-    private static (Embed Embed, MessageComponent Component) BuildDashboardMessage(List<RssFeed> feeds)
+    private static (Embed Embed, MessageComponent Component) BuildDashboardMessage(IReadOnlyList<RssFeed> feeds)
     {
         var shownFeeds = feeds.Take(MaxDashboardOptions).ToList();
         var hiddenCount = feeds.Count - shownFeeds.Count;

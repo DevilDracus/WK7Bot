@@ -46,7 +46,7 @@ public interface ISpontanTreffRepository
     /// <param name="meetupId">The meetup identifier.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>The stored answers of the meetup.</returns>
-    Task<List<SpontanTreffResponse>> GetResponsesAsync(int meetupId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SpontanTreffResponse>> GetResponsesAsync(int meetupId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves the answer a single user gave for a meetup.
@@ -85,5 +85,5 @@ public interface ISpontanTreffRepository
     /// <param name="now">The current local time.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>The meetups waiting to be expired.</returns>
-    Task<List<SpontanTreff>> GetExpiredAsync(DateTime now, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SpontanTreff>> GetExpiredAsync(DateTime now, CancellationToken cancellationToken = default);
 }
