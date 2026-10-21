@@ -102,6 +102,7 @@ public class BotDbContext : DbContext
             entity.Property(e => e.Url).IsRequired().HasMaxLength(500);
             entity.Property(e => e.LastItemGuid).HasMaxLength(250);
             entity.Property(e => e.IsPaused).HasDefaultValue(false);
+            entity.HasIndex(e => e.Name);
         });
 
         modelBuilder.Entity<RssDashboardSetting>(entity =>
@@ -115,6 +116,7 @@ public class BotDbContext : DbContext
             entity.ToTable("WasteDispatchLogs");
             entity.HasKey(e => new { e.Kind, e.GuildId, e.SentOn });
             entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
+            entity.HasIndex(e => e.SentOn);
         });
 
         modelBuilder.Entity<WarningDispatchLog>(entity =>
@@ -122,6 +124,7 @@ public class BotDbContext : DbContext
             entity.ToTable("WarningDispatchLogs");
             entity.HasKey(e => new { e.WarningId, e.GuildId });
             entity.Property(e => e.WarningId).IsRequired().HasMaxLength(160);
+            entity.HasIndex(e => e.SentAt);
         });
 
         modelBuilder.Entity<FoodDispatchLog>(entity =>
@@ -129,6 +132,7 @@ public class BotDbContext : DbContext
             entity.ToTable("FoodDispatchLogs");
             entity.HasKey(e => new { e.Kind, e.SentOn });
             entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
+            entity.HasIndex(e => e.SentOn);
         });
 
         modelBuilder.Entity<SpontanTreff>(entity =>
@@ -170,6 +174,7 @@ public class BotDbContext : DbContext
             entity.ToTable("WishlistAlertHistories");
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.AppId, e.AlertedAt });
+            entity.HasIndex(e => e.AlertedAt);
         });
 
         modelBuilder.Entity<UserAccountLink>(entity =>
