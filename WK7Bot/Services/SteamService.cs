@@ -55,6 +55,7 @@ public partial class SteamService : BaseGameApiClient, ISteamService
     /// <param name="cache">The memory cache instance used to cache game achievement schemas.</param>
     /// <param name="options">The strongly-typed application options instance containing credentials and mappings.</param>
     /// <param name="logger">The logging service instance for operational diagnostics.</param>
+    /// <param name="metrics">The metrics registry.</param>
     /// <exception cref="ArgumentNullException">Thrown when any required dependency is null.</exception>
     public SteamService(
         HttpClient httpClient,

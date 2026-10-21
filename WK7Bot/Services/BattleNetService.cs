@@ -70,6 +70,7 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
     /// <param name="cache">The memory cache instance used to cache OAuth access tokens.</param>
     /// <param name="options">The strongly-typed application options instance containing credentials and mappings.</param>
     /// <param name="logger">The logging service instance for operational diagnostics.</param>
+    /// <param name="metrics">The metrics registry.</param>
     /// <exception cref="ArgumentNullException">Thrown when any required dependency is null.</exception>
     public BattleNetService(
             HttpClient httpClient,

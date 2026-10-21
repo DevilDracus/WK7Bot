@@ -25,6 +25,7 @@ public class HomeAssistantService : IHomeAssistantService
     /// </summary>
     /// <param name="httpClient">The HTTP client instance configured for REST communication.</param>
     /// <param name="logger">The diagnostic logging service.</param>
+    /// <param name="metrics">The metrics registry.</param>
     /// <exception cref="ArgumentNullException">Thrown when a required dependency is null.</exception>
     public HomeAssistantService(HttpClient httpClient, ILogger<HomeAssistantService> logger, MetricsRegistry metrics)
     {

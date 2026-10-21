@@ -34,6 +34,7 @@ public class GeminiFoodService : IGeminiFoodService
     /// </summary>
     private const string FallbackModel = "gemini-3.1-flash-lite";
 
+    /// <summary>
     /// Delay before the first retry of a transient (429/503) Gemini failure; doubles per attempt.
     /// Virtual so tests can override it to zero instead of sleeping through real backoff.
     /// </summary>

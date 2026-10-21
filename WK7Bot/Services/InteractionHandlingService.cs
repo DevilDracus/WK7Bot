@@ -48,6 +48,7 @@ public class InteractionHandlingService : IHostedService
     /// <param name="configuration">The application configuration instance used to retrieve target guild options.</param>
     /// <param name="logger">The logging service instance.</param>
     /// <param name="commandUsageRepository">The repository for command usage metrics.</param>
+    /// <param name="metrics">The metrics registry.</param>
     public InteractionHandlingService(
         DiscordSocketClient client,
         InteractionService interactionService,

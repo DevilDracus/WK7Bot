@@ -30,6 +30,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
     /// <param name="options">The bot options.</param>
     /// <param name="logger">The logger instance.</param>
     /// <param name="httpClient">The HTTP client for dependency checks.</param>
+    /// <param name="metrics">The metrics registry.</param>
     public ExternalDependencyHealthChecker(
         IHomeAssistantService homeAssistantService,
         IOptions<Wk7BotOptions> options,

@@ -174,6 +174,9 @@ public class Wk7BotOptions
     [ConfigurationKeyName("weather_entity")]
     public string WeatherEntity { get; set; } = "weather.home";
 
+    /// <summary>
+    /// Gets or sets the ICS feed URL for Leipzig waste collection schedules.
+    /// </summary>
     [ConfigurationKeyName("leipzig_waste_ics_feed_url")]
     public string LeipzigWasteIcsFeedUrl { get; set; } = string.Empty;
 
@@ -227,21 +230,39 @@ public class Wk7BotOptions
     [ConfigurationKeyName("leaderboard_channel_name")]
     public string LeaderboardChannelName { get; set; } = "\U0001F3C6leaderboard";
 
+    /// <summary>
+    /// Gets or sets the Discord channel name for food publishing.
+    /// </summary>
     [ConfigurationKeyName("food_channel_name")]
     public string FoodChannelName { get; set; } = "\U0001F34Efood";
 
+    /// <summary>
+    /// Gets or sets the Discord channel name for spontaneous meetups.
+    /// </summary>
     [ConfigurationKeyName("spontan_treff_channel_name")]
     public string SpontanTreffChannelName { get; set; } = "\U0001F389spontan-treff";
 
+    /// <summary>
+    /// Gets or sets the Discord channel name for Leipzig waste notifications.
+    /// </summary>
     [ConfigurationKeyName("leipzig_waste_channel_name")]
     public string LeipzigWasteChannelName { get; set; } = "\U0001F5D1\U0000FE0Fleipzig-waste";
 
+    /// <summary>
+    /// Gets or sets the Discord channel name for the weekend digest.
+    /// </summary>
     [ConfigurationKeyName("weekend_digest_channel_name")]
     public string WeekendDigestChannelName { get; set; } = "\U0001F4C5wochenende";
 
+    /// <summary>
+    /// Gets or sets the Discord channel name for DWD weather warnings.
+    /// </summary>
     [ConfigurationKeyName("dwd_warning_channel_name")]
     public string DwdWarningChannelName { get; set; } = "\U000026C8\U0000FE0Fweather-warnings";
 
+    /// <summary>
+    /// Gets or sets the Discord channel name for error notifications.
+    /// </summary>
     [ConfigurationKeyName("error_channel_name")]
     public string ErrorChannelName { get; set; } = "\U0001F916WK7Errors\U00002757";
 

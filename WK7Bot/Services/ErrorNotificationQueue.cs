@@ -35,6 +35,7 @@ public class ErrorNotificationQueue
     /// <param name="capacity">Maximum number of buffered reports before the oldest entries are dropped.</param>
     /// <param name="throttleWindow">Window in which an identical report is only buffered once.</param>
     /// <param name="clock">Clock source used for throttling; defaults to the current system time.</param>
+    /// <param name="metrics">The metrics registry.</param>
     public ErrorNotificationQueue(int capacity = DefaultCapacity, TimeSpan? throttleWindow = null, Func<DateTimeOffset>? clock = null, MetricsRegistry? metrics = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
