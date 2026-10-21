@@ -151,6 +151,10 @@ public class BotDbContext : DbContext
         {
             entity.ToTable("SpontanTreffResponses");
             entity.HasKey(e => new { e.MeetupId, e.UserId });
+            entity.HasOne<SpontanTreff>()
+                .WithMany()
+                .HasForeignKey(e => e.MeetupId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<CommandUsageLog>(entity =>
