@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -258,7 +259,7 @@ public class FoodPublisherService : BackgroundService
             return true;
         }
 
-        var channel = ResolveTargetChannel();
+        var channel = await ResolveTargetChannelAsync();
         if (channel == null) return false;
 
         _logger.LogInformation("Generating monthly seasonal produce list for {Month:MM/yyyy}.", now);
@@ -289,7 +290,7 @@ public class FoodPublisherService : BackgroundService
             return true;
         }
 
-        var channel = ResolveTargetChannel();
+        var channel = await ResolveTargetChannelAsync();
         if (channel == null) return false;
 
         _logger.LogInformation("Searching a seasonal web recipe for {Date}", now.ToShortDateString());
@@ -414,7 +415,7 @@ public class FoodPublisherService : BackgroundService
     /// <c>food_service</c> is listed in <c>servers.testing_features</c>), falling back to every
     /// guild the bot is in while no server ID is configured.
     /// </summary>
-    protected virtual SocketTextChannel? ResolveTargetChannel()
+    protected virtual async Task<SocketTextChannel?> ResolveTargetChannelAsync()
     {
         var targetGuildIds = AutomaticTargetResolver.Resolve(
             _options.Servers,
@@ -433,8 +434,13 @@ public class FoodPublisherService : BackgroundService
                 continue;
             }
 
-            var channel = guild.FindTextChannel(TargetChannelName);
-            if (channel is SocketTextChannel textChannel) return textChannel;
+            var channel = await ChannelResolver.TryGetOrCreateFeatureChannelAsync(
+                guild,
+                _discordClient.CurrentUser.Id,
+                TargetChannelName,
+                "Food publishing channel",
+                _logger);
+            if (channel is ITextChannel textChannel) return (SocketTextChannel?)textChannel;
         }
 
         _logger.LogWarning("Target channel '{ChannelName}' could not be resolved in any target server.", TargetChannelName);
