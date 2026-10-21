@@ -45,8 +45,4 @@ public static class LeaderboardCardBuilder
                 .AddComponent(new TextDisplayBuilder().WithContent(body)))
             .Build();
     }
-
-    /// <summary>Clamps text to Discord's per-text-display character ceiling.</summary>
-    /// <param name="text">The text to clamp.</param>
-    /// <returns>The clamped text.</returns>
 }

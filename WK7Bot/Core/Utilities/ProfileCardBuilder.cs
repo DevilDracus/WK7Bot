@@ -159,8 +159,4 @@ public static class ProfileCardBuilder
             container.AddComponent(new TextDisplayBuilder().WithContent(EmbedText.TruncateHard(heroes.ToString().TrimEnd(), CardBuilder.MaxTextDisplayLength)));
         }
     }
-
-    /// <summary>Clamps text to Discord's per-text-display character ceiling.</summary>
-    /// <param name="text">The text to clamp.</param>
-    /// <returns>The clamped text.</returns>
 }

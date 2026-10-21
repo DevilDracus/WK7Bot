@@ -59,24 +59,31 @@ public class ReminderBackgroundService : BackgroundService
 
         using var timer = new PeriodicTimer(Tick);
 
-        do
+        try
         {
-            try
+            do
             {
-                await DeliverDueAsync(stoppingToken);
-                _health.RecordSuccess(FeatureKeys.Reminders);
+                try
+                {
+                    await DeliverDueAsync(stoppingToken);
+                    _health.RecordSuccess(FeatureKeys.Reminders);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _health.RecordFailure(FeatureKeys.Reminders, ex.Message);
+                    _logger.LogError(ex, "Delivering due reminders failed.");
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _health.RecordFailure(FeatureKeys.Reminders, ex.Message);
-                _logger.LogError(ex, "Delivering due reminders failed.");
-            }
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
         }
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Graceful shutdown.
+        }
     }
 
     /// <summary>
