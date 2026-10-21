@@ -70,6 +70,8 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql);
         await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql);
         await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql);
 
         // Late-added columns: CREATE TABLE IF NOT EXISTS never alters an existing table, and
         // EnsureCreated does nothing on databases that already exist, so older deployments need
@@ -303,6 +305,26 @@ public static class DatabaseSchemaInitializer
         """
         CREATE UNIQUE INDEX IF NOT EXISTS IX_WishlistGames_AppId ON WishlistGames (AppId);
         CREATE INDEX IF NOT EXISTS IX_WishlistAlertHistories_AppId_AlertedAt ON WishlistAlertHistories (AppId, AlertedAt);
+        CREATE INDEX IF NOT EXISTS IX_WishlistAlertHistories_AlertedAt ON WishlistAlertHistories (AlertedAt);
+        """;
+
+    /// <summary>
+    /// Raw DDL for dispatch-log prune indexes so existing deployments gain the indexes added in EF Core
+    /// model configuration. Mirrored by <c>BotDbContext.OnModelCreating</c>.
+    /// </summary>
+    public const string CreateDispatchPruneIndexesSql =
+        """
+        CREATE INDEX IF NOT EXISTS IX_WasteDispatchLogs_SentOn ON WasteDispatchLogs (SentOn);
+        CREATE INDEX IF NOT EXISTS IX_WarningDispatchLogs_SentAt ON WarningDispatchLogs (SentAt);
+        CREATE INDEX IF NOT EXISTS IX_FoodDispatchLogs_SentOn ON FoodDispatchLogs (SentOn);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the RSS feeds name index.
+    /// </summary>
+    public const string CreateRssFeedsNameIndexSql =
+        """
+        CREATE INDEX IF NOT EXISTS IX_RssFeeds_Name ON RssFeeds (Name);
         """;
 
     /// <summary>
