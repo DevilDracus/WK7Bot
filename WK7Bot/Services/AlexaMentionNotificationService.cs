@@ -139,11 +139,6 @@ public class AlexaMentionNotificationService : IHostedService
         var apiSecret = _options.AlexaNotification.ApiSecret;
         var endpointUrl = _options.AlexaNotification.EndpointUrl;
 
-        if (string.IsNullOrWhiteSpace(endpointUrl))
-        {
-            endpointUrl = "https://api.getnotify.me/v1/notify";
-        }
-
         if (string.IsNullOrWhiteSpace(apiToken) || string.IsNullOrWhiteSpace(apiSecret))
         {
             _logger.LogWarning("Alexa notification API token or secret is not configured in settings. Skipping dispatch.");

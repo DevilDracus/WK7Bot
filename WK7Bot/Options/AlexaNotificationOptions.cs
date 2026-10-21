@@ -29,5 +29,5 @@ public class AlexaNotificationOptions
     /// Gets or sets the target API endpoint URL.
     /// </summary>
     [ConfigurationKeyName("endpoint_url")]
-    public string? EndpointUrl { get; set; }
+    public string? EndpointUrl { get; set; } = "https://api.getnotify.me/v1/notify";
 }
