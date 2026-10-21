@@ -140,7 +140,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
                 "❌ Die Rezeptsuche ist vorübergehend nicht verfügbar (der Suchanbieter blockiert Anfragen). Bitte versuche es in wenigen Minuten erneut oder nutze `/recipe-generate`.",
                 ephemeral: true);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing the /recipe search command.");
             await FollowupAsync("❌ Bei der Rezeptsuche ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
@@ -217,7 +217,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
                 "❌ Die Rezeptsuche ist vorübergehend nicht verfügbar (der Suchanbieter blockiert Anfragen). Bitte versuche es in wenigen Minuten erneut oder nutze `/recipe-generate`.",
                 ephemeral: true);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing the /recipe-seasonal slash command.");
             await FollowupAsync("❌ Bei der Suche nach einem saisonalen Rezept ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
@@ -263,7 +263,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
             await PostToFoodChannelAsync(targetChannel, embed);
             await FollowupAsync($"✅ Rezept erfolgreich erstellt und in {targetChannel.Mention} veröffentlicht!", ephemeral: true);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /recipe-generate slash command.");
             await FollowupAsync("❌ Bei der Rezepterstellung ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
@@ -326,7 +326,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
             await PostToFoodChannelAsync(targetChannel, embed);
             await FollowupAsync($"✅ Saisonale Übersicht für **{produceData.Month ?? targetDate.GermanMonthName()}** erfolgreich in {targetChannel.Mention} veröffentlicht!", ephemeral: true);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /seasonal-produce slash command.");
             await FollowupAsync("❌ Bei der Erstellung der saisonalen Übersicht ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
@@ -369,7 +369,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
             var embed = OpenFoodFactsEmbedBuilder.Build(product);
             await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /check-food slash command.");
             await FollowupAsync("❌ Bei der Lebensmittelprüfung ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
@@ -389,7 +389,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
             var formatted = await _geminiFoodService.FormatRecipeAsync(recipe);
             return formatted ?? recipe;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogWarning(ex, "Gemini recipe formatting failed; posting the raw parsed recipe instead.");
             return recipe;

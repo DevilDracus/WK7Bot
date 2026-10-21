@@ -16,6 +16,8 @@ using WK7Bot.Models;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
 
+using WK7Bot.Core.Utilities;
+
 namespace WK7Bot.Services;
 
 /// <summary>
@@ -58,7 +60,9 @@ public partial class SteamService : BaseGameApiClient, ISteamService
         HttpClient httpClient,
         IMemoryCache cache,
         IOptions<Wk7BotOptions> options,
-        ILogger<SteamService> logger)
+        ILogger<SteamService> logger,
+        MetricsRegistry metrics)
+        : base(metrics)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _cache = cache ?? throw new ArgumentNullException(nameof(cache));

@@ -71,7 +71,7 @@ public class RssParserService
                 }
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             // Shutdown cancellation must not reach the error-DM pipeline; everything else is a
             // genuine feed problem (unreachable URL, malformed XML, timeouts).
@@ -110,7 +110,7 @@ public class RssParserService
 
             return new FeedPreview(parsedFeed.Title, parsedFeed.Link, items);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Could not preview RSS feed '{FeedUrl}'.", url);
             return null;

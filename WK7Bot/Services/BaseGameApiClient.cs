@@ -33,6 +33,20 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
     protected abstract ILogger Logger { get; }
 
     /// <summary>
+    /// Gets the metrics registry used for HTTP instrumentation.
+    /// </summary>
+    protected MetricsRegistry Metrics { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BaseGameApiClient"/> class.
+    /// </summary>
+    /// <param name="metrics">The metrics registry.</param>
+    protected BaseGameApiClient(MetricsRegistry metrics)
+    {
+        Metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
+    }
+
+    /// <summary>
     /// Gets the service name used in log messages (e.g. "Steam", "Battle.net").
     /// </summary>
     protected abstract string ServiceName { get; }
@@ -94,7 +108,7 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
         }
 
         stopwatch.Stop();
-        MetricsRegistry.Instance.RecordHttp(
+        Metrics.RecordHttp(
             $"{ServiceName}:{operationName}",
             stopwatch.Elapsed.TotalMilliseconds,
             response.IsSuccessStatusCode);

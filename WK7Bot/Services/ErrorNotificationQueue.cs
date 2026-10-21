@@ -1,3 +1,5 @@
+using WK7Bot.Core.Utilities;
+
 namespace WK7Bot.Services;
 
 using System.Collections.Concurrent;
@@ -25,6 +27,7 @@ public class ErrorNotificationQueue
     private readonly int _capacity;
     private readonly TimeSpan _throttleWindow;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly MetricsRegistry _metrics;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ErrorNotificationQueue"/> class.
@@ -32,13 +35,14 @@ public class ErrorNotificationQueue
     /// <param name="capacity">Maximum number of buffered reports before the oldest entries are dropped.</param>
     /// <param name="throttleWindow">Window in which an identical report is only buffered once.</param>
     /// <param name="clock">Clock source used for throttling; defaults to the current system time.</param>
-    public ErrorNotificationQueue(int capacity = DefaultCapacity, TimeSpan? throttleWindow = null, Func<DateTimeOffset>? clock = null)
+    public ErrorNotificationQueue(int capacity = DefaultCapacity, TimeSpan? throttleWindow = null, Func<DateTimeOffset>? clock = null, MetricsRegistry? metrics = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
 
         _capacity = capacity;
         _throttleWindow = throttleWindow ?? DefaultThrottleWindow;
         _clock = clock ?? (static () => DateTimeOffset.Now);
+        _metrics = metrics ?? new MetricsRegistry();
     }
 
     /// <summary>
@@ -69,7 +73,7 @@ public class ErrorNotificationQueue
 
         _queue.Enqueue(notification);
         _lastReported[notification.Signature] = now;
-        Core.Utilities.MetricsRegistry.Instance.RecordError();
+        _metrics.RecordError();
         return true;
     }
 

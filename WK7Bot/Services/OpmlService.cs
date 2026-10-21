@@ -104,7 +104,7 @@ public class OpmlService : IOpmlService
 
             return entries;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Could not download or parse the OPML document from '{Url}'.", url);
             return Array.Empty<OpmlFeedEntry>();

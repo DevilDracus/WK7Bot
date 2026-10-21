@@ -1,4 +1,6 @@
-﻿namespace WK7Bot.Services;
+﻿using WK7Bot.Core.Utilities;
+
+namespace WK7Bot.Services;
 
 using Discord;
 using Discord.Interactions;
@@ -27,6 +29,7 @@ public class InteractionHandlingService : IHostedService
     private readonly IConfiguration _configuration;
     private readonly ILogger<InteractionHandlingService> _logger;
     private readonly CommandUsageRepository _commandUsageRepository;
+    private readonly MetricsRegistry _metrics;
 
     /// <summary>
     /// Set once the host begins stopping the service. Interactions that arrive after this point are
@@ -49,7 +52,8 @@ public class InteractionHandlingService : IHostedService
         IServiceProvider services,
         IConfiguration configuration,
         ILogger<InteractionHandlingService> logger,
-        CommandUsageRepository commandUsageRepository)
+        CommandUsageRepository commandUsageRepository,
+        MetricsRegistry metrics)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _interactionService = interactionService ?? throw new ArgumentNullException(nameof(interactionService));
@@ -57,6 +61,7 @@ public class InteractionHandlingService : IHostedService
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _commandUsageRepository = commandUsageRepository ?? throw new ArgumentNullException(nameof(commandUsageRepository));
+        _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
     }
 
     /// <summary>
@@ -203,7 +208,7 @@ public class InteractionHandlingService : IHostedService
             _logger.LogWarning(ex, "Failed to record command usage for {CommandName}.", commandName);
         }
 
-        Core.Utilities.MetricsRegistry.Instance.RecordCommand(commandName, succeeded);
+        _metrics.RecordCommand(commandName, succeeded);
 
         if (result is ExecuteResult { Exception: { } exception })
         {

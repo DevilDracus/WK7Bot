@@ -145,7 +145,7 @@ public class WeekendDigestBackgroundService : BackgroundService
             // A completed attempt (even one that skipped guilds without a channel) ends the day.
             _nextAttemptAt = DateTime.MaxValue;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
         {
             // Handled here (no rethrow) so one failed attempt produces exactly one log entry;
             // retries log as warnings and only the final give-up is an error. Shutdown

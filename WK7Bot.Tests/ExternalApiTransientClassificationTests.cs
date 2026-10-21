@@ -9,6 +9,8 @@ using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
 
+using WK7Bot.Core.Utilities;
+
 namespace WK7Bot.Tests;
 
 public class ExternalApiTransientClassificationTests
@@ -36,7 +38,7 @@ public class ExternalApiTransientClassificationTests
             SteamApiKey = "test-api-key"
         });
 
-        return new SteamService(httpClient, cache, options, NullLogger<SteamService>.Instance);
+        return new SteamService(httpClient, cache, options, NullLogger<SteamService>.Instance, new MetricsRegistry());
     }
 
     private static BattleNetService CreateBattleNetService()
@@ -51,7 +53,7 @@ public class ExternalApiTransientClassificationTests
             BattleNetRegion = "eu"
         });
 
-        return new BattleNetService(httpClient, cache, options, NullLogger<BattleNetService>.Instance);
+        return new BattleNetService(httpClient, cache, options, NullLogger<BattleNetService>.Instance, new MetricsRegistry());
     }
 
     [Fact]

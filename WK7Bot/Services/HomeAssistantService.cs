@@ -17,6 +17,7 @@ public class HomeAssistantService : IHomeAssistantService
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<HomeAssistantService> _logger;
+    private readonly MetricsRegistry _metrics;
     private readonly string? _supervisorToken;
 
     /// <summary>
@@ -25,10 +26,11 @@ public class HomeAssistantService : IHomeAssistantService
     /// <param name="httpClient">The HTTP client instance configured for REST communication.</param>
     /// <param name="logger">The diagnostic logging service.</param>
     /// <exception cref="ArgumentNullException">Thrown when a required dependency is null.</exception>
-    public HomeAssistantService(HttpClient httpClient, ILogger<HomeAssistantService> logger)
+    public HomeAssistantService(HttpClient httpClient, ILogger<HomeAssistantService> logger, MetricsRegistry metrics)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
 
         _supervisorToken = Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN");
         if (string.IsNullOrEmpty(_supervisorToken))
@@ -57,18 +59,18 @@ public class HomeAssistantService : IHomeAssistantService
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supervisorToken);
             }
 
-            var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 
             stopwatch.Stop();
-            MetricsRegistry.Instance.RecordHttp($"HomeAssistant:{endpoint}", stopwatch.Elapsed.TotalMilliseconds, true);
+            _metrics.RecordHttp($"HomeAssistant:{endpoint}", stopwatch.Elapsed.TotalMilliseconds, true);
             return payload;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             stopwatch.Stop();
-            MetricsRegistry.Instance.RecordHttp($"HomeAssistant:{endpoint}", stopwatch.Elapsed.TotalMilliseconds, false);
+            _metrics.RecordHttp($"HomeAssistant:{endpoint}", stopwatch.Elapsed.TotalMilliseconds, false);
 
             // Shutdown cancellation is not a Home Assistant problem; everything else is reported.
             _logger.LogError(ex, "Failed to communicate with Home Assistant API endpoint: {Endpoint}", endpoint);

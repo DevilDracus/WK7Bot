@@ -34,7 +34,7 @@ public class AddOnOptionsWriter
     /// example during local development outside Home Assistant).
     /// </summary>
     /// <returns>The parsed options object.</returns>
-    public JsonObject ReadCurrentOptions()
+    public async Task<JsonObject> ReadCurrentOptionsAsync()
     {
         try
         {
@@ -43,7 +43,7 @@ public class AddOnOptionsWriter
                 return new JsonObject();
             }
 
-            var text = File.ReadAllText(OptionsFilePath);
+            var text = await File.ReadAllTextAsync(OptionsFilePath).ConfigureAwait(false);
             return JsonNode.Parse(text) as JsonObject ?? new JsonObject();
         }
         catch (Exception ex)
@@ -62,7 +62,7 @@ public class AddOnOptionsWriter
     /// <returns><see langword="true"/> when the Supervisor accepted the update.</returns>
     public async Task<bool> MergeAsync(IDictionary<string, object?> patch, CancellationToken cancellationToken = default)
     {
-        var options = ReadCurrentOptions();
+        var options = await ReadCurrentOptionsAsync().ConfigureAwait(false);
         foreach (var (key, value) in patch)
         {
             options[key] = JsonSerializer.SerializeToNode(value);
@@ -86,7 +86,7 @@ public class AddOnOptionsWriter
             return false;
         }
 
-        var options = ReadCurrentOptions();
+        var options = await ReadCurrentOptionsAsync().ConfigureAwait(false);
         var features = options["features"] as JsonObject ?? new JsonObject();
         features[featureKey] = enabled;
         options["features"] = features;

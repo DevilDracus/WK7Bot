@@ -66,7 +66,7 @@ public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext
             var rangeDays = Math.Clamp(days ?? 2, 1, 14);
             await HandleDateRangeQueryAsync(rangeDays);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             // The calendar lookup downloads the ICS feed, so it can fail like any HTTP call;
             // without this guard the deferred interaction would never receive an answer.
