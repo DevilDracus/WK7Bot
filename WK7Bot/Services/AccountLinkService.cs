@@ -168,7 +168,7 @@ public class AccountLinkService : IAccountLinkService
             return;
         }
 
-        var current = _optionsWriter.ReadCurrentOptions();
+        var current = await _optionsWriter.ReadCurrentOptionsAsync().ConfigureAwait(false);
         var mappings = current["discord_steam_mappings"]?.AsArray() ?? new System.Text.Json.Nodes.JsonArray();
         var already = mappings.Any(node =>
             node is System.Text.Json.Nodes.JsonObject obj &&
@@ -195,7 +195,7 @@ public class AccountLinkService : IAccountLinkService
             return;
         }
 
-        var current = _optionsWriter.ReadCurrentOptions();
+        var current = await _optionsWriter.ReadCurrentOptionsAsync().ConfigureAwait(false);
         var mappings = current["discord_battlenet_mappings"]?.AsArray() ?? new System.Text.Json.Nodes.JsonArray();
         var already = mappings.Any(node =>
             node is System.Text.Json.Nodes.JsonObject obj &&

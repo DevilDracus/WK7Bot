@@ -28,26 +28,33 @@ public class DiscordScheduledEventCleanupService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
             {
-                var deleted = await _scheduledEventService.DeleteExpiredAsync(stoppingToken);
-                _health.RecordSuccess(FeatureKeys.DiscordEvents);
-                if (deleted > 0)
+                try
                 {
-                    _logger.LogInformation("Deleted {Count} expired Discord scheduled event(s).", deleted);
+                    var deleted = await _scheduledEventService.DeleteExpiredAsync(stoppingToken);
+                    _health.RecordSuccess(FeatureKeys.DiscordEvents);
+                    if (deleted > 0)
+                    {
+                        _logger.LogInformation("Deleted {Count} expired Discord scheduled event(s).", deleted);
+                    }
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _health.RecordFailure(FeatureKeys.DiscordEvents, ex.Message);
+                    _logger.LogError(ex, "Discord scheduled event cleanup failed.");
                 }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _health.RecordFailure(FeatureKeys.DiscordEvents, ex.Message);
-                _logger.LogError(ex, "Discord scheduled event cleanup failed.");
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Graceful shutdown.
         }
     }
 }

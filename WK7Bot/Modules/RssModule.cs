@@ -194,7 +194,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
             await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(opml));
             await FollowupWithFileAsync(stream, "wk7-rss-feeds.opml", text: $"\ud83d\udce4 OPML-Export mit {feeds.Count} Feed(s).");
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Exporting the RSS feeds as OPML failed.");
             await FollowupAsync("\u274c Der OPML-Export ist fehlgeschlagen.", ephemeral: true);
@@ -329,7 +329,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
 
             await RespondAsync(embed: embed.Build(), ephemeral: true);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Listing RSS feeds failed.");
             await RespondAsync("\u274c Feeds konnten nicht geladen werden.", ephemeral: true);
@@ -365,7 +365,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
         {
             await _repository.DeleteFeedAsync(feed.Id);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Removing an RSS feed from the database failed.");
             await FollowupAsync($"\u274c Das Entfernen von **{feed.Name}** aus der Datenbank ist fehlgeschlagen; es wurde nichts ge\u00e4ndert. Bitte versuche es erneut.", ephemeral: true);
@@ -381,7 +381,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
             {
                 await channel.DeleteAsync();
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
             {
                 cleanupProblem = true;
                 _logger.LogError(ex, "RSS feed {Name} was removed, but its channel {ChannelId} could not be deleted.", feed.Name, feed.ChannelId);
@@ -394,7 +394,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
             {
                 await role.DeleteAsync();
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
             {
                 cleanupProblem = true;
                 _logger.LogError(ex, "RSS feed {Name} was removed, but its role {RoleId} could not be deleted.", feed.Name, feed.RoleId);
@@ -405,7 +405,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
         {
             await TryRefreshDashboardAsync(Context, _repository);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             cleanupProblem = true;
             _logger.LogError(ex, "Subscription dashboard refresh failed after removing RSS feed {Name}.", feed.Name);
@@ -444,7 +444,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
             var responseMessage = await GetOriginalResponseAsync();
             await _repository.SaveDashboardLocationAsync(Context.Channel.Id, responseMessage.Id);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Posting the RSS subscription dashboard failed.");
 
@@ -538,7 +538,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
                 FeedCreationOutcome.Created,
                 $"Privater Nur-Lese-Kanal <#{createdChannel.Id}> und Benachrichtigungsrolle <@&{createdRole.Id}> f\u00fcr den RSS-Feed **{name}** erstellt.");
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Adding an RSS feed failed after the interaction was deferred.");
 
@@ -593,7 +593,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
             feed.IsPaused = paused;
             await _repository.UpdateFeedAsync(feed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Updating the paused state of RSS feed {Name} failed.", name);
             await FollowupAsync($"\u274c Der Status von **{feed.Name}** konnte nicht gespeichert werden.", ephemeral: true);
@@ -684,7 +684,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     /// <param name="feeds">The list of active RSS feeds.</param>
     /// <returns>A tuple containing the constructed embed and message components.</returns>
-    private static (Embed Embed, MessageComponent Component) BuildDashboardMessage(List<RssFeed> feeds)
+    private static (Embed Embed, MessageComponent Component) BuildDashboardMessage(IReadOnlyList<RssFeed> feeds)
     {
         var shownFeeds = feeds.Take(MaxDashboardOptions).ToList();
         var hiddenCount = feeds.Count - shownFeeds.Count;
@@ -737,7 +737,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
             {
                 await channel.DeleteAsync();
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
             {
                 _logger.LogError(ex, "Rollback of a failed RSS feed creation could not delete channel {ChannelId}.", channel.Id);
             }
@@ -749,7 +749,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
             {
                 await role.DeleteAsync();
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
             {
                 _logger.LogError(ex, "Rollback of a failed RSS feed creation could not delete role {RoleId}.", role.Id);
             }
@@ -775,7 +775,7 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
                 await category.DeleteAsync();
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Rollback of a failed RSS feed creation could not delete the empty category.");
         }

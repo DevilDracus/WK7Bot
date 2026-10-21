@@ -6,6 +6,8 @@ using WK7Bot.Core.Utilities;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Services.Interfaces;
 
+using WK7Bot.Core.Interfaces;
+
 namespace WK7Bot.Modules;
 
 /// <summary>
@@ -15,7 +17,7 @@ namespace WK7Bot.Modules;
 public class SystemModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IHomeAssistantService _homeAssistantService;
-    private readonly CommandUsageRepository _commandUsageRepository;
+    private readonly ICommandUsageRepository _commandUsageRepository;
     private readonly FeatureHealthTracker _healthTracker;
     private readonly IExternalDependencyHealthChecker _dependencyHealthChecker;
     private readonly CommandRateLimiter _rateLimiter;
@@ -38,7 +40,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     /// <param name="logger">The logging service instance for diagnostics.</param>
     public SystemModule(
         IHomeAssistantService homeAssistantService,
-        CommandUsageRepository commandUsageRepository,
+        ICommandUsageRepository commandUsageRepository,
         FeatureHealthTracker healthTracker,
         IExternalDependencyHealthChecker dependencyHealthChecker,
         CommandRateLimiter rateLimiter,
@@ -93,7 +95,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
                 await FollowupAsync("❌ Home-Assistant-API nicht erreichbar. Bitte prüfe die Supervisor-Logs.", ephemeral: true);
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while testing the Home Assistant API connection.");
             await FollowupAsync("❌ Home-Assistant-API nicht erreichbar. Bitte prüfe die Supervisor-Logs.", ephemeral: true);

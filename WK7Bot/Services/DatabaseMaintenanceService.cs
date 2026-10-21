@@ -1,3 +1,5 @@
+using WK7Bot.Core.Interfaces;
+
 namespace WK7Bot.Services;
 
 using System.IO.Compression;
@@ -16,7 +18,7 @@ public class DatabaseMaintenanceService : BackgroundService
     private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(5);
 
     private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
-    private readonly CommandUsageRepository _commandUsageRepository;
+    private readonly ICommandUsageRepository _commandUsageRepository;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DatabaseMaintenanceService> _logger;
 
@@ -40,7 +42,7 @@ public class DatabaseMaintenanceService : BackgroundService
     /// </summary>
     public DatabaseMaintenanceService(
         IDbContextFactory<BotDbContext> dbContextFactory,
-        CommandUsageRepository commandUsageRepository,
+        ICommandUsageRepository commandUsageRepository,
         IOptions<Wk7BotOptions> options,
         ILogger<DatabaseMaintenanceService> logger)
     {
@@ -66,22 +68,29 @@ public class DatabaseMaintenanceService : BackgroundService
 
         using var timer = new PeriodicTimer(RunInterval);
 
-        do
+        try
         {
-            try
+            do
             {
-                await RunMaintenanceAsync(stoppingToken).ConfigureAwait(false);
+                try
+                {
+                    await RunMaintenanceAsync(stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Database maintenance cycle failed.");
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Database maintenance cycle failed.");
-            }
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
         }
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Graceful shutdown.
+        }
     }
 
     /// <summary>
@@ -102,7 +111,7 @@ public class DatabaseMaintenanceService : BackgroundService
     /// </summary>
     private async Task BackupDatabaseAsync(CancellationToken stoppingToken)
     {
-        var dbPath = GetDatabasePath();
+        var dbPath = await GetDatabasePathAsync().ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(dbPath) || !File.Exists(dbPath))
         {
             _logger.LogWarning("Database file not found at expected path; skipping backup.");
@@ -189,43 +198,15 @@ public class DatabaseMaintenanceService : BackgroundService
         try
         {
             var cutoff = DateTime.UtcNow.AddDays(-DefaultLogRetentionDays);
-            var cutoffString = cutoff.ToString("yyyy-MM-dd HH:mm:ss.ffffff");
 
             await using var dbContext = await _dbContextFactory.CreateDbContextAsync(stoppingToken).ConfigureAwait(false);
-            await using var connection = dbContext.Database.GetDbConnection();
-            await connection.OpenAsync(stoppingToken).ConfigureAwait(false);
 
-            int wastePruned = 0, warningPruned = 0, foodPruned = 0;
-
-            await using (var cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = "DELETE FROM WasteDispatchLogs WHERE SentOn < @cutoff;";
-                var p = cmd.CreateParameter();
-                p.ParameterName = "@cutoff";
-                p.Value = cutoffString;
-                cmd.Parameters.Add(p);
-                wastePruned = await cmd.ExecuteNonQueryAsync(stoppingToken).ConfigureAwait(false);
-            }
-
-            await using (var cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = "DELETE FROM WarningDispatchLogs WHERE SentAt < @cutoff;";
-                var p = cmd.CreateParameter();
-                p.ParameterName = "@cutoff";
-                p.Value = cutoffString;
-                cmd.Parameters.Add(p);
-                warningPruned = await cmd.ExecuteNonQueryAsync(stoppingToken).ConfigureAwait(false);
-            }
-
-            await using (var cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = "DELETE FROM FoodDispatchLogs WHERE SentOn < @cutoff;";
-                var p = cmd.CreateParameter();
-                p.ParameterName = "@cutoff";
-                p.Value = cutoffString;
-                cmd.Parameters.Add(p);
-                foodPruned = await cmd.ExecuteNonQueryAsync(stoppingToken).ConfigureAwait(false);
-            }
+            int wastePruned = await dbContext.Database.ExecuteSqlRawAsync(
+                "DELETE FROM WasteDispatchLogs WHERE SentOn < {0}", cutoff, stoppingToken).ConfigureAwait(false);
+            int warningPruned = await dbContext.Database.ExecuteSqlRawAsync(
+                "DELETE FROM WarningDispatchLogs WHERE SentAt < {0}", cutoff, stoppingToken).ConfigureAwait(false);
+            int foodPruned = await dbContext.Database.ExecuteSqlRawAsync(
+                "DELETE FROM FoodDispatchLogs WHERE SentOn < {0}", cutoff, stoppingToken).ConfigureAwait(false);
 
             var totalPruned = wastePruned + warningPruned + foodPruned;
             if (totalPruned > 0)
@@ -244,9 +225,9 @@ public class DatabaseMaintenanceService : BackgroundService
     /// <summary>
     /// Resolves the SQLite database file path from the connection string.
     /// </summary>
-    private string? GetDatabasePath()
+    private async Task<string?> GetDatabasePathAsync()
     {
-        using var dbContext = _dbContextFactory.CreateDbContext();
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
         var connectionString = dbContext.Database.GetConnectionString();
         if (string.IsNullOrWhiteSpace(connectionString))
         {

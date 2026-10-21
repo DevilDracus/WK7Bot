@@ -1,4 +1,8 @@
-﻿namespace WK7Bot.Services;
+﻿using WK7Bot.Core.Utilities;
+
+using WK7Bot.Core.Interfaces;
+
+namespace WK7Bot.Services;
 
 using Discord;
 using Discord.Interactions;
@@ -26,7 +30,8 @@ public class InteractionHandlingService : IHostedService
     private readonly IServiceProvider _services;
     private readonly IConfiguration _configuration;
     private readonly ILogger<InteractionHandlingService> _logger;
-    private readonly CommandUsageRepository _commandUsageRepository;
+    private readonly ICommandUsageRepository _commandUsageRepository;
+    private readonly MetricsRegistry _metrics;
 
     /// <summary>
     /// Set once the host begins stopping the service. Interactions that arrive after this point are
@@ -43,13 +48,15 @@ public class InteractionHandlingService : IHostedService
     /// <param name="configuration">The application configuration instance used to retrieve target guild options.</param>
     /// <param name="logger">The logging service instance.</param>
     /// <param name="commandUsageRepository">The repository for command usage metrics.</param>
+    /// <param name="metrics">The metrics registry.</param>
     public InteractionHandlingService(
         DiscordSocketClient client,
         InteractionService interactionService,
         IServiceProvider services,
         IConfiguration configuration,
         ILogger<InteractionHandlingService> logger,
-        CommandUsageRepository commandUsageRepository)
+        ICommandUsageRepository commandUsageRepository,
+        MetricsRegistry metrics)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _interactionService = interactionService ?? throw new ArgumentNullException(nameof(interactionService));
@@ -57,6 +64,7 @@ public class InteractionHandlingService : IHostedService
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _commandUsageRepository = commandUsageRepository ?? throw new ArgumentNullException(nameof(commandUsageRepository));
+        _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
     }
 
     /// <summary>
@@ -203,7 +211,7 @@ public class InteractionHandlingService : IHostedService
             _logger.LogWarning(ex, "Failed to record command usage for {CommandName}.", commandName);
         }
 
-        Core.Utilities.MetricsRegistry.Instance.RecordCommand(commandName, succeeded);
+        _metrics.RecordCommand(commandName, succeeded);
 
         if (result is ExecuteResult { Exception: { } exception })
         {

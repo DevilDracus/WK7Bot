@@ -100,7 +100,7 @@ public class LeipzigWasteService : ILeipzigWasteService
                 }
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Failed to parse the Stadtreinigung Leipzig ICS calendar for {TargetDate}", targetDate);
         }
@@ -145,7 +145,7 @@ public class LeipzigWasteService : ILeipzigWasteService
             _cache.Set(cacheKey, contentString, IcsCacheTtl);
             return contentString;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Failed to download the Stadtreinigung Leipzig ICS feed from {FeedUrl}", feedUrl);
             return null;

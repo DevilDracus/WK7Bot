@@ -8,6 +8,8 @@ using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
 
+using WK7Bot.Core.Utilities;
+
 namespace WK7Bot.Tests;
 
 public class BattleNetServiceTests
@@ -62,7 +64,7 @@ public class BattleNetServiceTests
             IMemoryCache cache,
             IOptions<Wk7BotOptions> options,
             ILogger<BattleNetService> logger)
-            : base(httpClient, cache, options, logger)
+            : base(httpClient, cache, options, logger, new MetricsRegistry())
         {
         }
 

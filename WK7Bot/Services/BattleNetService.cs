@@ -20,6 +20,8 @@ using WK7Bot.Models.BattleNet;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
 
+using WK7Bot.Core.Utilities;
+
 namespace WK7Bot.Services;
 
 /// <summary>
@@ -68,18 +70,21 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
     /// <param name="cache">The memory cache instance used to cache OAuth access tokens.</param>
     /// <param name="options">The strongly-typed application options instance containing credentials and mappings.</param>
     /// <param name="logger">The logging service instance for operational diagnostics.</param>
+    /// <param name="metrics">The metrics registry.</param>
     /// <exception cref="ArgumentNullException">Thrown when any required dependency is null.</exception>
     public BattleNetService(
-        HttpClient httpClient,
-        IMemoryCache cache,
-        IOptions<Wk7BotOptions> options,
-        ILogger<BattleNetService> logger)
-    {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-    }
+            HttpClient httpClient,
+            IMemoryCache cache,
+            IOptions<Wk7BotOptions> options,
+            ILogger<BattleNetService> logger,
+            MetricsRegistry metrics)
+            : base(metrics)
+        {
+            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        }
 
     /// <summary>
     /// Resolves the configured Battle.net mapping for a specified Discord user snowflake ID.
@@ -174,7 +179,7 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
             _logger.LogWarning(ex, "Battle.net data retrieval timed out after the configured HTTP timeout.");
             return null;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Error occurred while fetching Battle.net data.");
             return null;

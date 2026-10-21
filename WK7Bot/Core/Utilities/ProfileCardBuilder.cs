@@ -15,7 +15,6 @@ using WK7Bot.Services.Interfaces;
 public static class ProfileCardBuilder
 {
     /// <summary>Discord's per-text-display character ceiling.</summary>
-    private const int MaxTextLength = 4000;
 
     /// <summary>Accent colour of the profile container.</summary>
     private static readonly Color AccentColor = new(0x9B, 0x59, 0xB6);
@@ -28,7 +27,7 @@ public static class ProfileCardBuilder
         ArgumentNullException.ThrowIfNull(profile);
 
         var container = new ContainerBuilder().WithAccentColor(AccentColor);
-        container.AddComponent(new TextDisplayBuilder().WithContent(Truncate($"# 🎮 {profile.DisplayName}")));
+        container.AddComponent(new TextDisplayBuilder().WithContent(EmbedText.TruncateHard($"# 🎮 {profile.DisplayName}", CardBuilder.MaxTextDisplayLength)));
 
         if (profile.Steam is not null)
         {
@@ -70,7 +69,7 @@ public static class ProfileCardBuilder
             header.Append($" · 🏆 {steam.AchievementsUnlocked}/{steam.AchievementsTotal}");
         }
 
-        var text = new TextDisplayBuilder().WithContent(Truncate(header.ToString()));
+        var text = new TextDisplayBuilder().WithContent(EmbedText.TruncateHard(header.ToString(), CardBuilder.MaxTextDisplayLength));
 
         if (!string.IsNullOrWhiteSpace(steam.AvatarUrl))
         {
@@ -102,7 +101,7 @@ public static class ProfileCardBuilder
             games.AppendLine();
         }
 
-        container.AddComponent(new TextDisplayBuilder().WithContent(Truncate(games.ToString().TrimEnd())));
+        container.AddComponent(new TextDisplayBuilder().WithContent(EmbedText.TruncateHard(games.ToString().TrimEnd(), CardBuilder.MaxTextDisplayLength)));
     }
 
     /// <summary>Adds the Battle.net block with the World of Warcraft characters and Diablo heroes.</summary>
@@ -113,7 +112,7 @@ public static class ProfileCardBuilder
         container.AddComponent(new SeparatorBuilder().WithIsDivider(true).WithSpacing(SeparatorSpacingSize.Small));
 
         var region = string.IsNullOrWhiteSpace(battleNet.Region) ? string.Empty : $" · {battleNet.Region.ToUpperInvariant()}";
-        container.AddComponent(new TextDisplayBuilder().WithContent(Truncate($"**Battle.net** · {battleNet.BattleTag}{region}")));
+        container.AddComponent(new TextDisplayBuilder().WithContent(EmbedText.TruncateHard($"**Battle.net** · {battleNet.BattleTag}{region}", CardBuilder.MaxTextDisplayLength)));
 
         if (battleNet.WowCharacters.Count > 0)
         {
@@ -131,7 +130,7 @@ public static class ProfileCardBuilder
                 characters.AppendLine($"• **{character.Name}**{main} — Stufe {character.Level} {character.CharacterClass} ({character.Faction}) · {character.Realm}{itemLevel}{guild}");
             }
 
-            container.AddComponent(new TextDisplayBuilder().WithContent(Truncate(characters.ToString().TrimEnd())));
+            container.AddComponent(new TextDisplayBuilder().WithContent(EmbedText.TruncateHard(characters.ToString().TrimEnd(), CardBuilder.MaxTextDisplayLength)));
         }
 
         if (battleNet.DiabloHeroes.Count > 0)
@@ -157,13 +156,7 @@ public static class ProfileCardBuilder
                 heroes.AppendLine($"• **{hero.Name}** — {hero.HeroClass} · {score}{suffix}");
             }
 
-            container.AddComponent(new TextDisplayBuilder().WithContent(Truncate(heroes.ToString().TrimEnd())));
+            container.AddComponent(new TextDisplayBuilder().WithContent(EmbedText.TruncateHard(heroes.ToString().TrimEnd(), CardBuilder.MaxTextDisplayLength)));
         }
     }
-
-    /// <summary>Clamps text to Discord's per-text-display character ceiling.</summary>
-    /// <param name="text">The text to clamp.</param>
-    /// <returns>The clamped text.</returns>
-    private static string Truncate(string text)
-        => text.Length <= MaxTextLength ? text : text[..MaxTextLength];
 }

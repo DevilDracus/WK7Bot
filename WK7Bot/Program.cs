@@ -20,8 +20,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 // from appsettings.json ("Information") does not leak through a second provider.
 builder.Logging.ClearProviders();
 
+var metricsRegistry = new MetricsRegistry();
+builder.Services.AddSingleton(metricsRegistry);
+
 // Capture every Error/Critical log event for Discord direct message delivery in addition to the regular logs.
-var errorNotificationQueue = new ErrorNotificationQueue();
+var errorNotificationQueue = new ErrorNotificationQueue(capacity: ErrorNotificationQueue.DefaultCapacity, metrics: metricsRegistry);
 builder.Services.AddSingleton(errorNotificationQueue);
 builder.Logging.AddProvider(new DiscordErrorLoggerProvider(errorNotificationQueue));
 
@@ -77,14 +80,14 @@ await app.InitializeDatabaseAsync();
 
 app.MapGet("/health", () => Results.Ok("WK7 Bot is healthy."));
 
-app.MapGet("/metrics", (FeatureHealthTracker health, IOptions<Wk7BotOptions> options) =>
+app.MapGet("/metrics", (FeatureHealthTracker health, IOptions<Wk7BotOptions> options, MetricsRegistry metrics) =>
 {
     if (!options.Value.MetricsEnabled)
     {
         return Results.NotFound();
     }
 
-    return Results.Text(MetricsRegistry.Instance.RenderPrometheus(health), "text/plain; version=0.0.4; charset=utf-8");
+    return Results.Text(metrics.RenderPrometheus(health), "text/plain; version=0.0.4; charset=utf-8");
 });
 
 // Route process-level exception escapes into the Discord error notification queue as well.

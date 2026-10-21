@@ -101,11 +101,18 @@ public sealed class BotStatusMqttService : BackgroundService
 
         using var timer = new PeriodicTimer(HeartbeatInterval);
 
-        do
+        try
         {
-            await PublishStatesAsync();
+            do
+            {
+                await PublishStatesAsync();
+            }
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
         }
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Graceful shutdown.
+        }
     }
 
     /// <summary>

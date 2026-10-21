@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.86"
+version: "1.0.87"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 ingress: true
@@ -25,6 +25,8 @@ options:
   log_level: "Warning"
   startup_report_verbose: false
   weather_entity: "weather.home"
+  dwd_poll_interval_minutes: 2
+  leipzig_waste_ics_feed_url: ""
   pollen_region_name: "Sachsen"
   pollen_partregion_name: "Tiefland Sachsen"
   uv_city: "Leipzig"
@@ -32,18 +34,20 @@ options:
   pollen_post_time: "07:00"
   metrics_enabled: true
   link_auto_write_options: true
-  deal_alert_channel_name: "game-deals"
+  deal_alert_channel_name: "\U0001F3AEgame-deals"
   deal_check_interval_hours: 12
   deal_min_discount_percent: 60
   deal_watchlist_check_interval_hours: 6
   deal_watchlist_min_discount_percent: 40
-  leaderboard_channel_name: "leaderboard"
+  leaderboard_channel_name: "\U0001F3C6leaderboard"
+  food_channel_name: "\U0001F34Efood"
+  spontan_treff_channel_name: "\U0001F389spontan-treff"
+  leipzig_waste_channel_name: "\U0001F5D1\U0000FE0Fleipzig-waste"
+  weekend_digest_channel_name: "\U0001F4C5wochenende"
+  dwd_warning_channel_name: "\U000026C8\U0000FE0Fweather-warnings"
+  error_channel_name: "\U0001F916WK7Errors\U00002757"
   leaderboard_post_weekday: "Monday"
   leaderboard_post_time: "18:00"
-  http_timeouts:
-    fast: 10
-    default: 30
-    slow: 45
   mqtt_host: "core-mosquitto"
   mqtt_port: 1883
   mqtt_username: ""
@@ -114,6 +118,7 @@ schema:
   log_level: str
   startup_report_verbose: bool
   weather_entity: str
+  dwd_poll_interval_minutes: int
   pollen_region_name: str
   pollen_partregion_name: str
   uv_city: str
@@ -127,12 +132,14 @@ schema:
   deal_watchlist_check_interval_hours: int
   deal_watchlist_min_discount_percent: int
   leaderboard_channel_name: str
+  food_channel_name: str
+  spontan_treff_channel_name: str
+  leipzig_waste_channel_name: str
+  weekend_digest_channel_name: str
+  dwd_warning_channel_name: str
+  error_channel_name: str
   leaderboard_post_weekday: str
   leaderboard_post_time: str
-  http_timeouts:
-    fast: int
-    default: int
-    slow: int
   mqtt_host: str
   mqtt_port: int
   mqtt_username: str?

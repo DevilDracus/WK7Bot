@@ -61,6 +61,19 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
         {
             var discordUserId = Context.User.Id.ToString();
             var steamId = _steamService.GetSteamIdForDiscordUser(discordUserId);
+            string? wishlistUrl = null;
+            if (string.IsNullOrWhiteSpace(steamId))
+            {
+                var link = await _accountLinkResolver.GetSteamLinkAsync(Context.User.Id);
+                steamId = link?.SteamId;
+                wishlistUrl = link?.WishlistUrl;
+            }
+            else
+            {
+                var link = await _accountLinkResolver.GetSteamLinkAsync(Context.User.Id);
+                wishlistUrl = link?.WishlistUrl;
+            }
+
             if (string.IsNullOrWhiteSpace(steamId))
             {
                 steamId = await _accountLinkResolver.GetSteamIdAsync(Context.User.Id);
@@ -72,7 +85,7 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
                 return;
             }
 
-            var wishlist = await _dealService.FetchWishlistAsync(steamId);
+            var wishlist = await _dealService.FetchWishlistAsync(steamId, wishlistUrl);
             if (wishlist.Count == 0)
             {
                 await FollowupAsync("❌ Deine Steam-Wunschliste ist leer oder privat. Bitte stelle sicher, dass sie öffentlich ist.", ephemeral: true);
@@ -89,7 +102,7 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
             var embed = BuildDealsEmbed(wishlist, prices);
             await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /deals slash command.");
             await FollowupAsync("❌ Bei der Deals-Abfrage ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);

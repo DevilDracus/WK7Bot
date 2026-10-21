@@ -63,7 +63,16 @@ public abstract class SingleFlightCache<TValue>
             return entry.Data;
         }
 
-        var fetchTask = GetOrStartFetchAsync(key, cancellationToken);
+        // Prune expired entries to prevent unbounded growth.
+        foreach (var kvp in _entries)
+        {
+            if (now - kvp.Value.FetchedAt >= _timeToLive)
+            {
+                _entries.TryRemove(kvp.Key, out _);
+            }
+        }
+
+        var fetchTask = GetOrStartFetchAsync(key);
         return await fetchTask.WaitAsync(cancellationToken);
     }
 
@@ -82,7 +91,7 @@ public abstract class SingleFlightCache<TValue>
     /// factory on more than one thread, which would start a second request for the same key.
     /// The shared fetch follows the initiating caller's token; every other caller only waits.
     /// </summary>
-    private Task<TValue?> GetOrStartFetchAsync(string key, CancellationToken cancellationToken)
+    private Task<TValue?> GetOrStartFetchAsync(string key)
     {
         lock (_inFlightGate)
         {
@@ -91,7 +100,10 @@ public abstract class SingleFlightCache<TValue>
                 return existing;
             }
 
-            var fetch = FetchAndStoreAsync(key, cancellationToken);
+            // Run the fetch under CancellationToken.None so one caller's cancellation does not
+            // cancel the shared fetch for all waiters. The waiting caller still observes its own
+            // token via WaitAsync(cancellationToken) above.
+            var fetch = FetchAndStoreAsync(key, CancellationToken.None);
             _inFlight[key] = fetch;
 
             // Attached after storing, so a fetch that completed synchronously still evicts itself.

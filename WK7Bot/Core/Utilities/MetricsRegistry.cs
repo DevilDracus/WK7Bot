@@ -7,14 +7,10 @@ using System.Threading;
 
 /// <summary>
 /// Process-wide Prometheus metrics registry for command usage, error notifications and external HTTP calls.
-/// A static instance keeps instrumentation independent of the DI graph so existing services do not need
-/// constructor changes; the <c>/metrics</c> endpoint renders the snapshot.
+/// Registered as a singleton in DI; injected into services that record metrics.
 /// </summary>
 public sealed class MetricsRegistry
 {
-    /// <summary>Gets the shared registry instance.</summary>
-    public static MetricsRegistry Instance { get; } = new();
-
     private readonly ConcurrentDictionary<string, long> _commands = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, long> _commandErrors = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, long> _httpRequests = new(StringComparer.OrdinalIgnoreCase);

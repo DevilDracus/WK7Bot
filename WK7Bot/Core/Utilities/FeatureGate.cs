@@ -82,27 +82,5 @@ public sealed class FeatureGate
     /// </summary>
     /// <param name="featureKey">The normalized (lowercase) feature key.</param>
     /// <returns><see langword="true"/> when the configured feature is enabled.</returns>
-    private bool ResolveFromOptions(string featureKey) => featureKey switch
-    {
-        FeatureKeys.RssPolling => _options.Features.RssPollingEnabled,
-        FeatureKeys.HomeAssistantNotifier => _options.Features.HomeAssistantNotifierEnabled,
-        FeatureKeys.LeipzigWaste => _options.Features.LeipzigWasteEnabled,
-        FeatureKeys.AlexaNotifications => _options.Features.AlexaNotificationsEnabled,
-        FeatureKeys.DiscordPresenceMqtt => _options.Features.DiscordPresenceMqttEnabled,
-        FeatureKeys.SteamPresence => _options.Features.SteamPresenceEnabled,
-        FeatureKeys.BattleNetPresence => _options.Features.BattleNetPresenceEnabled,
-        FeatureKeys.FoodService => _options.Features.FoodServiceEnabled,
-        FeatureKeys.SpontanTreff => _options.Features.SpontanTreffEnabled,
-        FeatureKeys.WeekendDigest => _options.Features.WeekendDigestEnabled,
-        FeatureKeys.DwdWarning => _options.Features.DwdWarningEnabled,
-        FeatureKeys.ErrorNotifications => _options.Features.ErrorNotificationsEnabled,
-        FeatureKeys.MqttBotStatus => _options.Features.MqttBotStatusEnabled,
-        FeatureKeys.WishlistDealAlerts => _options.Features.WishlistDealAlertsEnabled,
-        FeatureKeys.Leaderboard => _options.Features.LeaderboardEnabled,
-        FeatureKeys.DealWatchlist => _options.Features.DealWatchlistEnabled,
-        FeatureKeys.DiscordEvents => _options.Features.DiscordEventsEnabled,
-        FeatureKeys.PollenAlerts => _options.Features.PollenAlertsEnabled,
-        FeatureKeys.Reminders => _options.Features.RemindersEnabled,
-        _ => true
-    };
+    private bool ResolveFromOptions(string featureKey) => _options.Features.IsEnabled(featureKey);
 }

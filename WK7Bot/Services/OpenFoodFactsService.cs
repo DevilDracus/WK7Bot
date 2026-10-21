@@ -64,9 +64,9 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
             if (product == null)
             {
                 _logger.LogInformation("No Open Food Facts product found for query '{Query}'.", query);
-                _cache.Set<OpenFoodFactsProduct?>(cacheKey, null, CacheLifetime);
+                _cache.Set<OpenFoodFactsProduct?>(cacheKey, null, TimeSpan.FromMinutes(5));
                 return null;
-                }
+            }
             _logger.LogInformation("Found product '{ProductName}' for query '{Query}'.", product.ProductName, query);
             _cache.Set(cacheKey, product, CacheLifetime);
             return product;

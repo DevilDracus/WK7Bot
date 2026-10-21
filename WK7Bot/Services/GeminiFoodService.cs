@@ -35,12 +35,6 @@ public class GeminiFoodService : IGeminiFoodService
     private const string FallbackModel = "gemini-3.1-flash-lite";
 
     /// <summary>
-    /// Per-attempt HTTP timeout so a hung generation cannot stall the food publisher for the
-    /// HttpClient default of 100 seconds; client timeouts are retried like transient failures.
-    /// </summary>
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(60);
-
-    /// <summary>
     /// Delay before the first retry of a transient (429/503) Gemini failure; doubles per attempt.
     /// Virtual so tests can override it to zero instead of sleeping through real backoff.
     /// </summary>
@@ -272,6 +266,11 @@ public class GeminiFoodService : IGeminiFoodService
             }
 
             _logger.LogWarning("Model {ModelName} failed or was unavailable. Trying next candidate...", modelName);
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return null;
         }
 
         _circuitBreaker.RecordFailure();

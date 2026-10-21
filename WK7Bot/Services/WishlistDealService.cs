@@ -16,6 +16,32 @@ using WK7Bot.Services.Interfaces;
 public sealed class WishlistDealService : IWishlistDealService
 {
     private const string SteamWishlistEndpoint = "https://store.steampowered.com/wishlist/profiles/{0}/wishlistdata/";
+    private const string SteamWishlistDataSuffix = "wishlistdata/";
+
+    /// <summary>
+    /// Resolves the Steam wishlist data URL. If a shared wishlist URL is provided, the data endpoint
+    /// is derived from it (appending <c>wishlistdata/</c> when missing) so that wishlists shared via
+    /// a link can be fetched even when the Steam profile itself is private. Falls back to the
+    /// SteamID-based endpoint when no URL is supplied.
+    /// </summary>
+    /// <param name="steamId">The 64-bit Steam ID of the user.</param>
+    /// <param name="wishlistUrl">An optional shared wishlist URL.</param>
+    /// <returns>The wishlist data URL to fetch.</returns>
+    private static string ResolveWishlistUrl(string steamId, string? wishlistUrl)
+    {
+        if (string.IsNullOrWhiteSpace(wishlistUrl))
+        {
+            return string.Format(SteamWishlistEndpoint, steamId);
+        }
+
+        var trimmed = wishlistUrl.Trim().TrimEnd('/');
+        if (trimmed.EndsWith(SteamWishlistDataSuffix.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed + "/";
+        }
+
+        return trimmed + "/" + SteamWishlistDataSuffix;
+    }
     private const string ItadLookupEndpoint = "https://api.isthereanydeal.com/games/lookup/v1";
     private const string ItadPricesEndpoint = "https://api.isthereanydeal.com/games/prices/v2";
     private const int MaxAttempts = 3;
@@ -38,11 +64,11 @@ public sealed class WishlistDealService : IWishlistDealService
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<SteamWishlistItem>> FetchWishlistAsync(string steamId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<SteamWishlistItem>> FetchWishlistAsync(string steamId, string? wishlistUrl = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(steamId);
 
-        var url = string.Format(SteamWishlistEndpoint, steamId);
+        var url = ResolveWishlistUrl(steamId, wishlistUrl);
 
         try
         {
@@ -125,7 +151,7 @@ public sealed class WishlistDealService : IWishlistDealService
                 var lookup = await response.Content.ReadFromJsonAsync<ItadLookupResponse>(cancellationToken: cancellationToken);
                 return (appId: appId, itadId: lookup?.Game?.Id);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
                 _logger.LogDebug(ex, "ITAD lookup failed for Steam app {AppId}.", appId);
                 return (appId: appId, itadId: (string?)null);

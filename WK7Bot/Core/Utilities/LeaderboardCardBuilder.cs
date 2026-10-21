@@ -11,7 +11,6 @@ using WK7Bot.Services.Interfaces;
 public static class LeaderboardCardBuilder
 {
     /// <summary>Discord's per-text-display character ceiling.</summary>
-    private const int MaxTextLength = 4000;
 
     /// <summary>Accent colour of the leaderboard container.</summary>
     private static readonly Color AccentColor = new(0xF1, 0xC4, 0x0F);
@@ -36,20 +35,14 @@ public static class LeaderboardCardBuilder
         }
 
         var footer = string.IsNullOrWhiteSpace(result.Footer) ? string.Empty : $"\n-# {result.Footer}";
-        var body = Truncate(rows.ToString().TrimEnd() + footer);
+        var body = EmbedText.TruncateHard(rows.ToString().TrimEnd() + footer, CardBuilder.MaxTextDisplayLength);
 
         return new ComponentBuilderV2()
             .AddComponent(new ContainerBuilder()
                 .WithAccentColor(AccentColor)
-                .AddComponent(new TextDisplayBuilder().WithContent(Truncate($"# {result.Title}")))
+                .AddComponent(new TextDisplayBuilder().WithContent(EmbedText.TruncateHard($"# {result.Title}", CardBuilder.MaxTextDisplayLength)))
                 .AddComponent(new SeparatorBuilder().WithIsDivider(true).WithSpacing(SeparatorSpacingSize.Small))
                 .AddComponent(new TextDisplayBuilder().WithContent(body)))
             .Build();
     }
-
-    /// <summary>Clamps text to Discord's per-text-display character ceiling.</summary>
-    /// <param name="text">The text to clamp.</param>
-    /// <returns>The clamped text.</returns>
-    private static string Truncate(string text)
-        => text.Length <= MaxTextLength ? text : text[..MaxTextLength];
 }

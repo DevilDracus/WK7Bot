@@ -189,7 +189,17 @@ public sealed class MqttConnectionCoordinator
             return;
         }
 
-        _ = Task.Run(ReconnectLoopAsync);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await ReconnectLoopAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "MQTT reconnect loop failed unexpectedly.");
+            }
+        });
     }
 
     /// <summary>

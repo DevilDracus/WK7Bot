@@ -21,6 +21,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
     private readonly IOptions<Wk7BotOptions> _options;
     private readonly ILogger<ExternalDependencyHealthChecker> _logger;
     private readonly HttpClient _httpClient;
+    private readonly MetricsRegistry _metrics;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ExternalDependencyHealthChecker"/> class.
@@ -29,16 +30,19 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
     /// <param name="options">The bot options.</param>
     /// <param name="logger">The logger instance.</param>
     /// <param name="httpClient">The HTTP client for dependency checks.</param>
+    /// <param name="metrics">The metrics registry.</param>
     public ExternalDependencyHealthChecker(
         IHomeAssistantService homeAssistantService,
         IOptions<Wk7BotOptions> options,
         ILogger<ExternalDependencyHealthChecker> logger,
-        HttpClient httpClient)
+        HttpClient httpClient,
+        MetricsRegistry metrics)
     {
         _homeAssistantService = homeAssistantService ?? throw new ArgumentNullException(nameof(homeAssistantService));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
     }
 
     /// <inheritdoc />
@@ -57,7 +61,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         // six dependencies (including the key-only Gemini check, which reports no latency).
         foreach (var result in results)
         {
-            MetricsRegistry.Instance.RecordHttp(
+            _metrics.RecordHttp(
                 $"HealthCheck:{result.Name}",
                 result.Latency?.TotalMilliseconds ?? 0,
                 result.IsHealthy);
@@ -81,7 +85,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("Home Assistant", false, "Keine Antwort vom Supervisor", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             sw.Stop();
             _logger.LogDebug(ex, "Home Assistant health check failed.");
@@ -108,7 +112,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("DWD Wetterwarnungen", false, $"HTTP {(int)response.StatusCode}", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             sw.Stop();
             _logger.LogDebug(ex, "DWD health check failed.");
@@ -135,7 +139,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("Steam", false, $"HTTP {(int)response.StatusCode}", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             sw.Stop();
             _logger.LogDebug(ex, "Steam health check failed.");
@@ -172,7 +176,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("Open Food Facts", false, $"HTTP {(int)response.StatusCode}", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             sw.Stop();
             _logger.LogDebug(ex, "Open Food Facts health check failed.");
@@ -199,7 +203,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("IsThereAnyDeal", false, $"HTTP {(int)response.StatusCode}", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             sw.Stop();
             _logger.LogDebug(ex, "IsThereAnyDeal health check failed.");

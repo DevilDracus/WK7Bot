@@ -9,6 +9,8 @@ using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
 
+using WK7Bot.Core.Utilities;
+
 namespace WK7Bot.Tests;
 
 public class SteamServiceTests
@@ -44,7 +46,7 @@ public class SteamServiceTests
             IMemoryCache cache,
             IOptions<Wk7BotOptions> options,
             ILogger<SteamService> logger)
-            : base(httpClient, cache, options, logger)
+            : base(httpClient, cache, options, logger, new MetricsRegistry())
         {
         }
 

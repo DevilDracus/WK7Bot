@@ -22,8 +22,6 @@ public class Wk7BotOptions
     /// <summary>
     /// Gets or sets the minimum log level for the bot's console output (Debug, Information, Warning, Error).
     /// </summary>
-    [ConfigurationKeyName("log_level")]
-    public string LogLevel { get; set; } = "Warning";
 
     /// <summary>
     /// Gets or sets the MQTT broker hostname or container address.
@@ -144,7 +142,7 @@ public class Wk7BotOptions
     /// Gets or sets the Discord channel name where wishlist deal alerts are posted.
     /// </summary>
     [ConfigurationKeyName("deal_alert_channel_name")]
-    public string DealAlertChannelName { get; set; } = "game-deals";
+    public string DealAlertChannelName { get; set; } = "\U0001F3AEgame-deals";
 
     /// <summary>
     /// Gets or sets the interval in hours between wishlist deal checks.
@@ -175,6 +173,18 @@ public class Wk7BotOptions
     /// </summary>
     [ConfigurationKeyName("weather_entity")]
     public string WeatherEntity { get; set; } = "weather.home";
+
+    /// <summary>
+    /// Gets or sets the DWD warning poll interval in minutes.
+    /// </summary>
+    [ConfigurationKeyName("dwd_poll_interval_minutes")]
+    public int DwdPollIntervalMinutes { get; set; } = 2;
+
+    /// <summary>
+    /// Gets or sets the ICS feed URL for Leipzig waste collection schedules.
+    /// </summary>
+    [ConfigurationKeyName("leipzig_waste_ics_feed_url")]
+    public string LeipzigWasteIcsFeedUrl { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the DWD pollen region name used by /pollen (substring match against the feed's
@@ -224,7 +234,43 @@ public class Wk7BotOptions
     /// Gets or sets the Discord channel name for the weekly leaderboard post.
     /// </summary>
     [ConfigurationKeyName("leaderboard_channel_name")]
-    public string LeaderboardChannelName { get; set; } = "leaderboard";
+    public string LeaderboardChannelName { get; set; } = "\U0001F3C6leaderboard";
+
+    /// <summary>
+    /// Gets or sets the Discord channel name for food publishing.
+    /// </summary>
+    [ConfigurationKeyName("food_channel_name")]
+    public string FoodChannelName { get; set; } = "\U0001F34Efood";
+
+    /// <summary>
+    /// Gets or sets the Discord channel name for spontaneous meetups.
+    /// </summary>
+    [ConfigurationKeyName("spontan_treff_channel_name")]
+    public string SpontanTreffChannelName { get; set; } = "\U0001F389spontan-treff";
+
+    /// <summary>
+    /// Gets or sets the Discord channel name for Leipzig waste notifications.
+    /// </summary>
+    [ConfigurationKeyName("leipzig_waste_channel_name")]
+    public string LeipzigWasteChannelName { get; set; } = "\U0001F5D1\U0000FE0Fleipzig-waste";
+
+    /// <summary>
+    /// Gets or sets the Discord channel name for the weekend digest.
+    /// </summary>
+    [ConfigurationKeyName("weekend_digest_channel_name")]
+    public string WeekendDigestChannelName { get; set; } = "\U0001F4C5wochenende";
+
+    /// <summary>
+    /// Gets or sets the Discord channel name for DWD weather warnings.
+    /// </summary>
+    [ConfigurationKeyName("dwd_warning_channel_name")]
+    public string DwdWarningChannelName { get; set; } = "\U000026C8\U0000FE0Fweather-warnings";
+
+    /// <summary>
+    /// Gets or sets the Discord channel name for error notifications.
+    /// </summary>
+    [ConfigurationKeyName("error_channel_name")]
+    public string ErrorChannelName { get; set; } = "\U0001F916WK7Errors\U00002757";
 
     /// <summary>
     /// Gets or sets the weekday of the weekly leaderboard post (e.g. Monday).

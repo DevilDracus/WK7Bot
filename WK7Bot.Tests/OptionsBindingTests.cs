@@ -216,7 +216,7 @@ public class OptionsBindingTests
         Assert.Null(options.TargetUserId);
         Assert.Null(options.ApiToken);
         Assert.Null(options.ApiSecret);
-        Assert.Null(options.EndpointUrl);
+        Assert.Equal("https://api.getnotify.me/v1/notify", options.EndpointUrl);
     }
 
     [Fact]

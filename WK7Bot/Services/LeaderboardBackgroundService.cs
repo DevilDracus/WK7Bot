@@ -47,22 +47,29 @@ public class LeaderboardBackgroundService : BackgroundService
         }
 
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
             {
-                await MaybePostAsync(stoppingToken);
-                _health.RecordSuccess(FeatureKeys.Leaderboard);
+                try
+                {
+                    await MaybePostAsync(stoppingToken);
+                    _health.RecordSuccess(FeatureKeys.Leaderboard);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _health.RecordFailure(FeatureKeys.Leaderboard, ex.Message);
+                    _logger.LogError(ex, "Leaderboard weekly post failed.");
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _health.RecordFailure(FeatureKeys.Leaderboard, ex.Message);
-                _logger.LogError(ex, "Leaderboard weekly post failed.");
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Graceful shutdown.
         }
     }
 

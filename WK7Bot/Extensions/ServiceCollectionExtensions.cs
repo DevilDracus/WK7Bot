@@ -62,6 +62,7 @@ public static class ServiceCollectionExtensions
         // Single shared instance: the background services record outcomes into it and both the MQTT
         // status sensors and the health endpoint project from it, so they must observe one state.
         services.AddSingleton<FeatureHealthTracker>();
+        services.AddSingleton<MetricsRegistry>();
 
         services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
         {
@@ -83,7 +84,10 @@ public static class ServiceCollectionExtensions
             // treated as unreachable instead of hanging for the HttpClient default of 100 seconds.
             client.Timeout = TimeSpan.FromSeconds(10);
         });
-        services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>();
+        services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
         services.AddHttpClient<ISteamService, SteamService>(client =>
         {
             // Bound external Steam calls so one slow API response cannot block the presence refresh
@@ -169,7 +173,7 @@ public static class ServiceCollectionExtensions
         });
 
         // Command usage metrics repository
-        services.AddSingleton<CommandUsageRepository>();
+        services.AddSingleton<ICommandUsageRepository, CommandUsageRepository>();
 
         services.AddSingleton<IMqttClient>(sp => new MqttClientFactory().CreateMqttClient());
 
@@ -195,21 +199,13 @@ public static class ServiceCollectionExtensions
         // Replicate the same two-step binding that Program.cs uses for Configure<Wk7BotOptions>:
         // first bind from the Wk7Bot section, then from root-level config (which overrides).
         // This ensures the registration layer sees the same merged options as runtime services.
-        FeatureGate featureGate;
-        try
-        {
-            // When AddBotDiscordAndClients has registered the singleton with full metrics-binding,
-            // reuse that instance so registration and runtime decisions agree.
-            featureGate = services.BuildServiceProvider().GetRequiredService<FeatureGate>();
-        }
-        catch (InvalidOperationException)
-        {
-            // Test/standalone callers may register no FeatureGate; fall back to binding the configuration.
-            var wk7Options = new Wk7BotOptions();
-            configuration.GetSection(Wk7BotOptions.SectionName).Bind(wk7Options);
-            configuration.Bind(wk7Options);
-            featureGate = new FeatureGate(Microsoft.Extensions.Options.Options.Create(wk7Options));
-        }
+        // Bind options the same way Program.cs does: first from the Wk7Bot section, then from root-level
+        // config (which overrides). This ensures the registration layer sees the same merged options
+        // as runtime services without building a throwaway service provider.
+        var wk7Options = new Wk7BotOptions();
+        configuration.GetSection(Wk7BotOptions.SectionName).Bind(wk7Options);
+        configuration.Bind(wk7Options);
+        var featureGate = new FeatureGate(Microsoft.Extensions.Options.Options.Create(wk7Options));
 
         if (featureGate.IsEnabled(FeatureKeys.RssPolling))
         {

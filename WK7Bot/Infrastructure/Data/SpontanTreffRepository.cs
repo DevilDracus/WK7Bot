@@ -84,7 +84,7 @@ public class SpontanTreffRepository : ISpontanTreffRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<SpontanTreffResponse>> GetResponsesAsync(int meetupId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<SpontanTreffResponse>> GetResponsesAsync(int meetupId, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         // Ordering by the ulong user id would have to happen inside SQLite, which does not support that, so the
@@ -176,7 +176,7 @@ public class SpontanTreffRepository : ISpontanTreffRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<SpontanTreff>> GetExpiredAsync(DateTime now, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<SpontanTreff>> GetExpiredAsync(DateTime now, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await context.SpontanTreffs.AsNoTracking()

@@ -16,6 +16,8 @@ using WK7Bot.Models;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
 
+using WK7Bot.Core.Utilities;
+
 namespace WK7Bot.Services;
 
 /// <summary>
@@ -29,7 +31,7 @@ public partial class SteamService : BaseGameApiClient, ISteamService
     private readonly IMemoryCache _cache;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<SteamService> _logger;
-    private readonly SemaphoreSlim _achievementApiThrottle = new(2, 2);
+    private static readonly SemaphoreSlim _achievementApiThrottle = new(2, 2);
 
     /// <inheritdoc/>
     protected override int MaxAttempts => MaxAttemptsValue;
@@ -53,12 +55,15 @@ public partial class SteamService : BaseGameApiClient, ISteamService
     /// <param name="cache">The memory cache instance used to cache game achievement schemas.</param>
     /// <param name="options">The strongly-typed application options instance containing credentials and mappings.</param>
     /// <param name="logger">The logging service instance for operational diagnostics.</param>
+    /// <param name="metrics">The metrics registry.</param>
     /// <exception cref="ArgumentNullException">Thrown when any required dependency is null.</exception>
     public SteamService(
         HttpClient httpClient,
         IMemoryCache cache,
         IOptions<Wk7BotOptions> options,
-        ILogger<SteamService> logger)
+        ILogger<SteamService> logger,
+        MetricsRegistry metrics)
+        : base(metrics)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _cache = cache ?? throw new ArgumentNullException(nameof(cache));
