@@ -22,8 +22,6 @@ public class Wk7BotOptions
     /// <summary>
     /// Gets or sets the minimum log level for the bot's console output (Debug, Information, Warning, Error).
     /// </summary>
-    [ConfigurationKeyName("log_level")]
-    public string LogLevel { get; set; } = "Warning";
 
     /// <summary>
     /// Gets or sets the MQTT broker hostname or container address.
@@ -176,6 +174,9 @@ public class Wk7BotOptions
     [ConfigurationKeyName("weather_entity")]
     public string WeatherEntity { get; set; } = "weather.home";
 
+    [ConfigurationKeyName("leipzig_waste_ics_feed_url")]
+    public string LeipzigWasteIcsFeedUrl { get; set; } = string.Empty;
+
     /// <summary>
     /// Gets or sets the DWD pollen region name used by /pollen (substring match against the feed's
     /// region names, e.g. "Sachsen").
@@ -225,6 +226,24 @@ public class Wk7BotOptions
     /// </summary>
     [ConfigurationKeyName("leaderboard_channel_name")]
     public string LeaderboardChannelName { get; set; } = "\U0001F3C6leaderboard";
+
+    [ConfigurationKeyName("food_channel_name")]
+    public string FoodChannelName { get; set; } = "\U0001F34Efood";
+
+    [ConfigurationKeyName("spontan_treff_channel_name")]
+    public string SpontanTreffChannelName { get; set; } = "\U0001F389spontan-treff";
+
+    [ConfigurationKeyName("leipzig_waste_channel_name")]
+    public string LeipzigWasteChannelName { get; set; } = "\U0001F5D1\U0000FE0Fleipzig-waste";
+
+    [ConfigurationKeyName("weekend_digest_channel_name")]
+    public string WeekendDigestChannelName { get; set; } = "\U0001F4C5wochenende";
+
+    [ConfigurationKeyName("dwd_warning_channel_name")]
+    public string DwdWarningChannelName { get; set; } = "\U000026C8\U0000FE0Fweather-warnings";
+
+    [ConfigurationKeyName("error_channel_name")]
+    public string ErrorChannelName { get; set; } = "\U0001F916WK7Errors\U00002757";
 
     /// <summary>
     /// Gets or sets the weekday of the weekly leaderboard post (e.g. Monday).

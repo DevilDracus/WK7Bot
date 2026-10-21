@@ -25,6 +25,7 @@ options:
   log_level: "Warning"
   startup_report_verbose: false
   weather_entity: "weather.home"
+  leipzig_waste_ics_feed_url: ""
   pollen_region_name: "Sachsen"
   pollen_partregion_name: "Tiefland Sachsen"
   uv_city: "Leipzig"
@@ -38,12 +39,14 @@ options:
   deal_watchlist_check_interval_hours: 6
   deal_watchlist_min_discount_percent: 40
   leaderboard_channel_name: "\U0001F3C6leaderboard"
+  food_channel_name: "\U0001F34Efood"
+  spontan_treff_channel_name: "\U0001F389spontan-treff"
+  leipzig_waste_channel_name: "\U0001F5D1\U0000FE0Fleipzig-waste"
+  weekend_digest_channel_name: "\U0001F4C5wochenende"
+  dwd_warning_channel_name: "\U000026C8\U0000FE0Fweather-warnings"
+  error_channel_name: "\U0001F916WK7Errors\U00002757"
   leaderboard_post_weekday: "Monday"
   leaderboard_post_time: "18:00"
-  http_timeouts:
-    fast: 10
-    default: 30
-    slow: 45
   mqtt_host: "core-mosquitto"
   mqtt_port: 1883
   mqtt_username: ""
@@ -129,10 +132,6 @@ schema:
   leaderboard_channel_name: str
   leaderboard_post_weekday: str
   leaderboard_post_time: str
-  http_timeouts:
-    fast: int
-    default: int
-    slow: int
   mqtt_host: str
   mqtt_port: int
   mqtt_username: str?

@@ -69,4 +69,45 @@ public static class EmbedText
     /// <param name="value">The text to truncate.</param>
     /// <returns>The text, at most <see cref="FieldValueLimit"/> characters.</returns>
     public static string Field(string? value) => Truncate(value, FieldValueLimit);
+
+    /// <summary>
+    /// Hard-truncates <paramref name="value"/> to <paramref name="limit"/> characters without an ellipsis.
+    /// Used for Discord component text displays where the ellipsis would waste budget.
+    /// </summary>
+    /// <param name="value">The text to truncate; <see langword="null"/> becomes an empty string.</param>
+    /// <param name="limit">The maximum number of characters to keep.</param>
+    /// <returns>The original or truncated text.</returns>
+    public static string TruncateHard(string? value, int limit)
+    {
+        if (string.IsNullOrEmpty(value) || limit <= 0)
+        {
+            return string.Empty;
+        }
+
+        return value.Length <= limit ? value : value[..limit];
+    }
+
+    /// <summary>
+    /// Truncates <paramref name="value"/> to <paramref name="maxLength"/> characters, appending a
+    /// three-dot ellipsis when cut. Throws when <paramref name="maxLength"/> is less than 3.
+    /// </summary>
+    /// <param name="value">The input text.</param>
+    /// <param name="maxLength">The maximum total length of the result (must be at least 3).</param>
+    /// <returns>The original string when it fits; otherwise a truncated string ending in \"...\".</returns>
+    public static string TruncateWithEllipsis(string value, int maxLength)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (maxLength < 3)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxLength), "maxLength must be at least 3 to fit the ellipsis.");
+        }
+
+        if (value.Length <= maxLength)
+        {
+            return value;
+        }
+
+        return string.Concat(value.AsSpan(0, maxLength - 3), "...");
+    }
 }
