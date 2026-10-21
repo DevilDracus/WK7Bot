@@ -29,8 +29,6 @@ public class DwdWarningBackgroundService : BackgroundService
     /// </summary>
     public const int PruneAgeDays = 7;
 
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(2);
-
     /// <summary>
     /// Grace period applied to the onset window so a warning whose onset slipped slightly into the
     /// past (feed latency) is still posted instead of silently dropped.
@@ -100,7 +98,7 @@ public class DwdWarningBackgroundService : BackgroundService
         _logger.LogInformation(
             "Starting DWD warning poll loop for PLZ {PostalCode} (every {Interval}).",
             _options.DwdWarning.PostalCode,
-            PollInterval);
+            TimeSpan.FromMinutes(Math.Max(1, _options.DwdPollIntervalMinutes)));
 
         await BackgroundServiceResilience.RunWithResilienceAsync(
             async token =>
@@ -110,7 +108,7 @@ public class DwdWarningBackgroundService : BackgroundService
             FeatureKeys.DwdWarning,
             _health,
             _logger,
-            PollInterval,
+            TimeSpan.FromMinutes(Math.Max(1, _options.DwdPollIntervalMinutes)),
             maxConsecutiveFailures: BackgroundServiceResilience.DefaultMaxConsecutiveFailures,
             restartDelay: BackgroundServiceResilience.DefaultRestartDelay,
             stoppingToken);

@@ -175,6 +175,12 @@ public class Wk7BotOptions
     public string WeatherEntity { get; set; } = "weather.home";
 
     /// <summary>
+    /// Gets or sets the DWD warning poll interval in minutes.
+    /// </summary>
+    [ConfigurationKeyName("dwd_poll_interval_minutes")]
+    public int DwdPollIntervalMinutes { get; set; } = 2;
+
+    /// <summary>
     /// Gets or sets the ICS feed URL for Leipzig waste collection schedules.
     /// </summary>
     [ConfigurationKeyName("leipzig_waste_ics_feed_url")]
