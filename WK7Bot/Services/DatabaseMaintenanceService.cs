@@ -68,22 +68,29 @@ public class DatabaseMaintenanceService : BackgroundService
 
         using var timer = new PeriodicTimer(RunInterval);
 
-        do
+        try
         {
-            try
+            do
             {
-                await RunMaintenanceAsync(stoppingToken).ConfigureAwait(false);
+                try
+                {
+                    await RunMaintenanceAsync(stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Database maintenance cycle failed.");
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Database maintenance cycle failed.");
-            }
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
         }
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Graceful shutdown.
+        }
     }
 
     /// <summary>

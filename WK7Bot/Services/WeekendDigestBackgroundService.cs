@@ -88,22 +88,29 @@ public class WeekendDigestBackgroundService : BackgroundService
 
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
 
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
             {
-                await EvaluateScheduleAsync(DateTime.Now, stoppingToken);
-                _health.RecordSuccess(FeatureKeys.WeekendDigest);
+                try
+                {
+                    await EvaluateScheduleAsync(DateTime.Now, stoppingToken);
+                    _health.RecordSuccess(FeatureKeys.WeekendDigest);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "An error occurred while evaluating the weekend digest schedule.");
+                    _health.RecordFailure(FeatureKeys.WeekendDigest, ex.Message);
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while evaluating the weekend digest schedule.");
-                _health.RecordFailure(FeatureKeys.WeekendDigest, ex.Message);
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Graceful shutdown.
         }
     }
 

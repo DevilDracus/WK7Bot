@@ -60,24 +60,31 @@ public class SpontanTreffExpiryService : BackgroundService
 
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
 
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
             {
-                if (await SweepAsync(DateTime.Now, stoppingToken))
+                try
                 {
-                    _health.RecordSuccess(FeatureKeys.SpontanTreff);
+                    if (await SweepAsync(DateTime.Now, stoppingToken))
+                    {
+                        _health.RecordSuccess(FeatureKeys.SpontanTreff);
+                    }
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _health.RecordFailure(FeatureKeys.SpontanTreff, ex.Message);
+                    _logger.LogError(ex, "Spontan-Treff expiry sweep failed.");
                 }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
-            {
-                _logger.LogError(ex, "An error occurred while expiring spontaneous meetups.");
-                _health.RecordFailure(FeatureKeys.SpontanTreff, ex.Message);
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Graceful shutdown.
         }
     }
 
