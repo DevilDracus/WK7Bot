@@ -32,12 +32,12 @@ options:
   pollen_post_time: "07:00"
   metrics_enabled: true
   link_auto_write_options: true
-  deal_alert_channel_name: "game-deals"
+  deal_alert_channel_name: "\U0001F3AEgame-deals"
   deal_check_interval_hours: 12
   deal_min_discount_percent: 60
   deal_watchlist_check_interval_hours: 6
   deal_watchlist_min_discount_percent: 40
-  leaderboard_channel_name: "leaderboard"
+  leaderboard_channel_name: "\U0001F3C6leaderboard"
   leaderboard_post_weekday: "Monday"
   leaderboard_post_time: "18:00"
   http_timeouts:

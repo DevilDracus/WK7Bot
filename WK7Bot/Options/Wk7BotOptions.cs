@@ -144,7 +144,7 @@ public class Wk7BotOptions
     /// Gets or sets the Discord channel name where wishlist deal alerts are posted.
     /// </summary>
     [ConfigurationKeyName("deal_alert_channel_name")]
-    public string DealAlertChannelName { get; set; } = "game-deals";
+    public string DealAlertChannelName { get; set; } = "\U0001F3AEgame-deals";
 
     /// <summary>
     /// Gets or sets the interval in hours between wishlist deal checks.
@@ -224,7 +224,7 @@ public class Wk7BotOptions
     /// Gets or sets the Discord channel name for the weekly leaderboard post.
     /// </summary>
     [ConfigurationKeyName("leaderboard_channel_name")]
-    public string LeaderboardChannelName { get; set; } = "leaderboard";
+    public string LeaderboardChannelName { get; set; } = "\U0001F3C6leaderboard";
 
     /// <summary>
     /// Gets or sets the weekday of the weekly leaderboard post (e.g. Monday).
