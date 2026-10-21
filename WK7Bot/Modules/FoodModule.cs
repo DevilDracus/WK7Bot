@@ -67,8 +67,20 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     /// Resolves the <c>#🍎food</c> text channel inside the guild the command originated from.
     /// </summary>
     /// <returns>The matching text channel, or <see langword="null"/> when the guild or channel is unavailable.</returns>
-    protected virtual ITextChannel? FindFoodChannel()
-        => Context.Guild.FindTextChannel(TargetChannelName);
+    protected virtual async Task<ITextChannel?> FindFoodChannelAsync()
+    {
+        if (Context.Guild == null)
+        {
+            return null;
+        }
+
+        return await ChannelResolver.TryGetOrCreateFeatureChannelAsync(
+            Context.Guild,
+            Context.Client.CurrentUser.Id,
+            TargetChannelName,
+            "Food publishing channel",
+            _logger);
+    }
 
     /// <summary>
     /// Publishes the generated embed to the target food channel.
@@ -106,7 +118,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
                 return;
             }
 
-            var targetChannel = FindFoodChannel();
+            var targetChannel = await FindFoodChannelAsync();
 
             if (targetChannel == null)
             {
@@ -167,7 +179,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
 
         try
         {
-            var targetChannel = FindFoodChannel();
+            var targetChannel = await FindFoodChannelAsync();
 
             if (targetChannel == null)
             {
@@ -242,7 +254,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
 
         try
         {
-            var targetChannel = FindFoodChannel();
+            var targetChannel = await FindFoodChannelAsync();
 
             if (targetChannel == null)
             {
@@ -289,7 +301,7 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
 
         try
         {
-            var targetChannel = FindFoodChannel();
+            var targetChannel = await FindFoodChannelAsync();
 
             if (targetChannel == null)
             {

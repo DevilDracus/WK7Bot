@@ -37,7 +37,7 @@ public class FoodModuleTests
             _channel = channel;
         }
 
-        protected override ITextChannel? FindFoodChannel() => _channel;
+        protected override Task<ITextChannel?> FindFoodChannelAsync() => Task.FromResult(_channel);
 
         protected override Task PostToFoodChannelAsync(ITextChannel channel, Embed embed)
         {
