@@ -102,7 +102,7 @@ public class DatabaseMaintenanceService : BackgroundService
     /// </summary>
     private async Task BackupDatabaseAsync(CancellationToken stoppingToken)
     {
-        var dbPath = GetDatabasePath();
+        var dbPath = await GetDatabasePathAsync().ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(dbPath) || !File.Exists(dbPath))
         {
             _logger.LogWarning("Database file not found at expected path; skipping backup.");
@@ -244,9 +244,9 @@ public class DatabaseMaintenanceService : BackgroundService
     /// <summary>
     /// Resolves the SQLite database file path from the connection string.
     /// </summary>
-    private string? GetDatabasePath()
+    private async Task<string?> GetDatabasePathAsync()
     {
-        using var dbContext = _dbContextFactory.CreateDbContext();
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
         var connectionString = dbContext.Database.GetConnectionString();
         if (string.IsNullOrWhiteSpace(connectionString))
         {

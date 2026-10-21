@@ -31,7 +31,7 @@ public partial class SteamService : BaseGameApiClient, ISteamService
     private readonly IMemoryCache _cache;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<SteamService> _logger;
-    private readonly SemaphoreSlim _achievementApiThrottle = new(2, 2);
+    private static readonly SemaphoreSlim _achievementApiThrottle = new(2, 2);
 
     /// <inheritdoc/>
     protected override int MaxAttempts => MaxAttemptsValue;
