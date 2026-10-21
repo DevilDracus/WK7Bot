@@ -16,6 +16,9 @@ public interface IAccountLinkResolver
     /// <summary>Returns the effective Steam ID for one Discord user, or <see langword="null"/>.</summary>
     Task<string?> GetSteamIdAsync(ulong discordUserId, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the effective Steam link (including wishlist URL) for one Discord user, or <see langword="null"/>.</summary>
+    Task<SteamAccountLink?> GetSteamLinkAsync(ulong discordUserId, CancellationToken cancellationToken = default);
+
     /// <summary>Returns the effective Battle.net link for one Discord user, or <see langword="null"/>.</summary>
     Task<BattleNetAccountLink?> GetBattleNetLinkAsync(ulong discordUserId, CancellationToken cancellationToken = default);
 }
@@ -23,7 +26,8 @@ public interface IAccountLinkResolver
 /// <summary>An effective Discord → Steam link.</summary>
 /// <param name="DiscordUserId">The Discord user ID.</param>
 /// <param name="SteamId">The 64-bit Steam ID.</param>
-public sealed record SteamAccountLink(ulong DiscordUserId, string SteamId);
+/// <param name="WishlistUrl">The optional shared wishlist URL.</param>
+public sealed record SteamAccountLink(ulong DiscordUserId, string SteamId, string? WishlistUrl = null);
 
 /// <summary>An effective Discord → Battle.net link.</summary>
 /// <param name="DiscordUserId">The Discord user ID.</param>

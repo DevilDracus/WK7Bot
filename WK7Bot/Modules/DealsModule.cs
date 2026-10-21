@@ -61,9 +61,17 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
         {
             var discordUserId = Context.User.Id.ToString();
             var steamId = _steamService.GetSteamIdForDiscordUser(discordUserId);
+            string? wishlistUrl = null;
             if (string.IsNullOrWhiteSpace(steamId))
             {
-                steamId = await _accountLinkResolver.GetSteamIdAsync(Context.User.Id);
+                var link = await _accountLinkResolver.GetSteamLinkAsync(Context.User.Id);
+                steamId = link?.SteamId;
+                wishlistUrl = link?.WishlistUrl;
+            }
+            else
+            {
+                var link = await _accountLinkResolver.GetSteamLinkAsync(Context.User.Id);
+                wishlistUrl = link?.WishlistUrl;
             }
 
             if (string.IsNullOrWhiteSpace(steamId))
@@ -72,7 +80,7 @@ public class DealsModule : InteractionModuleBase<SocketInteractionContext>
                 return;
             }
 
-            var wishlist = await _dealService.FetchWishlistAsync(steamId);
+            var wishlist = await _dealService.FetchWishlistAsync(steamId, wishlistUrl);
             if (wishlist.Count == 0)
             {
                 await FollowupAsync("❌ Deine Steam-Wunschliste ist leer oder privat. Bitte stelle sicher, dass sie öffentlich ist.", ephemeral: true);

@@ -173,7 +173,7 @@ public class WishlistDealBackgroundService : BackgroundService
         foreach (var mapping in mappings)
         {
             var discordUserId = mapping.DiscordUserId;
-            var wishlist = await _dealService.FetchWishlistAsync(mapping.SteamId, cancellationToken);
+            var wishlist = await _dealService.FetchWishlistAsync(mapping.SteamId, mapping.WishlistUrl, cancellationToken);
             if (wishlist.Count > 0)
             {
                 wishlistsByDiscordId[discordUserId] = wishlist.ToList();

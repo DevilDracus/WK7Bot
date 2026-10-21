@@ -26,12 +26,12 @@ public class AccountLinkResolver : IAccountLinkResolver
     /// <inheritdoc />
     public async Task<IReadOnlyList<SteamAccountLink>> GetSteamLinksAsync(CancellationToken cancellationToken = default)
     {
-        var merged = new Dictionary<ulong, string>();
+        var merged = new Dictionary<ulong, (string SteamId, string? WishlistUrl)>();
         foreach (var mapping in _options.Value.DiscordSteamMappings)
         {
             if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.SteamId))
             {
-                merged[id] = mapping.SteamId;
+                merged[id] = (mapping.SteamId, null);
             }
         }
 
@@ -39,11 +39,18 @@ public class AccountLinkResolver : IAccountLinkResolver
         {
             if (link.Provider == "steam" && !string.IsNullOrWhiteSpace(link.ExternalId))
             {
-                merged[link.DiscordUserId] = link.ExternalId;
+                merged[link.DiscordUserId] = (link.ExternalId, link.WishlistUrl);
             }
         }
 
-        return merged.Select(kv => new SteamAccountLink(kv.Key, kv.Value)).ToList();
+        return merged.Select(kv => new SteamAccountLink(kv.Key, kv.Value.SteamId, kv.Value.WishlistUrl)).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<SteamAccountLink?> GetSteamLinkAsync(ulong discordUserId, CancellationToken cancellationToken = default)
+    {
+        var links = await GetSteamLinksAsync(cancellationToken).ConfigureAwait(false);
+        return links.FirstOrDefault(l => l.DiscordUserId == discordUserId);
     }
 
     /// <inheritdoc />
