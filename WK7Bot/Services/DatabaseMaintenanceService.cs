@@ -191,43 +191,15 @@ public class DatabaseMaintenanceService : BackgroundService
         try
         {
             var cutoff = DateTime.UtcNow.AddDays(-DefaultLogRetentionDays);
-            var cutoffString = cutoff.ToString("yyyy-MM-dd HH:mm:ss.ffffff");
 
             await using var dbContext = await _dbContextFactory.CreateDbContextAsync(stoppingToken).ConfigureAwait(false);
-            await using var connection = dbContext.Database.GetDbConnection();
-            await connection.OpenAsync(stoppingToken).ConfigureAwait(false);
 
-            int wastePruned = 0, warningPruned = 0, foodPruned = 0;
-
-            await using (var cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = "DELETE FROM WasteDispatchLogs WHERE SentOn < @cutoff;";
-                var p = cmd.CreateParameter();
-                p.ParameterName = "@cutoff";
-                p.Value = cutoffString;
-                cmd.Parameters.Add(p);
-                wastePruned = await cmd.ExecuteNonQueryAsync(stoppingToken).ConfigureAwait(false);
-            }
-
-            await using (var cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = "DELETE FROM WarningDispatchLogs WHERE SentAt < @cutoff;";
-                var p = cmd.CreateParameter();
-                p.ParameterName = "@cutoff";
-                p.Value = cutoffString;
-                cmd.Parameters.Add(p);
-                warningPruned = await cmd.ExecuteNonQueryAsync(stoppingToken).ConfigureAwait(false);
-            }
-
-            await using (var cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = "DELETE FROM FoodDispatchLogs WHERE SentOn < @cutoff;";
-                var p = cmd.CreateParameter();
-                p.ParameterName = "@cutoff";
-                p.Value = cutoffString;
-                cmd.Parameters.Add(p);
-                foodPruned = await cmd.ExecuteNonQueryAsync(stoppingToken).ConfigureAwait(false);
-            }
+            int wastePruned = await dbContext.Database.ExecuteSqlRawAsync(
+                "DELETE FROM WasteDispatchLogs WHERE SentOn < {0}", cutoff, stoppingToken).ConfigureAwait(false);
+            int warningPruned = await dbContext.Database.ExecuteSqlRawAsync(
+                "DELETE FROM WarningDispatchLogs WHERE SentAt < {0}", cutoff, stoppingToken).ConfigureAwait(false);
+            int foodPruned = await dbContext.Database.ExecuteSqlRawAsync(
+                "DELETE FROM FoodDispatchLogs WHERE SentOn < {0}", cutoff, stoppingToken).ConfigureAwait(false);
 
             var totalPruned = wastePruned + warningPruned + foodPruned;
             if (totalPruned > 0)
