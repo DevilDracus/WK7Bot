@@ -2,11 +2,12 @@ namespace WK7Bot.Infrastructure.Data;
 
 using Microsoft.EntityFrameworkCore;
 using WK7Bot.Core.Entities;
+using WK7Bot.Core.Interfaces;
 
 /// <summary>
 /// Repository for slash command usage metrics.
 /// </summary>
-public class CommandUsageRepository
+public class CommandUsageRepository : ICommandUsageRepository
 {
     private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
 
@@ -59,8 +60,11 @@ public class CommandUsageRepository
     public async Task<IReadOnlyList<(string CommandName, int Count)>> GetTopCommandsAsync(
         int days,
         int top,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(top);
+        ArgumentOutOfRangeException.ThrowIfNegative(days);
+
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var cutoff = DateTime.UtcNow.AddDays(-days);
 

@@ -173,7 +173,7 @@ public static class ServiceCollectionExtensions
         });
 
         // Command usage metrics repository
-        services.AddSingleton<CommandUsageRepository>();
+        services.AddSingleton<ICommandUsageRepository, CommandUsageRepository>();
 
         services.AddSingleton<IMqttClient>(sp => new MqttClientFactory().CreateMqttClient());
 

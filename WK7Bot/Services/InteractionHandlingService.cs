@@ -1,5 +1,7 @@
 ﻿using WK7Bot.Core.Utilities;
 
+using WK7Bot.Core.Interfaces;
+
 namespace WK7Bot.Services;
 
 using Discord;
@@ -28,7 +30,7 @@ public class InteractionHandlingService : IHostedService
     private readonly IServiceProvider _services;
     private readonly IConfiguration _configuration;
     private readonly ILogger<InteractionHandlingService> _logger;
-    private readonly CommandUsageRepository _commandUsageRepository;
+    private readonly ICommandUsageRepository _commandUsageRepository;
     private readonly MetricsRegistry _metrics;
 
     /// <summary>
@@ -52,7 +54,7 @@ public class InteractionHandlingService : IHostedService
         IServiceProvider services,
         IConfiguration configuration,
         ILogger<InteractionHandlingService> logger,
-        CommandUsageRepository commandUsageRepository,
+        ICommandUsageRepository commandUsageRepository,
         MetricsRegistry metrics)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));

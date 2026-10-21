@@ -1,3 +1,5 @@
+using WK7Bot.Core.Interfaces;
+
 namespace WK7Bot.Services;
 
 using System.IO.Compression;
@@ -16,7 +18,7 @@ public class DatabaseMaintenanceService : BackgroundService
     private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(5);
 
     private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
-    private readonly CommandUsageRepository _commandUsageRepository;
+    private readonly ICommandUsageRepository _commandUsageRepository;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DatabaseMaintenanceService> _logger;
 
@@ -40,7 +42,7 @@ public class DatabaseMaintenanceService : BackgroundService
     /// </summary>
     public DatabaseMaintenanceService(
         IDbContextFactory<BotDbContext> dbContextFactory,
-        CommandUsageRepository commandUsageRepository,
+        ICommandUsageRepository commandUsageRepository,
         IOptions<Wk7BotOptions> options,
         ILogger<DatabaseMaintenanceService> logger)
     {
