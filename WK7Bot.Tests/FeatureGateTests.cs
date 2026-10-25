@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
@@ -106,5 +107,30 @@ public sealed class FeatureGateTests
         Assert.Contains(FeatureKeys.DiscordEvents, FeatureKeys.All);
         Assert.Contains(FeatureKeys.DealWatchlist, FeatureKeys.All);
         Assert.Equal(FeatureKeys.All.Length, FeatureKeys.All.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Fact]
+    public void FeatureKeys_ConsistentWithFeatureOptions()
+    {
+        // Every FeatureKeys constant must have a corresponding [ConfigurationKeyName] in FeatureOptions.
+        var featureOptionKeys = typeof(FeatureOptions)
+            .GetProperties()
+            .Select(p => p.GetCustomAttributes(typeof(ConfigurationKeyNameAttribute), false)
+                          .OfType<ConfigurationKeyNameAttribute>()
+                          .FirstOrDefault()?.Name)
+            .Where(n => n is not null)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase)!;
+
+        var fields = typeof(FeatureKeys)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+            .Select(f => (string)f.GetValue(null)!)
+            .ToList();
+
+        foreach (var key in fields)
+        {
+            Assert.True(featureOptionKeys.Contains(key),
+                $"Feature key '{key}' has no corresponding ConfigurationKeyName in FeatureOptions.");
+        }
     }
 }

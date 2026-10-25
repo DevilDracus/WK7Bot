@@ -54,26 +54,28 @@ public class LeaderboardService : ILeaderboardService
     private async Task<LeaderboardResult> BuildSteamAsync(ulong guildId, int limit, bool achievements, CancellationToken cancellationToken)
     {
         var links = await GetSteamLinksAsync(cancellationToken).ConfigureAwait(false);
-        var rows = new List<(string Name, long Sort, string Value, string? Detail)>();
-        foreach (var (discordUserId, steamId) in links)
-        {
-            var data = await _steamService.GetSteamUserDataAsync(steamId, cancellationToken).ConfigureAwait(false);
-            if (data is null)
-            {
-                continue;
-            }
+        var tasks = links.Select(async link =>
+                {
+                    var data = await _steamService.GetSteamUserDataAsync(link.SteamId, cancellationToken).ConfigureAwait(false);
+                    if (data is null)
+                    {
+                        return ((string Name, long Sort, string Value, string? Detail)?)null;
+                    }
 
             if (achievements)
             {
                 var unlocked = data.RecentGames.Sum(g => g.AchievementsUnlocked);
                 var total = data.RecentGames.Sum(g => g.AchievementsTotal);
-                rows.Add((ResolveDisplayName(guildId, discordUserId), unlocked, $"{unlocked}/{total}", data.PersonaName));
+                return ((string Name, long Sort, string Value, string? Detail)?)(ResolveDisplayName(guildId, link.DiscordUserId), (long)unlocked, $"{unlocked}/{total}", data.PersonaName);
             }
             else
             {
-                rows.Add((ResolveDisplayName(guildId, discordUserId), data.PlaytimeLastTwoWeeksMinutes, SteamUserData.FormatPlaytime(data.PlaytimeLastTwoWeeksMinutes), data.PersonaName));
+                return ((string Name, long Sort, string Value, string? Detail)?)(ResolveDisplayName(guildId, link.DiscordUserId), (long)data.PlaytimeLastTwoWeeksMinutes, SteamUserData.FormatPlaytime(data.PlaytimeLastTwoWeeksMinutes), data.PersonaName);
             }
-        }
+        }).ToList();
+
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+        var rows = results.Where(r => r is not null).Select(r => r!.Value).ToList();
 
         return Rank(achievements ? "🏆 Steam-Errungenschaften (14 Tage)" : "⏱️ Steam-Spielzeit (14 Tage)", rows, limit, "WK7 Bot • Leaderboard");
     }
@@ -81,18 +83,20 @@ public class LeaderboardService : ILeaderboardService
     private async Task<LeaderboardResult> BuildBattleNetWowAsync(ulong guildId, int limit, CancellationToken cancellationToken)
     {
         var links = await GetBattleNetLinksAsync(cancellationToken).ConfigureAwait(false);
-        var rows = new List<(string Name, long Sort, string Value, string? Detail)>();
-        foreach (var (discordUserId, refreshToken) in links)
+        var tasks = links.Select(async link =>
         {
-            var data = await _battleNetService.GetBattleNetUserDataAsync(refreshToken, cancellationToken).ConfigureAwait(false);
+            var data = await _battleNetService.GetBattleNetUserDataAsync(link.RefreshToken, cancellationToken).ConfigureAwait(false);
             var main = data?.WowCharacters.OrderByDescending(c => c.Level).FirstOrDefault();
             if (main is null)
             {
-                continue;
+                return ((string Name, long Sort, string Value, string? Detail)?)null;
             }
 
-            rows.Add((ResolveDisplayName(guildId, discordUserId), main.Level, $"Stufe {main.Level}", $"{main.Name} · {main.CharacterClass}"));
-        }
+            return ((string Name, long Sort, string Value, string? Detail)?)(ResolveDisplayName(guildId, link.DiscordUserId), (long)main.Level, $"Stufe {main.Level}", $"{main.Name} · {main.CharacterClass}");
+        }).ToList();
+
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+        var rows = results.Where(r => r is not null).Select(r => r!.Value).ToList();
 
         return Rank("⚔️ World of Warcraft — höchste Stufe", rows, limit, "WK7 Bot • Leaderboard");
     }
@@ -100,19 +104,21 @@ public class LeaderboardService : ILeaderboardService
     private async Task<LeaderboardResult> BuildBattleNetDiabloAsync(ulong guildId, int limit, CancellationToken cancellationToken)
     {
         var links = await GetBattleNetLinksAsync(cancellationToken).ConfigureAwait(false);
-        var rows = new List<(string Name, long Sort, string Value, string? Detail)>();
-        foreach (var (discordUserId, refreshToken) in links)
+        var tasks = links.Select(async link =>
         {
-            var data = await _battleNetService.GetBattleNetUserDataAsync(refreshToken, cancellationToken).ConfigureAwait(false);
+            var data = await _battleNetService.GetBattleNetUserDataAsync(link.RefreshToken, cancellationToken).ConfigureAwait(false);
             var hero = data?.DiabloHeroes.OrderByDescending(h => h.ParagonLevel).ThenByDescending(h => h.Level).FirstOrDefault();
             if (hero is null)
             {
-                continue;
+                return ((string Name, long Sort, string Value, string? Detail)?)null;
             }
 
             var score = hero.ParagonLevel > 0 ? hero.ParagonLevel : hero.Level;
-            rows.Add((ResolveDisplayName(guildId, discordUserId), score, hero.ParagonLevel > 0 ? $"Paragon {hero.ParagonLevel}" : $"Stufe {hero.Level}", $"{hero.Name} · {hero.HeroClass}"));
-        }
+            return ((string Name, long Sort, string Value, string? Detail)?)(ResolveDisplayName(guildId, link.DiscordUserId), (long)score, hero.ParagonLevel > 0 ? $"Paragon {hero.ParagonLevel}" : $"Stufe {hero.Level}", $"{hero.Name} · {hero.HeroClass}");
+        }).ToList();
+
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+        var rows = results.Where(r => r is not null).Select(r => r!.Value).ToList();
 
         return Rank("😈 Diablo — höchster Paragon/Level", rows, limit, "WK7 Bot • Leaderboard");
     }
