@@ -138,7 +138,15 @@ public class AccountLinkService : IAccountLinkService
         var url = $"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={_options.Value.SteamApiKey}&vanityurl={Uri.EscapeDataString(vanity)}";
         try
         {
-            using var response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            using var response = await HttpRetry.ExecuteAsync(
+                () => _httpClient.GetAsync(url, cancellationToken),
+                3,
+                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                null,
+                null,
+                cancellationToken);
+
             if (!response.IsSuccessStatusCode)
             {
                 return null;
