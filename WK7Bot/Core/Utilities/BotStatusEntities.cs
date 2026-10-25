@@ -80,9 +80,9 @@ public static class BotStatusEntities
     {
         new BotStatusFeature(FeatureKeys.FoodService, "food", "Food Service"),
         new BotStatusFeature(FeatureKeys.RssPolling, "rss", "RSS Polling"),
-        new BotStatusFeature(FeatureKeys.LeipzigWaste, "leipzig_waste", "Leipzig Waste"),
-        new BotStatusFeature(FeatureKeys.WeekendDigest, "weekend_digest", "Weekend Digest"),
-        new BotStatusFeature(FeatureKeys.DwdWarning, "dwd_warning", "DWD Warnings"),
+        new BotStatusFeature(FeatureKeys.LeipzigWaste, FeatureKeys.RoutedFeatures.LeipzigWaste, "Leipzig Waste"),
+        new BotStatusFeature(FeatureKeys.WeekendDigest, FeatureKeys.RoutedFeatures.WeekendDigest, "Weekend Digest"),
+        new BotStatusFeature(FeatureKeys.DwdWarning, FeatureKeys.RoutedFeatures.DwdWarning, "DWD Warnings"),
         new BotStatusFeature(FeatureKeys.SpontanTreff, "spontan_treff", "Spontan-Treff")
     };
 
