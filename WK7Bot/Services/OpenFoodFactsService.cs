@@ -3,6 +3,7 @@ namespace WK7Bot.Services;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Services.Interfaces;
 
@@ -52,10 +53,20 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
+            using var response = await HttpRetry.ExecuteAsync(
+                async () =>
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Get, url);
+                    request.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
+                    return await _httpClient.SendAsync(request, cancellationToken);
+                },
+                3,
+                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                null,
+                null,
+                cancellationToken);
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var result = await response.Content.ReadFromJsonAsync<OpenFoodFactsSearchResponse>(cancellationToken: cancellationToken);
