@@ -36,7 +36,8 @@ public class WishlistDealRepository : IWishlistDealRepository
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            await context.WishlistGames.ExecuteDeleteAsync(cancellationToken);
+            var existing = await context.WishlistGames.ToListAsync(cancellationToken);
+            context.WishlistGames.RemoveRange(existing);
             await context.WishlistGames.AddRangeAsync(games, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -76,8 +77,14 @@ public class WishlistDealRepository : IWishlistDealRepository
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var cutoff = DateTimeOffset.UtcNow - retention;
-        await context.WishlistAlertHistories
+        var stale = await context.WishlistAlertHistories
             .Where(h => h.AlertedAt < cutoff)
-            .ExecuteDeleteAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        if (stale.Count > 0)
+        {
+            context.WishlistAlertHistories.RemoveRange(stale);
+            await context.SaveChangesAsync(cancellationToken);
+        }
     }
 }

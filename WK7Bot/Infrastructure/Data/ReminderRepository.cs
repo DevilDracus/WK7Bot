@@ -85,8 +85,17 @@ public class ReminderRepository : IReminderRepository
     public async Task<int> PruneDeliveredAsync(DateTime olderThanUtc, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await context.Reminders
+        var stale = await context.Reminders
             .Where(r => r.DeliveredAt != null && r.DeliveredAt < olderThanUtc)
-            .ExecuteDeleteAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        if (stale.Count == 0)
+        {
+            return 0;
+        }
+
+        context.Reminders.RemoveRange(stale);
+        await context.SaveChangesAsync(cancellationToken);
+        return stale.Count;
     }
 }
