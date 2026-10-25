@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using WK7Bot.Core.Utilities;
 
 /// <summary>
 /// Best-effort writer for the Home Assistant add-on options. It merges a patch into the current
@@ -109,15 +110,26 @@ public class AddOnOptionsWriter
         }
 
         var payload = JsonSerializer.Serialize(new { options });
-        using var request = new HttpRequestMessage(HttpMethod.Post, "addons/self/options")
-        {
-            Content = new StringContent(payload, Encoding.UTF8, "application/json")
-        };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supervisorToken);
 
         try
         {
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await HttpRetry.ExecuteAsync(
+                async () =>
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Post, "addons/self/options")
+                    {
+                        Content = new StringContent(payload, Encoding.UTF8, "application/json")
+                    };
+                    req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supervisorToken);
+                    return await _httpClient.SendAsync(req, cancellationToken);
+                },
+                3,
+                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                null,
+                null,
+                cancellationToken);
+
             if (response.IsSuccessStatusCode)
             {
                 _logger.LogInformation("Updated add-on options via Supervisor.");

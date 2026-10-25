@@ -72,6 +72,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql);
         await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql);
         await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql);
+        await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNormalizedNameIndexSql);
 
         // Late-added columns: CREATE TABLE IF NOT EXISTS never alters an existing table, and
         // EnsureCreated does nothing on databases that already exist, so older deployments need
@@ -83,6 +84,7 @@ public static class DatabaseSchemaInitializer
         await AddColumnIfMissingAsync(connection, "RssFeeds", "LastPolledAt", "TEXT NULL");
         await AddColumnIfMissingAsync(connection, "RssFeeds", "RefreshIntervalMinutes", "INTEGER NOT NULL DEFAULT 15");
         await AddColumnIfMissingAsync(connection, "RssFeeds", "IsPaused", "INTEGER NOT NULL DEFAULT 0");
+        await AddColumnIfMissingAsync(connection, "RssFeeds", "NormalizedName", "TEXT NOT NULL DEFAULT ''");
     }
 
     /// <summary>
@@ -325,6 +327,14 @@ public static class DatabaseSchemaInitializer
     public const string CreateRssFeedsNameIndexSql =
         """
         CREATE INDEX IF NOT EXISTS IX_RssFeeds_Name ON RssFeeds (Name);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the RSS feeds normalized name index.
+    /// </summary>
+    public const string CreateRssFeedsNormalizedNameIndexSql =
+        """
+        CREATE INDEX IF NOT EXISTS IX_RssFeeds_NormalizedName ON RssFeeds (NormalizedName);
         """;
 
     /// <summary>

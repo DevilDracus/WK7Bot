@@ -43,11 +43,11 @@ public class RssRepository : IRssRepository
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        // SQLite's lower() (like COLLATE NOCASE) is ASCII-only, so names containing umlauts or ß
-        // would never match at the database level. Use a case-insensitive in-memory comparison
-        // over the small feed table instead. AsNoTracking keeps this consistent with GetAllFeedsAsync.
-        var feeds = await context.RssFeeds.AsNoTracking().ToListAsync(cancellationToken);
-        return feeds.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
+        // SQLite's lower() is ASCII-only, so case-fold the name in C# and store it in
+        // NormalizedName, allowing a single-row indexed lookup instead of loading every feed.
+        var normalized = (name ?? string.Empty).Trim().ToLowerInvariant();
+        return await context.RssFeeds.AsNoTracking()
+            .FirstOrDefaultAsync(f => f.NormalizedName == normalized, cancellationToken);
     }
 
     /// <summary>
@@ -59,6 +59,11 @@ public class RssRepository : IRssRepository
     public async Task AddFeedAsync(RssFeed feed, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        // ensure normalized column is populated even if caller set Name before NormalizedName
+        if (string.IsNullOrEmpty(feed.NormalizedName))
+        {
+            feed.NormalizedName = feed.Name.ToLowerInvariant();
+        }
         await context.RssFeeds.AddAsync(feed, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
     }

@@ -10,10 +10,32 @@ public class RssFeed
     /// </summary>
     public int Id { get; set; }
 
+    private string _name = string.Empty;
+    private string _normalizedName = string.Empty;
+
     /// <summary>
     /// Gets or sets the user-friendly name of the feed.
     /// </summary>
-    public string Name { get; set; } = string.Empty;
+    public string Name
+    {
+        get => _name;
+        set
+        {
+            _name = value ?? string.Empty;
+            // keep the normalized column in sync
+            _normalizedName = _name.ToLowerInvariant();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the case-folded (lowercase) form of <see cref="Name" />, stored so lookups can
+    /// filter at the database level without relying on SQLite's ASCII-only <c>lower()</c>.
+    /// </summary>
+    public string NormalizedName
+    {
+        get => _normalizedName;
+        set => _normalizedName = value ?? string.Empty;
+    }
 
     /// <summary>
     /// Gets or sets the target RSS or Atom feed URL.

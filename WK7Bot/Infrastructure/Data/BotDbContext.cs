@@ -99,10 +99,12 @@ public class BotDbContext : DbContext
             entity.ToTable("RssFeeds");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.NormalizedName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Url).IsRequired().HasMaxLength(500);
             entity.Property(e => e.LastItemGuid).HasMaxLength(250);
             entity.Property(e => e.IsPaused).HasDefaultValue(false);
             entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.NormalizedName);
         });
 
         modelBuilder.Entity<RssDashboardSetting>(entity =>
