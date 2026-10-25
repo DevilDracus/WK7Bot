@@ -294,10 +294,9 @@ public class GeminiFoodService : IGeminiFoodService
         // Propagate cancellation immediately if the token is already cancelled.
         cancellationToken.ThrowIfCancellationRequested();
 
-        HttpResponseMessage response;
         try
         {
-            response = await HttpRetry.ExecuteAsync(
+            using var response = await HttpRetry.ExecuteAsync(
                 async () =>
                 {
                     string jsonPayload = JsonSerializer.Serialize(requestPayload);
@@ -310,6 +309,26 @@ public class GeminiFoodService : IGeminiFoodService
                 r => r.StatusCode == HttpStatusCode.ServiceUnavailable ? ServiceUnavailableExtraDelay : TimeSpan.Zero,
                 ex => IsTransient(ex),
                 cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                string responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                var parsed = ParseGeminiResponse<TResponse>(responseJson);
+                if (parsed is not null)
+                {
+                    return parsed;
+                }
+                return null;
+            }
+
+            int statusCode = (int)response.StatusCode;
+            string errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            _logger.LogError(
+                "Gemini API call to model {Model} failed with status code {StatusCode}: {ErrorBody}",
+                modelName, response.StatusCode, errorBody);
+
+            return null;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -321,78 +340,5 @@ public class GeminiFoodService : IGeminiFoodService
             return null;
         }
 
-        if (response.IsSuccessStatusCode)
-        {
-            string responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            var parsed = ParseGeminiResponse<TResponse>(responseJson);
-            if (parsed is not null)
-            {
-                return parsed;
-            }
-            return null;
-        }
-
-        int statusCode = (int)response.StatusCode;
-        string errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-
-        _logger.LogError(
-            "Gemini API call to model {Model} failed with status code {StatusCode}: {ErrorBody}",
-            modelName, response.StatusCode, errorBody);
-
-        return null;
-
-    }
-
-    /// <summary>
-    /// Builds the structured JSON request payload sent to the Gemini generateContent endpoint.
-    /// </summary>
-    /// <param name="prompt">The prompt text submitted to the model.</param>
-    /// <param name="jsonSchema">The JSON schema constraining the structured output.</param>
-    /// <returns>The request payload object ready for serialization.</returns>
-    private object BuildGeminiRequestPayload(string prompt, JsonObject jsonSchema)
-    {
-        return new
-        {
-            contents = new[]
-            {
-                new
-                {
-                    parts = new[]
-                    {
-                        new { text = prompt }
-                    }
-                }
-            },
-            generationConfig = new
-            {
-                responseMimeType = "application/json",
-                responseJsonSchema = jsonSchema,
-                maxOutputTokens = 8192 // Ensures large structured recipes finish generating completely without truncation
-            }
-        };
-    }
-
-    /// <summary>
-    /// Parses a Gemini generateContent response JSON into the requested structured type.
-    /// </summary>
-    /// <typeparam name="TResponse">The target structured response type.</typeparam>
-    /// <param name="responseJson">The raw JSON returned by the Gemini endpoint.</param>
-    /// <returns>The deserialized response, or <see langword="null"/> when no usable candidate exists.</returns>
-    private static TResponse? ParseGeminiResponse<TResponse>(string responseJson) where TResponse : class
-    {
-        using var doc = JsonDocument.Parse(responseJson);
-        var root = doc.RootElement;
-        if (root.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
-        {
-            string innerJson = candidates[0]
-                .GetProperty("content")
-                .GetProperty("parts")[0]
-                .GetProperty("text")
-                .GetString() ?? string.Empty;
-
-            return JsonSerializer.Deserialize<TResponse>(innerJson, StructuredAnswerOptions);
-        }
-
-        return default;
     }
 }
