@@ -18,7 +18,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IHomeAssistantService _homeAssistantService;
     private readonly ICommandUsageRepository _commandUsageRepository;
-    private readonly FeatureHealthTracker _healthTracker;
+    private readonly IFeatureHealthTracker _healthTracker;
     private readonly IExternalDependencyHealthChecker _dependencyHealthChecker;
     private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<SystemModule> _logger;
@@ -41,7 +41,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     public SystemModule(
         IHomeAssistantService homeAssistantService,
         ICommandUsageRepository commandUsageRepository,
-        FeatureHealthTracker healthTracker,
+        IFeatureHealthTracker healthTracker,
         IExternalDependencyHealthChecker dependencyHealthChecker,
         CommandRateLimiter rateLimiter,
         ILogger<SystemModule> logger)

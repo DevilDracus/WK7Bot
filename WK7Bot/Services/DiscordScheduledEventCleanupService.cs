@@ -10,13 +10,13 @@ using WK7Bot.Services.Interfaces;
 public class DiscordScheduledEventCleanupService : BackgroundService
 {
     private readonly IDiscordScheduledEventService _scheduledEventService;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly ILogger<DiscordScheduledEventCleanupService> _logger;
 
     /// <summary>Initializes a new instance of the <see cref="DiscordScheduledEventCleanupService"/> class.</summary>
     public DiscordScheduledEventCleanupService(
         IDiscordScheduledEventService scheduledEventService,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         ILogger<DiscordScheduledEventCleanupService> logger)
     {
         _scheduledEventService = scheduledEventService ?? throw new ArgumentNullException(nameof(scheduledEventService));

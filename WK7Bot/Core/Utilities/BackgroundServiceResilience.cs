@@ -32,7 +32,7 @@ public static class BackgroundServiceResilience
     public static async Task RunWithResilienceAsync(
         Func<CancellationToken, Task> iteration,
         string featureKey,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         ILogger logger,
         TimeSpan interval,
         int maxConsecutiveFailures = DefaultMaxConsecutiveFailures,

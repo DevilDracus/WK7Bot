@@ -61,7 +61,7 @@ public static class ServiceCollectionExtensions
 
         // Single shared instance: the background services record outcomes into it and both the MQTT
         // status sensors and the health endpoint project from it, so they must observe one state.
-        services.AddSingleton<FeatureHealthTracker>();
+        services.AddSingleton<IFeatureHealthTracker, FeatureHealthTracker>();
         services.AddSingleton<MetricsRegistry>();
 
         services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig

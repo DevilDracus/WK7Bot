@@ -38,7 +38,7 @@ public class DwdWarningBackgroundService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IDwdWarningService _warningSource;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DwdWarningBackgroundService> _logger;
 
@@ -55,7 +55,7 @@ public class DwdWarningBackgroundService : BackgroundService
         IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IDwdWarningService warningSource,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<DwdWarningBackgroundService> logger)
     {

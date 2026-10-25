@@ -26,7 +26,7 @@ public class PollenBackgroundService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IPollenService _pollenService;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<PollenBackgroundService> _logger;
@@ -43,7 +43,7 @@ public class PollenBackgroundService : BackgroundService
         IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IPollenService pollenService,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<PollenBackgroundService> logger,
         TimeProvider? timeProvider = null)

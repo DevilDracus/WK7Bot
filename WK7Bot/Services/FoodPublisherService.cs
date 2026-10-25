@@ -29,7 +29,7 @@ public class FoodPublisherService : BackgroundService
     private readonly IRecipeSearchService _recipeSearchService;
     private readonly IRandomSource _randomSource;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<FoodPublisherService> _logger;
@@ -85,7 +85,7 @@ public class FoodPublisherService : BackgroundService
         IRecipeSearchService recipeSearchService,
         IOptions<Wk7BotOptions> options,
         IServiceScopeFactory scopeFactory,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         ILogger<FoodPublisherService> logger,
         IRandomSource? randomSource = null,
         TimeProvider? timeProvider = null)

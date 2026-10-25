@@ -57,7 +57,7 @@ public static class HealthReportBuilder
     /// <param name="guildCount">The number of guilds the bot is connected to.</param>
     /// <returns>The health report.</returns>
     public static HealthReport Build(
-        FeatureHealthTracker tracker,
+        IFeatureHealthTracker tracker,
         FeatureOptions features,
         DateTime startedAtUtc,
         string discordConnection,

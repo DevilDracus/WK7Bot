@@ -22,7 +22,7 @@ public class WishlistDealBackgroundService : BackgroundService
     private readonly DiscordSocketClient _discordClient;
     private readonly IWishlistDealService _dealService;
     private readonly ISteamService _steamService;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly FeatureGate _featureGate;
     private readonly ILogger<WishlistDealBackgroundService> _logger;
@@ -53,7 +53,7 @@ public class WishlistDealBackgroundService : BackgroundService
         DiscordSocketClient discordClient,
         IWishlistDealService dealService,
         ISteamService steamService,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         FeatureGate featureGate,
         ILogger<WishlistDealBackgroundService> logger)

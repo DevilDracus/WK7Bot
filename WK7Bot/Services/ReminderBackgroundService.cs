@@ -22,7 +22,7 @@ public class ReminderBackgroundService : BackgroundService
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<ReminderBackgroundService> _logger;
 
@@ -35,7 +35,7 @@ public class ReminderBackgroundService : BackgroundService
     public ReminderBackgroundService(
         IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<ReminderBackgroundService> logger)
     {

@@ -9,7 +9,7 @@ using WK7Bot.Options;
 /// sensors, the deep health endpoint and future alerting read it; the background services only record
 /// outcomes, so a feature never depends on its consumers.
 /// </summary>
-public sealed class FeatureHealthTracker
+public sealed class FeatureHealthTracker : IFeatureHealthTracker
 {
     private readonly Dictionary<string, FeatureHealth> _states = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();

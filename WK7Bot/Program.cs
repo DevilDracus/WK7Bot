@@ -80,7 +80,7 @@ await app.InitializeDatabaseAsync();
 
 app.MapGet("/health", () => Results.Ok("WK7 Bot is healthy."));
 
-app.MapGet("/metrics", (FeatureHealthTracker health, IOptions<Wk7BotOptions> options, MetricsRegistry metrics) =>
+app.MapGet("/metrics", (IFeatureHealthTracker health, IOptions<Wk7BotOptions> options, MetricsRegistry metrics) =>
 {
     if (!options.Value.MetricsEnabled)
     {

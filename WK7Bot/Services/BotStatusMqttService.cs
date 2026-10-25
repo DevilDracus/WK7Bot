@@ -29,7 +29,7 @@ public sealed class BotStatusMqttService : BackgroundService
     private readonly DiscordSocketClient _discordClient;
     private readonly IMqttClient _mqttClient;
     private readonly MqttConnectionCoordinator _coordinator;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly FeatureGate _featureGate;
     private readonly ILogger<BotStatusMqttService> _logger;
@@ -52,7 +52,7 @@ public sealed class BotStatusMqttService : BackgroundService
         DiscordSocketClient discordClient,
         IMqttClient mqttClient,
         MqttConnectionCoordinator coordinator,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<BotStatusMqttService> logger,
         FeatureGate featureGate)

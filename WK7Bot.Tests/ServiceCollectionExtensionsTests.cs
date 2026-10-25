@@ -135,7 +135,7 @@ public class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
         services.AddBotDiscordAndClients();
 
-        var descriptor = Assert.Single(services, d => d.ServiceType == typeof(FeatureHealthTracker));
+        var descriptor = Assert.Single(services, d => d.ServiceType == typeof(IFeatureHealthTracker));
         Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
     }
 

@@ -14,7 +14,7 @@ public class LeaderboardBackgroundService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly FeatureGate _featureGate;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<LeaderboardBackgroundService> _logger;
@@ -24,7 +24,7 @@ public class LeaderboardBackgroundService : BackgroundService
     public LeaderboardBackgroundService(
         DiscordSocketClient discordClient,
         IServiceScopeFactory scopeFactory,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         FeatureGate featureGate,
         IOptions<Wk7BotOptions> options,
         ILogger<LeaderboardBackgroundService> logger)

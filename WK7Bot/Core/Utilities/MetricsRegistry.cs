@@ -63,7 +63,7 @@ public sealed class MetricsRegistry
     /// </summary>
     /// <param name="health">The feature health tracker whose problem states are exposed as gauges.</param>
     /// <returns>The Prometheus payload.</returns>
-    public string RenderPrometheus(FeatureHealthTracker health)
+    public string RenderPrometheus(IFeatureHealthTracker health)
     {
         var builder = new StringBuilder();
 

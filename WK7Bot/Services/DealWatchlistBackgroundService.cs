@@ -11,7 +11,7 @@ using WK7Bot.Services.Interfaces;
 public class DealWatchlistBackgroundService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly FeatureGate _featureGate;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DealWatchlistBackgroundService> _logger;
@@ -19,7 +19,7 @@ public class DealWatchlistBackgroundService : BackgroundService
     /// <summary>Initializes a new instance of the <see cref="DealWatchlistBackgroundService"/> class.</summary>
     public DealWatchlistBackgroundService(
         IServiceScopeFactory scopeFactory,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         FeatureGate featureGate,
         IOptions<Wk7BotOptions> options,
         ILogger<DealWatchlistBackgroundService> logger)

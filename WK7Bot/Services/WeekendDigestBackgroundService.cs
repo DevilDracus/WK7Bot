@@ -33,7 +33,7 @@ public class WeekendDigestBackgroundService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IWeekendEventSource _eventSource;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<WeekendDigestBackgroundService> _logger;
     private readonly WeekendDigestDispatcher _dispatcher;
@@ -57,7 +57,7 @@ public class WeekendDigestBackgroundService : BackgroundService
         IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IWeekendEventSource eventSource,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<WeekendDigestBackgroundService> logger,
         WeekendDigestDispatcher dispatcher)

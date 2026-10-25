@@ -17,7 +17,7 @@ public class SpontanTreffExpiryService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<SpontanTreffExpiryService> _logger;
 
@@ -32,7 +32,7 @@ public class SpontanTreffExpiryService : BackgroundService
     public SpontanTreffExpiryService(
         IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<SpontanTreffExpiryService> logger)
     {

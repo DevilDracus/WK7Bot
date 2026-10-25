@@ -25,7 +25,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILeipzigWasteService _wasteService;
-    private readonly FeatureHealthTracker _health;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<LeipzigWasteBackgroundService> _logger;
 
@@ -45,7 +45,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
         IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         ILeipzigWasteService wasteService,
-        FeatureHealthTracker health,
+        IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<LeipzigWasteBackgroundService> logger)
     {
