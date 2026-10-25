@@ -56,7 +56,7 @@ public static class ServiceCollectionExtensions
     /// <returns>The service collection instance for method chaining.</returns>
     public static IServiceCollection AddBotDiscordAndClients(this IServiceCollection services)
     {
-        services.AddMemoryCache();
+        services.AddMemoryCache(options => options.SizeLimit = 1024);
         services.AddSingleton<IRandomSource, SystemRandomSource>();
 
         // Single shared instance: the background services record outcomes into it and both the MQTT

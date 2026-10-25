@@ -52,7 +52,7 @@ public sealed class CommandRateLimiter
             return false;
         }
 
-        _cache.Set(key, DateTimeOffset.UtcNow, window);
+        _cache.Set(key, DateTimeOffset.UtcNow, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = window, Size = 1 });
         return true;
     }
 

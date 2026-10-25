@@ -142,7 +142,7 @@ public class LeipzigWasteService : ILeipzigWasteService
                 return null;
             }
 
-            _cache.Set(cacheKey, contentString, IcsCacheTtl);
+            _cache.Set(cacheKey, contentString, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = IcsCacheTtl, Size = 1 });
             return contentString;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)

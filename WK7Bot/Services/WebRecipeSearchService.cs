@@ -327,7 +327,7 @@ public class WebRecipeSearchService : IRecipeSearchService
             _recentRecipeCache.Set(
                 RecentRecipeCacheKey,
                 recent,
-                new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = RecentRecipeLifetime });
+                new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = RecentRecipeLifetime, Size = 1 });
         }
     }
 

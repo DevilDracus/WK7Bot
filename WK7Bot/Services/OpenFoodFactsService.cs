@@ -68,7 +68,7 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
                 return null;
             }
             _logger.LogInformation("Found product '{ProductName}' for query '{Query}'.", product.ProductName, query);
-            _cache.Set(cacheKey, product, CacheLifetime);
+            _cache.Set(cacheKey, product, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = CacheLifetime, Size = 1 });
             return product;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

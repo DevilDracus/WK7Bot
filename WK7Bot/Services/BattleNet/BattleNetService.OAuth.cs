@@ -91,7 +91,7 @@ public partial class BattleNetService
 
             int expiresIn = payload.ExpiresIn > 0 ? payload.ExpiresIn : 3600;
             var cacheTtl = TimeSpan.FromSeconds(Math.Max(60, expiresIn - 300));
-            _cache.Set(cacheKey, payload.AccessToken!, cacheTtl);
+            _cache.Set(cacheKey, payload.AccessToken!, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = cacheTtl, Size = 1 });
 
             _logger.LogDebug("Refreshed Battle.net access token for region {Region} (valid for {Ttl}).", region, cacheTtl);
 

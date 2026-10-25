@@ -223,7 +223,7 @@ public partial class SteamService
             if (achievements == null || achievements.Count == 0)
             {
                 var emptySchema = new Dictionary<string, SchemaAchievementItem>();
-                _cache.Set(cacheKey, emptySchema, TimeSpan.FromHours(24));
+                _cache.Set(cacheKey, emptySchema, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24), Size = 1 });
                 return emptySchema;
             }
 
@@ -234,7 +234,7 @@ public partial class SteamService
                     g => g.First(),
                     StringComparer.OrdinalIgnoreCase);
 
-            _cache.Set(cacheKey, schemaMap, TimeSpan.FromHours(24));
+            _cache.Set(cacheKey, schemaMap, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24), Size = 1 });
             return schemaMap;
         }
         catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
