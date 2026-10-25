@@ -3,6 +3,7 @@ namespace WK7Bot.Services;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Constants;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
@@ -48,7 +49,7 @@ public class AccountLinkService : IAccountLinkService
         await _repository.UpsertAsync(new UserAccountLink
         {
             DiscordUserId = discordUserId,
-            Provider = "steam",
+            Provider = AccountProviders.Steam,
             ExternalId = steamId,
             DisplayName = null,
             WishlistUrl = input.Contains("wishlist", StringComparison.OrdinalIgnoreCase) ? input : null,
@@ -71,7 +72,7 @@ public class AccountLinkService : IAccountLinkService
         await _repository.UpsertAsync(new UserAccountLink
         {
             DiscordUserId = discordUserId,
-            Provider = "battlenet",
+            Provider = AccountProviders.BattleNet,
             ExternalId = battleTag ?? "Battle.net",
             RefreshToken = refreshToken,
             Region = effectiveRegion,
@@ -94,7 +95,7 @@ public class AccountLinkService : IAccountLinkService
         await _repository.UpsertAsync(new UserAccountLink
         {
             DiscordUserId = discordUserId,
-            Provider = "steam",
+            Provider = AccountProviders.Steam,
             ExternalId = steamId,
             WishlistUrl = wishlistUrl,
             LinkedAt = DateTime.UtcNow

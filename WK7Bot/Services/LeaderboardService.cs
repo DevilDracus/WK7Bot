@@ -2,6 +2,7 @@ namespace WK7Bot.Services;
 
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Constants;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Models;
@@ -136,7 +137,7 @@ public class LeaderboardService : ILeaderboardService
 
         foreach (var link in await _linkRepository.GetAllAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (link.Provider == "steam" && !string.IsNullOrWhiteSpace(link.ExternalId))
+            if (link.Provider == AccountProviders.Steam && !string.IsNullOrWhiteSpace(link.ExternalId))
             {
                 result[link.DiscordUserId] = link.ExternalId;
             }
@@ -158,7 +159,7 @@ public class LeaderboardService : ILeaderboardService
 
         foreach (var link in await _linkRepository.GetAllAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (link.Provider == "battlenet" && !string.IsNullOrWhiteSpace(link.RefreshToken))
+            if (link.Provider == AccountProviders.BattleNet && !string.IsNullOrWhiteSpace(link.RefreshToken))
             {
                 result[link.DiscordUserId] = link.RefreshToken!;
             }

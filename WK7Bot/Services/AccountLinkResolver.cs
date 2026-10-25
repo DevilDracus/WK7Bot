@@ -1,6 +1,7 @@
 namespace WK7Bot.Services;
 
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Constants;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
@@ -37,7 +38,7 @@ public class AccountLinkResolver : IAccountLinkResolver
 
         foreach (var link in await _repository.GetAllAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (link.Provider == "steam" && !string.IsNullOrWhiteSpace(link.ExternalId))
+            if (link.Provider == AccountProviders.Steam && !string.IsNullOrWhiteSpace(link.ExternalId))
             {
                 merged[link.DiscordUserId] = (link.ExternalId, link.WishlistUrl);
             }
@@ -67,7 +68,7 @@ public class AccountLinkResolver : IAccountLinkResolver
 
         foreach (var link in await _repository.GetAllAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (link.Provider == "battlenet" && !string.IsNullOrWhiteSpace(link.RefreshToken))
+            if (link.Provider == AccountProviders.BattleNet && !string.IsNullOrWhiteSpace(link.RefreshToken))
             {
                 merged[link.DiscordUserId] = new BattleNetAccountLink(link.DiscordUserId, link.RefreshToken!, link.Region, link.ExternalId);
             }
@@ -79,7 +80,7 @@ public class AccountLinkResolver : IAccountLinkResolver
     /// <inheritdoc />
     public async Task<string?> GetSteamIdAsync(ulong discordUserId, CancellationToken cancellationToken = default)
     {
-        var link = await _repository.GetAsync(discordUserId, "steam", cancellationToken).ConfigureAwait(false);
+        var link = await _repository.GetAsync(discordUserId, AccountProviders.Steam, cancellationToken).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(link?.ExternalId))
         {
             return link!.ExternalId;
@@ -93,7 +94,7 @@ public class AccountLinkResolver : IAccountLinkResolver
     /// <inheritdoc />
     public async Task<BattleNetAccountLink?> GetBattleNetLinkAsync(ulong discordUserId, CancellationToken cancellationToken = default)
     {
-        var link = await _repository.GetAsync(discordUserId, "battlenet", cancellationToken).ConfigureAwait(false);
+        var link = await _repository.GetAsync(discordUserId, AccountProviders.BattleNet, cancellationToken).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(link?.RefreshToken))
         {
             return new BattleNetAccountLink(link!.DiscordUserId, link.RefreshToken!, link.Region, link.ExternalId);
