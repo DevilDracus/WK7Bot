@@ -475,12 +475,21 @@ public class WebRecipeSearchService : IRecipeSearchService
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
-            request.Headers.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-            request.Headers.TryAddWithoutValidation("Accept-Language", "de-DE,de;q=0.9,en;q=0.8");
-
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await HttpRetry.ExecuteAsync(
+                async () =>
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, url);
+                    req.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
+                    req.Headers.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                    req.Headers.TryAddWithoutValidation("Accept-Language", "de-DE,de;q=0.9,en;q=0.8");
+                    return await _httpClient.SendAsync(req, cancellationToken);
+                },
+                3,
+                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                null,
+                null,
+                cancellationToken);
             if (response.StatusCode != HttpStatusCode.OK)
             {
                 _logger.LogWarning("Recipe lookup request to {Url} failed with status {StatusCode}.", url, response.StatusCode);
