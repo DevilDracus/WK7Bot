@@ -23,7 +23,7 @@ public class GeminiFoodService : IGeminiFoodService
     private readonly HttpClient _httpClient;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<GeminiFoodService> _logger;
-    private readonly GeminiCircuitBreaker _circuitBreaker;
+    private readonly ICircuitBreaker _circuitBreaker;
 
     /// <summary>
     /// Primary Gemini model used for structured output generation.
@@ -82,7 +82,7 @@ public class GeminiFoodService : IGeminiFoodService
         HttpClient httpClient,
         IOptions<Wk7BotOptions> options,
         ILogger<GeminiFoodService> logger,
-        GeminiCircuitBreaker circuitBreaker)
+        ICircuitBreaker circuitBreaker)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         // Typed HTTP client timeout is configured centrally in ServiceCollectionExtensions.

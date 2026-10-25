@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 /// immediately. This prevents the food publisher from burning through retry budgets when
 /// Gemini is unavailable.
 /// </summary>
-public sealed class GeminiCircuitBreaker
+public sealed class GeminiCircuitBreaker : ICircuitBreaker
 {
     private readonly ILogger<GeminiCircuitBreaker> _logger;
     private readonly Func<DateTime> _utcNow;

@@ -102,7 +102,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IGeminiFoodService, GeminiFoodService>(client => client.Timeout = TimeSpan.FromSeconds(30));
 
         // Gemini circuit breaker — prevents hammering Gemini when unavailable.
-        services.AddSingleton<GeminiCircuitBreaker>();
+        services.AddSingleton<ICircuitBreaker, GeminiCircuitBreaker>();
 
         // External dependency health checker for /health command.
         services.AddHttpClient<IExternalDependencyHealthChecker, ExternalDependencyHealthChecker>(client => client.Timeout = TimeSpan.FromSeconds(10));
