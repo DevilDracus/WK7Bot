@@ -128,7 +128,14 @@ public class LeipzigWasteService : ILeipzigWasteService
 
         try
         {
-            using var response = await _httpClient.GetAsync(feedUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var response = await HttpRetry.ExecuteAsync(
+                () => _httpClient.GetAsync(feedUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+                3,
+                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                null,
+                null,
+                cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var contentString = await response.Content.ReadAsStringAsync(cancellationToken);
