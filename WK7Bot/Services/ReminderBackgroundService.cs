@@ -119,7 +119,7 @@ public class ReminderBackgroundService : BackgroundService
                     }
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex, "Could not deliver reminder {ReminderId}.", reminder.Id);
             }

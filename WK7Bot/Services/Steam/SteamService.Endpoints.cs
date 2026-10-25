@@ -242,7 +242,7 @@ public partial class SteamService
             _logger.LogWarning(ex, "Failed to retrieve game schema for AppId {AppId}; Steam schema may be slow or unavailable", appId);
             return new Dictionary<string, SchemaAchievementItem>();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Failed to retrieve game schema for AppId {AppId}. Schema is not cached.", appId);
             return new Dictionary<string, SchemaAchievementItem>();

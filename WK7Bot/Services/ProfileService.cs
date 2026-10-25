@@ -66,7 +66,7 @@ public class ProfileService : IProfileService
         {
             data = await _steamService.GetSteamUserDataAsync(steamId, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Could not fetch Steam profile data for Discord user {DiscordUserId}.", discordUserId);
             return null;
@@ -114,7 +114,7 @@ public class ProfileService : IProfileService
         {
             data = await _battleNetService.GetBattleNetUserDataAsync(link.RefreshToken, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Could not fetch Battle.net profile data for Discord user {DiscordUserId}.", discordUserId);
             return null;

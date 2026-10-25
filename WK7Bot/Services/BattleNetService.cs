@@ -179,7 +179,7 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
             _logger.LogWarning(ex, "Battle.net data retrieval timed out after the configured HTTP timeout.");
             return null;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while fetching Battle.net data.");
             return null;

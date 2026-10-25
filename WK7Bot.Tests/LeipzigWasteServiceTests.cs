@@ -219,7 +219,9 @@ public class LeipzigWasteServiceTests
         var service = CreateService(new StubHttpMessageHandler(_ =>
         {
             calls++;
-            return calls == 1
+            // HttpRetry.ExecuteAsync retries 3 times on 500, so first 4 calls (1 initial + 3 retries) should fail
+            // The 5th call (second GetWasteTypesForDateAsync call) should succeed
+            return calls <= 4
                 ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
                 : Text(ics);
         }));
@@ -227,7 +229,7 @@ public class LeipzigWasteServiceTests
         var failed = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 20));
         var retried = await service.GetWasteTypesForDateAsync(new DateTime(2026, 9, 20));
 
-        Assert.Equal(2, calls);
+        Assert.Equal(5, calls);
         Assert.Empty(failed);
         Assert.Single(retried);
     }

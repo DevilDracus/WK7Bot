@@ -115,7 +115,7 @@ public class SpontanTreffExpiryService : BackgroundService
                 var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, responses, now);
                 await EditMeetupMessageAsync(meetup, embed, components);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 allClean = false;
                 _logger.LogWarning(ex, "Could not update the closed Spontan-Treff message {MeetupId}.", meetup.Id);

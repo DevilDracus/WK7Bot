@@ -162,7 +162,7 @@ public class AccountLinkService : IAccountLinkService
                 return id.GetString();
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Steam vanity resolution failed for {Vanity}.", vanity);
         }

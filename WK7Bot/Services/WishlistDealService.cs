@@ -152,7 +152,7 @@ public sealed class WishlistDealService : IWishlistDealService
                 var lookup = await response.Content.ReadFromJsonAsync<ItadLookupResponse>(cancellationToken: cancellationToken);
                 return (appId: appId, itadId: lookup?.Game?.Id);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogDebug(ex, "ITAD lookup failed for Steam app {AppId}.", appId);
                 return (appId: appId, itadId: (string?)null);

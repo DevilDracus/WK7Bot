@@ -32,5 +32,5 @@ public abstract class BotModuleBase : InteractionModuleBase<SocketInteractionCon
     /// <param name="ex">The exception to check.</param>
     /// <returns><see langword="true"/> when the exception is a cancellation or transient error.</returns>
     protected static bool IsTransientOrCancellation(Exception ex) =>
-        ex is not OperationCanceledException || ex is TaskCanceledException;
+        ex is not OperationCanceledException;
 }

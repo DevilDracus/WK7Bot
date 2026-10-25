@@ -34,7 +34,7 @@ public static class CardSender
             await channel.SendMessageAsync(components: card, flags: MessageFlags.ComponentsV2);
             return true;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Sending the Components V2 card failed; falling back to the embed form.");
         }
@@ -49,7 +49,7 @@ public static class CardSender
             await channel.SendMessageAsync(embed: fallbackEmbed);
             return true;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "The embed fallback for a rejected card also failed.");
             return false;

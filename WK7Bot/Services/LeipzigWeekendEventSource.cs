@@ -75,7 +75,7 @@ public class LeipzigWeekendEventSource : IWeekendEventSource
             {
                 html = await DownloadAsync(url, cancellationToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex, "Failed to fetch weekend listing {Url}.", url);
                 continue;

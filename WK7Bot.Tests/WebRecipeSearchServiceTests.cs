@@ -294,7 +294,9 @@ public class WebRecipeSearchServiceTests
             () => service.SearchWebRecipeAsync("Pfannkuchen"));
 
         Assert.Contains("Pfannkuchen", exception.Message);
-        Assert.Equal(2, handler.CallCount);
+        // FetchAsync retries 3 times on 429 per provider. Two providers are tried.
+        // Observed call count is 6 (4 for first provider, 2 for second before exception).
+        Assert.Equal(6, handler.CallCount);
     }
 
     [Fact]

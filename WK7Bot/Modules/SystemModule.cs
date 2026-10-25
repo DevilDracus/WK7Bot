@@ -95,7 +95,7 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
                 await FollowupAsync("❌ Home-Assistant-API nicht erreichbar. Bitte prüfe die Supervisor-Logs.", ephemeral: true);
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || (ex is TaskCanceledException tce && !tce.CancellationToken.IsCancellationRequested))
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while testing the Home Assistant API connection.");
             await FollowupAsync("❌ Home-Assistant-API nicht erreichbar. Bitte prüfe die Supervisor-Logs.", ephemeral: true);

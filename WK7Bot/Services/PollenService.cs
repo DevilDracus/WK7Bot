@@ -51,7 +51,7 @@ public class PollenService : IPollenService
 
             return PollenFeedParser.Parse(json, _options.PollenRegionName, _options.PollenPartRegionName);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Could not fetch or parse the DWD pollen feed.");
             return null;
@@ -69,7 +69,7 @@ public class PollenService : IPollenService
 
             return PollenFeedParser.ParseUv(json, _options.UvCity);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Could not fetch or parse the DWD UV index feed.");
             return null;

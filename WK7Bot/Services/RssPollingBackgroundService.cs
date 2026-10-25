@@ -238,7 +238,7 @@ public class RssPollingBackgroundService : BackgroundService
                 feed.LastItemGuid = item.Id;
                 feed.LastPublishedDate = item.PublishingDate;
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // Stop the batch without advancing past this item, so the failed item and every
                 // item after it are retried on the next cycle instead of being dropped.

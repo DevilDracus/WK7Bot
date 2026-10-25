@@ -341,4 +341,79 @@ public class GeminiFoodService : IGeminiFoodService
         }
 
     }
+
+    /// <summary>
+    /// Builds the request payload for the Gemini structured output API.
+    /// </summary>
+    private static JsonObject BuildGeminiRequestPayload(string prompt, JsonObject jsonSchema)
+    {
+        // Deep clone jsonSchema to avoid "node already has a parent" when reused across calls
+        var schemaClone = JsonSerializer.Deserialize<JsonObject>(JsonSerializer.Serialize(jsonSchema))!;
+
+        var payload = new JsonObject
+        {
+            ["contents"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["parts"] = new JsonArray
+                    {
+                        new JsonObject { ["text"] = prompt }
+                    }
+                }
+            },
+            ["generationConfig"] = new JsonObject
+            {
+                ["responseMimeType"] = "application/json",
+                ["responseJsonSchema"] = schemaClone,
+                ["temperature"] = 0.1,
+                ["topP"] = 0.8,
+                ["topK"] = 40,
+                ["maxOutputTokens"] = 8192
+            }
+        };
+        return payload;
+    }
+
+    /// <summary>
+    /// Parses the Gemini API response into the target response type.
+    /// </summary>
+    private static TResponse? ParseGeminiResponse<TResponse>(string responseJson) where TResponse : class
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(responseJson);
+            var root = document.RootElement;
+
+            // Gemini structured output returns candidates[0].content.parts[0].text as JSON string
+            if (root.TryGetProperty("candidates", out var candidates) &&
+                candidates.ValueKind == JsonValueKind.Array &&
+                candidates.GetArrayLength() > 0)
+            {
+                var candidate = candidates[0];
+                if (candidate.TryGetProperty("content", out var content) &&
+                    content.TryGetProperty("parts", out var parts) &&
+                    parts.ValueKind == JsonValueKind.Array &&
+                    parts.GetArrayLength() > 0)
+                {
+                    var part = parts[0];
+                    if (part.TryGetProperty("text", out var textElement) &&
+                        textElement.ValueKind == JsonValueKind.String)
+                    {
+                        var jsonText = textElement.GetString();
+                        if (!string.IsNullOrWhiteSpace(jsonText))
+                        {
+                            return JsonSerializer.Deserialize<TResponse>(jsonText, StructuredAnswerOptions);
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 }

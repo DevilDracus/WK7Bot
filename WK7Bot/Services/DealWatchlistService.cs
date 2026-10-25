@@ -145,7 +145,7 @@ public class DealWatchlistService : IDealWatchlistService
                 await _repository.UpdatePriceAsync(item.Id, price.CurrentPrice, price.DiscountPercent, DateTime.UtcNow, cancellationToken).ConfigureAwait(false);
                 alerts++;
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex, "Could not send deal watch alert to user {UserId}.", item.DiscordUserId);
             }
@@ -192,7 +192,7 @@ public class DealWatchlistService : IDealWatchlistService
 
             return (id.GetUInt32(), name.GetString() ?? gameName);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Steam store search failed for {Game}.", gameName);
             return null;

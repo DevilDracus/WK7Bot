@@ -85,7 +85,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("Home Assistant", false, "Keine Antwort vom Supervisor", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             sw.Stop();
             _logger.LogDebug(ex, "Home Assistant health check failed.");
@@ -117,7 +117,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("DWD Wetterwarnungen", false, $"HTTP {(int)response.StatusCode}", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             sw.Stop();
             _logger.LogDebug(ex, "DWD health check failed.");
@@ -149,7 +149,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("Steam", false, $"HTTP {(int)response.StatusCode}", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             sw.Stop();
             _logger.LogDebug(ex, "Steam health check failed.");
@@ -191,7 +191,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("Open Food Facts", false, $"HTTP {(int)response.StatusCode}", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             sw.Stop();
             _logger.LogDebug(ex, "Open Food Facts health check failed.");
@@ -223,7 +223,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             return new DependencyHealthStatus("IsThereAnyDeal", false, $"HTTP {(int)response.StatusCode}", sw.Elapsed);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             sw.Stop();
             _logger.LogDebug(ex, "IsThereAnyDeal health check failed.");

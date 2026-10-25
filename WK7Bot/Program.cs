@@ -76,7 +76,7 @@ var app = builder.Build();
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("==== WK7 Bot v{Version} starting at {Timestamp:yyyy-MM-dd HH:mm:ss} ====", AppInformation.Version, DateTime.UtcNow);
 
-await app.InitializeDatabaseAsync();
+await app.InitializeDatabaseAsync(CancellationToken.None);
 
 app.MapGet("/health", () => Results.Ok("WK7 Bot is healthy."));
 
