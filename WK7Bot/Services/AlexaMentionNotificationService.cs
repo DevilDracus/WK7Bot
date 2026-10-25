@@ -12,6 +12,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
 
 /// <summary>
@@ -145,21 +146,28 @@ public class AlexaMentionNotificationService : IHostedService
             return;
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
-
-        var cleanToken = apiToken.Trim();
-        var cleanSecret = apiSecret.Trim();
-
-        var authBytes = Encoding.UTF8.GetBytes($"{cleanToken}:{cleanSecret}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
-
-        var payload = new { message = notificationText };
-        var json = JsonSerializer.Serialize(payload);
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
         try
         {
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await HttpRetry.ExecuteAsync(
+                async () =>
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
+                    var cleanToken = apiToken.Trim();
+                    var cleanSecret = apiSecret.Trim();
+                    var authBytes = Encoding.UTF8.GetBytes($"{cleanToken}:{cleanSecret}");
+                    req.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
+                    var payload = new { message = notificationText };
+                    var json = JsonSerializer.Serialize(payload);
+                    req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                    return await _httpClient.SendAsync(req, cancellationToken);
+                },
+                3,
+                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                null,
+                null,
+                cancellationToken);
+
             response.EnsureSuccessStatusCode();
 
             _logger.LogInformation("Successfully dispatched persistent notification to getnotify.me API.");
