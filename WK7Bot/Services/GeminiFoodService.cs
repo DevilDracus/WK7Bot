@@ -1,6 +1,7 @@
 namespace WK7Bot.Services;
 
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -290,81 +291,56 @@ public class GeminiFoodService : IGeminiFoodService
 
         var requestPayload = BuildGeminiRequestPayload(prompt, jsonSchema);
 
-        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        // Propagate cancellation immediately if the token is already cancelled.
+        cancellationToken.ThrowIfCancellationRequested();
+
+        HttpResponseMessage response;
+        try
         {
-            try
-            {
-                string jsonPayload = JsonSerializer.Serialize(requestPayload);
-                using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
-                using var response = await _httpClient.PostAsync(requestUrl, content, cancellationToken).ConfigureAwait(false);
-
-                if (response.IsSuccessStatusCode)
+            response = await HttpRetry.ExecuteAsync(
+                async () =>
                 {
-                    string responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    var parsed = ParseGeminiResponse<TResponse>(responseJson);
-                    if (parsed is not null)
-                    {
-                        return parsed;
-                    }
-                    break;
-                }
-
-                int statusCode = (int)response.StatusCode;
-                string errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-
-                // Retry on transient server failures (5xx) or rate limiting (429)
-                if ((statusCode >= 500 || statusCode == 429) && attempt < maxRetries)
-                {
-                    _logger.LogWarning(
-                        "Gemini API returned status {StatusCode} for model {Model}. Retrying attempt {Attempt}/{Max} in {Delay}ms...",
-                        statusCode, modelName, attempt, maxRetries, delayMs);
-
-                    await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
-                    delayMs *= 2; // Exponential backoff
-
-                    // Add a longer wait on 503 Service Unavailable to give the server breathing room.
-                    if (statusCode == 503)
-                    {
-                        _logger.LogWarning(
-                            "Gemini API reports high demand (503). Adding extra {ExtraDelay}s delay before retry.",
-                            ServiceUnavailableExtraDelay.TotalSeconds);
-                        await Task.Delay(ServiceUnavailableExtraDelay, cancellationToken).ConfigureAwait(false);
-                    }
-
-                    continue;
-                }
-
-                _logger.LogError(
-                    "Gemini API call to model {Model} failed with status code {StatusCode}: {ErrorBody}",
-                    modelName, response.StatusCode, errorBody);
-                break;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex) when (IsTransient(ex) && attempt < maxRetries)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Gemini request for model {Model} encountered transient failure on attempt {Attempt}/{Max}: {Message}. Retrying in {Delay}ms...",
-                    modelName, attempt, maxRetries, ex.Message, delayMs);
-
-                await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
-                delayMs *= 2; // Exponential backoff
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Gemini request for model {Model} failed after {MaxRetries} attempts: {Message}",
-                    modelName, maxRetries, ex.Message);
-                break;
-            }
+                    string jsonPayload = JsonSerializer.Serialize(requestPayload);
+                    using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+                    return await _httpClient.PostAsync(requestUrl, content, cancellationToken).ConfigureAwait(false);
+                },
+                maxRetries,
+                r => (int)r.StatusCode >= 500 || r.StatusCode == HttpStatusCode.TooManyRequests,
+                attempt => TimeSpan.FromMilliseconds(delayMs * (1 << (attempt - 1))),
+                r => r.StatusCode == HttpStatusCode.ServiceUnavailable ? ServiceUnavailableExtraDelay : TimeSpan.Zero,
+                ex => IsTransient(ex),
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Gemini request for model {Model} failed: {Message}", modelName, ex.Message);
+            return null;
         }
 
-        return default;
+        if (response.IsSuccessStatusCode)
+        {
+            string responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var parsed = ParseGeminiResponse<TResponse>(responseJson);
+            if (parsed is not null)
+            {
+                return parsed;
+            }
+            return null;
+        }
+
+        int statusCode = (int)response.StatusCode;
+        string errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+        _logger.LogError(
+            "Gemini API call to model {Model} failed with status code {StatusCode}: {ErrorBody}",
+            modelName, response.StatusCode, errorBody);
+
+        return null;
+
     }
 
     /// <summary>
