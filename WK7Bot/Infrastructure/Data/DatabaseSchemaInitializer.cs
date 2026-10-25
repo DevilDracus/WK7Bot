@@ -72,7 +72,6 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql);
         await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql);
         await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql);
-        await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNormalizedNameIndexSql);
 
         // Late-added columns: CREATE TABLE IF NOT EXISTS never alters an existing table, and
         // EnsureCreated does nothing on databases that already exist, so older deployments need
@@ -85,6 +84,9 @@ public static class DatabaseSchemaInitializer
         await AddColumnIfMissingAsync(connection, "RssFeeds", "RefreshIntervalMinutes", "INTEGER NOT NULL DEFAULT 15");
         await AddColumnIfMissingAsync(connection, "RssFeeds", "IsPaused", "INTEGER NOT NULL DEFAULT 0");
         await AddColumnIfMissingAsync(connection, "RssFeeds", "NormalizedName", "TEXT NOT NULL DEFAULT ''");
+
+        // Index on NormalizedName must run AFTER the column is added (see line above).
+        await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNormalizedNameIndexSql);
     }
 
     /// <summary>

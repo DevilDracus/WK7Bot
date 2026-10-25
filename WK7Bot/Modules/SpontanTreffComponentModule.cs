@@ -115,7 +115,7 @@ public class SpontanTreffComponentModule : InteractionModuleBase<SocketInteracti
             {
                 await EditMeetupMessageAsync(meetup, embed, components);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || (ex is TaskCanceledException tce && !tce.CancellationToken.IsCancellationRequested))
             {
                 // The answer is already persisted — a deleted or inaccessible message must not
                 // surface as a fake "save failed" error to the clicking user.
@@ -124,7 +124,7 @@ public class SpontanTreffComponentModule : InteractionModuleBase<SocketInteracti
 
             await FollowupAsync(confirmation, ephemeral: true);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || (ex is TaskCanceledException tce && !tce.CancellationToken.IsCancellationRequested))
         {
             _logger.LogError(ex, "Error occurred while handling a Spontan-Treff button interaction.");
             await FollowupAsync("❌ Deine Antwort konnte nicht gespeichert werden.", ephemeral: true);

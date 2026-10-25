@@ -96,7 +96,7 @@ public class RssComponentModule : InteractionModuleBase<SocketInteractionContext
         {
             await FollowupAsync("❌ Die Rollen konnten nicht aktualisiert werden: Dem Bot fehlt die Berechtigung oder seine Rolle steht in der Hierarchie unter den RSS-Rollen. Bitte verschiebe die Bot-Rolle über die RSS-Rollen (Servereinstellungen > Rollen).", ephemeral: true);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || (ex is TaskCanceledException tce && !tce.CancellationToken.IsCancellationRequested))
         {
             // Component failures must reach the error pipeline, not just the clicking user.
             _logger.LogError(ex, "Error occurred while handling an RSS subscription select-menu interaction.");

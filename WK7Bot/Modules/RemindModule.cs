@@ -77,7 +77,7 @@ public class RemindModule : InteractionModuleBase<SocketInteractionContext>
         {
             await _repository.AddAsync(reminder);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || (ex is TaskCanceledException tce && !tce.CancellationToken.IsCancellationRequested))
         {
             _logger.LogError(ex, "Could not store a reminder for user {UserId}.", Context.User.Id);
             await FollowupAsync("❌ Die Erinnerung konnte nicht gespeichert werden.", ephemeral: true);
