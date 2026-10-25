@@ -7,91 +7,42 @@ namespace WK7Bot.Infrastructure.Data;
 /// <summary>
 /// Entity Framework Core implementation of the DWD warning dispatch state data access contract.
 /// </summary>
-public class WarningDispatchRepository : IWarningDispatchRepository
+public class WarningDispatchRepository : DispatchRepositoryBase<WarningDispatchLog>, IWarningDispatchRepository
 {
-    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="WarningDispatchRepository" /> class.
     /// </summary>
     /// <param name="dbContextFactory">The database context factory.</param>
     public WarningDispatchRepository(IDbContextFactory<BotDbContext> dbContextFactory)
+        : base(dbContextFactory)
     {
-        _dbContextFactory = dbContextFactory;
     }
 
-    /// <summary>
-    /// Determines whether the warning with the given identifier was already posted to a guild.
-    /// </summary>
-    /// <param name="warningId">The stable CAP warning identifier.</param>
-    /// <param name="guildId">The target Discord guild ID.</param>
-    /// <param name="cancellationToken">Cancellation token to observe.</param>
-    /// <returns><see langword="true" /> when the warning was already posted; otherwise, <see langword="false" />.</returns>
+    /// <inheritdoc />
+    protected override DbSet<WarningDispatchLog> GetDbSet(BotDbContext context) => context.WarningDispatchLogs;
+
+    /// <inheritdoc />
     public async Task<bool> HasSentAsync(string warningId, ulong guildId, CancellationToken cancellationToken = default)
     {
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await context.WarningDispatchLogs
-            .AsNoTracking()
-            .AnyAsync(
-                log => log.WarningId == warningId && log.GuildId == guildId,
-                cancellationToken);
+        return await HasSentAsyncCore(
+            log => log.WarningId == warningId && log.GuildId == guildId,
+            cancellationToken);
     }
 
-    /// <summary>
-    /// Records that the warning with the given identifier was posted to a guild. Idempotent.
-    /// </summary>
-    /// <param name="warningId">The stable CAP warning identifier.</param>
-    /// <param name="guildId">The target Discord guild ID.</param>
-    /// <param name="sentAt">The local time the message was sent.</param>
-    /// <param name="cancellationToken">Cancellation token to observe.</param>
-    /// <returns>A task representing the asynchronous cleanup operation.</returns>
+    /// <inheritdoc />
     public async Task MarkSentAsync(string warningId, ulong guildId, DateTime sentAt, CancellationToken cancellationToken = default)
     {
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var alreadySent = await context.WarningDispatchLogs
-            .AnyAsync(
-                log => log.WarningId == warningId && log.GuildId == guildId,
-                cancellationToken);
-
-        if (alreadySent)
-        {
-            return;
-        }
-
-        var log = new WarningDispatchLog { WarningId = warningId, GuildId = guildId, SentAt = sentAt };
-        await context.WarningDispatchLogs.AddAsync(log, cancellationToken);
-
-        try
-        {
-            await context.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (DatabaseWriteGuard.IsUniqueConstraintViolation(ex))
-        {
-            // Lost the race against a concurrent dispatcher — the row already exists, which is the
-            // desired state. Detach the failed insert so the shared context stays usable.
-            context.Entry(log).State = EntityState.Detached;
-        }
+        await MarkSentAsyncCore(
+            log => log.WarningId == warningId && log.GuildId == guildId,
+            () => new WarningDispatchLog { WarningId = warningId, GuildId = guildId, SentAt = sentAt },
+            cancellationToken);
     }
 
-    /// <summary>
-    /// Removes dispatch records older than the given cutoff so the table does not grow forever.
-    /// </summary>
-    /// <param name="cutoff">Records strictly older than this instant are deleted.</param>
-    /// <param name="cancellationToken">Cancellation token to observe.</param>
-    /// <returns>A task representing the asynchronous cleanup operation.</returns>
+    /// <inheritdoc />
     public async Task PruneAsync(DateTime cutoff, CancellationToken cancellationToken = default)
     {
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var stale = await context.WarningDispatchLogs
-            .Where(log => log.SentAt < cutoff)
-            .ToListAsync(cancellationToken);
-
-        if (stale.Count == 0)
-        {
-            return;
-        }
-
-        context.WarningDispatchLogs.RemoveRange(stale);
-        await context.SaveChangesAsync(cancellationToken);
+        await PruneAsyncCore(
+            log => log.SentAt < cutoff,
+            cancellationToken);
     }
 }
