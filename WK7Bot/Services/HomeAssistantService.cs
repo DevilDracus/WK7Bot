@@ -51,16 +51,23 @@ public class HomeAssistantService : IHomeAssistantService
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            // The authorization header is attached per request: that keeps the Supervisor credential
-            // out of any client state and mirrors how the other typed clients are configured.
-            using var request = new HttpRequestMessage(HttpMethod.Get, BuildRequestUri(endpoint));
+            using var response = await HttpRetry.ExecuteAsync(
+                async () =>
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, BuildRequestUri(endpoint));
+                    if (!string.IsNullOrEmpty(_supervisorToken))
+                    {
+                        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supervisorToken);
+                    }
+                    return await _httpClient.SendAsync(req, cancellationToken);
+                },
+                3,
+                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                null,
+                null,
+                cancellationToken);
 
-            if (!string.IsNullOrEmpty(_supervisorToken))
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supervisorToken);
-            }
-
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 

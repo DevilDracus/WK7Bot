@@ -44,9 +44,8 @@ public class RssRepository : IRssRepository
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         // SQLite's lower() (like COLLATE NOCASE) is ASCII-only, so names containing umlauts or ß
-        // would never match; the feed table holds a handful of rows, so compare in memory with
-        // ordinal semantics instead. AsNoTracking keeps this consistent with GetAllFeedsAsync —
-        // tracking the result here would collide with entities the caller loaded from that method.
+        // would never match at the database level. Use a case-insensitive in-memory comparison
+        // over the small feed table instead. AsNoTracking keeps this consistent with GetAllFeedsAsync.
         var feeds = await context.RssFeeds.AsNoTracking().ToListAsync(cancellationToken);
         return feeds.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
     }
