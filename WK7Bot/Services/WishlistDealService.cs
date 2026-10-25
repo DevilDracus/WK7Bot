@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
@@ -271,27 +272,14 @@ public sealed class WishlistDealService : IWishlistDealService
     {
         ArgumentNullException.ThrowIfNull(sendFactory);
 
-        for (int attempt = 1; attempt <= MaxAttempts; attempt++)
-        {
-            var response = await sendFactory();
-            if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Forbidden)
-            {
-                return response;
-            }
-
-            if (attempt < MaxAttempts)
-            {
-                response.Dispose();
-                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
-                continue;
-            }
-            else
-            {
-                return response;
-            }
-        }
-
-        return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        return await HttpRetry.ExecuteAsync(
+            sendFactory,
+            MaxAttempts,
+            response => !response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.Forbidden,
+            attempt => TimeSpan.FromSeconds(attempt),
+            null,
+            null,
+            cancellationToken);
     }
 }
 

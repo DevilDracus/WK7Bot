@@ -78,24 +78,14 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
         ArgumentNullException.ThrowIfNull(sendFactory);
 
         var stopwatch = Stopwatch.StartNew();
-        var response = await SendThrottledAsync(sendFactory, cancellationToken);
-
-        for (var attempt = 1; attempt < MaxAttempts && IsTransientFailure(response); attempt++)
-        {
-            response.Dispose();
-
-            var delay = TimeSpan.FromMilliseconds(RetryDelay.TotalMilliseconds * attempt);
-            Logger.LogWarning(
-                "{ServiceName} API {Operation} returned a transient failure (attempt {Attempt}/{MaxAttempts}); retrying after {Delay}.",
-                ServiceName,
-                operationName,
-                attempt,
-                MaxAttempts,
-                delay);
-
-            await Task.Delay(delay, cancellationToken);
-            response = await SendThrottledAsync(sendFactory, cancellationToken);
-        }
+        var response = await HttpRetry.ExecuteAsync(
+            () => SendThrottledAsync(sendFactory, cancellationToken),
+            MaxAttempts,
+            IsTransientFailure,
+            attempt => TimeSpan.FromMilliseconds(RetryDelay.TotalMilliseconds * attempt),
+            null,
+            null,
+            cancellationToken);
 
         if (IsTransientFailure(response))
         {
