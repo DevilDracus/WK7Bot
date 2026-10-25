@@ -120,11 +120,21 @@ public class LeipzigWeekendEventSource : IWeekendEventSource
     /// <returns>The raw HTML content.</returns>
     private async Task<string> DownloadAsync(string url, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.UserAgent.ParseAdd(UserAgent);
-        request.Headers.Accept.ParseAdd("text/html");
+        using var response = await HttpRetry.ExecuteAsync(
+            async () =>
+            {
+                var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.UserAgent.ParseAdd(UserAgent);
+                req.Headers.Accept.ParseAdd("text/html");
+                return await _httpClient.SendAsync(req, cancellationToken);
+            },
+            3,
+            r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+            attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+            null,
+            null,
+            cancellationToken);
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken);
     }
