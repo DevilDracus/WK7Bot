@@ -13,6 +13,9 @@ public interface IAccountLinkResolver
     /// <summary>Returns all effective Battle.net links.</summary>
     Task<IReadOnlyList<BattleNetAccountLink>> GetBattleNetLinksAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Returns all effective account links (Steam + Battle.net) in a single database round-trip.</summary>
+    Task<(IReadOnlyList<SteamAccountLink> Steam, IReadOnlyList<BattleNetAccountLink> BattleNet)> GetAllLinksAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Returns the effective Steam ID for one Discord user, or <see langword="null"/>.</summary>
     Task<string?> GetSteamIdAsync(ulong discordUserId, CancellationToken cancellationToken = default);
 

@@ -77,6 +77,46 @@ public class AccountLinkResolver : IAccountLinkResolver
         return merged.Values.ToList();
     }
 
+    public async Task<(IReadOnlyList<SteamAccountLink> Steam, IReadOnlyList<BattleNetAccountLink> BattleNet)> GetAllLinksAsync(CancellationToken cancellationToken = default)
+    {
+        var allLinks = await _repository.GetAllAsync(cancellationToken).ConfigureAwait(false);
+
+        var steamMerged = new Dictionary<ulong, (string SteamId, string? WishlistUrl)>();
+        foreach (var mapping in _options.Value.DiscordSteamMappings)
+        {
+            if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.SteamId))
+            {
+                steamMerged[id] = (mapping.SteamId, null);
+            }
+        }
+
+        var battleNetMerged = new Dictionary<ulong, BattleNetAccountLink>();
+        foreach (var mapping in _options.Value.DiscordBattleNetMappings)
+        {
+            if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.RefreshToken))
+            {
+                battleNetMerged[id] = new BattleNetAccountLink(id, mapping.RefreshToken, mapping.Region, mapping.BattleTag);
+            }
+        }
+
+        foreach (var link in allLinks)
+        {
+            if (link.Provider == AccountProviders.Steam && !string.IsNullOrWhiteSpace(link.ExternalId))
+            {
+                steamMerged[link.DiscordUserId] = (link.ExternalId, link.WishlistUrl);
+            }
+            else if (link.Provider == AccountProviders.BattleNet && !string.IsNullOrWhiteSpace(link.RefreshToken))
+            {
+                battleNetMerged[link.DiscordUserId] = new BattleNetAccountLink(link.DiscordUserId, link.RefreshToken!, link.Region, link.ExternalId);
+            }
+        }
+
+        var steamResult = steamMerged.Select(kv => new SteamAccountLink(kv.Key, kv.Value.SteamId, kv.Value.WishlistUrl)).ToList();
+        var battleNetResult = battleNetMerged.Values.ToList();
+
+        return (steamResult, battleNetResult);
+    }
+
     /// <inheritdoc />
     public async Task<string?> GetSteamIdAsync(ulong discordUserId, CancellationToken cancellationToken = default)
     {

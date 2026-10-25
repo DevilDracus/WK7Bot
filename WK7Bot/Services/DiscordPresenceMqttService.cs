@@ -179,14 +179,14 @@ public class DiscordPresenceMqttService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var resolver = scope.ServiceProvider.GetRequiredService<IAccountLinkResolver>();
 
-        var steamLinks = await resolver.GetSteamLinksAsync(cancellationToken);
+        var (steamLinks, battleNetLinks) = await resolver.GetAllLinksAsync(cancellationToken);
+
         _steamLinks.Clear();
         foreach (var link in steamLinks)
         {
             _steamLinks[link.DiscordUserId] = link.SteamId;
         }
 
-        var battleNetLinks = await resolver.GetBattleNetLinksAsync(cancellationToken);
         _battleNetLinks.Clear();
         foreach (var link in battleNetLinks)
         {
