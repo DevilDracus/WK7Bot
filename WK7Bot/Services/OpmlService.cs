@@ -4,6 +4,8 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using WK7Bot.Core.Entities;
+using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>
@@ -70,7 +72,17 @@ public class OpmlService : IOpmlService
 
         try
         {
-            var xml = await _httpClient.GetStringAsync(uri, cancellationToken).ConfigureAwait(false);
+            using var response = await HttpRetry.ExecuteAsync(
+                () => _httpClient.GetAsync(uri, cancellationToken),
+                3,
+                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                null,
+                null,
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+            var xml = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var document = XDocument.Parse(xml);
             var entries = new List<OpmlFeedEntry>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
