@@ -17,21 +17,21 @@ public class ServersOptions
     /// Unset or non-numeric values (the shipped placeholders) disable the pinning.
     /// </summary>
     [ConfigurationKeyName("wk7_server_id")]
-    public string Wk7ServerId { get; set; } = string.Empty;
+    public string Wk7ServerId { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the Discord server (guild) ID of the bot test server, used by features that are
     /// still being tested (see <c>testing_features</c>).
     /// </summary>
     [ConfigurationKeyName("test_server_id")]
-    public string TestServerId { get; set; } = string.Empty;
+    public string TestServerId { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the feature keys (e.g. <c>dwd_warning</c>, <c>weekend_digest</c>) whose automatic
     /// messages go to the bot test server instead of the WK7 server while they are being tested.
     /// </summary>
     [ConfigurationKeyName("testing_features")]
-    public List<string> TestingFeatures { get; set; } = new();
+    public List<string> TestingFeatures { get; init; } = new();
 
     /// <summary>
     /// Reads <see cref="Wk7ServerId"/> as a guild ID.

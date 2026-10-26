@@ -12,6 +12,9 @@ namespace WK7Bot.Services;
 
 public partial class BattleNetService
 {
+    private const int DefaultTokenExpirySeconds = 3600;
+    private const int MinimumCacheTtlSeconds = 60;
+    private const int TokenExpirySafetyMarginSeconds = 300;
 
     /// <summary>
     /// Exchanges the configured refresh token for an access token, reusing a cached token until it is
@@ -89,8 +92,8 @@ public partial class BattleNetService
                 return (null, false);
             }
 
-            int expiresIn = payload.ExpiresIn > 0 ? payload.ExpiresIn : 3600;
-            var cacheTtl = TimeSpan.FromSeconds(Math.Max(60, expiresIn - 300));
+            int expiresIn = payload.ExpiresIn > 0 ? payload.ExpiresIn : DefaultTokenExpirySeconds;
+            var cacheTtl = TimeSpan.FromSeconds(Math.Max(MinimumCacheTtlSeconds, expiresIn - TokenExpirySafetyMarginSeconds));
             _cache.Set(cacheKey, payload.AccessToken!, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = cacheTtl, Size = 1 });
 
             _logger.LogDebug("Refreshed Battle.net access token for region {Region} (valid for {Ttl}).", region, cacheTtl);

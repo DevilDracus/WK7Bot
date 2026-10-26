@@ -11,6 +11,9 @@ using WK7Bot.Models;
 /// </summary>
 public static class OpenFoodFactsEmbedBuilder
 {
+    private const double PotassiumHighThresholdMg = 300;
+    private const double PhosphorusHighThresholdMg = 200;
+    private const double SodiumHighThresholdMg = 400;
     /// <summary>
     /// Builds the embed for the supplied product.
     /// </summary>
@@ -83,17 +86,17 @@ public static class OpenFoodFactsEmbedBuilder
 
         if (potassiumMg.HasValue)
         {
-            var status = potassiumMg.Value > 300 ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
+            var status = potassiumMg.Value > PotassiumHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
             renalText.AppendLine($"**Kalium:** {potassiumMg.Value:F0} mg — {status}");
         }
         if (phosphorusMg.HasValue)
         {
-            var status = phosphorusMg.Value > 200 ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
+            var status = phosphorusMg.Value > PhosphorusHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
             renalText.AppendLine($"**Phosphor:** {phosphorusMg.Value:F0} mg — {status}");
         }
         if (sodiumMg.HasValue)
         {
-            var status = sodiumMg.Value > 400 ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
+            var status = sodiumMg.Value > SodiumHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
             renalText.AppendLine($"**Natrium:** {sodiumMg.Value:F0} mg — {status}");
         }
 

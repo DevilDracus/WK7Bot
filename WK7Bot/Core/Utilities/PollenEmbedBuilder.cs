@@ -61,7 +61,7 @@ public static class PollenEmbedBuilder
                 CultureInfo.InvariantCulture,
                 $"Heute: **{uv.Today}** · Morgen: {uv.Tomorrow} · Übermorgen: {uv.DayAfterTomorrow}");
 
-            builder.AddField($"☀️ UV-Index {uv.City}", uvText + "\n" + DescribeUv(uv.Today), inline: false);
+            builder.AddField($"☀️ UV-Index {uv.City}", $"{uvText}\n{DescribeUv(uv.Today)}", inline: false);
         }
 
         return builder.Build();

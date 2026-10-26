@@ -40,6 +40,8 @@ public sealed record BotStatusAttributes(
 /// </summary>
 public static class BotStatusEntities
 {
+    public const string OnPayload = "ON";
+    public const string OffPayload = "OFF";
     /// <summary>Root MQTT topic of all bot status topics.</summary>
     public const string TopicPrefix = "wk7bot";
 
@@ -150,8 +152,8 @@ public static class BotStatusEntities
         object_id = EntityObjectId(feature.DisplayName, "enabled"),
         unique_id = $"{DeviceId}_{feature.Slug}_enabled",
         state_topic = EnabledStateTopic(feature),
-        payload_on = "ON",
-        payload_off = "OFF",
+        payload_on = OnPayload,
+        payload_off = OffPayload,
         availability = BuildAvailability(),
         device = BuildDevice(softwareVersion)
     });
@@ -172,8 +174,8 @@ public static class BotStatusEntities
         state_topic = ProblemStateTopic(feature),
         json_attributes_topic = ProblemAttributesTopic(feature),
         device_class = "problem",
-        payload_on = "ON",
-        payload_off = "OFF",
+        payload_on = OnPayload,
+        payload_off = OffPayload,
         expire_after = ProblemExpireAfterSeconds,
         availability = BuildAvailability(),
         device = BuildDevice(softwareVersion)
@@ -184,7 +186,7 @@ public static class BotStatusEntities
     /// </summary>
     /// <param name="enabled">Whether the feature flag is set.</param>
     /// <returns>The payload to publish.</returns>
-    public static string EnabledStatePayload(bool enabled) => enabled ? "ON" : "OFF";
+    public static string EnabledStatePayload(bool enabled) => enabled ? OnPayload : OffPayload;
 
     /// <summary>
     /// Builds the state payload of a feature's problem sensor.
@@ -192,7 +194,7 @@ public static class BotStatusEntities
     /// <param name="snapshot">The feature's health snapshot.</param>
     /// <returns>The payload to publish.</returns>
     public static string ProblemStatePayload(FeatureHealthSnapshot snapshot)
-        => snapshot.IsProblem ? "ON" : "OFF";
+        => snapshot.IsProblem ? OnPayload : OffPayload;
 
     /// <summary>
     /// Builds the attribute payload of a feature's problem sensor.

@@ -42,7 +42,7 @@ public class WishlistDealRepository : IWishlistDealRepository
             await context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
-        catch
+        catch (Exception)
         {
             await transaction.RollbackAsync(cancellationToken);
             throw;

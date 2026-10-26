@@ -41,7 +41,7 @@ public sealed class WishlistDealService : IWishlistDealService
             return trimmed + "/";
         }
 
-        return trimmed + "/" + SteamWishlistDataSuffix;
+        return $"{trimmed}/{SteamWishlistDataSuffix}";
     }
     private const string ItadLookupEndpoint = "https://api.isthereanydeal.com/games/lookup/v1";
     private const string ItadPricesEndpoint = "https://api.isthereanydeal.com/games/prices/v2";

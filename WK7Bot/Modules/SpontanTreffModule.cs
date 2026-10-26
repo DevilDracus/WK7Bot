@@ -151,7 +151,7 @@ public class SpontanTreffModule : BotModuleBase
                     $"✅ Spontan-Treff gepostet in {targetChannel.Mention}: [Zum Treff](https://discord.com/channels/{meetup.GuildId}/{targetChannel.Id}/{message.Id})",
                     ephemeral: true);
             }
-            catch
+            catch (Exception)
             {
                 // The meetup was persisted before the post; leaving it behind would strand a row
                 // without a message for the expiry sweep to trip over every minute. Cleanup is

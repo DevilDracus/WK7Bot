@@ -33,12 +33,12 @@ public static class SeasonalTermPicker
     /// <returns>Up to two distinct ingredient names, or an empty list when no produce is available.</returns>
     public static IReadOnlyList<string> Pick(SeasonalFoodData? produce, IRandomSource randomSource)
     {
+        ArgumentNullException.ThrowIfNull(randomSource);
+
         if (produce == null)
         {
             return Array.Empty<string>();
         }
-
-        randomSource ??= new Services.SystemRandomSource();
 
         var candidates = new List<WeightedTerm>();
         AddCategory(candidates, produce.Vegetables, VegetableWeight);

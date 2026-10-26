@@ -11,117 +11,117 @@ public class FeatureOptions
     /// Gets or sets a value indicating whether RSS feed polling is enabled.
     /// </summary>
     [ConfigurationKeyName("rss_polling_enabled")]
-    public bool RssPollingEnabled { get; set; } = true;
+    public bool RssPollingEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether Home Assistant notification listener is enabled.
     /// </summary>
     [ConfigurationKeyName("home_assistant_notifier_enabled")]
-    public bool HomeAssistantNotifierEnabled { get; set; } = true;
+    public bool HomeAssistantNotifierEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether Leipzig waste collection schedule tracking is enabled.
     /// </summary>
     [ConfigurationKeyName("leipzig_waste_enabled")]
-    public bool LeipzigWasteEnabled { get; set; } = true;
+    public bool LeipzigWasteEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether Alexa notifications are enabled.
     /// </summary>
     [ConfigurationKeyName("alexa_notifications_enabled")]
-    public bool AlexaNotificationsEnabled { get; set; } = true;
+    public bool AlexaNotificationsEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether Discord presence syncing via MQTT is enabled.
     /// </summary>
     [ConfigurationKeyName("discord_presence_mqtt_enabled")]
-    public bool DiscordPresenceMqttEnabled { get; set; } = true;
+    public bool DiscordPresenceMqttEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether Steam presence tracking is enabled.
     /// </summary>
     [ConfigurationKeyName("steam_presence_enabled")]
-    public bool SteamPresenceEnabled { get; set; } = true;
+    public bool SteamPresenceEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether Battle.net profile tracking is enabled.
     /// </summary>
     [ConfigurationKeyName("battlenet_presence_enabled")]
-    public bool BattleNetPresenceEnabled { get; set; } = true;
+    public bool BattleNetPresenceEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether the monthly seasonal food and weekly recipe background service is enabled.
     /// </summary>
     [ConfigurationKeyName("food_service_enabled")]
-    public bool FoodServiceEnabled { get; set; } = true;
+    public bool FoodServiceEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether expired spontaneous meetups ("Spontan-Treff") are closed automatically.
     /// </summary>
     [ConfigurationKeyName("spontan_treff_enabled")]
-    public bool SpontanTreffEnabled { get; set; } = true;
+    public bool SpontanTreffEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether the weekly Leipzig weekend digest with voting poll is posted.
     /// </summary>
     [ConfigurationKeyName("weekend_digest_enabled")]
-    public bool WeekendDigestEnabled { get; set; } = true;
+    public bool WeekendDigestEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether local DWD rain and storm warnings are polled and posted.
     /// </summary>
     [ConfigurationKeyName("dwd_warning_enabled")]
-    public bool DwdWarningEnabled { get; set; } = true;
+    public bool DwdWarningEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether captured errors are additionally sent to Discord as direct messages.
     /// </summary>
     [ConfigurationKeyName("error_notifications_enabled")]
-    public bool ErrorNotificationsEnabled { get; set; } = true;
+    public bool ErrorNotificationsEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether the bot publishes its own status (availability, uptime and
     /// per-feature health) to Home Assistant as MQTT discovery entities.
     /// </summary>
     [ConfigurationKeyName("mqtt_bot_status_enabled")]
-    public bool MqttBotStatusEnabled { get; set; } = true;
+    public bool MqttBotStatusEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether Steam wishlist deal alerts are enabled.
     /// </summary>
     [ConfigurationKeyName("wishlist_deal_alerts_enabled")]
-    public bool WishlistDealAlertsEnabled { get; set; } = true;
+    public bool WishlistDealAlertsEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether the Steam/Battle.net leaderboard is enabled.
     /// </summary>
     [ConfigurationKeyName("leaderboard_enabled")]
-    public bool LeaderboardEnabled { get; set; } = true;
+    public bool LeaderboardEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether per-user deal watchlists are enabled.
     /// </summary>
     [ConfigurationKeyName("deal_watchlist_enabled")]
-    public bool DealWatchlistEnabled { get; set; } = true;
+    public bool DealWatchlistEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether native Discord guild scheduled events are created
     /// for Spontan-Treff and the weekend digest.
     /// </summary>
     [ConfigurationKeyName("discord_events_enabled")]
-    public bool DiscordEventsEnabled { get; set; } = true;
+    public bool DiscordEventsEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether the daily DWD pollen and UV index post is enabled.
     /// </summary>
     [ConfigurationKeyName("pollen_alerts_enabled")]
-    public bool PollenAlertsEnabled { get; set; } = true;
+    public bool PollenAlertsEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether personal reminders (<c>/remind</c>) are delivered.
     /// </summary>
     [ConfigurationKeyName("reminders_enabled")]
-    public bool RemindersEnabled { get; set; } = true;
+    public bool RemindersEnabled { get; init; } = true;
 
     /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched

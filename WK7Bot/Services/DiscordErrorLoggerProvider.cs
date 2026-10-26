@@ -86,8 +86,9 @@ public sealed class DiscordErrorLoggerProvider : ILoggerProvider
             }
             catch (Exception)
             {
-                // Notifications are best-effort; losing one is strictly better than crashing the
-                // caller. Nothing can be logged from here — that would re-enter this provider.
+                // Notifications are best-effort: losing one is strictly better than crashing the
+                // caller. Nothing can be logged from here — that would re-enter this provider and
+                // risk infinite recursion. The dropped notification is silently discarded by design.
             }
         }
     }

@@ -123,6 +123,7 @@ public sealed class DwdResiliencePolicy
     public async Task<T> ExecuteAsync<T>(
         Func<CancellationToken, Task<T>> action,
         CancellationToken cancellationToken = default)
+        where T : notnull
     {
         ArgumentNullException.ThrowIfNull(action);
 
@@ -143,7 +144,7 @@ public sealed class DwdResiliencePolicy
         }
 
         var adapted = new Func<CancellationToken, Task<object>>(async ct =>
-            (await action(ct).ConfigureAwait(false))!);
+            (object?)(await action(ct).ConfigureAwait(false)) ?? throw new InvalidOperationException("Action returned null."));
 
         try
         {

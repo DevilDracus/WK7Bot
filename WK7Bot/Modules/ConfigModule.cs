@@ -99,6 +99,6 @@ public class ConfigModule : BotModuleBase
                 return $"{marker} `{key}`{suffix}";
             });
 
-        await FollowupAsync("**Feature-Schalter**\n" + string.Join("\n", lines), ephemeral: true);
+        await FollowupAsync($"**Feature-Schalter**\n{string.Join("\n", lines)}", ephemeral: true);
     }
 }

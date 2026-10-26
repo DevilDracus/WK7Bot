@@ -20,6 +20,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 // from appsettings.json ("Information") does not leak through a second provider.
 builder.Logging.ClearProviders();
 
+// MetricsRegistry and ErrorNotificationQueue are created before the container is built because
+// DiscordErrorLoggerProvider (a logging provider) needs the queue at registration time.
 var metricsRegistry = new MetricsRegistry();
 builder.Services.AddSingleton(metricsRegistry);
 

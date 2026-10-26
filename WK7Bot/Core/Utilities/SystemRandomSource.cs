@@ -1,6 +1,6 @@
-using WK7Bot.Core.Interfaces;
+namespace WK7Bot.Core.Utilities;
 
-namespace WK7Bot.Services;
+using WK7Bot.Core.Interfaces;
 
 /// <summary>
 /// Production randomness backed by <see cref="Random.Shared"/>, which is safe for concurrent use.

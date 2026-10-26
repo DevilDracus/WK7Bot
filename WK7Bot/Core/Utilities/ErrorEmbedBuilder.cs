@@ -37,7 +37,7 @@ public static class ErrorEmbedBuilder
 
         var builder = new EmbedBuilder()
             .WithColor(ErrorColor)
-            .WithTitle(EmbedText.Truncate($"{TitlePrefix}{ShortContext(notification.Context)}", EmbedText.TitleLimit))
+            .WithTitle(EmbedText.Truncate($"{TitlePrefix}{ContextHelpers.ShortContext(notification.Context)}", EmbedText.TitleLimit))
             .WithFooter(FooterText);
 
         if (!string.IsNullOrWhiteSpace(notification.ExceptionType))
@@ -65,22 +65,6 @@ public static class ErrorEmbedBuilder
         builder.AddField("Zeitpunkt", notification.Timestamp.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss zzz"), false);
 
         return builder.Build();
-    }
-
-    /// <summary>
-    /// Extracts the trailing type or hook name from a dotted context identifier.
-    /// </summary>
-    /// <param name="context">The full context identifier.</param>
-    /// <returns>The segment after the last dot, or the input when it contains no dot.</returns>
-    private static string ShortContext(string context)
-    {
-        if (string.IsNullOrWhiteSpace(context))
-        {
-            return "Unbekannt";
-        }
-
-        var separatorIndex = context.LastIndexOf('.');
-        return separatorIndex >= 0 && separatorIndex < context.Length - 1 ? context[(separatorIndex + 1)..] : context;
     }
 
     /// <summary>

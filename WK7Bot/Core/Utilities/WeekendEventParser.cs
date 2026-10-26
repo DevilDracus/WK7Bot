@@ -197,7 +197,7 @@ public static class WeekendEventParser
     {
         if (href.StartsWith("//", StringComparison.Ordinal))
         {
-            return "https:" + href;
+            return $"https:{href}";
         }
 
         return href.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? href : BaseUrl + href;

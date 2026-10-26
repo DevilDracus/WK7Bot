@@ -12,6 +12,7 @@ using WK7Bot.Models;
 /// </summary>
 public static class RecipeEmbedBuilder
 {
+    private const int MinimumRoomForInlineField = 16;
     /// <summary>
     /// Discord's total embed length limit (title + description + footer + all field names and values).
     /// </summary>
@@ -165,7 +166,7 @@ public static class RecipeEmbedBuilder
         }
 
         int room = budget - name.Length;
-        if (room < 16)
+        if (room < MinimumRoomForInlineField)
         {
             return budget;
         }

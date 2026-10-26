@@ -570,7 +570,7 @@ public class WebRecipeSearchService : IRecipeSearchService
 
         if (href.StartsWith("//", StringComparison.Ordinal))
         {
-            href = "https:" + href;
+            href = $"https:{href}";
         }
 
         if (!Uri.TryCreate(href, UriKind.Absolute, out var uri))
@@ -590,7 +590,7 @@ public class WebRecipeSearchService : IRecipeSearchService
             var decoded = Uri.UnescapeDataString(redirect.Groups["url"].Value);
             if (decoded.StartsWith("//", StringComparison.Ordinal))
             {
-                decoded = "https:" + decoded;
+                decoded = $"https:{decoded}";
             }
 
             if (!Uri.TryCreate(decoded, UriKind.Absolute, out var decodedUri) || decodedUri.Scheme is not ("http" or "https"))

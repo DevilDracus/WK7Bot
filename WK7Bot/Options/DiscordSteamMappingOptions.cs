@@ -11,17 +11,17 @@ public class DiscordSteamMappingOptions
     /// Gets or sets the target Discord user snowflake ID.
     /// </summary>
     [ConfigurationKeyName("discord_user_id")]
-    public string DiscordUserId { get; set; } = string.Empty;
+    public string DiscordUserId { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the associated 64-bit Steam ID.
     /// </summary>
     [ConfigurationKeyName("steam_id")]
-    public string SteamId { get; set; } = string.Empty;
+    public string SteamId { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets or sets an optional shared Steam wishlist URL for private wishlists.
     /// </summary>
     [ConfigurationKeyName("wishlist_url")]
-    public string? WishlistUrl { get; set; }
+    public string? WishlistUrl { get; init; }
 }

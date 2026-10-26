@@ -16,6 +16,7 @@ using WK7Bot.Options;
 /// </summary>
 public sealed class MqttConnectionCoordinator : IDisposable
 {
+    private const int DefaultMqttPort = 1883;
     private static readonly TimeSpan InitialReconnectDelay = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan MaxReconnectDelay = TimeSpan.FromMinutes(5);
 
@@ -51,7 +52,7 @@ public sealed class MqttConnectionCoordinator : IDisposable
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
 
         Host = string.IsNullOrWhiteSpace(_options.MqttHost) ? "core-mosquitto" : _options.MqttHost;
-        Port = _options.MqttPort > 0 ? _options.MqttPort : 1883;
+        Port = _options.MqttPort > 0 ? _options.MqttPort : DefaultMqttPort;
     }
 
     /// <summary>Gets the resolved MQTT broker host.</summary>
