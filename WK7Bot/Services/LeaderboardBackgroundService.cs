@@ -53,7 +53,7 @@ public class LeaderboardBackgroundService : BackgroundService
             {
                 try
                 {
-                    await MaybePostAsync(stoppingToken);
+                    await MaybePostAsync(stoppingToken).ConfigureAwait(false);
                     _health.RecordSuccess(FeatureKeys.Leaderboard);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -138,7 +138,7 @@ public class LeaderboardBackgroundService : BackgroundService
                 embed.AddField($"#{entry.Rank} {entry.DisplayName}", $"{entry.Value}" + (string.IsNullOrWhiteSpace(entry.Detail) ? string.Empty : $" · {entry.Detail}"), inline: false);
             }
 
-            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed.Build()), embed.Build(), _logger, cancellationToken);
+            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed.Build()), embed.Build(), _logger, cancellationToken).ConfigureAwait(false);
         }
 
         _lastPostedWeek = week;

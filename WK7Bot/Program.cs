@@ -78,7 +78,7 @@ var app = builder.Build();
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("==== WK7 Bot v{Version} starting at {Timestamp:yyyy-MM-dd HH:mm:ss} ====", AppInformation.Version, DateTime.UtcNow);
 
-await app.InitializeDatabaseAsync(CancellationToken.None);
+await app.InitializeDatabaseAsync(CancellationToken.None).ConfigureAwait(false);
 
 app.MapGet("/health", () => Results.Ok("WK7 Bot is healthy."));
 
@@ -117,7 +117,7 @@ TaskScheduler.UnobservedTaskException += (_, eventArgs) =>
 
 app.MapTestCommandEndpoints();
 
-await app.RunAsync();
+await app.RunAsync().ConfigureAwait(false);
 
 
 /// <summary>

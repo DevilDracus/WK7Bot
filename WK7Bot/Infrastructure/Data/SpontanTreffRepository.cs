@@ -24,8 +24,8 @@ public class SpontanTreffRepository : ISpontanTreffRepository
     public async Task<SpontanTreff> AddAsync(SpontanTreff meetup, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        await context.SpontanTreffs.AddAsync(meetup, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SpontanTreffs.AddAsync(meetup, cancellationToken).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return meetup;
     }
 
@@ -51,12 +51,12 @@ public class SpontanTreffRepository : ISpontanTreffRepository
 
             context.SpontanTreffResponses.RemoveRange(responses);
             context.SpontanTreffs.Remove(meetup);
-            await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception)
         {
-            await transaction.RollbackAsync(cancellationToken);
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
             throw;
         }
     }
@@ -73,7 +73,7 @@ public class SpontanTreffRepository : ISpontanTreffRepository
 
         meetup.ChannelId = channelId;
         meetup.MessageId = messageId;
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -123,11 +123,11 @@ public class SpontanTreffRepository : ISpontanTreffRepository
 
         if (existing == null)
         {
-            await context.SpontanTreffResponses.AddAsync(response, cancellationToken);
+            await context.SpontanTreffResponses.AddAsync(response, cancellationToken).ConfigureAwait(false);
 
             try
             {
-                await context.SaveChangesAsync(cancellationToken);
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (DbUpdateException ex) when (DatabaseWriteGuard.IsUniqueConstraintViolation(ex))
             {
@@ -142,7 +142,7 @@ public class SpontanTreffRepository : ISpontanTreffRepository
         existing.Going = response.Going;
         existing.RespondedAt = response.RespondedAt;
         context.SpontanTreffResponses.Update(existing);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -158,7 +158,7 @@ public class SpontanTreffRepository : ISpontanTreffRepository
         }
 
         context.SpontanTreffResponses.Remove(existing);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -172,7 +172,7 @@ public class SpontanTreffRepository : ISpontanTreffRepository
         }
 
         meetup.Closed = true;
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

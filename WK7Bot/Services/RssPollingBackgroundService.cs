@@ -161,7 +161,7 @@ public class RssPollingBackgroundService : BackgroundService
                 try
                 {
                     feed.LastPolledAt = DateTimeOffset.UtcNow;
-                    await repository.UpdateFeedAsync(feed, cancellationToken);
+                    await repository.UpdateFeedAsync(feed, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception stampEx)
                 {
@@ -205,7 +205,7 @@ public class RssPollingBackgroundService : BackgroundService
             // Persist the attempt (and a freshly seeded baseline) so the history is never re-posted
             // and a failing feed waits its full interval before the next attempt.
             feed.LastPolledAt = DateTimeOffset.UtcNow;
-            await repository.UpdateFeedAsync(feed, cancellationToken);
+            await repository.UpdateFeedAsync(feed, cancellationToken).ConfigureAwait(false);
             return true;
         }
 
@@ -219,7 +219,7 @@ public class RssPollingBackgroundService : BackgroundService
                 feed.Name,
                 feed.ChannelId);
             feed.LastPolledAt = DateTimeOffset.UtcNow;
-            await repository.UpdateFeedAsync(feed, cancellationToken);
+            await repository.UpdateFeedAsync(feed, cancellationToken).ConfigureAwait(false);
             _health.RecordFailure(FeatureKeys.RssPolling, $"RSS feed '{feed.Name}' targets channel {feed.ChannelId}, which is not a text channel.");
             return false;
         }
@@ -230,7 +230,7 @@ public class RssPollingBackgroundService : BackgroundService
         {
             try
             {
-                await SendFeedEmbedAsync(channel, feed, item);
+                await SendFeedEmbedAsync(channel, feed, item).ConfigureAwait(false);
 
                 // Advance the baseline per item so a failure on a later item does not re-post the
                 // items that already went out. The values are persisted once after the loop, so a
@@ -249,7 +249,7 @@ public class RssPollingBackgroundService : BackgroundService
         }
 
         feed.LastPolledAt = DateTimeOffset.UtcNow;
-        await repository.UpdateFeedAsync(feed, cancellationToken);
+        await repository.UpdateFeedAsync(feed, cancellationToken).ConfigureAwait(false);
         return clean;
     }
 
@@ -284,6 +284,6 @@ public class RssPollingBackgroundService : BackgroundService
             .WithTimestamp(item.PublishingDate ?? DateTimeOffset.UtcNow);
 
         var mentionText = $"<@&{feed.RoleId}>";
-        await channel.SendMessageAsync(text: mentionText, embed: embedBuilder.Build());
+        await channel.SendMessageAsync(text: mentionText, embed: embedBuilder.Build()).ConfigureAwait(false);
     }
 }

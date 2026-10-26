@@ -103,7 +103,7 @@ public class DwdWarningBackgroundService : BackgroundService
         await BackgroundServiceResilience.RunWithResilienceAsync(
             async token =>
             {
-                await EvaluateAsync(DateTime.UtcNow, token);
+                await EvaluateAsync(DateTime.UtcNow, token).ConfigureAwait(false);
             },
             FeatureKeys.DwdWarning,
             _health,
@@ -133,7 +133,7 @@ public class DwdWarningBackgroundService : BackgroundService
                 continue;
             }
 
-            await DispatchWarningAsync(warning, now, stoppingToken);
+            await DispatchWarningAsync(warning, now, stoppingToken).ConfigureAwait(false);
         }
     }
 
@@ -208,11 +208,11 @@ public class DwdWarningBackgroundService : BackgroundService
             }
 
             var embed = DwdWarningMessageBuilder.Build(warning, now, _options.DwdWarning);
-            await PostToWarningChannelAsync(channel, embed);
+            await PostToWarningChannelAsync(channel, embed).ConfigureAwait(false);
 
             // Record only after a successful send so a crash or failure retries this guild on the
             // next poll while guilds that already received the warning stay suppressed.
-            await repository.MarkSentAsync(warning.Identifier, guildId, now, stoppingToken);
+            await repository.MarkSentAsync(warning.Identifier, guildId, now, stoppingToken).ConfigureAwait(false);
             postedAny = true;
 
             _logger.LogDebug(
@@ -224,7 +224,7 @@ public class DwdWarningBackgroundService : BackgroundService
 
         if (postedAny)
         {
-            await repository.PruneAsync(now.AddDays(-PruneAgeDays), stoppingToken);
+            await repository.PruneAsync(now.AddDays(-PruneAgeDays), stoppingToken).ConfigureAwait(false);
         }
     }
 

@@ -67,7 +67,7 @@ public class SystemModule : BotModuleBase
     public async Task PingCommandAsync()
     {
         int latency = Context.Client.Latency;
-        await RespondAsync($"Pong! Gateway-Latenz: {latency} ms.", ephemeral: true);
+        await RespondAsync($"Pong! Gateway-Latenz: {latency} ms.", ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -79,13 +79,13 @@ public class SystemModule : BotModuleBase
     {
         if (!_rateLimiter.CanExecute(Context.User.Id, HomeAssistantStatusCommandKey, HomeAssistantStatusCooldown))
         {
-            await RespondAsync("⏳ Bitte warte 15 Sekunden, bevor du den Home-Assistant-Status erneut prüfst.", ephemeral: true);
+            await RespondAsync("⏳ Bitte warte 15 Sekunden, bevor du den Home-Assistant-Status erneut prüfst.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
         // Defer first: the Supervisor round-trip can take longer than Discord's 3-second
         // initial-response window, which would otherwise fail the interaction entirely.
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
@@ -93,17 +93,17 @@ public class SystemModule : BotModuleBase
 
             if (response != null)
             {
-                await FollowupAsync("✅ Home-Assistant-API über Supervisor-Token erfolgreich erreicht!", ephemeral: true);
+                await FollowupAsync("✅ Home-Assistant-API über Supervisor-Token erfolgreich erreicht!", ephemeral: true).ConfigureAwait(false);
             }
             else
             {
-                await FollowupAsync("❌ Home-Assistant-API nicht erreichbar. Bitte prüfe die Supervisor-Logs.", ephemeral: true);
+                await FollowupAsync("❌ Home-Assistant-API nicht erreichbar. Bitte prüfe die Supervisor-Logs.", ephemeral: true).ConfigureAwait(false);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while testing the Home Assistant API connection.");
-            await FollowupAsync("❌ Home-Assistant-API nicht erreichbar. Bitte prüfe die Supervisor-Logs.", ephemeral: true);
+            await FollowupAsync("❌ Home-Assistant-API nicht erreichbar. Bitte prüfe die Supervisor-Logs.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -114,7 +114,7 @@ public class SystemModule : BotModuleBase
     [SlashCommand("stats", "Zeigt die am häufigsten verwendeten Befehle der letzten 7 Tage.")]
     public async Task StatsCommandAsync()
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
@@ -123,7 +123,7 @@ public class SystemModule : BotModuleBase
 
             if (topCommands.Count == 0)
             {
-                await FollowupAsync("Keine Befehlsnutzung in den letzten 7 Tagen aufgezeichnet.", ephemeral: true);
+                await FollowupAsync("Keine Befehlsnutzung in den letzten 7 Tagen aufgezeichnet.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -148,12 +148,12 @@ public class SystemModule : BotModuleBase
 
             embed.WithDescription($"Gesamt: {total} Befehlsaufrufe");
 
-            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
+            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while fetching command usage stats.");
-            await FollowupAsync("❌ Statistiken konnten nicht geladen werden.", ephemeral: true);
+            await FollowupAsync("❌ Statistiken konnten nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -165,11 +165,11 @@ public class SystemModule : BotModuleBase
     {
         if (!_rateLimiter.CanExecute(Context.User.Id, HealthCommandKey, HealthCooldown))
         {
-            await RespondAsync("⏳ Bitte warte 15 Sekunden, bevor du den Dienst-Status erneut abrufst.", ephemeral: true);
+            await RespondAsync("⏳ Bitte warte 15 Sekunden, bevor du den Dienst-Status erneut abrufst.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
@@ -217,12 +217,12 @@ public class SystemModule : BotModuleBase
 
             embed.AddField("🌐 Externe Abhängigkeiten", depsBuilder.ToString().TrimEnd(), inline: false);
 
-            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
+            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while fetching health status.");
-            await FollowupAsync("❌ Gesundheitsdaten konnten nicht geladen werden.", ephemeral: true);
+            await FollowupAsync("❌ Gesundheitsdaten konnten nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -253,12 +253,12 @@ public class SystemModule : BotModuleBase
             AddCommandField(embed, "📡 RSS", rssCommands);
             AddCommandField(embed, "🎮 Deals", dealCommands);
 
-            await RespondAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
+            await RespondAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while building help output.");
-            await RespondAsync("❌ Hilfe konnte nicht geladen werden.", ephemeral: true);
+            await RespondAsync("❌ Hilfe konnte nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
         }
     }
 

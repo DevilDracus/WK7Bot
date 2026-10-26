@@ -72,35 +72,35 @@ internal static class TestCommandRunner
                 {
                     var module = CreateModule<TestableSystemModule>(services);
                     SetContext(module, context);
-                    await module.PingCommandAsync();
+                    await module.PingCommandAsync().ConfigureAwait(false);
                     return "ping completed";
                 }
             case "ha-status":
                 {
                     var module = CreateModule<TestableSystemModule>(services);
                     SetContext(module, context);
-                    await module.HomeAssistantStatusCommandAsync();
+                    await module.HomeAssistantStatusCommandAsync().ConfigureAwait(false);
                     return "ha-status completed";
                 }
             case "stats":
                 {
                     var module = CreateModule<TestableSystemModule>(services);
                     SetContext(module, context);
-                    await module.StatsCommandAsync();
+                    await module.StatsCommandAsync().ConfigureAwait(false);
                     return "stats completed";
                 }
             case "health":
                 {
                     var module = CreateModule<TestableSystemModule>(services);
                     SetContext(module, context);
-                    await module.HealthCommandAsync();
+                    await module.HealthCommandAsync().ConfigureAwait(false);
                     return "health completed";
                 }
             case "help":
                 {
                     var module = CreateModule<TestableSystemModule>(services);
                     SetContext(module, context);
-                    await module.HelpCommandAsync();
+                    await module.HelpCommandAsync().ConfigureAwait(false);
                     return "help completed";
                 }
             case "check-waste":
@@ -110,15 +110,15 @@ internal static class TestCommandRunner
                     SetContext(module, context);
                     if (TryParseInt(Arg("days"), out var days))
                     {
-                        await module.CheckWasteAsync(days, null);
+                        await module.CheckWasteAsync(days, null).ConfigureAwait(false);
                     }
                     else if (!string.IsNullOrWhiteSpace(Arg("datum")))
                     {
-                        await module.CheckWasteAsync(null, Arg("datum"));
+                        await module.CheckWasteAsync(null, Arg("datum")).ConfigureAwait(false);
                     }
                     else
                     {
-                        await module.CheckWasteAsync(null, null);
+                        await module.CheckWasteAsync(null, null).ConfigureAwait(false);
                     }
 
                     return "check-waste completed";
@@ -133,7 +133,7 @@ internal static class TestCommandRunner
 
                     var module = CreateModule<TestableFoodModule>(services);
                     SetContext(module, context);
-                    await module.CheckFoodAsync(query);
+                    await module.CheckFoodAsync(query).ConfigureAwait(false);
                     return $"check-food completed ({query})";
                 }
             case "seasonal-produce":
@@ -141,14 +141,14 @@ internal static class TestCommandRunner
                     var month = TryParseInt(Arg("month"), out var parsed) ? (int?)parsed : null;
                     var module = CreateModule<TestableFoodModule>(services);
                     SetContext(module, context);
-                    await module.GetSeasonalProduceAsync(month);
+                    await module.GetSeasonalProduceAsync(month).ConfigureAwait(false);
                     return "seasonal-produce completed";
                 }
             case "recipe":
                 {
                     var module = CreateModule<TestableFoodModule>(services);
                     SetContext(module, context);
-                    await module.SearchRecipeAsync(string.IsNullOrWhiteSpace(Arg("query")) ? "Pfannkuchen" : Arg("query"));
+                    await module.SearchRecipeAsync(string.IsNullOrWhiteSpace(Arg("query")) ? "Pfannkuchen" : Arg("query")).ConfigureAwait(false);
                     return "recipe completed";
                 }
             case "recipe-seasonal":
@@ -156,21 +156,21 @@ internal static class TestCommandRunner
                     var query = string.IsNullOrWhiteSpace(Arg("query")) ? null : Arg("query");
                     var module = CreateModule<TestableFoodModule>(services);
                     SetContext(module, context);
-                    await module.SearchSeasonalRecipeAsync(query);
+                    await module.SearchSeasonalRecipeAsync(query).ConfigureAwait(false);
                     return "recipe-seasonal completed";
                 }
             case "recipe-generate":
                 {
                     var module = CreateModule<TestableFoodModule>(services);
                     SetContext(module, context);
-                    await module.GenerateRecipeAsync();
+                    await module.GenerateRecipeAsync().ConfigureAwait(false);
                     return "recipe-generate completed";
                 }
             case "deals":
                 {
                     var module = CreateModule<TestableDealsModule>(services);
                     SetContext(module, context);
-                    await module.GetDealsAsync();
+                    await module.GetDealsAsync().ConfigureAwait(false);
                     return "deals completed";
                 }
             case "spontan-treff":
@@ -180,14 +180,14 @@ internal static class TestCommandRunner
                     var minutes = TryParseInt(Arg("minuten"), out var parsed) ? parsed : 1;
                     var module = CreateModule<TestableSpontanTreffModule>(services);
                     SetContext(module, context);
-                    await module.CreateAsync(plan, ort, minutes);
+                    await module.CreateAsync(plan, ort, minutes).ConfigureAwait(false);
                     return $"spontan-treff completed ({plan})";
                 }
             case "rss-list":
                 {
                     var module = CreateModule<TestableRssModule>(services);
                     SetContext(module, context);
-                    await module.ListFeedsAsync();
+                    await module.ListFeedsAsync().ConfigureAwait(false);
                     return "rss list completed";
                 }
             case "rss-add":
@@ -196,7 +196,7 @@ internal static class TestCommandRunner
                     var url = string.IsNullOrWhiteSpace(Arg("url")) ? "https://feeds.bbci.co.uk/news/rss.xml" : Arg("url");
                     var module = CreateModule<TestableRssModule>(services);
                     SetContext(module, context);
-                    await module.AddFeedAsync(name, url);
+                    await module.AddFeedAsync(name, url).ConfigureAwait(false);
                     return $"rss add completed ({name})";
                 }
             case "rss-remove":
@@ -209,28 +209,28 @@ internal static class TestCommandRunner
 
                     var module = CreateModule<TestableRssModule>(services);
                     SetContext(module, context);
-                    await module.RemoveFeedAsync(name);
+                    await module.RemoveFeedAsync(name).ConfigureAwait(false);
                     return $"rss remove completed ({name})";
                 }
             case "rss-dashboard":
                 {
                     var module = CreateModule<TestableRssModule>(services);
                     SetContext(module, context);
-                    await module.PostDashboardAsync();
+                    await module.PostDashboardAsync().ConfigureAwait(false);
                     return "rss dashboard completed";
                 }
             case "rss-pause":
                 {
                     var module = CreateModule<TestableRssModule>(services);
                     SetContext(module, context);
-                    await module.PauseFeedAsync(Arg("name"));
+                    await module.PauseFeedAsync(Arg("name")).ConfigureAwait(false);
                     return "rss pause completed";
                 }
             case "rss-resume":
                 {
                     var module = CreateModule<TestableRssModule>(services);
                     SetContext(module, context);
-                    await module.ResumeFeedAsync(Arg("name"));
+                    await module.ResumeFeedAsync(Arg("name")).ConfigureAwait(false);
                     return "rss resume completed";
                 }
             case "rss-test":
@@ -238,14 +238,14 @@ internal static class TestCommandRunner
                     var url = string.IsNullOrWhiteSpace(Arg("url")) ? "https://feeds.bbci.co.uk/news/rss.xml" : Arg("url");
                     var module = CreateModule<TestableRssModule>(services);
                     SetContext(module, context);
-                    await module.TestFeedAsync(url);
+                    await module.TestFeedAsync(url).ConfigureAwait(false);
                     return $"rss test completed ({url})";
                 }
             case "rss-export":
                 {
                     var module = CreateModule<TestableRssModule>(services);
                     SetContext(module, context);
-                    await module.ExportOpmlAsync();
+                    await module.ExportOpmlAsync().ConfigureAwait(false);
                     return "rss export completed";
                 }
             case "rss-import":
@@ -258,7 +258,7 @@ internal static class TestCommandRunner
 
                     var module = CreateModule<TestableRssModule>(services);
                     SetContext(module, context);
-                    await module.ImportFromUrlAsync(url);
+                    await module.ImportFromUrlAsync(url).ConfigureAwait(false);
                     return $"rss import completed ({url})";
                 }
             case "config-feature":
@@ -267,28 +267,28 @@ internal static class TestCommandRunner
                     var state = string.IsNullOrWhiteSpace(Arg("state")) ? "on" : Arg("state");
                     var module = CreateModule<TestableConfigModule>(services);
                     SetContext(module, context);
-                    await module.FeatureAsync(key, state);
+                    await module.FeatureAsync(key, state).ConfigureAwait(false);
                     return $"config feature completed ({key}={state})";
                 }
             case "config-list":
                 {
                     var module = CreateModule<TestableConfigModule>(services);
                     SetContext(module, context);
-                    await module.ListAsync();
+                    await module.ListAsync().ConfigureAwait(false);
                     return "config list completed";
                 }
             case "profile":
                 {
                     var module = CreateModule<TestableProfileModule>(services);
                     SetContext(module, context);
-                    await module.ProfileAsync(null);
+                    await module.ProfileAsync(null).ConfigureAwait(false);
                     return "profile completed";
                 }
             case "pollen":
                 {
                     var module = CreateModule<TestablePollenModule>(services);
                     SetContext(module, context);
-                    await module.PollenAsync();
+                    await module.PollenAsync().ConfigureAwait(false);
                     return "pollen completed";
                 }
             case "remind":
@@ -298,14 +298,14 @@ internal static class TestCommandRunner
                     var hier = string.Equals(Arg("hier"), "true", StringComparison.OrdinalIgnoreCase);
                     var module = CreateModule<TestableRemindModule>(services);
                     SetContext(module, context);
-                    await module.RemindAsync(wann, text, hier);
+                    await module.RemindAsync(wann, text, hier).ConfigureAwait(false);
                     return $"remind completed ({wann})";
                 }
             case "reminders":
                 {
                     var module = CreateModule<TestableRemindModule>(services);
                     SetContext(module, context);
-                    await module.ListAsync();
+                    await module.ListAsync().ConfigureAwait(false);
                     return "reminders completed";
                 }
             case "remind-cancel":
@@ -313,7 +313,7 @@ internal static class TestCommandRunner
                     var id = TryParseInt(Arg("id"), out var parsedId) ? parsedId : 1;
                     var module = CreateModule<TestableRemindModule>(services);
                     SetContext(module, context);
-                    await module.CancelAsync(id);
+                    await module.CancelAsync(id).ConfigureAwait(false);
                     return $"remind-cancel completed ({id})";
                 }
             case "poll":
@@ -323,14 +323,14 @@ internal static class TestCommandRunner
                     var dauer = TryParseInt(Arg("dauer_stunden"), out var parsedDuration) ? parsedDuration : 24;
                     var module = CreateModule<TestablePollModule>(services);
                     SetContext(module, context);
-                    await module.PollAsync(frage, optionen, dauer, false);
+                    await module.PollAsync(frage, optionen, dauer, false).ConfigureAwait(false);
                     return "poll completed";
                 }
             case "link-steam":
                 {
                     var module = CreateModule<TestableLinkModule>(services);
                     SetContext(module, context);
-                    await module.LinkSteamAsync(Arg("steam"));
+                    await module.LinkSteamAsync(Arg("steam")).ConfigureAwait(false);
                     return "link-steam completed";
                 }
             case "link-battlenet":
@@ -347,28 +347,28 @@ internal static class TestCommandRunner
                 {
                     var module = CreateModule<TestableLinkModule>(services);
                     SetContext(module, context);
-                    await module.LinkStatusAsync();
+                    await module.LinkStatusAsync().ConfigureAwait(false);
                     return "link-status completed";
                 }
             case "link-remove":
                 {
                     var module = CreateModule<TestableLinkModule>(services);
                     SetContext(module, context);
-                    await module.LinkRemoveAsync(Arg("provider"));
+                    await module.LinkRemoveAsync(Arg("provider")).ConfigureAwait(false);
                     return "link-remove completed";
                 }
             case "wishlist-add":
                 {
                     var module = CreateModule<TestableLinkModule>(services);
                     SetContext(module, context);
-                    await module.WishlistAddAsync(Arg("url"));
+                    await module.WishlistAddAsync(Arg("url")).ConfigureAwait(false);
                     return "wishlist-add completed";
                 }
             case "weather":
                 {
                     var module = CreateModule<TestableWeatherModule>(services);
                     SetContext(module, context);
-                    await module.WeatherAsync(string.IsNullOrWhiteSpace(Arg("entity")) ? null : Arg("entity"));
+                    await module.WeatherAsync(string.IsNullOrWhiteSpace(Arg("entity")) ? null : Arg("entity")).ConfigureAwait(false);
                     return "weather completed";
                 }
             case "leaderboard":
@@ -377,28 +377,28 @@ internal static class TestCommandRunner
                     SetContext(module, context);
                     var type = string.IsNullOrWhiteSpace(Arg("type")) ? "steam-playtime" : Arg("type");
                     var limit = TryParseInt(Arg("limit"), out var parsedLimit) ? parsedLimit : 10;
-                    await module.LeaderboardAsync(type, limit);
+                    await module.LeaderboardAsync(type, limit).ConfigureAwait(false);
                     return "leaderboard completed";
                 }
             case "watch":
                 {
                     var module = CreateModule<TestableDealWatchlistModule>(services);
                     SetContext(module, context);
-                    await module.WatchAsync(Arg("game"), TryParseInt(Arg("min_discount"), out var discount) ? discount : null, null);
+                    await module.WatchAsync(Arg("game"), TryParseInt(Arg("min_discount"), out var discount) ? discount : null, null).ConfigureAwait(false);
                     return "watch completed";
                 }
             case "unwatch":
                 {
                     var module = CreateModule<TestableDealWatchlistModule>(services);
                     SetContext(module, context);
-                    await module.UnwatchAsync(Arg("game"));
+                    await module.UnwatchAsync(Arg("game")).ConfigureAwait(false);
                     return "unwatch completed";
                 }
             case "watchlist":
                 {
                     var module = CreateModule<TestableDealWatchlistModule>(services);
                     SetContext(module, context);
-                    await module.WatchlistAsync();
+                    await module.WatchlistAsync().ConfigureAwait(false);
                     return "watchlist completed";
                 }
             default:

@@ -109,18 +109,18 @@ public class FoodModule : BotModuleBase
     {
         if (!_rateLimiter.CanExecute(Context.User.Id, "recipe", RecipeCooldown))
         {
-            await RespondAsync("⏳ Bitte warte eine Minute, bevor du ein weiteres Rezept suchst.", ephemeral: true);
+            await RespondAsync("⏳ Bitte warte eine Minute, bevor du ein weiteres Rezept suchst.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
         // Defer response to allow time for the search and recipe page downloads
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
             if (string.IsNullOrWhiteSpace(query))
             {
-                await FollowupAsync("❌ Bitte gib einen Suchbegriff an, z. B. `/recipe query:Pfannkuchen`.", ephemeral: true);
+                await FollowupAsync("❌ Bitte gib einen Suchbegriff an, z. B. `/recipe query:Pfannkuchen`.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -128,7 +128,7 @@ public class FoodModule : BotModuleBase
 
             if (targetChannel == null)
             {
-                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` wurde auf diesem Server nicht gefunden.", ephemeral: true);
+                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` wurde auf diesem Server nicht gefunden.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -146,7 +146,7 @@ public class FoodModule : BotModuleBase
             var embed = RecipeEmbedBuilder.BuildSearched(
                 recipe, $"Angefragt von @{Context.User.Username} • Rezept aus dem Web");
 
-            await PostToFoodChannelAsync(targetChannel, embed);
+            await PostToFoodChannelAsync(targetChannel, embed).ConfigureAwait(false);
             await FollowupAsync(
                 $"✅ Rezept gefunden und in {targetChannel.Mention} mit Link zur Quelle veröffentlicht.",
                 ephemeral: true);
@@ -161,7 +161,7 @@ public class FoodModule : BotModuleBase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing the /recipe search command.");
-            await FollowupAsync("❌ Bei der Rezeptsuche ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
+            await FollowupAsync("❌ Bei der Rezeptsuche ist ein unerwarteter Fehler aufgetreten.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -177,11 +177,11 @@ public class FoodModule : BotModuleBase
     {
         if (!_rateLimiter.CanExecute(Context.User.Id, "recipe-seasonal", RecipeCooldown))
         {
-            await RespondAsync("⏳ Bitte warte eine Minute, bevor du ein weiteres Rezept suchst.", ephemeral: true);
+            await RespondAsync("⏳ Bitte warte eine Minute, bevor du ein weiteres Rezept suchst.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
@@ -189,7 +189,7 @@ public class FoodModule : BotModuleBase
 
             if (targetChannel == null)
             {
-                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` wurde auf diesem Server nicht gefunden.", ephemeral: true);
+                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` wurde auf diesem Server nicht gefunden.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -198,7 +198,7 @@ public class FoodModule : BotModuleBase
 
             if (seasonalTerms.Count == 0)
             {
-                await FollowupAsync("❌ Die Saisonprodukte konnten nicht von der Gemini-API abgerufen werden. Bitte versuche es später erneut.", ephemeral: true);
+                await FollowupAsync("❌ Die Saisonprodukte konnten nicht von der Gemini-API abgerufen werden. Bitte versuche es später erneut.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -223,7 +223,7 @@ public class FoodModule : BotModuleBase
             var embed = RecipeEmbedBuilder.BuildSearched(
                 recipe, $"Angefragt von @{Context.User.Username} • Saisonale Zutaten: {string.Join(", ", seasonalTerms)}");
 
-            await PostToFoodChannelAsync(targetChannel, embed);
+            await PostToFoodChannelAsync(targetChannel, embed).ConfigureAwait(false);
             await FollowupAsync(
                 $"✅ Saisonales Rezept (**{searchQuery}**) in {targetChannel.Mention} mit Link zur Quelle veröffentlicht.",
                 ephemeral: true);
@@ -238,7 +238,7 @@ public class FoodModule : BotModuleBase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing the /recipe-seasonal slash command.");
-            await FollowupAsync("❌ Bei der Suche nach einem saisonalen Rezept ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
+            await FollowupAsync("❌ Bei der Suche nach einem saisonalen Rezept ist ein unerwarteter Fehler aufgetreten.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -251,12 +251,12 @@ public class FoodModule : BotModuleBase
     {
         if (!_rateLimiter.CanExecute(Context.User.Id, "recipe-generate", GenerateCooldown))
         {
-            await RespondAsync("⏳ Bitte warte zwei Minuten, bevor du ein weiteres Rezept generierst.", ephemeral: true);
+            await RespondAsync("⏳ Bitte warte zwei Minuten, bevor du ein weiteres Rezept generierst.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
         // Defer response to allow time for the Gemini API request
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
@@ -264,27 +264,27 @@ public class FoodModule : BotModuleBase
 
             if (targetChannel == null)
             {
-                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` wurde auf diesem Server nicht gefunden.", ephemeral: true);
+                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` wurde auf diesem Server nicht gefunden.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var recipe = await _geminiFoodService.GetWeeklyRenalRecipeAsync(DateTime.UtcNow);
             if (recipe == null)
             {
-                await FollowupAsync("❌ Das Rezept konnte von der Gemini-API nicht erstellt werden. Bitte prüfe den API-Schlüssel und versuche es erneut.", ephemeral: true);
+                await FollowupAsync("❌ Das Rezept konnte von der Gemini-API nicht erstellt werden. Bitte prüfe den API-Schlüssel und versuche es erneut.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var embed = RecipeEmbedBuilder.BuildGenerated(
                 recipe, $"Angefragt von @{Context.User.Username} • Für Dialyse & Nierentransplantation");
 
-            await PostToFoodChannelAsync(targetChannel, embed);
-            await FollowupAsync($"✅ Rezept erfolgreich erstellt und in {targetChannel.Mention} veröffentlicht!", ephemeral: true);
+            await PostToFoodChannelAsync(targetChannel, embed).ConfigureAwait(false);
+            await FollowupAsync($"✅ Rezept erfolgreich erstellt und in {targetChannel.Mention} veröffentlicht!", ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /recipe-generate slash command.");
-            await FollowupAsync("❌ Bei der Rezepterstellung ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
+            await FollowupAsync("❌ Bei der Rezepterstellung ist ein unerwarteter Fehler aufgetreten.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -299,11 +299,11 @@ public class FoodModule : BotModuleBase
     {
         if (!_rateLimiter.CanExecute(Context.User.Id, "seasonal-produce", SeasonalCooldown))
         {
-            await RespondAsync("⏳ Bitte warte eine Minute, bevor du die Saisonprodukte erneut abfragst.", ephemeral: true);
+            await RespondAsync("⏳ Bitte warte eine Minute, bevor du die Saisonprodukte erneut abfragst.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
@@ -311,7 +311,7 @@ public class FoodModule : BotModuleBase
 
             if (targetChannel == null)
             {
-                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` wurde auf diesem Server nicht gefunden.", ephemeral: true);
+                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` wurde auf diesem Server nicht gefunden.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -320,7 +320,7 @@ public class FoodModule : BotModuleBase
             {
                 if (monthInput.Value < 1 || monthInput.Value > 12)
                 {
-                    await FollowupAsync("❌ Ungültiger Monat. Bitte gib einen Wert zwischen 1 und 12 ein.", ephemeral: true);
+                    await FollowupAsync("❌ Ungültiger Monat. Bitte gib einen Wert zwischen 1 und 12 ein.", ephemeral: true).ConfigureAwait(false);
                     return;
                 }
                 targetMonth = monthInput.Value;
@@ -332,7 +332,7 @@ public class FoodModule : BotModuleBase
 
             if (produceData == null)
             {
-                await FollowupAsync("❌ Die Saisonprodukte konnten nicht von der Gemini-API abgerufen werden. Bitte versuche es später erneut.", ephemeral: true);
+                await FollowupAsync("❌ Die Saisonprodukte konnten nicht von der Gemini-API abgerufen werden. Bitte versuche es später erneut.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -341,13 +341,13 @@ public class FoodModule : BotModuleBase
                 targetDate.GermanMonthName(),
                 $"Angefragt von @{Context.User.Username} • Regionale Saisonware");
 
-            await PostToFoodChannelAsync(targetChannel, embed);
-            await FollowupAsync($"✅ Saisonale Übersicht für **{produceData.Month ?? targetDate.GermanMonthName()}** erfolgreich in {targetChannel.Mention} veröffentlicht!", ephemeral: true);
+            await PostToFoodChannelAsync(targetChannel, embed).ConfigureAwait(false);
+            await FollowupAsync($"✅ Saisonale Übersicht für **{produceData.Month ?? targetDate.GermanMonthName()}** erfolgreich in {targetChannel.Mention} veröffentlicht!", ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /seasonal-produce slash command.");
-            await FollowupAsync("❌ Bei der Erstellung der saisonalen Übersicht ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
+            await FollowupAsync("❌ Bei der Erstellung der saisonalen Übersicht ist ein unerwarteter Fehler aufgetreten.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -363,34 +363,34 @@ public class FoodModule : BotModuleBase
     {
         if (!_rateLimiter.CanExecute(Context.User.Id, "check-food", FoodCheckCooldown))
         {
-            await RespondAsync("⏳ Bitte warte 30 Sekunden, bevor du ein weiteres Lebensmittel prüfst.", ephemeral: true);
+            await RespondAsync("⏳ Bitte warte 30 Sekunden, bevor du ein weiteres Lebensmittel prüfst.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
             if (string.IsNullOrWhiteSpace(query))
             {
-                await FollowupAsync("❌ Bitte gib einen Lebensmittelnamen an, z. B. `/check-food query:Banane`.", ephemeral: true);
+                await FollowupAsync("❌ Bitte gib einen Lebensmittelnamen an, z. B. `/check-food query:Banane`.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var product = await _openFoodFactsService.SearchProductAsync(query);
             if (product == null)
             {
-                await FollowupAsync($"❌ Kein Produkt für **{query}** bei Open Food Facts gefunden. Versuche eine andere Bezeichnung.", ephemeral: true);
+                await FollowupAsync($"❌ Kein Produkt für **{query}** bei Open Food Facts gefunden. Versuche eine andere Bezeichnung.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var embed = OpenFoodFactsEmbedBuilder.Build(product);
-            await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true);
+            await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /check-food slash command.");
-            await FollowupAsync("❌ Bei der Lebensmittelprüfung ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
+            await FollowupAsync("❌ Bei der Lebensmittelprüfung ist ein unerwarteter Fehler aufgetreten.", ephemeral: true).ConfigureAwait(false);
         }
     }
 

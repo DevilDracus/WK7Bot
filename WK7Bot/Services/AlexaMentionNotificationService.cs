@@ -118,7 +118,7 @@ public class AlexaMentionNotificationService : IHostedService, IDisposable
                 {
                     try
                     {
-                        await SendAlexaNotificationAsync(notificationText, _shutdownCts.Token);
+                        await SendAlexaNotificationAsync(notificationText, _shutdownCts.Token).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {

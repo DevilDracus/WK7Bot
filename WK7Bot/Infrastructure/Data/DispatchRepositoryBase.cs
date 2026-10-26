@@ -70,11 +70,11 @@ public abstract class DispatchRepositoryBase<TEntity> where TEntity : class, new
         }
 
         var log = entityFactory();
-        await GetDbSet(context).AddAsync(log, cancellationToken);
+        await GetDbSet(context).AddAsync(log, cancellationToken).ConfigureAwait(false);
 
         try
         {
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (DbUpdateException ex) when (DatabaseWriteGuard.IsUniqueConstraintViolation(ex))
         {
@@ -104,7 +104,7 @@ public abstract class DispatchRepositoryBase<TEntity> where TEntity : class, new
         }
 
         GetDbSet(context).RemoveRange(stale);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return stale.Count;
     }
 }

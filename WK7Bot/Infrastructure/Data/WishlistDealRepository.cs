@@ -38,13 +38,13 @@ public class WishlistDealRepository : IWishlistDealRepository
         {
             var existing = await context.WishlistGames.ToListAsync(cancellationToken);
             context.WishlistGames.RemoveRange(existing);
-            await context.WishlistGames.AddRangeAsync(games, cancellationToken);
-            await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            await context.WishlistGames.AddRangeAsync(games, cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception)
         {
-            await transaction.RollbackAsync(cancellationToken);
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
             throw;
         }
     }
@@ -69,7 +69,7 @@ public class WishlistDealRepository : IWishlistDealRepository
             AlertedAt = DateTimeOffset.UtcNow,
             WasHistoricalLow = isHistoricalLow
         });
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -84,7 +84,7 @@ public class WishlistDealRepository : IWishlistDealRepository
         if (stale.Count > 0)
         {
             context.WishlistAlertHistories.RemoveRange(stale);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 }

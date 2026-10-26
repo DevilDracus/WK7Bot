@@ -46,7 +46,7 @@ public partial class BattleNetService
         // Single-flight: concurrent lookups for the same account must not stampede the token endpoint.
         // A second refresh grant could race or invalidate the first one, so all callers funnel through
         // the shared gate and re-check the cache after acquiring it.
-        await TokenRefreshGate.WaitAsync(cancellationToken);
+        await TokenRefreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (_cache.TryGetValue<string>(cacheKey, out var refreshed) && !string.IsNullOrEmpty(refreshed))

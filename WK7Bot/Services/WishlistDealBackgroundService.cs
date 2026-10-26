@@ -84,7 +84,7 @@ public class WishlistDealBackgroundService : BackgroundService
         await BackgroundServiceResilience.RunWithResilienceAsync(
             async token =>
             {
-                await CheckDealsAsync(token);
+                await CheckDealsAsync(token).ConfigureAwait(false);
             },
             FeatureKeys.WishlistDealAlerts,
             _health,
@@ -124,7 +124,7 @@ public class WishlistDealBackgroundService : BackgroundService
 
         _logger.LogInformation("Found {Count} unique wishlisted games across {Users} mapped users.", allAppIds.Count, wishlistsByDiscordId.Count);
 
-        await UpsertTrackedGamesAsync(wishlistsByDiscordId, allAppIds, cancellationToken);
+        await UpsertTrackedGamesAsync(wishlistsByDiscordId, allAppIds, cancellationToken).ConfigureAwait(false);
 
         // Fetch current prices
         var prices = await _dealService.FetchPricesAsync(allAppIds, cancellationToken);
@@ -149,7 +149,7 @@ public class WishlistDealBackgroundService : BackgroundService
         var posted = await PostAlertsAsync(alerts, cancellationToken);
         if (posted)
         {
-            await RecordTriggeredAlertsAsync(alerts, cancellationToken);
+            await RecordTriggeredAlertsAsync(alerts, cancellationToken).ConfigureAwait(false);
         }
         else
         {
@@ -215,8 +215,8 @@ public class WishlistDealBackgroundService : BackgroundService
                 LastUpdated = DateTimeOffset.UtcNow
             }).ToList();
 
-            await repository.ReplaceTrackedGamesAsync(games, cancellationToken);
-            await repository.PruneAlertHistoryAsync(AlertRetention, cancellationToken);
+            await repository.ReplaceTrackedGamesAsync(games, cancellationToken).ConfigureAwait(false);
+            await repository.PruneAlertHistoryAsync(AlertRetention, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -301,7 +301,7 @@ public class WishlistDealBackgroundService : BackgroundService
             {
                 var embed = BuildDealEmbed(alert);
                 var mentions = string.Join(" ", alert.NotifiedUserIds.Select(id => $"<@{id}>"));
-                await channel.SendMessageAsync(text: mentions, embed: embed, allowedMentions: new AllowedMentions { UserIds = alert.NotifiedUserIds });
+                await channel.SendMessageAsync(text: mentions, embed: embed, allowedMentions: new AllowedMentions { UserIds = alert.NotifiedUserIds }).ConfigureAwait(false);
                 postedAny = true;
             }
         }
@@ -321,7 +321,7 @@ public class WishlistDealBackgroundService : BackgroundService
 
             foreach (var alert in alerts)
             {
-                await repository.RecordAlertAsync(alert.AppId, alert.IsHistoricalLow, cancellationToken);
+                await repository.RecordAlertAsync(alert.AppId, alert.IsHistoricalLow, cancellationToken).ConfigureAwait(false);
             }
         }
     }

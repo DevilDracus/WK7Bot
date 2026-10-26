@@ -56,11 +56,11 @@ public class DealsModule : BotModuleBase
     {
         if (!_rateLimiter.CanExecute(Context.User.Id, "deals", DealsCooldown))
         {
-            await RespondAsync("⏳ Bitte warte 30 Sekunden, bevor du erneut nach Deals suchst.", ephemeral: true);
+            await RespondAsync("⏳ Bitte warte 30 Sekunden, bevor du erneut nach Deals suchst.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
@@ -86,31 +86,31 @@ public class DealsModule : BotModuleBase
 
             if (string.IsNullOrWhiteSpace(steamId))
             {
-                await FollowupAsync("❌ Du hast keinen Steam-Account mit deinem Discord-Profil verknüpft.", ephemeral: true);
+                await FollowupAsync("❌ Du hast keinen Steam-Account mit deinem Discord-Profil verknüpft.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var wishlist = await _dealService.FetchWishlistAsync(steamId, wishlistUrl);
             if (wishlist.Count == 0)
             {
-                await FollowupAsync("❌ Deine Steam-Wunschliste ist leer oder privat. Bitte stelle sicher, dass sie öffentlich ist.", ephemeral: true);
+                await FollowupAsync("❌ Deine Steam-Wunschliste ist leer oder privat. Bitte stelle sicher, dass sie öffentlich ist.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var prices = await _dealService.FetchPricesAsync(wishlist.Select(w => w.AppId));
             if (prices.Count == 0)
             {
-                await FollowupAsync("❌ Keine Preisdaten verfügbar. Bitte versuche es später erneut.", ephemeral: true);
+                await FollowupAsync("❌ Keine Preisdaten verfügbar. Bitte versuche es später erneut.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var embed = BuildDealsEmbed(wishlist, prices);
-            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
+            await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /deals slash command.");
-            await FollowupAsync("❌ Bei der Deals-Abfrage ist ein unerwarteter Fehler aufgetreten.", ephemeral: true);
+            await FollowupAsync("❌ Bei der Deals-Abfrage ist ein unerwarteter Fehler aufgetreten.", ephemeral: true).ConfigureAwait(false);
         }
     }
 

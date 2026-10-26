@@ -75,7 +75,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
         await BackgroundServiceResilience.RunWithResilienceAsync(
             async token =>
             {
-                await EvaluateScheduleAsync(DateTime.UtcNow, token);
+                await EvaluateScheduleAsync(DateTime.UtcNow, token).ConfigureAwait(false);
             },
             FeatureKeys.LeipzigWaste,
             _health,
@@ -172,7 +172,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
 
         // The waste table also stores weekend-digest records; keep it bounded by the same retention.
-        await dispatchRepository.PruneAsync(DateTime.UtcNow.Date - DispatchRetention, cancellationToken);
+        await dispatchRepository.PruneAsync(DateTime.UtcNow.Date - DispatchRetention, cancellationToken).ConfigureAwait(false);
 
         var targetGuildIds = GetTargetGuildIds();
         var pendingGuildIds = new List<ulong>();
@@ -212,11 +212,11 @@ public class LeipzigWasteBackgroundService : BackgroundService
                 continue;
             }
 
-            await PostToWasteChannelAsync(channel, embed);
+            await PostToWasteChannelAsync(channel, embed).ConfigureAwait(false);
 
             // Record only after a successful send so a crash or failure retries this guild next tick
             // while guilds that already received the message stay suppressed.
-            await dispatchRepository.MarkSentAsync(kind, guildId, date, cancellationToken);
+            await dispatchRepository.MarkSentAsync(kind, guildId, date, cancellationToken).ConfigureAwait(false);
         }
 
         _logger.LogDebug(

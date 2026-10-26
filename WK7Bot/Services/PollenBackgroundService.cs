@@ -95,7 +95,7 @@ public class PollenBackgroundService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
 
-        await dispatchRepository.PruneAsync(now.Date - DispatchRetention, stoppingToken);
+        await dispatchRepository.PruneAsync(now.Date - DispatchRetention, stoppingToken).ConfigureAwait(false);
 
         var pending = new List<ulong>();
         foreach (var guildId in AutomaticTargetResolver.Resolve(
@@ -133,8 +133,8 @@ public class PollenBackgroundService : BackgroundService
                 continue;
             }
 
-            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger, stoppingToken);
-            await dispatchRepository.MarkSentAsync(DispatchKind, guildId, now.Date, stoppingToken);
+            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger, stoppingToken).ConfigureAwait(false);
+            await dispatchRepository.MarkSentAsync(DispatchKind, guildId, now.Date, stoppingToken).ConfigureAwait(false);
         }
     }
 

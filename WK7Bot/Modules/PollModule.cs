@@ -39,19 +39,19 @@ public class PollModule : BotModuleBase
         [Summary("dauer_stunden", "Laufzeit in Stunden (1-168)")] int dauer_stunden = 24,
         [Summary("mehrfachauswahl", "Mehrere Antworten erlauben")] bool mehrfachauswahl = false)
     {
-        await DeferAsync();
+        await DeferAsync().ConfigureAwait(false);
 
         var question = PollOptionParser.ParseQuestion(frage, out var questionError);
         if (questionError is not null)
         {
-            await FollowupAsync($"❌ {questionError}", ephemeral: true);
+            await FollowupAsync($"❌ {questionError}", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
         var answers = PollOptionParser.Parse(optionen, out var optionsError);
         if (optionsError is not null)
         {
-            await FollowupAsync($"❌ {optionsError}", ephemeral: true);
+            await FollowupAsync($"❌ {optionsError}", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -69,6 +69,6 @@ public class PollModule : BotModuleBase
             LayoutType = PollLayout.Default
         };
 
-        await FollowupAsync(poll: poll);
+        await FollowupAsync(poll: poll).ConfigureAwait(false);
     }
 }

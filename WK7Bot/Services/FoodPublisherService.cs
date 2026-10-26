@@ -126,12 +126,12 @@ public class FoodPublisherService : BackgroundService
 
                 if (ShouldPublishMonthlyProduce(now))
                 {
-                    await AttemptSlotAsync(now, FoodDispatchKinds.MonthlyProduce, "monthly produce", PublishMonthlyProduceAsync, stoppingToken);
+                    await AttemptSlotAsync(now, FoodDispatchKinds.MonthlyProduce, "monthly produce", PublishMonthlyProduceAsync, stoppingToken).ConfigureAwait(false);
                 }
 
                 if (ShouldPublishWeeklyRecipe(now))
                 {
-                    await AttemptSlotAsync(now, FoodDispatchKinds.WeeklyRecipe, "weekly recipe", PublishWeeklyRecipeAsync, stoppingToken);
+                    await AttemptSlotAsync(now, FoodDispatchKinds.WeeklyRecipe, "weekly recipe", PublishWeeklyRecipeAsync, stoppingToken).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -146,7 +146,7 @@ public class FoodPublisherService : BackgroundService
 
             try
             {
-                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -228,7 +228,7 @@ public class FoodPublisherService : BackgroundService
         if (succeeded)
         {
             slot.Complete(now);
-            await PersistSentAsync(kind, now, cancellationToken);
+            await PersistSentAsync(kind, now, cancellationToken).ConfigureAwait(false);
             _health.RecordSuccess(FeatureKeys.FoodService);
             return;
         }
@@ -274,7 +274,7 @@ public class FoodPublisherService : BackgroundService
             now.GermanMonthName(),
             "Gesendet vom WK7 Bot • Regionale Saisonware");
 
-        await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger);
+        await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger).ConfigureAwait(false);
         return true;
     }
 
@@ -311,7 +311,7 @@ public class FoodPublisherService : BackgroundService
                 recipe,
                 $"Automatisch veröffentlicht • Saisonale Zutaten: {string.Join(", ", seasonalTerms)}");
 
-            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger);
+            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger).ConfigureAwait(false);
             return true;
         }
 
@@ -337,8 +337,8 @@ public class FoodPublisherService : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<IFoodDispatchRepository>();
 
-            await repository.MarkSentAsync(kind, now.Date, cancellationToken);
-            await repository.PruneAsync(now.Date - DispatchRetention, cancellationToken);
+            await repository.MarkSentAsync(kind, now.Date, cancellationToken).ConfigureAwait(false);
+            await repository.PruneAsync(now.Date - DispatchRetention, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

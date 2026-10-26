@@ -39,7 +39,7 @@ public class ProfileModule : BotModuleBase
     [RequireContext(ContextType.Guild)]
     public async Task ProfileAsync([Summary("user", "Mitglied, dessen Profil gezeigt werden soll")] IUser? user = null)
     {
-        await DeferAsync();
+        await DeferAsync().ConfigureAwait(false);
 
         var target = user ?? Context.User;
         var result = await _profileService.GetAsync(target.Id, Context.Guild.Id);

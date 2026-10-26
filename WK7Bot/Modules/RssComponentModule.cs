@@ -39,13 +39,13 @@ public class RssComponentModule : BotModuleBase
     [ComponentInteraction("rss-subscription-select")]
     public async Task HandleSubscriptionSelectionAsync(string[] selectedValues)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
             if (Context.User is not SocketGuildUser guildUser)
             {
-                await FollowupAsync("❌ Diese Aktion ist nur innerhalb eines Servers möglich.", ephemeral: true);
+                await FollowupAsync("❌ Diese Aktion ist nur innerhalb eines Servers möglich.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -73,7 +73,7 @@ public class RssComponentModule : BotModuleBase
             {
                 // Applying a stale menu would silently drop existing subscriptions, so keep the
                 // current roles untouched and ask for a fresh menu instead.
-                await FollowupAsync("⚠️ Dieses Abo-Menü ist veraltet. Bitte öffne ein neues mit `/rss dashboard`.", ephemeral: true);
+                await FollowupAsync("⚠️ Dieses Abo-Menü ist veraltet. Bitte öffne ein neues mit `/rss dashboard`.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -87,25 +87,25 @@ public class RssComponentModule : BotModuleBase
 
             if (rolesToAdd.Count > 0)
             {
-                await guildUser.AddRolesAsync(rolesToAdd);
+                await guildUser.AddRolesAsync(rolesToAdd).ConfigureAwait(false);
             }
 
             if (rolesToRemove.Count > 0)
             {
-                await guildUser.RemoveRolesAsync(rolesToRemove);
+                await guildUser.RemoveRolesAsync(rolesToRemove).ConfigureAwait(false);
             }
 
-            await FollowupAsync("✅ Deine RSS-Feed-Abos wurden aktualisiert!", ephemeral: true);
+            await FollowupAsync("✅ Deine RSS-Feed-Abos wurden aktualisiert!", ephemeral: true).ConfigureAwait(false);
         }
         catch (Discord.Net.HttpException ex) when (ex.HttpCode == HttpStatusCode.Forbidden)
         {
-            await FollowupAsync("❌ Die Rollen konnten nicht aktualisiert werden: Dem Bot fehlt die Berechtigung oder seine Rolle steht in der Hierarchie unter den RSS-Rollen. Bitte verschiebe die Bot-Rolle über die RSS-Rollen (Servereinstellungen > Rollen).", ephemeral: true);
+            await FollowupAsync("❌ Die Rollen konnten nicht aktualisiert werden: Dem Bot fehlt die Berechtigung oder seine Rolle steht in der Hierarchie unter den RSS-Rollen. Bitte verschiebe die Bot-Rolle über die RSS-Rollen (Servereinstellungen > Rollen).", ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Component failures must reach the error pipeline, not just the clicking user.
             _logger.LogError(ex, "Error occurred while handling an RSS subscription select-menu interaction.");
-            await FollowupAsync("❌ Beim Aktualisieren deiner Abos ist ein Fehler aufgetreten.", ephemeral: true);
+            await FollowupAsync("❌ Beim Aktualisieren deiner Abos ist ein Fehler aufgetreten.", ephemeral: true).ConfigureAwait(false);
         }
     }
 }

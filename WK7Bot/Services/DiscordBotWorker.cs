@@ -54,10 +54,10 @@ public class DiscordBotWorker : BackgroundService
 
         _logger.LogInformation("Attempting to connect to Discord gateway...");
 
-        await _client.LoginAsync(TokenType.Bot, token);
-        await _client.StartAsync();
+        await _client.LoginAsync(TokenType.Bot, token).ConfigureAwait(false);
+        await _client.StartAsync().ConfigureAwait(false);
 
-        await Task.Delay(-1, stoppingToken);
+        await Task.Delay(-1, stoppingToken).ConfigureAwait(false);
     }
 
     /// <summary>

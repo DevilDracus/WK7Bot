@@ -87,7 +87,7 @@ public sealed class BotStatusMqttService : BackgroundService
         _coordinator.LastWill = (BotStatusEntities.AvailabilityTopic, BotStatusEntities.AvailabilityLostPayload);
         _coordinator.ConnectionEstablishedAsync += OnMqttConnectionEstablishedAsync;
 
-        await _coordinator.StartMaintainingAsync(stoppingToken);
+        await _coordinator.StartMaintainingAsync(stoppingToken).ConfigureAwait(false);
 
         // Another hosted MQTT service starts earlier and may already have established the shared
         // connection by the time this service subscribes: ConnectionEstablishedAsync for the
@@ -96,7 +96,7 @@ public sealed class BotStatusMqttService : BackgroundService
         // leaving sensor.wk7bot_status permanently unavailable in Home Assistant.
         if (_mqttClient.IsConnected)
         {
-            await OnMqttConnectionEstablishedAsync();
+            await OnMqttConnectionEstablishedAsync().ConfigureAwait(false);
         }
 
         await BackgroundServiceResilience.RunWithResilienceAsync(
@@ -122,7 +122,7 @@ public sealed class BotStatusMqttService : BackgroundService
         {
             try
             {
-                await PublishRetainedAsync(BotStatusEntities.AvailabilityTopic, BotStatusEntities.AvailabilityLostPayload);
+                await PublishRetainedAsync(BotStatusEntities.AvailabilityTopic, BotStatusEntities.AvailabilityLostPayload).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -130,7 +130,7 @@ public sealed class BotStatusMqttService : BackgroundService
             }
         }
 
-        await base.StopAsync(cancellationToken);
+        await base.StopAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -147,9 +147,9 @@ public sealed class BotStatusMqttService : BackgroundService
                 return;
             }
 
-            await PublishRetainedAsync(BotStatusEntities.AvailabilityTopic, BotStatusEntities.AvailabilityOnlinePayload);
-            await RegisterEntitiesAsync();
-            await PublishStatesAsync();
+            await PublishRetainedAsync(BotStatusEntities.AvailabilityTopic, BotStatusEntities.AvailabilityOnlinePayload).ConfigureAwait(false);
+            await RegisterEntitiesAsync().ConfigureAwait(false);
+            await PublishStatesAsync().ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
         {
@@ -180,7 +180,7 @@ public sealed class BotStatusMqttService : BackgroundService
 
             foreach (var (topic, payload) in BuildDesiredStates())
             {
-                await PublishRetainedAsync(topic, payload);
+                await PublishRetainedAsync(topic, payload).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
@@ -267,7 +267,7 @@ public sealed class BotStatusMqttService : BackgroundService
     {
         try
         {
-            await _mqttClient.PublishRetainedAsync(topic, payload);
+            await _mqttClient.PublishRetainedAsync(topic, payload).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

@@ -34,7 +34,7 @@ public class PollenModule : BotModuleBase
     [SlashCommand("pollen", "Zeigt Pollenflug und UV-Index von heute bis übermorgen.")]
     public async Task PollenAsync()
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         var pollen = await _pollenService.GetPollenAsync();
         var uv = await _pollenService.GetUvAsync();
@@ -43,10 +43,10 @@ public class PollenModule : BotModuleBase
         if (embed is null)
         {
             _logger.LogWarning("Pollen and UV feeds were both unavailable for /pollen.");
-            await FollowupAsync("❌ Der DWD-Pollenflug-Index ist derzeit nicht erreichbar.", ephemeral: true);
+            await FollowupAsync("❌ Der DWD-Pollenflug-Index ist derzeit nicht erreichbar.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true);
+        await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
     }
 }

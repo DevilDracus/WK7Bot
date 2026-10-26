@@ -31,7 +31,7 @@ public static class CardSender
 
         try
         {
-            await channel.SendMessageAsync(components: card, flags: MessageFlags.ComponentsV2);
+            await channel.SendMessageAsync(components: card, flags: MessageFlags.ComponentsV2).ConfigureAwait(false);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -46,7 +46,7 @@ public static class CardSender
 
         try
         {
-            await channel.SendMessageAsync(embed: fallbackEmbed);
+            await channel.SendMessageAsync(embed: fallbackEmbed).ConfigureAwait(false);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

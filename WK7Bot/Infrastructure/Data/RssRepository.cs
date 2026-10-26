@@ -64,8 +64,8 @@ public class RssRepository : IRssRepository
         {
             feed.NormalizedName = feed.Name.ToLowerInvariant();
         }
-        await context.RssFeeds.AddAsync(feed, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.RssFeeds.AddAsync(feed, cancellationToken).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -78,7 +78,7 @@ public class RssRepository : IRssRepository
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         context.RssFeeds.Update(feed);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -94,7 +94,7 @@ public class RssRepository : IRssRepository
         if (entity != null)
         {
             context.RssFeeds.Remove(entity);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -112,7 +112,7 @@ public class RssRepository : IRssRepository
         if (setting == null)
         {
             setting = new RssDashboardSetting { ChannelId = channelId, MessageId = messageId };
-            await context.RssDashboardSettings.AddAsync(setting, cancellationToken);
+            await context.RssDashboardSettings.AddAsync(setting, cancellationToken).ConfigureAwait(false);
         }
         else
         {
@@ -121,7 +121,7 @@ public class RssRepository : IRssRepository
             context.RssDashboardSettings.Update(setting);
         }
 
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

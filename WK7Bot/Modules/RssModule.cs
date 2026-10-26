@@ -78,12 +78,12 @@ public class RssModule : BotModuleBase
         [Summary("name", "Name des Feeds (z. B. PD Leipzig)")] [MaxLength(MaxFeedNameLength)] string name,
         [Summary("url", "RSS-Feed-URL")] [MaxLength(MaxFeedUrlLength)] string url)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         var result = await CreateFeedAsync(name, url);
         if (result.Outcome != FeedCreationOutcome.Created)
         {
-            await FollowupAsync($"\u274c {result.Message}", ephemeral: true);
+            await FollowupAsync($"\u274c {result.Message}", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -92,7 +92,7 @@ public class RssModule : BotModuleBase
             ? "Das Abo-Men\u00fc wurde aktualisiert."
             : "Es ist noch kein Abo-Men\u00fc vorhanden \u2014 erstelle eines mit `/rss dashboard`.";
 
-        await FollowupAsync($"\u2705 {result.Message} {dashboardNote}", ephemeral: true);
+        await FollowupAsync($"\u2705 {result.Message} {dashboardNote}", ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -123,12 +123,12 @@ public class RssModule : BotModuleBase
     [SlashCommand("test", "Zeigt eine Vorschau der neuesten Eintr\u00e4ge einer Feed-URL")]
     public async Task TestFeedAsync([Summary("url", "RSS-Feed-URL")] [MaxLength(MaxFeedUrlLength)] string url)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         url = (url ?? string.Empty).Trim();
         if (!IsHttpUrl(url))
         {
-            await FollowupAsync("\u274c Bitte gib eine g\u00fcltige HTTP(S)-Feed-URL an.", ephemeral: true);
+            await FollowupAsync("\u274c Bitte gib eine g\u00fcltige HTTP(S)-Feed-URL an.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -173,7 +173,7 @@ public class RssModule : BotModuleBase
             }
         }
 
-        await FollowupAsync(embed: embed.Build(), ephemeral: true);
+        await FollowupAsync(embed: embed.Build(), ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -184,25 +184,25 @@ public class RssModule : BotModuleBase
     [RequireUserPermission(GuildPermission.ManageChannels)]
     public async Task ExportOpmlAsync()
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
             var feeds = await _repository.GetAllFeedsAsync();
             if (feeds.Count == 0)
             {
-                await FollowupAsync("\u274c Es sind keine Feeds zum Exportieren vorhanden.", ephemeral: true);
+                await FollowupAsync("\u274c Es sind keine Feeds zum Exportieren vorhanden.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var opml = _opmlService.BuildExport(feeds);
             await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(opml));
-            await FollowupWithFileAsync(stream, "wk7-rss-feeds.opml", text: $"\ud83d\udce4 OPML-Export mit {feeds.Count} Feed(s).");
+            await FollowupWithFileAsync(stream, "wk7-rss-feeds.opml", text: $"\ud83d\udce4 OPML-Export mit {feeds.Count} Feed(s).").ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Exporting the RSS feeds as OPML failed.");
-            await FollowupAsync("\u274c Der OPML-Export ist fehlgeschlagen.", ephemeral: true);
+            await FollowupAsync("\u274c Der OPML-Export ist fehlgeschlagen.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -216,15 +216,15 @@ public class RssModule : BotModuleBase
     [RequireUserPermission(GuildPermission.ManageChannels)]
     public async Task ImportOpmlAsync([Summary("datei", "OPML-Datei")] IAttachment datei)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         if (datei is null)
         {
-            await FollowupAsync("\u274c Bitte h\u00e4nge eine OPML-Datei an.", ephemeral: true);
+            await FollowupAsync("\u274c Bitte h\u00e4nge eine OPML-Datei an.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await ImportFromUrlCoreAsync(datei.Url);
+        await ImportFromUrlCoreAsync(datei.Url).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -235,8 +235,8 @@ public class RssModule : BotModuleBase
     /// <returns>A task representing the import operation.</returns>
     internal async Task ImportFromUrlAsync(string url)
     {
-        await DeferAsync(ephemeral: true);
-        await ImportFromUrlCoreAsync(url);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        await ImportFromUrlCoreAsync(url).ConfigureAwait(false);
     }
 
     /// <summary>Runs the OPML import after the interaction has been deferred.</summary>
@@ -276,7 +276,7 @@ public class RssModule : BotModuleBase
 
         if (created.Count > 0)
         {
-            await TryRefreshDashboardAsync(Context, _repository);
+            await TryRefreshDashboardAsync(Context, _repository).ConfigureAwait(false);
         }
 
         var summary = new StringBuilder();
@@ -296,7 +296,7 @@ public class RssModule : BotModuleBase
             summary.AppendLine($"Fehlgeschlagen: {string.Join(", ", failed.Take(10))}");
         }
 
-        await FollowupAsync(summary.ToString().TrimEnd(), ephemeral: true);
+        await FollowupAsync(summary.ToString().TrimEnd(), ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -312,7 +312,7 @@ public class RssModule : BotModuleBase
 
             if (feeds.Count == 0)
             {
-                await RespondAsync("Noch keine RSS-Feeds registriert. F\u00fcge einen mit `/rss add` hinzu.", ephemeral: true);
+                await RespondAsync("Noch keine RSS-Feeds registriert. F\u00fcge einen mit `/rss add` hinzu.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -332,12 +332,12 @@ public class RssModule : BotModuleBase
                     inline: false);
             }
 
-            await RespondAsync(embed: embed.Build(), ephemeral: true);
+            await RespondAsync(embed: embed.Build(), ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Listing RSS feeds failed.");
-            await RespondAsync("\u274c Feeds konnten nicht geladen werden.", ephemeral: true);
+            await RespondAsync("\u274c Feeds konnten nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -350,30 +350,30 @@ public class RssModule : BotModuleBase
     [RequireUserPermission(GuildPermission.ManageChannels)]
     public async Task RemoveFeedAsync([Summary("name", "Name des zu entfernenden Feeds")] [MaxLength(MaxFeedNameLength)] string name)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         name = name.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
-            await FollowupAsync("\u274c Bitte gib den Namen des zu entfernenden Feeds an.", ephemeral: true);
+            await FollowupAsync("\u274c Bitte gib den Namen des zu entfernenden Feeds an.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
         var feed = await _repository.GetFeedByNameAsync(name);
         if (feed == null)
         {
-            await FollowupAsync($"\u274c Kein Feed mit dem Namen '{name}' gefunden.", ephemeral: true);
+            await FollowupAsync($"\u274c Kein Feed mit dem Namen '{name}' gefunden.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
         try
         {
-            await _repository.DeleteFeedAsync(feed.Id);
+            await _repository.DeleteFeedAsync(feed.Id).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Removing an RSS feed from the database failed.");
-            await FollowupAsync($"\u274c Das Entfernen von **{feed.Name}** aus der Datenbank ist fehlgeschlagen; es wurde nichts ge\u00e4ndert. Bitte versuche es erneut.", ephemeral: true);
+            await FollowupAsync($"\u274c Das Entfernen von **{feed.Name}** aus der Datenbank ist fehlgeschlagen; es wurde nichts ge\u00e4ndert. Bitte versuche es erneut.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -384,7 +384,7 @@ public class RssModule : BotModuleBase
         {
             try
             {
-                await channel.DeleteAsync();
+                await channel.DeleteAsync().ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -397,7 +397,7 @@ public class RssModule : BotModuleBase
         {
             try
             {
-                await role.DeleteAsync();
+                await role.DeleteAsync().ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -408,7 +408,7 @@ public class RssModule : BotModuleBase
 
         try
         {
-            await TryRefreshDashboardAsync(Context, _repository);
+            await TryRefreshDashboardAsync(Context, _repository).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -437,17 +437,17 @@ public class RssModule : BotModuleBase
 
             if (!feeds.Any())
             {
-                await RespondAsync("\u274c Es sind noch keine RSS-Feeds zum Abonnieren vorhanden.", ephemeral: true);
+                await RespondAsync("\u274c Es sind noch keine RSS-Feeds zum Abonnieren vorhanden.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var (embed, component) = BuildDashboardMessage(feeds);
 
-            await RespondAsync(embed: embed, components: component);
+            await RespondAsync(embed: embed, components: component).ConfigureAwait(false);
             responseSent = true;
 
             var responseMessage = await GetOriginalResponseAsync();
-            await _repository.SaveDashboardLocationAsync(Context.Channel.Id, responseMessage.Id);
+            await _repository.SaveDashboardLocationAsync(Context.Channel.Id, responseMessage.Id).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -459,11 +459,11 @@ public class RssModule : BotModuleBase
 
             if (responseSent)
             {
-                await FollowupAsync(message, ephemeral: true);
+                await FollowupAsync(message, ephemeral: true).ConfigureAwait(false);
             }
             else
             {
-                await RespondAsync(message, ephemeral: true);
+                await RespondAsync(message, ephemeral: true).ConfigureAwait(false);
             }
         }
     }
@@ -536,7 +536,7 @@ public class RssModule : BotModuleBase
                 RoleId = createdRole.Id
             };
 
-            await _repository.AddFeedAsync(feedEntity);
+            await _repository.AddFeedAsync(feedEntity).ConfigureAwait(false);
             feedSaved = true;
 
             return new FeedCreationResult(
@@ -549,7 +549,7 @@ public class RssModule : BotModuleBase
 
             if (!feedSaved)
             {
-                await TryCleanupPartialCreationAsync(createdChannel, createdRole);
+                await TryCleanupPartialCreationAsync(createdChannel, createdRole).ConfigureAwait(false);
                 return new FeedCreationResult(
                     FeedCreationOutcome.Failed,
                     $"Das Erstellen des Feeds **{name}** ist fehlgeschlagen; teilweise erstellte Kan\u00e4le, Rollen und eine leere Kategorie wurden aufger\u00e4umt.");
@@ -569,19 +569,19 @@ public class RssModule : BotModuleBase
     /// <returns>A task representing the command response operation.</returns>
     private async Task SetPausedAsync(string name, bool paused)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         name = (name ?? string.Empty).Trim();
         if (name.Length == 0)
         {
-            await FollowupAsync("\u274c Bitte gib den Namen des Feeds an.", ephemeral: true);
+            await FollowupAsync("\u274c Bitte gib den Namen des Feeds an.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
         var feed = await _repository.GetFeedByNameAsync(name);
         if (feed == null)
         {
-            await FollowupAsync($"\u274c Kein Feed mit dem Namen '{name}' gefunden.", ephemeral: true);
+            await FollowupAsync($"\u274c Kein Feed mit dem Namen '{name}' gefunden.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -596,12 +596,12 @@ public class RssModule : BotModuleBase
         try
         {
             feed.IsPaused = paused;
-            await _repository.UpdateFeedAsync(feed);
+            await _repository.UpdateFeedAsync(feed).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Updating the paused state of RSS feed {Name} failed.", name);
-            await FollowupAsync($"\u274c Der Status von **{feed.Name}** konnte nicht gespeichert werden.", ephemeral: true);
+            await FollowupAsync($"\u274c Der Status von **{feed.Name}** konnte nicht gespeichert werden.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -740,7 +740,7 @@ public class RssModule : BotModuleBase
         {
             try
             {
-                await channel.DeleteAsync();
+                await channel.DeleteAsync().ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -752,7 +752,7 @@ public class RssModule : BotModuleBase
         {
             try
             {
-                await role.DeleteAsync();
+                await role.DeleteAsync().ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -777,7 +777,7 @@ public class RssModule : BotModuleBase
             var channels = await guild.GetTextChannelsAsync();
             if (!channels.Any(c => c.CategoryId == category.Id))
             {
-                await category.DeleteAsync();
+                await category.DeleteAsync().ConfigureAwait(false);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

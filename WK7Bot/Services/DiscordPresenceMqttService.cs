@@ -97,7 +97,7 @@ public class DiscordPresenceMqttService : BackgroundService
             return;
         }
 
-        await RefreshAccountLinksAsync(stoppingToken);
+        await RefreshAccountLinksAsync(stoppingToken).ConfigureAwait(false);
 
         _discordClient.PresenceUpdated += OnPresenceUpdatedAsync;
         _discordClient.Ready += OnDiscordReadyAsync;
@@ -107,7 +107,7 @@ public class DiscordPresenceMqttService : BackgroundService
         // StartMaintainingAsync also keeps the initial connect's event from being missed.
         _coordinator.ConnectionEstablishedAsync += OnMqttConnectionEstablishedAsync;
 
-        await _coordinator.StartMaintainingAsync(stoppingToken);
+        await _coordinator.StartMaintainingAsync(stoppingToken).ConfigureAwait(false);
 
         // An earlier-hosted MQTT service may already have established the shared connection by
         // now, so the initial ConnectionEstablishedAsync fired before this subscription existed:
@@ -115,7 +115,7 @@ public class DiscordPresenceMqttService : BackgroundService
         // published until the next broker reconnect.
         if (_mqttClient.IsConnected)
         {
-            await OnMqttConnectionEstablishedAsync();
+            await OnMqttConnectionEstablishedAsync().ConfigureAwait(false);
         }
 
         try
@@ -123,8 +123,8 @@ public class DiscordPresenceMqttService : BackgroundService
             await BackgroundServiceResilience.RunWithResilienceAsync(
                 iteration: async ct =>
                 {
-                    await RefreshAccountLinksAsync(ct);
-                    await RefreshMappedPresenceAsync(ct);
+                    await RefreshAccountLinksAsync(ct).ConfigureAwait(false);
+                    await RefreshMappedPresenceAsync(ct).ConfigureAwait(false);
                 },
                 featureKey: FeatureKeys.DiscordPresenceMqtt,
                 health: _health,
@@ -233,7 +233,7 @@ public class DiscordPresenceMqttService : BackgroundService
                     continue;
                 }
 
-                await ProcessUserPresenceAsync(user, null);
+                await ProcessUserPresenceAsync(user, null).ConfigureAwait(false);
             }
         }
     }
@@ -252,7 +252,7 @@ public class DiscordPresenceMqttService : BackgroundService
             return;
         }
 
-        await ProcessUserPresenceAsync(user, after, cancellationToken: CancellationToken.None);
+        await ProcessUserPresenceAsync(user, after, cancellationToken: CancellationToken.None).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -300,7 +300,7 @@ public class DiscordPresenceMqttService : BackgroundService
                 }
             }
 
-            await PublishPresenceEntityAsync(presenceEntity, cancellationToken);
+            await PublishPresenceEntityAsync(presenceEntity, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -437,7 +437,7 @@ public class DiscordPresenceMqttService : BackgroundService
             }
         };
 
-        await SendMqttDiscoveryPayloadAsync($"homeassistant/sensor/{deviceId}/config", singleEntityDiscovery);
+        await SendMqttDiscoveryPayloadAsync($"homeassistant/sensor/{deviceId}/config", singleEntityDiscovery).ConfigureAwait(false);
 
         _logger.LogInformation("Published unified Home Assistant MQTT Discovery configuration entity for user {Username}", entity.Username);
         return true;
@@ -453,7 +453,7 @@ public class DiscordPresenceMqttService : BackgroundService
     {
         string payloadJson = JsonSerializer.Serialize(payloadObject, CompactJsonOptions);
 
-        await _mqttClient.PublishRetainedAsync(topic, payloadJson);
+        await _mqttClient.PublishRetainedAsync(topic, payloadJson).ConfigureAwait(false);
     }
 
     /// <summary>

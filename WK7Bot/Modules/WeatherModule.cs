@@ -31,11 +31,11 @@ public class WeatherModule : BotModuleBase
     [SlashCommand("weather", "Zeigt das aktuelle Wetter aus Home Assistant.")]
     public async Task WeatherAsync([Summary("entity", "Optional: Wetter-Entity, z. B. weather.home")] string? entity = null)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var snapshot = await _weatherService.GetAsync(entity);
         if (snapshot is null)
         {
-            await FollowupAsync("❌ Wetterdaten konnten nicht geladen werden. Ist die Entity korrekt konfiguriert?", ephemeral: true);
+            await FollowupAsync("❌ Wetterdaten konnten nicht geladen werden. Ist die Entity korrekt konfiguriert?", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -60,6 +60,6 @@ public class WeatherModule : BotModuleBase
             embed.AddField("Vorhersage", string.Join("\n", lines), inline: false);
         }
 
-        await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
+        await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
     }
 }

@@ -65,7 +65,7 @@ public class UserAccountLinkRepository : IUserAccountLinkRepository
             existing.LinkedAt = link.LinkedAt;
         }
 
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -80,7 +80,7 @@ public class UserAccountLinkRepository : IUserAccountLinkRepository
         }
 
         context.UserAccountLinks.Remove(existing);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return true;
     }
 }

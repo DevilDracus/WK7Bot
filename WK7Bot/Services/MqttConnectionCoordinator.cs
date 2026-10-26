@@ -115,7 +115,7 @@ public sealed class MqttConnectionCoordinator : IDisposable
             return true;
         }
 
-        await _connectGate.WaitAsync(cancellationToken);
+        await _connectGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (_mqttClient.IsConnected)
@@ -194,7 +194,7 @@ public sealed class MqttConnectionCoordinator : IDisposable
         {
             try
             {
-                await ReconnectLoopAsync();
+                await ReconnectLoopAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -215,7 +215,7 @@ public sealed class MqttConnectionCoordinator : IDisposable
             {
                 try
                 {
-                    await Task.Delay(_reconnectDelay, _stoppingToken);
+                    await Task.Delay(_reconnectDelay, _stoppingToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -263,7 +263,7 @@ public sealed class MqttConnectionCoordinator : IDisposable
                     .Cast<Func<Task>>()
                     .Select(h => h())
                     .ToArray();
-                await Task.WhenAll(handlers);
+                await Task.WhenAll(handlers).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)

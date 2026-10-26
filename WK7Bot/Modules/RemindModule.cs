@@ -47,12 +47,12 @@ public class RemindModule : BotModuleBase
         [Summary("text", "Woran soll erinnert werden?")] [MaxLength(MaxReminderTextLength)] string text,
         [Summary("hier", "Im aktuellen Kanal erinnern statt per DM")] bool hier = false)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         text = (text ?? string.Empty).Trim();
         if (text.Length == 0)
         {
-            await FollowupAsync("❌ Bitte gib an, woran erinnert werden soll.", ephemeral: true);
+            await FollowupAsync("❌ Bitte gib an, woran erinnert werden soll.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -64,7 +64,7 @@ public class RemindModule : BotModuleBase
         var now = DateTime.UtcNow;
         if (!ReminderTimeParser.TryParse(wann, now, out var dueAt, out var error))
         {
-            await FollowupAsync($"❌ {error}", ephemeral: true);
+            await FollowupAsync($"❌ {error}", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -80,12 +80,12 @@ public class RemindModule : BotModuleBase
 
         try
         {
-            await _repository.AddAsync(reminder);
+            await _repository.AddAsync(reminder).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Could not store a reminder for user {UserId}.", Context.User.Id);
-            await FollowupAsync("❌ Die Erinnerung konnte nicht gespeichert werden.", ephemeral: true);
+            await FollowupAsync("❌ Die Erinnerung konnte nicht gespeichert werden.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -103,12 +103,12 @@ public class RemindModule : BotModuleBase
     [SlashCommand("reminders", "Zeigt deine offenen Erinnerungen.")]
     public async Task ListAsync()
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         var reminders = await _repository.GetPendingForUserAsync(Context.User.Id);
         if (reminders.Count == 0)
         {
-            await FollowupAsync("Du hast keine offenen Erinnerungen. Nutze `/remind`.", ephemeral: true);
+            await FollowupAsync("Du hast keine offenen Erinnerungen. Nutze `/remind`.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -120,7 +120,7 @@ public class RemindModule : BotModuleBase
             builder.AppendLine($"`#{reminder.Id}` — <t:{unix}:f> (<t:{unix}:R>, {target}) — {reminder.Text}");
         }
 
-        await FollowupAsync($"**Offene Erinnerungen**\n{builder.ToString().TrimEnd()}", ephemeral: true);
+        await FollowupAsync($"**Offene Erinnerungen**\n{builder.ToString().TrimEnd()}", ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -131,7 +131,7 @@ public class RemindModule : BotModuleBase
     [SlashCommand("remind-cancel", "Löscht eine offene Erinnerung anhand ihrer ID.")]
     public async Task CancelAsync([Summary("id", "ID aus /reminders")] int id)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         var removed = await _repository.RemovePendingAsync(id, Context.User.Id);
         await FollowupAsync(

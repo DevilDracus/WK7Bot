@@ -92,26 +92,26 @@ public class SpontanTreffModule : BotModuleBase
         [Summary("ort", "Optional: Treffpunkt, z. B. \"Innenhof\"")] string? ort = null,
         [Summary("minuten", "Wie lange die Anfrage offen bleibt (1-1440, Standard 30)")] int minuten = DefaultOpenMinutes)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
             if (string.IsNullOrWhiteSpace(plan))
             {
-                await FollowupAsync("❌ Bitte gib an, worum es geht, z. B. `/spontan-treff plan:Kaffee im Innenhof`.", ephemeral: true);
+                await FollowupAsync("❌ Bitte gib an, worum es geht, z. B. `/spontan-treff plan:Kaffee im Innenhof`.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             if (minuten < 1 || minuten > MaxOpenMinutes)
             {
-                await FollowupAsync($"❌ Die Dauer muss zwischen 1 und {MaxOpenMinutes} Minuten liegen.", ephemeral: true);
+                await FollowupAsync($"❌ Die Dauer muss zwischen 1 und {MaxOpenMinutes} Minuten liegen.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var targetChannel = await GetOrCreateTreffChannelAsync();
             if (targetChannel == null)
             {
-                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` konnte auf diesem Server nicht gefunden oder erstellt werden.", ephemeral: true);
+                await FollowupAsync($"❌ Der Kanal `#{TargetChannelName}` konnte auf diesem Server nicht gefunden oder erstellt werden.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -132,7 +132,7 @@ public class SpontanTreffModule : BotModuleBase
             try
             {
                 var message = await PostMeetupAsync(targetChannel, embed, components);
-                await _repository.SetMessageAsync(meetup.Id, targetChannel.Id, message.Id);
+                await _repository.SetMessageAsync(meetup.Id, targetChannel.Id, message.Id).ConfigureAwait(false);
 
                 if (Context.Guild is not null)
                 {
@@ -158,7 +158,7 @@ public class SpontanTreffModule : BotModuleBase
                 // best effort: a failing cleanup must not replace the original error.
                 try
                 {
-                    await _repository.RemoveAsync(meetup.Id);
+                    await _repository.RemoveAsync(meetup.Id).ConfigureAwait(false);
                 }
                 catch (Exception cleanupEx)
                 {
@@ -171,7 +171,7 @@ public class SpontanTreffModule : BotModuleBase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing the /spontan-treff slash command.");
-            await FollowupAsync("❌ Der Spontan-Treff konnte nicht erstellt werden.", ephemeral: true);
+            await FollowupAsync("❌ Der Spontan-Treff konnte nicht erstellt werden.", ephemeral: true).ConfigureAwait(false);
         }
     }
 

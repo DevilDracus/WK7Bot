@@ -50,7 +50,7 @@ public class ConfigModule : BotModuleBase
         [Choice("Aus", "off")]
         string state)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         key = (key ?? string.Empty).Trim().ToLowerInvariant();
         if (!FeatureGate.IsKnownKey(key))
@@ -87,7 +87,7 @@ public class ConfigModule : BotModuleBase
     [RequireUserPermission(GuildPermission.Administrator)]
     public async Task ListAsync()
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         var overrides = _featureGate.GetOverrides();
         var lines = FeatureKeys.All
@@ -99,6 +99,6 @@ public class ConfigModule : BotModuleBase
                 return $"{marker} `{key}`{suffix}";
             });
 
-        await FollowupAsync($"**Feature-Schalter**\n{string.Join("\n", lines)}", ephemeral: true);
+        await FollowupAsync($"**Feature-Schalter**\n{string.Join("\n", lines)}", ephemeral: true).ConfigureAwait(false);
     }
 }

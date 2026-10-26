@@ -23,7 +23,7 @@ public class DiscordScheduledEventRepository : IDiscordScheduledEventRepository
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         context.DiscordScheduledEvents.Add(item);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -54,7 +54,7 @@ public class DiscordScheduledEventRepository : IDiscordScheduledEventRepository
         }
 
         context.DiscordScheduledEvents.Remove(existing);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -71,6 +71,6 @@ public class DiscordScheduledEventRepository : IDiscordScheduledEventRepository
             .Where(e => idSet.Contains(e.Id))
             .ToListAsync(cancellationToken);
         context.DiscordScheduledEvents.RemoveRange(existing);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }

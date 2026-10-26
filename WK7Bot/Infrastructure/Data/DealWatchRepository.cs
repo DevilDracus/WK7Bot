@@ -41,7 +41,7 @@ public class DealWatchRepository : IDealWatchRepository
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         context.DealWatchItems.Add(item);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -56,7 +56,7 @@ public class DealWatchRepository : IDealWatchRepository
         }
 
         context.DealWatchItems.Remove(existing);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return true;
     }
 
@@ -73,6 +73,6 @@ public class DealWatchRepository : IDealWatchRepository
         existing.LastKnownPrice = lastPrice;
         existing.LastKnownDiscount = lastDiscount;
         existing.LastAlertedAt = lastAlertedAt;
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }

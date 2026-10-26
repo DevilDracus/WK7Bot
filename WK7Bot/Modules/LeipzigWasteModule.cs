@@ -54,29 +54,29 @@ public class LeipzigWasteModule : BotModuleBase
     {
         if (!_rateLimiter.CanExecute(Context.User.Id, CommandKey, WasteCheckCooldown))
         {
-            await RespondAsync("⏳ Bitte warte 30 Sekunden, bevor du die Müllabholtermine erneut abfragst.", ephemeral: true);
+            await RespondAsync("⏳ Bitte warte 30 Sekunden, bevor du die Müllabholtermine erneut abfragst.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
             if (!string.IsNullOrWhiteSpace(dateInput))
             {
-                await HandleSingleDateQueryAsync(dateInput);
+                await HandleSingleDateQueryAsync(dateInput).ConfigureAwait(false);
                 return;
             }
 
             var rangeDays = Math.Clamp(days ?? 2, 1, 14);
-            await HandleDateRangeQueryAsync(rangeDays);
+            await HandleDateRangeQueryAsync(rangeDays).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // The calendar lookup downloads the ICS feed, so it can fail like any HTTP call;
             // without this guard the deferred interaction would never receive an answer.
             _logger.LogError(ex, "Error occurred while executing the /check-waste slash command.");
-            await FollowupAsync("❌ Die Müllabholtermine konnten nicht abgerufen werden. Bitte versuche es später erneut.", ephemeral: true);
+            await FollowupAsync("❌ Die Müllabholtermine konnten nicht abgerufen werden. Bitte versuche es später erneut.", ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -91,7 +91,7 @@ public class LeipzigWasteModule : BotModuleBase
 
         if (!DateTime.TryParseExact(dateInput, supportedFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDate))
         {
-            await FollowupAsync("⚠️ Ungültiges Datumsformat. Bitte nutze **DD.MM.YYYY** (z. B. 20.09.2026) oder **YYYY-MM-DD**.", ephemeral: true);
+            await FollowupAsync("⚠️ Ungültiges Datumsformat. Bitte nutze **DD.MM.YYYY** (z. B. 20.09.2026) oder **YYYY-MM-DD**.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -107,7 +107,7 @@ public class LeipzigWasteModule : BotModuleBase
             .WithCurrentTimestamp()
             .Build();
 
-        await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true);
+        await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -159,6 +159,6 @@ public class LeipzigWasteModule : BotModuleBase
             embedBuilder.WithDescription($"In den nächsten {daysCount} Tagen stehen keine Müllabholungen an.");
         }
 
-        await FollowupAsync(components: CardBuilder.FromEmbed(embedBuilder.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true);
+        await FollowupAsync(components: CardBuilder.FromEmbed(embedBuilder.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
     }
 }

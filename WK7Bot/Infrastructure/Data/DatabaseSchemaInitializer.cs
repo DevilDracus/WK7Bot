@@ -38,7 +38,7 @@ public static class DatabaseSchemaInitializer
             }
         }
 
-        await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+        await dbContext.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
 
         // Everything below runs on a raw ADO connection on purpose: EF Core logs every failed
         // DbCommand at Error level — which feeds the admin error-DM queue — before any catch can
@@ -46,51 +46,51 @@ public static class DatabaseSchemaInitializer
         // expected outcome of these statements. The raw connection also lets the statements ride
         // out "database is locked" while a previous process is still shutting down.
         await using var connection = new SqliteConnection(dbContext.Database.GetConnectionString());
-        await connection.OpenAsync();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         // WAL lets the background services read while a writer commits instead of failing with
         // "database is locked"; busy_timeout makes writers wait for a competing lock instead of
         // erroring immediately. Both statements are harmless for in-memory databases.
-        await ExecuteWithBusyRetryAsync(connection, "PRAGMA busy_timeout=5000;", cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, "PRAGMA journal_mode=WAL;", cancellationToken);
+        await ExecuteWithBusyRetryAsync(connection, "PRAGMA busy_timeout=5000;", cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, "PRAGMA journal_mode=WAL;", cancellationToken).ConfigureAwait(false);
 
         // EnsureCreated only creates the full schema when the database file is brand new; add tables
         // introduced after the initial release so existing deployments pick them up as well.
-        await ExecuteWithBusyRetryAsync(connection, CreateWasteDispatchLogsSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateWarningDispatchLogsSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateFoodDispatchLogsSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateRssDashboardSettingsSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageLogsSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateWishlistGamesSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateWishlistAlertHistoriesSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateWishlistIndexesSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageIndexesSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateUserAccountLinksSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql, cancellationToken);
+        await ExecuteWithBusyRetryAsync(connection, CreateWasteDispatchLogsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateWarningDispatchLogsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateFoodDispatchLogsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateRssDashboardSettingsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageLogsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateWishlistGamesSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateWishlistAlertHistoriesSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateWishlistIndexesSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageIndexesSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateUserAccountLinksSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql, cancellationToken).ConfigureAwait(false);
 
         // Late-added columns: CREATE TABLE IF NOT EXISTS never alters an existing table, and
         // EnsureCreated does nothing on databases that already exist, so older deployments need
         // guarded ADD COLUMN statements. SQLite has no ADD COLUMN IF NOT EXISTS, hence the
         // "duplicate column name" tolerance.
-        await AddColumnIfMissingAsync(connection, "SpontanTreffs", "Closed", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+        await AddColumnIfMissingAsync(connection, "SpontanTreffs", "Closed", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
 
         // Index on Closed must run AFTER the column is added.
-        await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffExpiryIndexSql, cancellationToken);
+        await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffExpiryIndexSql, cancellationToken).ConfigureAwait(false);
 
-        await AddColumnIfMissingAsync(connection, "RssFeeds", "LastItemGuid", "TEXT NULL", cancellationToken);
-        await AddColumnIfMissingAsync(connection, "RssFeeds", "LastPublishedDate", "TEXT NULL", cancellationToken);
-        await AddColumnIfMissingAsync(connection, "RssFeeds", "LastPolledAt", "TEXT NULL", cancellationToken);
-        await AddColumnIfMissingAsync(connection, "RssFeeds", "RefreshIntervalMinutes", "INTEGER NOT NULL DEFAULT 15", cancellationToken);
-        await AddColumnIfMissingAsync(connection, "RssFeeds", "IsPaused", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
-        await AddColumnIfMissingAsync(connection, "RssFeeds", "NormalizedName", "TEXT NOT NULL DEFAULT ''", cancellationToken);
+        await AddColumnIfMissingAsync(connection, "RssFeeds", "LastItemGuid", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        await AddColumnIfMissingAsync(connection, "RssFeeds", "LastPublishedDate", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        await AddColumnIfMissingAsync(connection, "RssFeeds", "LastPolledAt", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        await AddColumnIfMissingAsync(connection, "RssFeeds", "RefreshIntervalMinutes", "INTEGER NOT NULL DEFAULT 15", cancellationToken).ConfigureAwait(false);
+        await AddColumnIfMissingAsync(connection, "RssFeeds", "IsPaused", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+        await AddColumnIfMissingAsync(connection, "RssFeeds", "NormalizedName", "TEXT NOT NULL DEFAULT ''", cancellationToken).ConfigureAwait(false);
 
         // Index on NormalizedName must run AFTER the column is added (see line above).
-        await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNormalizedNameIndexSql, cancellationToken);
+        await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNormalizedNameIndexSql, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -113,12 +113,12 @@ public static class DatabaseSchemaInitializer
             {
                 await using var command = connection.CreateCommand();
                 command.CommandText = sql;
-                await command.ExecuteNonQueryAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 return;
             }
             catch (SqliteException ex) when (IsTransientSqliteFailure(ex) && attempt < SchemaStatementAttempts)
             {
-                await Task.Delay(Math.Min(100 * attempt, 1000), cancellationToken);
+                await Task.Delay(Math.Min(100 * attempt, 1000), cancellationToken).ConfigureAwait(false);
             }
         }
     }
@@ -140,7 +140,7 @@ public static class DatabaseSchemaInitializer
             {
                 await using var command = connection.CreateCommand();
                 command.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition};";
-                await command.ExecuteNonQueryAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 return;
             }
             catch (SqliteException ex) when (IsDuplicateColumn(ex))
@@ -150,7 +150,7 @@ public static class DatabaseSchemaInitializer
             }
             catch (SqliteException ex) when (IsTransientSqliteFailure(ex) && attempt < SchemaStatementAttempts)
             {
-                await Task.Delay(Math.Min(100 * attempt, 1000), cancellationToken);
+                await Task.Delay(Math.Min(100 * attempt, 1000), cancellationToken).ConfigureAwait(false);
             }
         }
     }

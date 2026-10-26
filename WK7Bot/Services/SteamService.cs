@@ -107,9 +107,9 @@ public partial class SteamService : BaseGameApiClient, ISteamService
                 return null;
             }
 
-            await EnrichRecentGamesAsync(userData, cancellationToken);
+            await EnrichRecentGamesAsync(userData, cancellationToken).ConfigureAwait(false);
 
-            await EnrichAchievementsAsync(userData, cancellationToken);
+            await EnrichAchievementsAsync(userData, cancellationToken).ConfigureAwait(false);
 
             return userData;
         }
@@ -143,7 +143,7 @@ public partial class SteamService : BaseGameApiClient, ISteamService
             var schemaTask = GetGameSchemaAsync(appId, cancellationToken);
             var playerAchievementsTask = GetPlayerAchievementsAsync(steamId, appId, cancellationToken);
 
-            await Task.WhenAll(schemaTask, playerAchievementsTask);
+            await Task.WhenAll(schemaTask, playerAchievementsTask).ConfigureAwait(false);
 
             // Await the tasks again instead of reading .Result: Task.Result would wrap a failure in
             // an AggregateException and bypass the OperationCanceledException filter below.

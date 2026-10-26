@@ -62,27 +62,27 @@ public class SpontanTreffComponentModule : BotModuleBase
     [ComponentInteraction("spontan-treff:*")]
     public async Task HandleResponseAsync(string payload)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         try
         {
             if (!TryParsePayload(payload, out var action, out var meetupId))
             {
-                await FollowupAsync("❌ Dieser Spontan-Treff ist nicht mehr verfügbar.", ephemeral: true);
+                await FollowupAsync("❌ Dieser Spontan-Treff ist nicht mehr verfügbar.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var meetup = await _repository.GetAsync(meetupId);
             if (meetup == null)
             {
-                await FollowupAsync("❌ Dieser Spontan-Treff ist nicht mehr verfügbar.", ephemeral: true);
+                await FollowupAsync("❌ Dieser Spontan-Treff ist nicht mehr verfügbar.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
             var now = DateTime.UtcNow;
             if (!SpontanTreffMessageBuilder.IsActive(meetup, now))
             {
-                await FollowupAsync("⌛ Dieser Spontan-Treff ist bereits abgelaufen.", ephemeral: true);
+                await FollowupAsync("⌛ Dieser Spontan-Treff ist bereits abgelaufen.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -93,7 +93,7 @@ public class SpontanTreffComponentModule : BotModuleBase
             string confirmation;
             if (current != null && current.Going == wantsToGo)
             {
-                await _repository.RemoveResponseAsync(meetupId, userId);
+                await _repository.RemoveResponseAsync(meetupId, userId).ConfigureAwait(false);
                 confirmation = wantsToGo
                     ? "❎ Du bist nicht mehr dabei."
                     : "↩️ Deine Absage wurde zurückgenommen.";
@@ -118,7 +118,7 @@ public class SpontanTreffComponentModule : BotModuleBase
 
             try
             {
-                await EditMeetupMessageAsync(meetup, embed, components);
+                await EditMeetupMessageAsync(meetup, embed, components).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -127,12 +127,12 @@ public class SpontanTreffComponentModule : BotModuleBase
                 _logger.LogWarning(ex, "Could not re-render meetup message {MessageId} for meetup {MeetupId}.", meetup.MessageId, meetupId);
             }
 
-            await FollowupAsync(confirmation, ephemeral: true);
+            await FollowupAsync(confirmation, ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error occurred while handling a Spontan-Treff button interaction.");
-            await FollowupAsync("❌ Deine Antwort konnte nicht gespeichert werden.", ephemeral: true);
+            await FollowupAsync("❌ Deine Antwort konnte nicht gespeichert werden.", ephemeral: true).ConfigureAwait(false);
         }
     }
 

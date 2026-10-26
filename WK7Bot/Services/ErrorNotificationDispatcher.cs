@@ -84,12 +84,12 @@ public class ErrorNotificationDispatcher : BackgroundService
                     var delivered = 0;
                     while (delivered < MaxBatchSize && _queue.TryDequeue(out var notification))
                     {
-                        await DeliverAsync(notification, stoppingToken);
+                        await DeliverAsync(notification, stoppingToken).ConfigureAwait(false);
 
                         delivered++;
                         if (delivered < MaxBatchSize)
                         {
-                            await Task.Delay(SendDelay, stoppingToken);
+                            await Task.Delay(SendDelay, stoppingToken).ConfigureAwait(false);
                         }
                     }
                 }
@@ -105,7 +105,7 @@ public class ErrorNotificationDispatcher : BackgroundService
 
             try
             {
-                await Task.Delay(PollInterval, stoppingToken);
+                await Task.Delay(PollInterval, stoppingToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -135,12 +135,12 @@ public class ErrorNotificationDispatcher : BackgroundService
             try
             {
                 var ping = BuildChannelPing(_options.ErrorNotifyUserIds);
-                await channel.SendMessageAsync(text: ping, embed: embed);
+                await channel.SendMessageAsync(text: ping, embed: embed).ConfigureAwait(false);
                 embedSent = true;
 
                 try
                 {
-                    await channel.SendMessageAsync(text: plainTextMirror);
+                    await channel.SendMessageAsync(text: plainTextMirror).ConfigureAwait(false);
                     return;
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -173,7 +173,7 @@ public class ErrorNotificationDispatcher : BackgroundService
             }
         }
 
-        await DeliverAsDirectMessagesAsync(embed, plainTextMirror, stoppingToken);
+        await DeliverAsDirectMessagesAsync(embed, plainTextMirror, stoppingToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -266,10 +266,10 @@ public class ErrorNotificationDispatcher : BackgroundService
                 }
 
                 var dmChannel = await user.CreateDMChannelAsync();
-                await dmChannel.SendMessageAsync(embed: embed);
+                await dmChannel.SendMessageAsync(embed: embed).ConfigureAwait(false);
 
                 // Also send the plain-text mirror in DMs for consistency.
-                await dmChannel.SendMessageAsync(text: plainTextMirror);
+                await dmChannel.SendMessageAsync(text: plainTextMirror).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

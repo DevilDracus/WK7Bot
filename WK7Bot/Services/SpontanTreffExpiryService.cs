@@ -106,14 +106,14 @@ public class SpontanTreffExpiryService : BackgroundService
         {
             stoppingToken.ThrowIfCancellationRequested();
 
-            await repository.CloseAsync(meetup.Id, stoppingToken);
+            await repository.CloseAsync(meetup.Id, stoppingToken).ConfigureAwait(false);
             meetup.Closed = true;
 
             try
             {
                 var responses = await repository.GetResponsesAsync(meetup.Id, stoppingToken);
                 var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, responses, now);
-                await EditMeetupMessageAsync(meetup, embed, components);
+                await EditMeetupMessageAsync(meetup, embed, components).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

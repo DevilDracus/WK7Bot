@@ -94,7 +94,7 @@ public class WeekendDigestBackgroundService : BackgroundService
             {
                 try
                 {
-                    await EvaluateScheduleAsync(DateTime.UtcNow, stoppingToken);
+                    await EvaluateScheduleAsync(DateTime.UtcNow, stoppingToken).ConfigureAwait(false);
                     _health.RecordSuccess(FeatureKeys.WeekendDigest);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -147,7 +147,7 @@ public class WeekendDigestBackgroundService : BackgroundService
 
         try
         {
-            await DispatchDigestAsync(now.Date, now, stoppingToken);
+            await DispatchDigestAsync(now.Date, now, stoppingToken).ConfigureAwait(false);
 
             // A completed attempt (even one that skipped guilds without a channel) ends the day.
             _nextAttemptAt = DateTime.MaxValue;
@@ -207,14 +207,14 @@ public class WeekendDigestBackgroundService : BackgroundService
             {
                 if (!await dispatchRepository.HasSentAsync(DispatchKind, guildId, thursday, cancellationToken))
                 {
-                    await dispatchRepository.MarkSentAsync(DispatchKind, guildId, thursday, cancellationToken);
+                    await dispatchRepository.MarkSentAsync(DispatchKind, guildId, thursday, cancellationToken).ConfigureAwait(false);
                 }
             }
 
             return;
         }
 
-        await _dispatcher.DispatchAsync(thursday, digest.Value, dispatchRepository, targetGuildIds, cancellationToken);
+        await _dispatcher.DispatchAsync(thursday, digest.Value, dispatchRepository, targetGuildIds, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

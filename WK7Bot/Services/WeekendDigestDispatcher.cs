@@ -78,7 +78,7 @@ public class WeekendDigestDispatcher
                 continue;
             }
 
-            await PostToWeekendChannelAsync(channel, digest.Embed, digest.Poll);
+            await PostToWeekendChannelAsync(channel, digest.Embed, digest.Poll).ConfigureAwait(false);
             dispatchedCount++;
 
             if (channel.Guild is not null)
@@ -96,7 +96,7 @@ public class WeekendDigestDispatcher
 
             // Record only after a successful send so a crash or failure retries this guild next attempt
             // while guilds that already received the digest stay suppressed.
-            await dispatchRepository.MarkSentAsync(WeekendDigestBackgroundService.DispatchKind, guildId, thursday, cancellationToken);
+            await dispatchRepository.MarkSentAsync(WeekendDigestBackgroundService.DispatchKind, guildId, thursday, cancellationToken).ConfigureAwait(false);
         }
 
         _logger.LogDebug(

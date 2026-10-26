@@ -25,7 +25,7 @@ public class ReminderRepository : IReminderRepository
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         context.Reminders.Add(reminder);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -61,7 +61,7 @@ public class ReminderRepository : IReminderRepository
         }
 
         reminder.DeliveredAt = DateTime.UtcNow;
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -77,7 +77,7 @@ public class ReminderRepository : IReminderRepository
         }
 
         context.Reminders.Remove(reminder);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return true;
     }
 
@@ -95,7 +95,7 @@ public class ReminderRepository : IReminderRepository
         }
 
         context.Reminders.RemoveRange(stale);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return stale.Count;
     }
 }

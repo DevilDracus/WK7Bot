@@ -117,7 +117,7 @@ public class DiscordScheduledEventService : IDiscordScheduledEventService
             {
                 try
                 {
-                    await guildEvent.DeleteAsync();
+                    await guildEvent.DeleteAsync().ConfigureAwait(false);
                     deleted++;
                 }
                 catch (Discord.Net.HttpException ex)
@@ -130,7 +130,7 @@ public class DiscordScheduledEventService : IDiscordScheduledEventService
         // Batch-remove all expired records in one round-trip instead of N.
         if (expired.Count > 0)
         {
-            await repository.RemoveRangeAsync(expired.Select(r => r.Id), cancellationToken);
+            await repository.RemoveRangeAsync(expired.Select(r => r.Id), cancellationToken).ConfigureAwait(false);
         }
 
         return deleted;

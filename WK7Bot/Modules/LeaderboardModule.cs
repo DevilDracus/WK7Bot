@@ -42,11 +42,11 @@ public class LeaderboardModule : BotModuleBase
         string type = "steam-playtime",
         [Summary("limit", "Anzahl der Einträge (1-25)")] int limit = 10)
     {
-        await DeferAsync();
+        await DeferAsync().ConfigureAwait(false);
         var result = await _leaderboardService.GetAsync(type, Context.Guild.Id, limit);
         if (result.Entries.Count == 0)
         {
-            await FollowupAsync("Keine verknüpften Spieler mit Daten gefunden. Nutze `/link-steam` oder `/link-battlenet`.");
+            await FollowupAsync("Keine verknüpften Spieler mit Daten gefunden. Nutze `/link-steam` oder `/link-battlenet`.").ConfigureAwait(false);
             return;
         }
 

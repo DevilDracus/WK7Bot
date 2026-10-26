@@ -78,7 +78,7 @@ public class InteractionHandlingService : IHostedService
         _client.InteractionCreated += OnInteractionCreatedAsync;
         _interactionService.InteractionExecuted += OnInteractionExecutedAsync;
 
-        await _interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+        await _interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _services).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -110,12 +110,12 @@ public class InteractionHandlingService : IHostedService
 
             if (ulong.TryParse(testGuildIdString, out ulong testGuildId))
             {
-                await _interactionService.RegisterCommandsToGuildAsync(testGuildId);
+                await _interactionService.RegisterCommandsToGuildAsync(testGuildId).ConfigureAwait(false);
                 _logger.LogInformation("Successfully registered slash commands to guild {GuildId}.", testGuildId);
             }
             else
             {
-                await _interactionService.RegisterCommandsGloballyAsync();
+                await _interactionService.RegisterCommandsGloballyAsync().ConfigureAwait(false);
                 _logger.LogInformation("Successfully registered slash commands globally.");
             }
 
@@ -166,7 +166,7 @@ public class InteractionHandlingService : IHostedService
             if (!result.IsSuccess && result is not ExecuteResult { Exception: { } })
             {
                 _logger.LogWarning("Interaction execution failed: {Reason}", result.ErrorReason);
-                await ReportUnansweredInteractionAsync(context.Interaction, result.ErrorReason);
+                await ReportUnansweredInteractionAsync(context.Interaction, result.ErrorReason).ConfigureAwait(false);
             }
         }
         catch (ObjectDisposedException)
@@ -220,7 +220,7 @@ public class InteractionHandlingService : IHostedService
             // A command that throws before deferring/responding leaves the interaction unanswered,
             // which Discord reports as "Die Anwendung reagiert nicht". Answer it here; the check
             // inside keeps this safe when the command had already answered before failing.
-            await ReportUnansweredInteractionAsync(context.Interaction, "Bei der Ausführung des Befehls ist ein Fehler aufgetreten.");
+            await ReportUnansweredInteractionAsync(context.Interaction, "Bei der Ausführung des Befehls ist ein Fehler aufgetreten.").ConfigureAwait(false);
         }
     }
 
@@ -247,11 +247,11 @@ public class InteractionHandlingService : IHostedService
             // colliding with an existing response.
             if (interaction.HasResponded)
             {
-                await interaction.FollowupAsync(message, ephemeral: true);
+                await interaction.FollowupAsync(message, ephemeral: true).ConfigureAwait(false);
             }
             else
             {
-                await interaction.RespondAsync(message, ephemeral: true);
+                await interaction.RespondAsync(message, ephemeral: true).ConfigureAwait(false);
             }
         }
         catch (Exception ex)

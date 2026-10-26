@@ -167,8 +167,8 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
                 Region = region
             };
 
-            await EnrichWowCharactersAsync(userData, accessToken, region, cancellationToken);
-            await EnrichDiabloHeroesAsync(userData, accessToken, region, cancellationToken);
+            await EnrichWowCharactersAsync(userData, accessToken, region, cancellationToken).ConfigureAwait(false);
+            await EnrichDiabloHeroesAsync(userData, accessToken, region, cancellationToken).ConfigureAwait(false);
 
             return userData;
         }

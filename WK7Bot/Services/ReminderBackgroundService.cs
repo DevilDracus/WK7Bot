@@ -84,7 +84,7 @@ public class ReminderBackgroundService : BackgroundService
             {
                 if (reminder.ChannelId > 0 && _discordClient.GetChannel(reminder.ChannelId) is IMessageChannel channel)
                 {
-                    await channel.SendMessageAsync($"⏰ <@{reminder.DiscordUserId}> Erinnerung: {reminder.Text}");
+                    await channel.SendMessageAsync($"⏰ <@{reminder.DiscordUserId}> Erinnerung: {reminder.Text}").ConfigureAwait(false);
                 }
                 else
                 {
@@ -95,7 +95,7 @@ public class ReminderBackgroundService : BackgroundService
                     }
                     else
                     {
-                        await user.SendMessageAsync($"⏰ Erinnerung: {reminder.Text}");
+                        await user.SendMessageAsync($"⏰ Erinnerung: {reminder.Text}").ConfigureAwait(false);
                     }
                 }
             }
@@ -104,10 +104,10 @@ public class ReminderBackgroundService : BackgroundService
                 _logger.LogWarning(ex, "Could not deliver reminder {ReminderId}.", reminder.Id);
             }
 
-            await repository.MarkDeliveredAsync(reminder.Id, cancellationToken);
+            await repository.MarkDeliveredAsync(reminder.Id, cancellationToken).ConfigureAwait(false);
         }
 
-        await repository.PruneDeliveredAsync(DateTime.UtcNow - DeliveredRetention, cancellationToken);
+        await repository.PruneDeliveredAsync(DateTime.UtcNow - DeliveredRetention, cancellationToken).ConfigureAwait(false);
         return due.Count;
     }
 }

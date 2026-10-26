@@ -58,7 +58,7 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
     {
         ArgumentNullException.ThrowIfNull(sendFactory);
 
-        await ApiThrottle.WaitAsync(cancellationToken);
+        await ApiThrottle.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             return await sendFactory();

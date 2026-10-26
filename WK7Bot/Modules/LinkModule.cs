@@ -34,9 +34,9 @@ public class LinkModule : BotModuleBase
     [SlashCommand("link-steam", "Verknüpft deinen Discord-Account mit Steam.")]
     public async Task LinkSteamAsync([Summary("steam", "SteamID64 oder Profil-URL")] string steam)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var result = await _accountLinkService.LinkSteamAsync(Context.User.Id, steam);
-        await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true);
+        await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>Links a Battle.net account from a refresh token.</summary>
@@ -49,25 +49,25 @@ public class LinkModule : BotModuleBase
         [Summary("region", "Region: eu, us, kr oder tw")] string? region = null,
         [Summary("battle_tag", "Optionaler BattleTag")] string? battleTag = null)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var result = await _accountLinkService.LinkBattleNetAsync(Context.User.Id, refreshToken, region, battleTag);
-        await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true);
+        await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>Shows the current account links for the invoking user.</summary>
     [SlashCommand("link-status", "Zeigt deine verknüpften Steam- und Battle.net-Accounts.")]
     public async Task LinkStatusAsync()
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var links = await _accountLinkService.GetLinksAsync(Context.User.Id);
         if (links.Count == 0)
         {
-            await FollowupAsync("Du hast noch keine Accounts verknüpft.", ephemeral: true);
+            await FollowupAsync("Du hast noch keine Accounts verknüpft.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
         var lines = links.Select(l => $"• **{l.Provider}** — `{l.ExternalId}`" + (string.IsNullOrWhiteSpace(l.WishlistUrl) ? string.Empty : $" ([Wishlist]({l.WishlistUrl}))"));
-        await FollowupAsync(string.Join("\n", lines), ephemeral: true);
+        await FollowupAsync(string.Join("\n", lines), ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>Removes a provider link for the invoking user.</summary>
@@ -75,9 +75,9 @@ public class LinkModule : BotModuleBase
     [SlashCommand("link-remove", "Entfernt eine Account-Verknüpfung.")]
     public async Task LinkRemoveAsync([Summary("provider", "steam oder battlenet")] string provider)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var result = await _accountLinkService.UnlinkAsync(Context.User.Id, provider.Trim().ToLowerInvariant());
-        await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true);
+        await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>Registers a Steam wishlist URL and links the resolved Steam account.</summary>
@@ -85,8 +85,8 @@ public class LinkModule : BotModuleBase
     [SlashCommand("wishlist-add", "Verknüpft eine Steam-Wunschliste über ihre URL.")]
     public async Task WishlistAddAsync([Summary("url", "Steam-Wunschlisten-URL")] string url)
     {
-        await DeferAsync(ephemeral: true);
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var result = await _accountLinkService.LinkWishlistAsync(Context.User.Id, url);
-        await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true);
+        await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }
 }

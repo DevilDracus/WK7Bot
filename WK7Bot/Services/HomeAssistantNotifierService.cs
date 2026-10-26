@@ -74,7 +74,7 @@ public class HomeAssistantNotifierService : BackgroundService
         _discordClient.ChannelDestroyed += OnChannelDestroyedAsync;
         _discordClient.ChannelUpdated += OnChannelUpdatedAsync;
 
-        await _coordinator.StartMaintainingAsync(stoppingToken);
+        await _coordinator.StartMaintainingAsync(stoppingToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -106,7 +106,7 @@ public class HomeAssistantNotifierService : BackgroundService
     {
         try
         {
-            await _mqttClient.SubscribeAsync("homeassistant/notify/+/set", cancellationToken: _stoppingToken);
+            await _mqttClient.SubscribeAsync("homeassistant/notify/+/set", cancellationToken: _stoppingToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
         {
@@ -120,7 +120,7 @@ public class HomeAssistantNotifierService : BackgroundService
 
         if (_discordClient.ConnectionState == ConnectionState.Connected)
         {
-            await RegisterAllEntitiesAsync();
+            await RegisterAllEntitiesAsync().ConfigureAwait(false);
         }
     }
 
@@ -184,7 +184,7 @@ public class HomeAssistantNotifierService : BackgroundService
     {
         try
         {
-            await action();
+            await action().ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
         {
@@ -219,7 +219,7 @@ public class HomeAssistantNotifierService : BackgroundService
 
                 try
                 {
-                    await RegisterChannelNotificationEntityAsync(channel);
+                    await RegisterChannelNotificationEntityAsync(channel).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
                 {
@@ -237,7 +237,7 @@ public class HomeAssistantNotifierService : BackgroundService
         {
             try
             {
-                await RegisterUserDmNotificationEntityAsync(userId);
+                await RegisterUserDmNotificationEntityAsync(userId).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)
             {
@@ -293,7 +293,7 @@ public class HomeAssistantNotifierService : BackgroundService
 
         var jsonPayload = JsonSerializer.Serialize(discoveryPayload);
 
-        await _mqttClient.PublishRetainedAsync(discoveryTopic, jsonPayload);
+        await _mqttClient.PublishRetainedAsync(discoveryTopic, jsonPayload).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -332,7 +332,7 @@ public class HomeAssistantNotifierService : BackgroundService
 
         var jsonPayload = JsonSerializer.Serialize(discoveryPayload);
 
-        await _mqttClient.PublishRetainedAsync(discoveryTopic, jsonPayload);
+        await _mqttClient.PublishRetainedAsync(discoveryTopic, jsonPayload).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -346,7 +346,7 @@ public class HomeAssistantNotifierService : BackgroundService
         var uniqueId = $"wk7_notify_{sanitizedChannelName}_{channel.Id}";
         var discoveryTopic = $"homeassistant/notify/{uniqueId}/config";
 
-        await _mqttClient.PublishRetainedAsync(discoveryTopic, Array.Empty<byte>());
+        await _mqttClient.PublishRetainedAsync(discoveryTopic, Array.Empty<byte>()).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -391,7 +391,7 @@ public class HomeAssistantNotifierService : BackgroundService
                         if (user != null)
                         {
                             var dmChannel = await user.CreateDMChannelAsync();
-                            await dmChannel.SendMessageAsync(payloadText);
+                            await dmChannel.SendMessageAsync(payloadText).ConfigureAwait(false);
                         }
                     }
                 }
@@ -399,7 +399,7 @@ public class HomeAssistantNotifierService : BackgroundService
                 {
                     if (_discordClient.GetChannel(channelId) is SocketTextChannel textChannel)
                     {
-                        await textChannel.SendMessageAsync(payloadText);
+                        await textChannel.SendMessageAsync(payloadText).ConfigureAwait(false);
                     }
                 }
             }
