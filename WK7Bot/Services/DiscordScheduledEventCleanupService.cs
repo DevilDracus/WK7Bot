@@ -27,34 +27,19 @@ public class DiscordScheduledEventCleanupService : BackgroundService
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
-        try
-        {
-            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async ct =>
             {
-                try
+                var deleted = await _scheduledEventService.DeleteExpiredAsync(ct).ConfigureAwait(false);
+                if (deleted > 0)
                 {
-                    var deleted = await _scheduledEventService.DeleteExpiredAsync(stoppingToken);
-                    _health.RecordSuccess(FeatureKeys.DiscordEvents);
-                    if (deleted > 0)
-                    {
-                        _logger.LogInformation("Deleted {Count} expired Discord scheduled event(s).", deleted);
-                    }
+                    _logger.LogInformation("Deleted {Count} expired Discord scheduled event(s).", deleted);
                 }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _health.RecordFailure(FeatureKeys.DiscordEvents, ex.Message);
-                    _logger.LogError(ex, "Discord scheduled event cleanup failed.");
-                }
-            }
-        }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-            // Graceful shutdown.
-        }
+            },
+            FeatureKeys.DiscordEvents,
+            _health,
+            _logger,
+            TimeSpan.FromMinutes(5),
+            stoppingToken: stoppingToken).ConfigureAwait(false);
     }
 }

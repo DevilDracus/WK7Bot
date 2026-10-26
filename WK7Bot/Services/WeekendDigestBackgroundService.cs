@@ -233,7 +233,7 @@ public class WeekendDigestBackgroundService : BackgroundService
         var weekendFriday = thursday.AddDays(1);
         var events = await _eventSource.FetchWeekendEventsAsync(weekendFriday, cancellationToken);
 
-        var suggestions = WeekendDigestCurator.PickSuggestions(events, weekendFriday);
+        var suggestions = WeekendDigestCurator.PickSuggestions(events, weekendFriday, bannedWords: _options.WeekendDigestBannedWords);
         if (suggestions.Count == 0)
         {
             return null;

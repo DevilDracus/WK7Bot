@@ -111,6 +111,12 @@ options:
       - "HAIL"
       - "THUNDER"
       - "STORM"
+  weekend_digest:
+    banned_words:
+      - "Kinder"
+      - "Hosenscheißer"
+      - "Baby"
+      - "Hosenscheisser"
 schema:
   discord_token: str
   test_api_enabled: bool
@@ -201,6 +207,9 @@ schema:
     area_names:
       - str
     events:
+      - str
+  weekend_digest:
+    banned_words:
       - str
 hassio_api: true
 homeassistant_api: true

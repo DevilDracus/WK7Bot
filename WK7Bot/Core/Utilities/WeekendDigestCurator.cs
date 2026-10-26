@@ -3,6 +3,7 @@ namespace WK7Bot.Core.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using WK7Bot.Models;
 
 /// <summary>
@@ -11,17 +12,38 @@ using WK7Bot.Models;
 /// </summary>
 public static class WeekendDigestCurator
 {
+    private static readonly Regex TimeRegex = new(@"\b(\d{1,2}):(\d{2})\b", RegexOptions.Compiled);
     /// <summary>
     /// Default number of suggestions in a digest.
     /// </summary>
     public const int DefaultSuggestionCount = 3;
 
     /// <summary>
+    /// Minimum time of day a Friday-starting event must stay open until to be eligible for the Friday
+    /// slot of the weekend digest (the user's girlfriend has dialysis until ~17:00 on Fridays).
+    /// </summary>
+    public static readonly TimeSpan FridayMinimumCloseTime = new(20, 0, 0);
+
+    /// <summary>
+    /// Alias for <see cref="FridayMinimumCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static readonly TimeSpan MinimumFridayCloseTime = new(20, 0, 0);
+
+    /// <summary>
+    /// Alias for <see cref="FridayMinimumCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static readonly TimeSpan FridayCloseThreshold = new(20, 0, 0);
+
+    /// <summary>
+    /// Alias for <see cref="FridayMinimumCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static readonly TimeSpan FridayMinimumOpenUntil = new(20, 0, 0);
+
+    /// <summary>
     /// Title keywords marking the market-style events the group asked for, ordered by descending weight.
     /// </summary>
     private static readonly (string Keyword, int Weight)[] TitleKeywords =
     {
-        ("wochenmarkt", 100),
         ("flohmarkt", 95),
         ("nachtmarkt", 95),
         ("abendmarkt", 95),
@@ -31,8 +53,9 @@ public static class WeekendDigestCurator
         ("strassenmarkt", 90),
         ("straßenmarkt", 90),
         ("foodtruck", 85),
-        ("markt", 60),
-        ("messe", 40)
+        ("messe", 40),
+        ("markt", 30),
+        ("wochenmarkt", 10)
     };
 
     /// <summary>
@@ -55,11 +78,16 @@ public static class WeekendDigestCurator
     /// <param name="events">The candidate events (already filtered to the weekend).</param>
     /// <param name="weekendFriday">The Friday date identifying the target weekend.</param>
     /// <param name="count">The maximum number of suggestions.</param>
+    /// <param name="bannedWords">Optional list of words/phrases whose case-insensitive substring
+    /// presence in an event's title or topic excludes it from the digest. <see langword="null"/> or empty
+    /// disables filtering.</param>
     /// <returns>The selected suggestions in day order; may contain fewer than <paramref name="count"/> entries.</returns>
     public static IReadOnlyList<WeekendEvent> PickSuggestions(
         IEnumerable<WeekendEvent> events,
         DateTime weekendFriday,
-        int count = DefaultSuggestionCount)
+        int count = DefaultSuggestionCount,
+        IReadOnlyList<string>? bannedWords = null,
+        TimeSpan? fridayMinimumCloseTime = null)
     {
         ArgumentNullException.ThrowIfNull(events);
 
@@ -68,9 +96,13 @@ public static class WeekendDigestCurator
             return Array.Empty<WeekendEvent>();
         }
 
+        var banned = bannedWords is { Count: > 0 } ? bannedWords : null;
+        var minimumFridayClose = fridayMinimumCloseTime ?? FridayMinimumCloseTime;
+
         var sunday = weekendFriday.AddDays(2);
         var scored = events
             .Where(e => e.StartDate <= sunday && e.EndDate >= weekendFriday)
+            .Where(e => !IsBanned(e, banned))
             .Select(e => (Event: e, Score: Score(e)))
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Event.StartDate)
@@ -91,7 +123,8 @@ public static class WeekendDigestCurator
             var candidate = scored.FirstOrDefault(x =>
                 x.Event.StartDate == day &&
                 !IsVenueUsed(x.Event, usedVenues) &&
-                !picked.Contains(x.Event));
+                !picked.Contains(x.Event) &&
+                (day != weekendFriday || IsFridayCloseAllowed(x.Event, minimumFridayClose)));
 
             if (candidate.Event is not null)
             {
@@ -124,6 +157,75 @@ public static class WeekendDigestCurator
     }
 
     /// <summary>
+    /// Determines whether a Friday-starting event stays open late enough to be eligible for the Friday
+    /// slot, based on its <see cref="WeekendEvent.TimeText"/> close time.
+    /// </summary>
+    /// <param name="weekendEvent">The candidate event.</param>
+    /// <param name="minimumClose">The earliest acceptable close time of day.</param>
+    /// <returns><see langword="true"/> when the event has no known close time or closes at/after the threshold.</returns>
+    private static bool IsFridayCloseAllowed(WeekendEvent weekendEvent, TimeSpan minimumClose)
+    {
+        var close = ParseCloseTime(weekendEvent.TimeText);
+        if (close is null)
+        {
+            return true;
+        }
+
+        return close.Value >= minimumClose;
+    }
+
+    /// <summary>
+    /// Parses the closing time of day from a <see cref="WeekendEvent.TimeText"/> value. Returns the
+    /// second <c>HH:MM</c> occurrence when present (e.g. <c>09:00 – 17:40 Uhr</c> → 17:40); returns
+    /// <see langword="null"/> when only one (or no) time is present, i.e. no known close.
+    /// </summary>
+    /// <param name="timeText">The raw time text from the listing, or <see langword="null"/>.</param>
+    /// <returns>The parsed close time of day, or <see langword="null"/> when unknown.</returns>
+    public static TimeSpan? ParseCloseTime(string? timeText)
+    {
+        if (string.IsNullOrWhiteSpace(timeText))
+        {
+            return null;
+        }
+
+        var matches = TimeRegex.Matches(timeText);
+        if (matches.Count < 2)
+        {
+            return null;
+        }
+
+        var hourGroup = matches[1].Groups[1].Value;
+        var minuteGroup = matches[1].Groups[2].Value;
+
+        if (!int.TryParse(hourGroup, out var hour) || !int.TryParse(minuteGroup, out var minute))
+        {
+            return null;
+        }
+
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59)
+        {
+            return null;
+        }
+
+        return new TimeSpan(hour, minute, 0);
+    }
+
+    /// <summary>
+    /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static TimeSpan? ParseEndTime(string? timeText) => ParseCloseTime(timeText);
+
+    /// <summary>
+    /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static TimeSpan? ParseTimeTextEndTime(string? timeText) => ParseCloseTime(timeText);
+
+    /// <summary>
+    /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static TimeSpan? GetCloseTime(string? timeText) => ParseCloseTime(timeText);
+
+    /// <summary>
     /// Determines whether the event's venue was already used by a previous pick; events without a
     /// location are never treated as venue duplicates.
     /// </summary>
@@ -144,6 +246,42 @@ public static class WeekendDigestCurator
         {
             usedVenues.Add(weekendEvent.Location);
         }
+    }
+
+    /// <summary>
+    /// Determines whether the event should be excluded because its title or topic contains a banned word.
+    /// </summary>
+    /// <param name="weekendEvent">The candidate event.</param>
+    /// <param name="bannedWords">The banned words, or <see langword="null"/> when filtering is disabled.</param>
+    /// <returns><see langword="true"/> when the event is banned.</returns>
+    private static bool IsBanned(WeekendEvent weekendEvent, IReadOnlyList<string>? bannedWords)
+    {
+        if (bannedWords is null || bannedWords.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var word in bannedWords)
+        {
+            if (string.IsNullOrWhiteSpace(word))
+            {
+                continue;
+            }
+
+            if (weekendEvent.Title is not null &&
+                weekendEvent.Title.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(weekendEvent.Topic) &&
+                weekendEvent.Topic!.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

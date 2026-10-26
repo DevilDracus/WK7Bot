@@ -73,13 +73,14 @@ public class WeekendDigestBackgroundServiceTests
             IServiceScopeFactory scopeFactory,
             IWeekendEventSource eventSource,
             IReadOnlyList<ulong> guildIds,
-            WeekendDigestDispatcher dispatcher)
+            WeekendDigestDispatcher dispatcher,
+            Wk7BotOptions? options = null)
             : base(
                 scopeFactory,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
                 eventSource,
                 new Core.Utilities.FeatureHealthTracker(),
-                Microsoft.Extensions.Options.Options.Create(new Wk7BotOptions()),
+                Microsoft.Extensions.Options.Options.Create(options ?? new Wk7BotOptions()),
                 NullLogger<WeekendDigestBackgroundService>.Instance,
                 dispatcher)
             => _guildIds = guildIds;
