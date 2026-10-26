@@ -99,6 +99,12 @@ public static class ChannelResolver
         ArgumentNullException.ThrowIfNull(guild);
         ArgumentNullException.ThrowIfNull(logger);
 
+        if (botUserId == 0)
+        {
+            logger.LogDebug("Bot user ID is not available yet; skipping channel resolution for '{Channel}'.", channelName);
+            return null;
+        }
+
         try
         {
             return await GetOrCreateChannelAsync(guild, channelName, properties =>

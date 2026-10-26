@@ -148,7 +148,7 @@ public class PollenBackgroundService : BackgroundService
             ? Task.FromResult<ITextChannel?>(null)
             : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
                 guild,
-                _discordClient.CurrentUser.Id,
+                _discordClient.CurrentUser?.Id ?? 0,
                 _options.PollenChannelName,
                 "Pollenflug- und UV-Index-Vorhersage des DWD.",
                 _logger);

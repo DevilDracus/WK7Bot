@@ -383,7 +383,7 @@ public class WishlistDealBackgroundService : BackgroundService
             ? Task.FromResult<ITextChannel?>(null)
             : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
                 guild,
-                _discordClient.CurrentUser.Id,
+                _discordClient.CurrentUser?.Id ?? 0,
                 _options.DealAlertChannelName,
                 "Automatische Steam-Wunschlisten-Deal-Benachrichtigungen.",
                 _logger,

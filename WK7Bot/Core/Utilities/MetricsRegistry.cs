@@ -16,6 +16,7 @@ public sealed class MetricsRegistry
     private readonly ConcurrentDictionary<string, long> _httpRequests = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, double> _httpDurationSeconds = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, long> _httpFailures = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _metricsLock = new();
     private readonly DateTime _startedAtUtc = DateTime.UtcNow;
     private long _errors;
 
@@ -29,10 +30,13 @@ public sealed class MetricsRegistry
             return;
         }
 
-        _commands.AddOrUpdate(command, 1, static (_, current) => current + 1);
-        if (!succeeded)
+        lock (_metricsLock)
         {
-            _commandErrors.AddOrUpdate(command, 1, static (_, current) => current + 1);
+            _commands[command] = _commands.GetValueOrDefault(command) + 1;
+            if (!succeeded)
+            {
+                _commandErrors[command] = _commandErrors.GetValueOrDefault(command) + 1;
+            }
         }
     }
 
@@ -50,11 +54,14 @@ public sealed class MetricsRegistry
             return;
         }
 
-        _httpRequests.AddOrUpdate(operation, 1, static (_, current) => current + 1);
-        _httpDurationSeconds.AddOrUpdate(operation, milliseconds / 1000.0, (_, current) => current + milliseconds / 1000.0);
-        if (!succeeded)
+        lock (_metricsLock)
         {
-            _httpFailures.AddOrUpdate(operation, 1, static (_, current) => current + 1);
+            _httpRequests[operation] = _httpRequests.GetValueOrDefault(operation) + 1;
+            _httpDurationSeconds[operation] = _httpDurationSeconds.GetValueOrDefault(operation) + milliseconds / 1000.0;
+            if (!succeeded)
+            {
+                _httpFailures[operation] = _httpFailures.GetValueOrDefault(operation) + 1;
+            }
         }
     }
 

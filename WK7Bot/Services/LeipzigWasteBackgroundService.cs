@@ -321,7 +321,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
             ? Task.FromResult<ITextChannel?>(null)
             : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
                 guild,
-                _discordClient.CurrentUser.Id,
+                _discordClient.CurrentUser?.Id ?? 0,
                 TargetChannelName,
                 "Benachrichtigungen und Bestätigungen zur Stadtreinigung Leipzig Müllabholung.",
                 _logger,

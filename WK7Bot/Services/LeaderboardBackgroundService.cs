@@ -113,7 +113,7 @@ public class LeaderboardBackgroundService : BackgroundService
 
             var channel = await ChannelResolver.TryGetOrCreateFeatureChannelAsync(
                 guild,
-                _discordClient.CurrentUser.Id,
+                _discordClient.CurrentUser?.Id ?? 0,
                 _options.LeaderboardChannelName,
                 "Wöchentliche Spieler-Bestenlisten.",
                 _logger);

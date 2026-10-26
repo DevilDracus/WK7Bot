@@ -436,7 +436,7 @@ public class FoodPublisherService : BackgroundService
 
             var channel = await ChannelResolver.TryGetOrCreateFeatureChannelAsync(
                 guild,
-                _discordClient.CurrentUser.Id,
+                _discordClient.CurrentUser?.Id ?? 0,
                 TargetChannelName,
                 "Food publishing channel",
                 _logger);

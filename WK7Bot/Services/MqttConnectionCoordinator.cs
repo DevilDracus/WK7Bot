@@ -258,7 +258,11 @@ public sealed class MqttConnectionCoordinator : IDisposable
         {
             if (ConnectionEstablishedAsync is { } notify)
             {
-                await notify();
+                var handlers = notify.GetInvocationList()
+                    .Cast<Func<Task>>()
+                    .Select(h => h())
+                    .ToArray();
+                await Task.WhenAll(handlers);
             }
         }
         catch (OperationCanceledException) when (_stoppingToken.IsCancellationRequested)

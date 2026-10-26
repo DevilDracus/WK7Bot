@@ -81,7 +81,7 @@ public class FoodModule : BotModuleBase
 
         return await ChannelResolver.TryGetOrCreateFeatureChannelAsync(
             Context.Guild,
-            Context.Client.CurrentUser.Id,
+            Context.Client.CurrentUser?.Id ?? 0,
             TargetChannelName,
             "Food publishing channel",
             _logger);

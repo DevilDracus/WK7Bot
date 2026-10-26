@@ -253,7 +253,7 @@ public class DwdWarningBackgroundService : BackgroundService
             ? Task.FromResult<ITextChannel?>(null)
             : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
                 guild,
-                _discordClient.CurrentUser.Id,
+                _discordClient.CurrentUser?.Id ?? 0,
                 TargetChannelName,
                 BuildChannelTopic(),
                 _logger);

@@ -57,7 +57,7 @@ public class SpontanTreffModule : BotModuleBase
             ? Task.FromResult<ITextChannel?>(null)
             : ChannelResolver.TryGetOrCreateFeatureChannelAsync(
                 guild,
-                Context.Client.CurrentUser.Id,
+                Context.Client.CurrentUser?.Id ?? 0,
                 TargetChannelName,
                 "Kurzfristige Treffen: Auf dem Weg oder Absagen mit einem Klick.",
                 _logger);

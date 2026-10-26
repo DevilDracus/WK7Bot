@@ -122,7 +122,7 @@ public class WeekendDigestDispatcher
 
         return await ChannelResolver.TryGetOrCreateFeatureChannelAsync(
             guild,
-            _discordClient.CurrentUser.Id,
+            _discordClient.CurrentUser?.Id ?? 0,
             TargetChannelName,
             "Wochenend-Tipps aus Leipzig – Märkte, Kultur und Ausflüge mit Abstimmung.",
             _logger,

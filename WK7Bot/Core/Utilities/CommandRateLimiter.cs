@@ -10,6 +10,7 @@ public sealed class CommandRateLimiter
 {
     private readonly IMemoryCache _cache;
     private readonly ILogger<CommandRateLimiter> _logger;
+    private readonly object _rateLimitLock = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CommandRateLimiter"/> class
@@ -46,14 +47,17 @@ public sealed class CommandRateLimiter
     {
         var key = $"ratelimit:{userId}:{commandName}";
 
-        if (_cache.TryGetValue(key, out _))
+        lock (_rateLimitLock)
         {
-            _logger.LogDebug("Rate limit hit for user {UserId} on command {CommandName}.", userId, commandName);
-            return false;
-        }
+            if (_cache.TryGetValue(key, out _))
+            {
+                _logger.LogDebug("Rate limit hit for user {UserId} on command {CommandName}.", userId, commandName);
+                return false;
+            }
 
-        _cache.Set(key, DateTimeOffset.UtcNow, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = window, Size = 1 });
-        return true;
+            _cache.Set(key, DateTimeOffset.UtcNow, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = window, Size = 1 });
+            return true;
+        }
     }
 
     /// <summary>

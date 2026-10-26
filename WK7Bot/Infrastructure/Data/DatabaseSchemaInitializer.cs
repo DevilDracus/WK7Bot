@@ -38,7 +38,7 @@ public static class DatabaseSchemaInitializer
             }
         }
 
-        await dbContext.Database.EnsureCreatedAsync();
+        await dbContext.Database.EnsureCreatedAsync(cancellationToken);
 
         // Everything below runs on a raw ADO connection on purpose: EF Core logs every failed
         // DbCommand at Error level — which feeds the admin error-DM queue — before any catch can
