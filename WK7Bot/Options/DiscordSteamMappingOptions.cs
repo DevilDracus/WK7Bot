@@ -18,4 +18,10 @@ public class DiscordSteamMappingOptions
     /// </summary>
     [ConfigurationKeyName("steam_id")]
     public string SteamId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets an optional shared Steam wishlist URL for private wishlists.
+    /// </summary>
+    [ConfigurationKeyName("wishlist_url")]
+    public string? WishlistUrl { get; set; }
 }

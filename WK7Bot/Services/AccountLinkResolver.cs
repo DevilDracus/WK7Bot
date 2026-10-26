@@ -32,7 +32,7 @@ public class AccountLinkResolver : IAccountLinkResolver
         {
             if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.SteamId))
             {
-                merged[id] = (mapping.SteamId, null);
+                merged[id] = (mapping.SteamId, mapping.WishlistUrl);
             }
         }
 

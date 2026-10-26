@@ -56,7 +56,7 @@ public class AccountLinkService : IAccountLinkService
             LinkedAt = DateTime.UtcNow
         }, cancellationToken).ConfigureAwait(false);
 
-        await MirrorSteamMappingAsync(discordUserId, steamId, cancellationToken).ConfigureAwait(false);
+        await MirrorSteamMappingAsync(discordUserId, steamId, input.Contains("wishlist", StringComparison.OrdinalIgnoreCase) ? input : null, cancellationToken).ConfigureAwait(false);
         return new AccountLinkResult(true, $"Steam-Account verknüpft: `{steamId}`.", steamId);
     }
 
@@ -101,7 +101,7 @@ public class AccountLinkService : IAccountLinkService
             LinkedAt = DateTime.UtcNow
         }, cancellationToken).ConfigureAwait(false);
 
-        await MirrorSteamMappingAsync(discordUserId, steamId, cancellationToken).ConfigureAwait(false);
+        await MirrorSteamMappingAsync(discordUserId, steamId, wishlistUrl, cancellationToken).ConfigureAwait(false);
         return new AccountLinkResult(true, $"Wishlist verknüpft: `{steamId}`.", steamId);
     }
 
@@ -170,7 +170,7 @@ public class AccountLinkService : IAccountLinkService
         return null;
     }
 
-    private async Task MirrorSteamMappingAsync(ulong discordUserId, string steamId, CancellationToken cancellationToken)
+    private async Task MirrorSteamMappingAsync(ulong discordUserId, string steamId, string? wishlistUrl = null, CancellationToken cancellationToken = default)
     {
         if (!_options.Value.LinkAutoWriteOptions)
         {
@@ -184,11 +184,16 @@ public class AccountLinkService : IAccountLinkService
             obj["discord_user_id"]?.GetValue<string>() == discordUserId.ToString());
         if (!already)
         {
-            mappings.Add(new System.Text.Json.Nodes.JsonObject
+            var obj = new System.Text.Json.Nodes.JsonObject
             {
                 ["discord_user_id"] = discordUserId.ToString(),
                 ["steam_id"] = steamId
-            });
+            };
+            if (!string.IsNullOrWhiteSpace(wishlistUrl))
+            {
+                obj["wishlist_url"] = wishlistUrl;
+            }
+            mappings.Add(obj);
         }
 
         await _optionsWriter.MergeAsync(new Dictionary<string, object?>
