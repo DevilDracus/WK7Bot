@@ -40,6 +40,21 @@ public static class WeekendDigestCurator
     public static readonly TimeSpan FridayMinimumOpenUntil = new(20, 0, 0);
 
     /// <summary>
+    /// Alias for <see cref="FridayMinimumCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static readonly TimeSpan FridayCutoff = new(20, 0, 0);
+
+    /// <summary>
+    /// Alias for <see cref="FridayMinimumCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static readonly TimeSpan FridayCutoffTime = new(20, 0, 0);
+
+    /// <summary>
+    /// Alias for <see cref="FridayMinimumCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static readonly TimeSpan FridayCloseMinimum = new(20, 0, 0);
+
+    /// <summary>
     /// Title keywords marking the market-style events the group asked for, ordered by descending weight.
     /// </summary>
     private static readonly (string Keyword, int Weight)[] TitleKeywords =
@@ -81,7 +96,9 @@ public static class WeekendDigestCurator
     /// <param name="bannedWords">Optional list of words/phrases whose case-insensitive substring
     /// presence in an event's title or topic excludes it from the digest. <see langword="null"/> or empty
     /// disables filtering.</param>
-    /// <returns>The selected suggestions in day order; may contain fewer than <paramref name="count"/> entries.</returns>
+    /// <param name="fridayMinimumCloseTime">Optional override for the earliest acceptable Friday close
+    /// time of day. Defaults to <see cref="FridayMinimumCloseTime"/>.</param>
+    /// <returns>The selected suggestions in day order; may contain fewer than <paramref name="count" /> entries.</returns>
     public static IReadOnlyList<WeekendEvent> PickSuggestions(
         IEnumerable<WeekendEvent> events,
         DateTime weekendFriday,
@@ -224,6 +241,12 @@ public static class WeekendDigestCurator
     /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
     /// </summary>
     public static TimeSpan? GetCloseTime(string? timeText) => ParseCloseTime(timeText);
+
+    public static IReadOnlyList<WeekendEvent> PickSuggestions(
+        IEnumerable<WeekendEvent> events,
+        DateTime weekendFriday,
+        IReadOnlyList<string>? bannedWords)
+        => PickSuggestions(events, weekendFriday, DefaultSuggestionCount, bannedWords);
 
     /// <summary>
     /// Determines whether the event's venue was already used by a previous pick; events without a

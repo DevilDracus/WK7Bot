@@ -58,34 +58,19 @@ public class SpontanTreffExpiryService : BackgroundService
 
         _logger.LogInformation("Starting Spontan-Treff expiry scheduler loop.");
 
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-
-        try
-        {
-            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async ct =>
             {
-                try
+                if (await SweepAsync(DateTime.UtcNow, ct).ConfigureAwait(false))
                 {
-                    if (await SweepAsync(DateTime.UtcNow, stoppingToken))
-                    {
-                        _health.RecordSuccess(FeatureKeys.SpontanTreff);
-                    }
+                    _health.RecordSuccess(FeatureKeys.SpontanTreff);
                 }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _health.RecordFailure(FeatureKeys.SpontanTreff, ex.Message);
-                    _logger.LogError(ex, "Spontan-Treff expiry sweep failed.");
-                }
-            }
-        }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-            // Graceful shutdown.
-        }
+            },
+            FeatureKeys.SpontanTreff,
+            _health,
+            _logger,
+            TimeSpan.FromMinutes(1),
+            stoppingToken: stoppingToken).ConfigureAwait(false);
     }
 
     /// <summary>
