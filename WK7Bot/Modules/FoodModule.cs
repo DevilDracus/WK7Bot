@@ -10,6 +10,7 @@ using WK7Bot.Core.Exceptions;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Services;
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>
@@ -192,7 +193,7 @@ public class FoodModule : BotModuleBase
                 return;
             }
 
-            var produce = await _geminiFoodService.GetSeasonalProduceAsync(DateTime.Now);
+            var produce = await _geminiFoodService.GetSeasonalProduceAsync(DateTime.UtcNow);
             var seasonalTerms = SeasonalTermPicker.Pick(produce, _randomSource);
 
             if (seasonalTerms.Count == 0)
@@ -267,7 +268,7 @@ public class FoodModule : BotModuleBase
                 return;
             }
 
-            var recipe = await _geminiFoodService.GetWeeklyRenalRecipeAsync(DateTime.Now);
+            var recipe = await _geminiFoodService.GetWeeklyRenalRecipeAsync(DateTime.UtcNow);
             if (recipe == null)
             {
                 await FollowupAsync("❌ Das Rezept konnte von der Gemini-API nicht erstellt werden. Bitte prüfe den API-Schlüssel und versuche es erneut.", ephemeral: true);
@@ -314,7 +315,7 @@ public class FoodModule : BotModuleBase
                 return;
             }
 
-            int targetMonth = DateTime.Now.Month;
+            int targetMonth = DateTime.UtcNow.Month;
             if (monthInput.HasValue)
             {
                 if (monthInput.Value < 1 || monthInput.Value > 12)
@@ -326,7 +327,7 @@ public class FoodModule : BotModuleBase
             }
 
             // Construct target date for the selected month in the current year
-            var targetDate = new DateTime(DateTime.Now.Year, targetMonth, 1);
+            var targetDate = new DateTime(DateTime.UtcNow.Year, targetMonth, 1);
             var produceData = await _geminiFoodService.GetSeasonalProduceAsync(targetDate);
 
             if (produceData == null)

@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Exceptions;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>

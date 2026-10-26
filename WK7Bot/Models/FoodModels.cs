@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Models;
+namespace WK7Bot.Models;
 
 using System.Collections.Generic;
 using System.Text.Json.Serialization;

@@ -104,8 +104,8 @@ public class SpontanTreffComponentModuleTests
             OrganizerName = "Tester",
             Plan = "Kaffee im Innenhof?",
             Location = "Innenhof",
-            CreatedAt = DateTime.Now.AddMinutes(-3),
-            ExpiresAt = expiresAt ?? DateTime.Now.AddMinutes(27),
+            CreatedAt = DateTime.UtcNow.AddMinutes(-3),
+            ExpiresAt = expiresAt ?? DateTime.UtcNow.AddMinutes(27),
             Closed = closed
         });
 
@@ -222,7 +222,7 @@ public class SpontanTreffComponentModuleTests
     public async Task ExpiredMeetup_RejectsFurtherAnswers()
     {
         using var fixture = new Fixture();
-        await CreateMeetupAsync(fixture, expiresAt: DateTime.Now.AddMinutes(-1));
+        await CreateMeetupAsync(fixture, expiresAt: DateTime.UtcNow.AddMinutes(-1));
         var module = CreateModule(fixture);
 
         await module.HandleResponseAsync("go:1");

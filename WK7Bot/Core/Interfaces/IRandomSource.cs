@@ -1,4 +1,4 @@
-namespace WK7Bot.Services.Interfaces;
+namespace WK7Bot.Core.Interfaces;
 
 /// <summary>
 /// Supplies pseudo-random numbers so randomized behaviour (recipe candidate selection, seasonal produce picking)

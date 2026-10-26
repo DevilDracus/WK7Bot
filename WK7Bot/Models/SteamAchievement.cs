@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Models;
+namespace WK7Bot.Models;
 
 /// <summary>
 /// Represents an achievement unlocked by the player within a Steam application.

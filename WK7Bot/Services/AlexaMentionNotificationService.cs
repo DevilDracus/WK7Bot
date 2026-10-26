@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Services;
+namespace WK7Bot.Services;
 
 using Discord.WebSocket;
 using Microsoft.Extensions.Hosting;

@@ -61,7 +61,7 @@ public class RemindModule : BotModuleBase
             text = text[..MaxReminderTextLength];
         }
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         if (!ReminderTimeParser.TryParse(wann, now, out var dueAt, out var error))
         {
             await FollowupAsync($"❌ {error}", ephemeral: true);

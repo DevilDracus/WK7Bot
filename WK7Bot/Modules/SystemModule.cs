@@ -1,4 +1,4 @@
-﻿using Discord;
+using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Logging;
 using System.Text;

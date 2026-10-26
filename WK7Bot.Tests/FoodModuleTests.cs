@@ -9,6 +9,7 @@ using WK7Bot.Core.Exceptions;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Modules;
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Services.Interfaces;
 using Xunit;
 

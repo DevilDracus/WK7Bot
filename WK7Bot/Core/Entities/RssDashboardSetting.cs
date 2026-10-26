@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Core.Entities;
+namespace WK7Bot.Core.Entities;
 
 /// <summary>
 /// Stores the Discord message tracking details for the active RSS subscription dashboard.

@@ -77,7 +77,7 @@ public class LeaderboardBackgroundService : BackgroundService
     /// <param name="cancellationToken">A cancellation token.</param>
     protected virtual async Task MaybePostAsync(CancellationToken cancellationToken)
     {
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         if (!string.Equals(now.DayOfWeek.ToString(), _options.LeaderboardPostWeekday, StringComparison.OrdinalIgnoreCase))
         {
             return;

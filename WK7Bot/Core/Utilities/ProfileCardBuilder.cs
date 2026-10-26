@@ -3,8 +3,8 @@ namespace WK7Bot.Core.Utilities;
 using System.Globalization;
 using System.Text;
 using Discord;
-using WK7Bot.Models;
 using WK7Bot.Services.Interfaces;
+using WK7Bot.Models;
 
 /// <summary>
 /// Renders a member profile as a Discord Components V2 card: one container with a text header, a

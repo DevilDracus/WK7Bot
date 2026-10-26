@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Services.Interfaces;
+namespace WK7Bot.Services.Interfaces;
 
 using System.Collections.Generic;
 using System.Threading;

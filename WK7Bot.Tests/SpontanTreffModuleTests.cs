@@ -165,8 +165,8 @@ public class SpontanTreffModuleTests
         Assert.Equal(777ul, meetup.ChannelId);
         Assert.Equal(module.PostedMessageId, meetup.MessageId);
         Assert.Equal(42ul, meetup.OrganizerId);
-        Assert.True(meetup.ExpiresAt > DateTime.Now.AddMinutes(29));
-        Assert.True(meetup.ExpiresAt <= DateTime.Now.AddMinutes(31));
+        Assert.True(meetup.ExpiresAt > DateTime.UtcNow.AddMinutes(29));
+        Assert.True(meetup.ExpiresAt <= DateTime.UtcNow.AddMinutes(31));
 
         var followup = Assert.Single(module.Followups);
         Assert.StartsWith("✅", followup);
@@ -182,8 +182,8 @@ public class SpontanTreffModuleTests
         await module.CreateAsync("Kaffee?", null, 90);
 
         var meetup = Assert.Single(fixture.Context.SpontanTreffs.AsNoTracking());
-        Assert.True(meetup.ExpiresAt > DateTime.Now.AddMinutes(89));
-        Assert.True(meetup.ExpiresAt <= DateTime.Now.AddMinutes(91));
+        Assert.True(meetup.ExpiresAt > DateTime.UtcNow.AddMinutes(89));
+        Assert.True(meetup.ExpiresAt <= DateTime.UtcNow.AddMinutes(91));
         Assert.Null(meetup.Location);
     }
 

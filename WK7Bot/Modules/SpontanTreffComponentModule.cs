@@ -79,7 +79,7 @@ public class SpontanTreffComponentModule : BotModuleBase
                 return;
             }
 
-            var now = DateTime.Now;
+            var now = DateTime.UtcNow;
             if (!SpontanTreffMessageBuilder.IsActive(meetup, now))
             {
                 await FollowupAsync("⌛ Dieser Spontan-Treff ist bereits abgelaufen.", ephemeral: true);

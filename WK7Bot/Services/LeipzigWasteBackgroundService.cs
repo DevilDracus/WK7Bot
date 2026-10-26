@@ -75,7 +75,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
         await BackgroundServiceResilience.RunWithResilienceAsync(
             async token =>
             {
-                await EvaluateScheduleAsync(DateTime.Now, token);
+                await EvaluateScheduleAsync(DateTime.UtcNow, token);
             },
             FeatureKeys.LeipzigWaste,
             _health,
@@ -172,7 +172,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
 
         // The waste table also stores weekend-digest records; keep it bounded by the same retention.
-        await dispatchRepository.PruneAsync(DateTime.Now.Date - DispatchRetention, cancellationToken);
+        await dispatchRepository.PruneAsync(DateTime.UtcNow.Date - DispatchRetention, cancellationToken);
 
         var targetGuildIds = GetTargetGuildIds();
         var pendingGuildIds = new List<ulong>();

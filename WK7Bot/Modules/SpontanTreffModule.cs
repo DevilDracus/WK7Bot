@@ -123,11 +123,11 @@ public class SpontanTreffModule : BotModuleBase
                 OrganizerName = Context.User.Username,
                 Plan = plan.Trim(),
                 Location = string.IsNullOrWhiteSpace(ort) ? null : ort.Trim(),
-                CreatedAt = DateTime.Now,
-                ExpiresAt = DateTime.Now.AddMinutes(minuten)
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(minuten)
             });
 
-            var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, new List<SpontanTreffResponse>(), DateTime.Now);
+            var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, new List<SpontanTreffResponse>(), DateTime.UtcNow);
 
             try
             {

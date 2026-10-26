@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Models;
+namespace WK7Bot.Models;
 
 /// <summary>
 /// Details recent gameplay duration and metadata for a specific Steam application.

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using WK7Bot.Core.Entities;
 
 namespace WK7Bot.Infrastructure.Data;

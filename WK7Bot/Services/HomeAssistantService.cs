@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;

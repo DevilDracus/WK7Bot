@@ -66,7 +66,7 @@ public class SpontanTreffExpiryService : BackgroundService
             {
                 try
                 {
-                    if (await SweepAsync(DateTime.Now, stoppingToken))
+                    if (await SweepAsync(DateTime.UtcNow, stoppingToken))
                     {
                         _health.RecordSuccess(FeatureKeys.SpontanTreff);
                     }

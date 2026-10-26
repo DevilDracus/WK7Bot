@@ -1,4 +1,4 @@
-﻿using WK7Bot.Core.Utilities;
+using WK7Bot.Core.Utilities;
 
 using WK7Bot.Core.Interfaces;
 

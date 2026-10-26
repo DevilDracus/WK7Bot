@@ -1,4 +1,4 @@
-﻿using Ical.Net;
+using Ical.Net;
 using Microsoft.Extensions.Caching.Memory;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;

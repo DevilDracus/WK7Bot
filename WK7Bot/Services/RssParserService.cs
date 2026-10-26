@@ -1,4 +1,4 @@
-﻿using CodeHollow.FeedReader;
+using CodeHollow.FeedReader;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;

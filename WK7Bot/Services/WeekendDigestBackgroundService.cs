@@ -94,7 +94,7 @@ public class WeekendDigestBackgroundService : BackgroundService
             {
                 try
                 {
-                    await EvaluateScheduleAsync(DateTime.Now, stoppingToken);
+                    await EvaluateScheduleAsync(DateTime.UtcNow, stoppingToken);
                     _health.RecordSuccess(FeatureKeys.WeekendDigest);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

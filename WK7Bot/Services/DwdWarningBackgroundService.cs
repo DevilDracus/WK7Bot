@@ -103,7 +103,7 @@ public class DwdWarningBackgroundService : BackgroundService
         await BackgroundServiceResilience.RunWithResilienceAsync(
             async token =>
             {
-                await EvaluateAsync(DateTime.Now, token);
+                await EvaluateAsync(DateTime.UtcNow, token);
             },
             FeatureKeys.DwdWarning,
             _health,

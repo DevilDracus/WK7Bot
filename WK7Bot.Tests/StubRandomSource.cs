@@ -1,4 +1,4 @@
-using WK7Bot.Services.Interfaces;
+using WK7Bot.Core.Interfaces;
 
 namespace WK7Bot.Tests;
 

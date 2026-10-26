@@ -1,4 +1,4 @@
-﻿namespace WK7Bot.Core.Entities;
+namespace WK7Bot.Core.Entities;
 
 /// <summary>
 /// Represents an RSS feed source tracked by the bot alongside its associated Discord channel and notification role.
