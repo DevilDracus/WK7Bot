@@ -1,3 +1,4 @@
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
 
 namespace WK7Bot.Services;
@@ -10,7 +11,7 @@ using WK7Bot.Models;
 /// Thread-safe bounded queue that buffers error reports for Discord delivery, throttles identical
 /// reports within a configurable window and drops the oldest entries once the capacity is reached.
 /// </summary>
-public class ErrorNotificationQueue
+public class ErrorNotificationQueue : IErrorNotificationQueue
 {
     /// <summary>
     /// Default number of buffered reports before the oldest entries are dropped.

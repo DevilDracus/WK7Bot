@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
 
 /// <summary>
@@ -12,7 +13,7 @@ using WK7Bot.Core.Utilities;
 /// <c>/data/options.json</c> document and posts the result to the Supervisor self-options endpoint so
 /// mappings created through <c>/link</c> survive an add-on restart and appear in the Home Assistant UI.
 /// </summary>
-public class AddOnOptionsWriter
+public class AddOnOptionsWriter : IAddOnOptionsWriter
 {
     private const string OptionsFilePath = "/data/options.json";
 

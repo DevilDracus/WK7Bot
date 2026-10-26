@@ -4,12 +4,13 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 using System.Threading;
+using WK7Bot.Core.Interfaces;
 
 /// <summary>
 /// Process-wide Prometheus metrics registry for command usage, error notifications and external HTTP calls.
 /// Registered as a singleton in DI; injected into services that record metrics.
 /// </summary>
-public sealed class MetricsRegistry
+public sealed class MetricsRegistry : IMetricsRegistry
 {
     private readonly ConcurrentDictionary<string, long> _commands = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, long> _commandErrors = new(StringComparer.OrdinalIgnoreCase);

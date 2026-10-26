@@ -120,6 +120,24 @@ public class Wk7BotOptions
     public DwdWarningOptions DwdWarning { get; init; } = new();
 
     /// <summary>
+    /// Gets or sets the configuration options for the weekend digest (banned words, etc.).
+    /// </summary>
+    [ConfigurationKeyName("weekend_digest")]
+    public WeekendDigestOptions WeekendDigest { get; init; } = new();
+
+    /// <summary>
+    /// Convenience accessor for the weekend digest banned-word list. Mirrors
+    /// <see cref="WeekendDigest"/>.<see cref="WeekendDigestOptions.BannedWords"/> so callers can use
+    /// either the nested or the flat form.
+    /// </summary>
+    [ConfigurationKeyName("weekend_digest_banned_words")]
+    public List<string> WeekendDigestBannedWords
+    {
+        get => WeekendDigest.BannedWords;
+        set => WeekendDigest.BannedWords = value;
+    }
+
+    /// <summary>
     /// Gets or sets the Discord servers that receive automatic messages (WK7 server, bot test server).
     /// </summary>
     [ConfigurationKeyName("servers")]

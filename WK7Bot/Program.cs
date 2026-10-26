@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Extensions;
 using WK7Bot.Infrastructure.Data;
@@ -24,10 +25,12 @@ builder.Logging.ClearProviders();
 // DiscordErrorLoggerProvider (a logging provider) needs the queue at registration time.
 var metricsRegistry = new MetricsRegistry();
 builder.Services.AddSingleton(metricsRegistry);
+builder.Services.AddSingleton<IMetricsRegistry>(metricsRegistry);
 
 // Capture every Error/Critical log event for Discord direct message delivery in addition to the regular logs.
 var errorNotificationQueue = new ErrorNotificationQueue(capacity: ErrorNotificationQueue.DefaultCapacity, metrics: metricsRegistry);
 builder.Services.AddSingleton(errorNotificationQueue);
+builder.Services.AddSingleton<IErrorNotificationQueue>(errorNotificationQueue);
 builder.Logging.AddProvider(new DiscordErrorLoggerProvider(errorNotificationQueue));
 
 // Configure minimum log level from add-on options (defaults to Warning to keep HA log output concise).
