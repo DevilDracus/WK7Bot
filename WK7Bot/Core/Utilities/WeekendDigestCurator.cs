@@ -294,6 +294,34 @@ public static class WeekendDigestCurator
         => PickSuggestions(events, weekendFriday, DefaultSuggestionCount, bannedWords);
 
     /// <summary>
+    /// Convenience overload accepting a Friday close-time override as the third positional argument.
+    /// </summary>
+    public static IReadOnlyList<WeekendEvent> PickSuggestions(
+        IEnumerable<WeekendEvent> events,
+        DateTime weekendFriday,
+        TimeSpan fridayMinimumCloseTime)
+        => PickSuggestions(events, weekendFriday, DefaultSuggestionCount, null, fridayMinimumCloseTime);
+
+    /// <summary>
+    /// Convenience overload accepting a banned-words list followed by an optional Friday close-time override.
+    /// </summary>
+    public static IReadOnlyList<WeekendEvent> PickSuggestions(
+        IEnumerable<WeekendEvent> events,
+        DateTime weekendFriday,
+        IReadOnlyList<string>? bannedWords,
+        TimeSpan? fridayMinimumCloseTime)
+        => PickSuggestions(events, weekendFriday, DefaultSuggestionCount, bannedWords, fridayMinimumCloseTime);
+
+    /// <summary>
+    /// Convenience overload accepting a count followed by a Friday close-time override.
+    /// </summary>
+    public static IReadOnlyList<WeekendEvent> PickSuggestions(
+        IEnumerable<WeekendEvent> events,
+        DateTime weekendFriday,
+        int count,
+        TimeSpan fridayMinimumCloseTime)
+        => PickSuggestions(events, weekendFriday, count, null, fridayMinimumCloseTime);
+    /// <summary>
     /// Determines whether the event's venue was already used by a previous pick; events without a
     /// location are never treated as venue duplicates.
     /// </summary>

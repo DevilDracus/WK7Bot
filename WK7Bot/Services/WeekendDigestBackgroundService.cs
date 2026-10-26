@@ -86,32 +86,16 @@ public class WeekendDigestBackgroundService : BackgroundService
 
         _logger.LogInformation("Starting Weekend Digest Background Service scheduler loop.");
 
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-
-        try
-        {
-            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async ct =>
             {
-                try
-                {
-                    await EvaluateScheduleAsync(DateTime.UtcNow, stoppingToken).ConfigureAwait(false);
-                    _health.RecordSuccess(FeatureKeys.WeekendDigest);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An error occurred while evaluating the weekend digest schedule.");
-                    _health.RecordFailure(FeatureKeys.WeekendDigest, ex.Message);
-                }
-            }
-        }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-            // Graceful shutdown.
-        }
+                await EvaluateScheduleAsync(DateTime.UtcNow, ct).ConfigureAwait(false);
+            },
+            FeatureKeys.WeekendDigest,
+            _health,
+            _logger,
+            TimeSpan.FromMinutes(1),
+            stoppingToken: stoppingToken).ConfigureAwait(false);
     }
 
     /// <summary>
