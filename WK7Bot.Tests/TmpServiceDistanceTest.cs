@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -33,7 +34,7 @@ public class TmpServiceDistanceTest
     [Fact]
     public async Task FarCentroid_IsSkipped()
     {
-        using var dbName = new { }; // placeholder
+        var dbName = Guid.NewGuid().ToString();
         // Build fixture manually
         var services = new ServiceCollection();
         services.AddLogging();
