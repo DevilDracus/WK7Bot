@@ -155,7 +155,7 @@ public class PollenBackgroundServiceTests
         await service.EvaluateAsync(Day0);
         Assert.Single(service.Posts);
 
-        var restarted = new TestablePollenBackgroundService(fixture.ScopeFactory, PollenServiceReturning(pollen), new ulong[] { 100 });
+        var restarted = new TestablePollenBackgroundService(fixture.ScopeFactory, PollenServiceReturning(MakeForecast("2", "0", "0")), new ulong[] { 100 });
         await restarted.EvaluateAsync(Day1);
 
         Assert.Empty(restarted.Posts);
