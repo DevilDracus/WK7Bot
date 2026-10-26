@@ -118,41 +118,26 @@ public class FoodPublisherService : BackgroundService
 
         _logger.LogInformation("Food publisher background service started.");
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async ct =>
             {
                 var now = _timeProvider.GetLocalNow().DateTime;
 
                 if (ShouldPublishMonthlyProduce(now))
                 {
-                    await AttemptSlotAsync(now, FoodDispatchKinds.MonthlyProduce, "monthly produce", PublishMonthlyProduceAsync, stoppingToken).ConfigureAwait(false);
+                    await AttemptSlotAsync(now, FoodDispatchKinds.MonthlyProduce, "monthly produce", PublishMonthlyProduceAsync, ct).ConfigureAwait(false);
                 }
 
                 if (ShouldPublishWeeklyRecipe(now))
                 {
-                    await AttemptSlotAsync(now, FoodDispatchKinds.WeeklyRecipe, "weekly recipe", PublishWeeklyRecipeAsync, stoppingToken).ConfigureAwait(false);
+                    await AttemptSlotAsync(now, FoodDispatchKinds.WeeklyRecipe, "weekly recipe", PublishWeeklyRecipeAsync, ct).ConfigureAwait(false);
                 }
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error encountered while checking or executing food background jobs.");
-                _health.RecordFailure(FeatureKeys.FoodService, ex.Message);
-            }
-
-            try
-            {
-                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
+            },
+            FeatureKeys.FoodService,
+            _health,
+            _logger,
+            TimeSpan.FromMinutes(1),
+            stoppingToken: stoppingToken).ConfigureAwait(false);
     }
 
     /// <summary>

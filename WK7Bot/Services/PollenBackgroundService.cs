@@ -1,27 +1,27 @@
 namespace WK7Bot.Services;
 
 using System.Globalization;
+using System.Text.Json;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
+using WK7Bot.Models;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>
-/// Posts the DWD pollen and UV forecast once a day at the configured local time to the weather
-/// channel. Dispatch state is persisted per guild and date in the shared dispatch log, so a restart
-/// inside the same day never re-posts.
+/// Posts the DWD pollen and UV forecast at the configured local time to the weather channel.
+/// Dispatch state is persisted per guild (including the last communicated forecast) so a restart
+/// inside the same day never re-posts, posts happen at most every 3 days, and a DWD revision of
+/// an already-communicated day triggers an earlier post.
 /// </summary>
 public class PollenBackgroundService : BackgroundService
 {
-    /// <summary>Dispatch kind recorded in the shared dispatch log.</summary>
-    internal const string DispatchKind = "pollen";
-
-    /// <summary>Retention of the dispatch records; mirrors the waste service.</summary>
-    private static readonly TimeSpan DispatchRetention = TimeSpan.FromDays(90);
+    private static readonly JsonSerializerOptions ForecastJsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
@@ -32,7 +32,7 @@ public class PollenBackgroundService : BackgroundService
     private readonly ILogger<PollenBackgroundService> _logger;
 
     /// <summary>Initializes a new instance of the <see cref="PollenBackgroundService"/> class.</summary>
-    /// <param name="scopeFactory">The scope factory used for the dispatch log.</param>
+    /// <param name="scopeFactory">The scope factory used for the dispatch state.</param>
     /// <param name="discordClient">The connected Discord socket client.</param>
     /// <param name="pollenService">The DWD pollen/UV service.</param>
     /// <param name="health">The feature health tracker.</param>
@@ -80,7 +80,8 @@ public class PollenBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Dispatches the daily post once the configured local time has passed.
+    /// Dispatches the post once the configured local time has passed, applying the 3-day cadence
+    /// and the DWD-revision exception.
     /// </summary>
     /// <param name="now">The current local time.</param>
     /// <param name="stoppingToken">Cancellation token.</param>
@@ -93,24 +94,16 @@ public class PollenBackgroundService : BackgroundService
         }
 
         using var scope = _scopeFactory.CreateScope();
-        var dispatchRepository = scope.ServiceProvider.GetRequiredService<IWasteDispatchRepository>();
+        var dispatchRepository = scope.ServiceProvider.GetRequiredService<IPollenDispatchRepository>();
 
-        await dispatchRepository.PruneAsync(now.Date - DispatchRetention, stoppingToken).ConfigureAwait(false);
+        var guildIds = AutomaticTargetResolver.Resolve(
+                         _options.Servers,
+                         FeatureKeys.RoutedFeatures.PollenAlerts,
+                         _discordClient.Guilds.Select(guild => guild.Id),
+                         _logger)
+                     .ToList();
 
-        var pending = new List<ulong>();
-        foreach (var guildId in AutomaticTargetResolver.Resolve(
-                     _options.Servers,
-                     FeatureKeys.RoutedFeatures.PollenAlerts,
-                     _discordClient.Guilds.Select(guild => guild.Id),
-                     _logger))
-        {
-            if (!await dispatchRepository.HasSentAsync(DispatchKind, guildId, now.Date, stoppingToken))
-            {
-                pending.Add(guildId);
-            }
-        }
-
-        if (pending.Count == 0)
+        if (guildIds.Count == 0)
         {
             return;
         }
@@ -124,6 +117,23 @@ public class PollenBackgroundService : BackgroundService
             throw new InvalidOperationException("The DWD pollen and UV feeds were both unavailable.");
         }
 
+        var forecastJson = pollen is null ? "null" : JsonSerializer.Serialize(pollen, ForecastJsonOptions);
+
+        var pending = new List<ulong>();
+        foreach (var guildId in guildIds)
+        {
+            var last = await dispatchRepository.GetLastAsync(guildId, stoppingToken);
+            if (ShouldPost(last, now.Date, pollen))
+            {
+                pending.Add(guildId);
+            }
+        }
+
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
         foreach (var guildId in pending)
         {
             var channel = await GetOrCreatePollenChannelAsync(guildId);
@@ -134,7 +144,7 @@ public class PollenBackgroundService : BackgroundService
             }
 
             await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger, stoppingToken).ConfigureAwait(false);
-            await dispatchRepository.MarkSentAsync(DispatchKind, guildId, now.Date, stoppingToken).ConfigureAwait(false);
+            await dispatchRepository.UpsertAsync(guildId, now.Date, forecastJson, stoppingToken).ConfigureAwait(false);
         }
     }
 
@@ -162,4 +172,92 @@ public class PollenBackgroundService : BackgroundService
         => TimeSpan.TryParseExact(value?.Trim(), new[] { @"h\:mm", @"hh\:mm" }, CultureInfo.InvariantCulture, out time)
            && time >= TimeSpan.Zero
            && time < TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// Decides whether a post is due for <paramref name="today"/> given the last communicated state
+    /// and the current forecast.
+    /// </summary>
+    internal static bool ShouldPost(PollenDispatchState? last, DateTime today, PollenForecast? current)
+    {
+        if (last is null)
+        {
+            return true;
+        }
+
+        if (current is null)
+        {
+            return true;
+        }
+
+        var daysSince = (today.Date - last.LastPostedDate.Date).Days;
+        if (daysSince < 0 || daysSince >= 3)
+        {
+            return true;
+        }
+
+        PollenForecast? previous;
+        try
+        {
+            previous = JsonSerializer.Deserialize<PollenForecast>(last.ForecastJson, ForecastJsonOptions);
+        }
+        catch (JsonException)
+        {
+            return true;
+        }
+
+        if (previous is null)
+        {
+            return true;
+        }
+
+        // Change detection by calendar date: compare the levels for every overlapping day.
+        for (var offset = 0; offset < 3; offset++)
+        {
+            var previousDate = last.LastPostedDate.Date.AddDays(offset);
+            var currentOffset = (previousDate - today.Date).Days;
+            if (currentOffset < 0 || currentOffset > 2)
+            {
+                continue;
+            }
+
+            foreach (var currentType in current.Types)
+            {
+                var previousType = previous.Types.FirstOrDefault(type => type.Name == currentType.Name);
+                if (previousType is null)
+                {
+                    return true;
+                }
+
+                var previousLevel = LevelAt(previousType, offset);
+                var currentLevel = LevelAt(currentType, currentOffset);
+                if (previousLevel is null || currentLevel is null)
+                {
+                    return true;
+                }
+
+                if (!string.Equals(previousLevel.Raw, currentLevel.Raw, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            foreach (var previousType in previous.Types)
+            {
+                if (!current.Types.Any(type => type.Name == previousType.Name))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static PollenLevel? LevelAt(PollenTypeForecast type, int offset) => offset switch
+    {
+        0 => type.Today,
+        1 => type.Tomorrow,
+        2 => type.DayAfterTomorrow,
+        _ => null
+    };
 }
