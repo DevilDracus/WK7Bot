@@ -39,13 +39,12 @@ public class AddOnOptionsWriter
     {
         try
         {
-            if (!File.Exists(OptionsFilePath))
-            {
-                return new JsonObject();
-            }
-
             var text = await File.ReadAllTextAsync(OptionsFilePath).ConfigureAwait(false);
             return JsonNode.Parse(text) as JsonObject ?? new JsonObject();
+        }
+        catch (FileNotFoundException)
+        {
+            return new JsonObject();
         }
         catch (Exception ex)
         {
@@ -124,8 +123,8 @@ public class AddOnOptionsWriter
                     return await _httpClient.SendAsync(req, cancellationToken);
                 },
                 3,
-                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
-                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                HttpRetry.IsTransientResponse,
+                HttpRetry.LinearBackoff,
                 null,
                 null,
                 cancellationToken);

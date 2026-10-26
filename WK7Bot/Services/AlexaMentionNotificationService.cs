@@ -167,8 +167,8 @@ public class AlexaMentionNotificationService : IHostedService, IDisposable
                     return await _httpClient.SendAsync(req, cancellationToken);
                 },
                 3,
-                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
-                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                HttpRetry.IsTransientResponse,
+                HttpRetry.LinearBackoff,
                 null,
                 null,
                 cancellationToken);

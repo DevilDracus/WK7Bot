@@ -102,8 +102,8 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
             using var response = await HttpRetry.ExecuteAsync(
                 () => _httpClient.GetAsync("https://opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/", cancellationToken),
                 3,
-                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
-                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                HttpRetry.IsTransientResponse,
+                HttpRetry.LinearBackoff,
                 null,
                 null,
                 cancellationToken).ConfigureAwait(false);
@@ -134,8 +134,8 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
             using var response = await HttpRetry.ExecuteAsync(
                 () => _httpClient.GetAsync("https://store.steampowered.com/api/appdetails?appids=620", cancellationToken),
                 3,
-                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
-                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                HttpRetry.IsTransientResponse,
+                HttpRetry.LinearBackoff,
                 null,
                 null,
                 cancellationToken).ConfigureAwait(false);
@@ -176,8 +176,8 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
             using var response = await HttpRetry.ExecuteAsync(
                 () => _httpClient.GetAsync("https://world.openfoodfacts.org/cgi/search.pl?search_terms=banana&json=1&page_size=1", cancellationToken),
                 3,
-                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
-                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                HttpRetry.IsTransientResponse,
+                HttpRetry.LinearBackoff,
                 null,
                 null,
                 cancellationToken).ConfigureAwait(false);
@@ -208,8 +208,8 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
             using var response = await HttpRetry.ExecuteAsync(
                 () => _httpClient.GetAsync("https://api.isthereanydeal.com/v01/web/regions/", cancellationToken),
                 3,
-                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
-                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                HttpRetry.IsTransientResponse,
+                HttpRetry.LinearBackoff,
                 null,
                 null,
                 cancellationToken).ConfigureAwait(false);

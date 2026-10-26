@@ -304,7 +304,7 @@ public class GeminiFoodService : IGeminiFoodService
                     return await _httpClient.PostAsync(requestUrl, content, cancellationToken).ConfigureAwait(false);
                 },
                 maxRetries,
-                r => (int)r.StatusCode >= 500 || r.StatusCode == HttpStatusCode.TooManyRequests,
+                HttpRetry.IsTransientResponse,
                 attempt => TimeSpan.FromMilliseconds(delayMs * (1 << (attempt - 1))),
                 r => r.StatusCode == HttpStatusCode.ServiceUnavailable ? ServiceUnavailableExtraDelay : TimeSpan.Zero,
                 ex => IsTransient(ex),

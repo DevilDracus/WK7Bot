@@ -159,7 +159,7 @@ public partial class BattleNetService
         return new BattleNetWowCharacter
         {
             Name = string.IsNullOrWhiteSpace(summary.Name) ? characterName : summary.Name!,
-            RealmSlug = string.IsNullOrWhiteSpace(summary.Realm?.Slug) ? realmSlug : summary.Realm!.Slug!,
+            RealmSlug = string.IsNullOrWhiteSpace(summary.Realm?.Slug) ? realmSlug : summary.Realm?.Slug,
             Realm = summary.Realm?.Name ?? string.Empty,
             CharacterClass = summary.CharacterClass?.Name ?? string.Empty,
             Faction = summary.Faction?.Name ?? string.Empty,

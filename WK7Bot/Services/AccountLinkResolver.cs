@@ -128,12 +128,12 @@ public class AccountLinkResolver : IAccountLinkResolver
         var link = await _repository.GetAsync(discordUserId, AccountProviders.Steam, cancellationToken).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(link?.ExternalId))
         {
-            return link!.ExternalId;
+            return link.ExternalId;
         }
 
         var mapping = _options.Value.DiscordSteamMappings
             .FirstOrDefault(m => ulong.TryParse(m.DiscordUserId, out var id) && id == discordUserId);
-        return string.IsNullOrWhiteSpace(mapping?.SteamId) ? null : mapping!.SteamId;
+        return string.IsNullOrWhiteSpace(mapping?.SteamId) ? null : mapping.SteamId;
     }
 
     /// <inheritdoc />

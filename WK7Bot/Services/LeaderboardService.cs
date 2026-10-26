@@ -76,7 +76,7 @@ public class LeaderboardService : ILeaderboardService
         }).ToList();
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
-        var rows = results.Where(r => r is not null).Select(r => r!.Value).ToList();
+        var rows = results.Where(r => r is not null).Select(r => r.Value).ToList();
 
         return Rank(achievements ? "🏆 Steam-Errungenschaften (14 Tage)" : "⏱️ Steam-Spielzeit (14 Tage)", rows, limit, "WK7 Bot • Leaderboard");
     }
@@ -97,7 +97,7 @@ public class LeaderboardService : ILeaderboardService
         }).ToList();
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
-        var rows = results.Where(r => r is not null).Select(r => r!.Value).ToList();
+        var rows = results.Where(r => r is not null).Select(r => r.Value).ToList();
 
         return Rank("⚔️ World of Warcraft — höchste Stufe", rows, limit, "WK7 Bot • Leaderboard");
     }
@@ -119,7 +119,7 @@ public class LeaderboardService : ILeaderboardService
         }).ToList();
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
-        var rows = results.Where(r => r is not null).Select(r => r!.Value).ToList();
+        var rows = results.Where(r => r is not null).Select(r => r.Value).ToList();
 
         return Rank("😈 Diablo — höchster Paragon/Level", rows, limit, "WK7 Bot • Leaderboard");
     }

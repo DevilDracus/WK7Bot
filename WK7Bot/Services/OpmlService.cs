@@ -75,8 +75,8 @@ public class OpmlService : IOpmlService
             using var response = await HttpRetry.ExecuteAsync(
                 () => _httpClient.GetAsync(uri, cancellationToken),
                 3,
-                r => (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
-                attempt => TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))),
+                HttpRetry.IsTransientResponse,
+                HttpRetry.LinearBackoff,
                 null,
                 null,
                 cancellationToken);

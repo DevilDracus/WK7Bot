@@ -26,7 +26,7 @@ public class WeatherService : IWeatherService
     /// <inheritdoc />
     public async Task<WeatherSnapshot?> GetAsync(string? entity = null, CancellationToken cancellationToken = default)
     {
-        var entityId = string.IsNullOrWhiteSpace(entity) ? _options.Value.WeatherEntity : entity!.Trim();
+        var entityId = string.IsNullOrWhiteSpace(entity) ? _options.Value.WeatherEntity : entity?.Trim();
         if (string.IsNullOrWhiteSpace(entityId))
         {
             return null;
