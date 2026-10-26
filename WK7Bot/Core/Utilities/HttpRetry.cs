@@ -13,7 +13,32 @@ using System.Net.Http;
 public static class HttpRetry
 {
     /// <summary>
-    /// Executes <paramref name="sendFactory"/> with retry on transient failures.
+    /// Executes <paramref name="sendFactory" /> with a sensible default retry policy: retries on HTTP 5xx,
+    /// 429 Too Many Requests, and transient exceptions (HttpRequestException, TimeoutException,
+    /// TaskCanceledException, IOException) with exponential backoff (2s, 4s, 8s, ...).
+    /// </summary>
+    /// <param name="sendFactory">Factory that produces an HTTP response (may be called multiple times).</param>
+    /// <param name="maxAttempts">Maximum number of attempts before giving up. Defaults to 3.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The final HTTP response (caller owns disposal).</returns>
+    public static Task<HttpResponseMessage> ExecuteAsync(
+        Func<Task<HttpResponseMessage>> sendFactory,
+        int maxAttempts = 3,
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteAsync(
+            sendFactory,
+            maxAttempts,
+            isTransientResponse: static r =>
+                (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
+            delayForAttempt: static attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+            isTransientException: static ex =>
+                ex is HttpRequestException or TimeoutException or TaskCanceledException or IOException,
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes <paramref name="sendFactory" /> with retry on transient failures.
     /// </summary>
     /// <param name="sendFactory">Factory that produces an HTTP response (may be called multiple times).</param>
     /// <param name="maxAttempts">Maximum number of attempts before giving up.</param>

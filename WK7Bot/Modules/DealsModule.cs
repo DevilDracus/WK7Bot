@@ -10,13 +10,18 @@ using WK7Bot.Services.Interfaces;
 /// <summary>
 /// Provides slash commands for querying Steam wishlist deal information on demand.
 /// </summary>
-public class DealsModule : InteractionModuleBase<SocketInteractionContext>
+public class DealsModule : BotModuleBase
 {
     private readonly IWishlistDealService _dealService;
     private readonly ISteamService _steamService;
     private readonly IAccountLinkResolver _accountLinkResolver;
     private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<DealsModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     private static readonly TimeSpan DealsCooldown = TimeSpan.FromSeconds(30);
 

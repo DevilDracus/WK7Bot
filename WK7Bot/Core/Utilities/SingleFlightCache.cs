@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 public abstract class SingleFlightCache<TValue>
 {
     private readonly TimeSpan _timeToLive;
+    private readonly int _maxEntries;
     private readonly ConcurrentDictionary<string, CacheEntry> _entries = new();
     private readonly ConcurrentDictionary<string, Task<TValue?>> _inFlight = new();
     private readonly object _inFlightGate = new();
@@ -23,15 +24,22 @@ public abstract class SingleFlightCache<TValue>
     /// Initializes a new instance of the <see cref="SingleFlightCache{TValue}"/> class.
     /// </summary>
     /// <param name="timeToLive">How long a cached entry remains valid.</param>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is not positive.</exception>
-    protected SingleFlightCache(TimeSpan timeToLive)
+    /// <param name="maxEntries">Maximum number of entries retained in the cache before the oldest are evicted. Defaults to 512.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive" /> is not positive or <paramref name="maxEntries" /> is not positive.</exception>
+    protected SingleFlightCache(TimeSpan timeToLive, int maxEntries = 512)
     {
         if (timeToLive <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(timeToLive), timeToLive, "Time to live must be positive.");
         }
 
+        if (maxEntries <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxEntries), maxEntries, "Max entries must be positive.");
+        }
+
         _timeToLive = timeToLive;
+        _maxEntries = maxEntries;
     }
 
     /// <summary>
@@ -122,7 +130,32 @@ public abstract class SingleFlightCache<TValue>
     {
         var data = await FetchAsync(key, cancellationToken);
         _entries[key] = new CacheEntry(data, DateTimeOffset.UtcNow);
+
+        // Enforce the size cap: evict the oldest entries when over capacity.
+        if (_entries.Count > _maxEntries)
+        {
+            EvictOldest(_entries.Count - _maxEntries);
+        }
+
         return data;
+    }
+
+    /// <summary>
+    /// Removes the oldest entries (by FetchAt) to stay within the configured size cap.
+    /// </summary>
+    /// <param name="count">Number of entries to remove.</param>
+    private void EvictOldest(int count)
+    {
+        var toRemove = _entries
+            .OrderBy(kvp => kvp.Value.FetchedAt)
+            .Take(count)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var key in toRemove)
+        {
+            _entries.TryRemove(key, out _);
+        }
     }
 
     /// <summary>

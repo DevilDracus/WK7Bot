@@ -15,7 +15,7 @@ using WK7Bot.Services.Interfaces;
 /// <summary>
 /// Provides slash command interactions for food, seasonal produce, and renal-friendly weekly recipes.
 /// </summary>
-public class FoodModule : InteractionModuleBase<SocketInteractionContext>
+public class FoodModule : BotModuleBase
 {
     private readonly IGeminiFoodService _geminiFoodService;
     private readonly IRecipeSearchService _recipeSearchService;
@@ -23,6 +23,11 @@ public class FoodModule : InteractionModuleBase<SocketInteractionContext>
     private readonly IRandomSource _randomSource;
     private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<FoodModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     private const string TargetChannelName = "🍎food";
 

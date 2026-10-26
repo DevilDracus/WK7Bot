@@ -77,6 +77,11 @@ public class AccountLinkResolver : IAccountLinkResolver
         return merged.Values.ToList();
     }
 
+    /// <summary>
+    /// Returns all account links for all providers in a single query, split by provider.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A tuple of Steam links and Battle.net links.</returns>
     public async Task<(IReadOnlyList<SteamAccountLink> Steam, IReadOnlyList<BattleNetAccountLink> BattleNet)> GetAllLinksAsync(CancellationToken cancellationToken = default)
     {
         var allLinks = await _repository.GetAllAsync(cancellationToken).ConfigureAwait(false);

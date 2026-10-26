@@ -8,10 +8,15 @@ using WK7Bot.Services.Interfaces;
 /// <summary>
 /// Slash commands for the per-user deal watchlist.
 /// </summary>
-public class DealWatchlistModule : InteractionModuleBase<SocketInteractionContext>
+public class DealWatchlistModule : BotModuleBase
 {
     private readonly IDealWatchlistService _watchlistService;
     private readonly ILogger<DealWatchlistModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>Initializes a new instance of the <see cref="DealWatchlistModule"/> class.</summary>
     public DealWatchlistModule(IDealWatchlistService watchlistService, ILogger<DealWatchlistModule> logger)

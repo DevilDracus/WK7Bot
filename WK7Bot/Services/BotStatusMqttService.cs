@@ -99,20 +99,13 @@ public sealed class BotStatusMqttService : BackgroundService
             await OnMqttConnectionEstablishedAsync();
         }
 
-        using var timer = new PeriodicTimer(HeartbeatInterval);
-
-        try
-        {
-            do
-            {
-                await PublishStatesAsync();
-            }
-            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
-        }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-            // Graceful shutdown.
-        }
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            iteration: async ct => await PublishStatesAsync(),
+            featureKey: FeatureKeys.MqttBotStatus,
+            health: _health,
+            logger: _logger,
+            interval: HeartbeatInterval,
+            stoppingToken: stoppingToken);
     }
 
     /// <summary>

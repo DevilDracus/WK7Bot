@@ -9,10 +9,15 @@ namespace WK7Bot.Modules;
 /// <summary>
 /// Handles UI component interactions such as select menus and buttons for RSS feed subscriptions.
 /// </summary>
-public class RssComponentModule : InteractionModuleBase<SocketInteractionContext>
+public class RssComponentModule : BotModuleBase
 {
     private readonly IRssRepository _repository;
     private readonly ILogger<RssComponentModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RssComponentModule"/> class.

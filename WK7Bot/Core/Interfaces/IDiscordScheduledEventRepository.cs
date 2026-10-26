@@ -18,4 +18,5 @@ public interface IDiscordScheduledEventRepository
 
     /// <summary>Removes a tracked event row.</summary>
     Task RemoveAsync(int id, CancellationToken cancellationToken = default);
+    Task RemoveRangeAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
 }

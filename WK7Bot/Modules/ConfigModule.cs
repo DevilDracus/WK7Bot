@@ -13,11 +13,16 @@ using WK7Bot.Services;
 /// options through the Supervisor API so it survives a restart.
 /// </summary>
 [Group("config", "Bot-Konfiguration zur Laufzeit verwalten")]
-public class ConfigModule : InteractionModuleBase<SocketInteractionContext>
+public class ConfigModule : BotModuleBase
 {
     private readonly FeatureGate _featureGate;
     private readonly AddOnOptionsWriter _optionsWriter;
     private readonly ILogger<ConfigModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>Initializes a new instance of the <see cref="ConfigModule"/> class.</summary>
     /// <param name="featureGate">The consolidated feature gate holding runtime overrides.</param>

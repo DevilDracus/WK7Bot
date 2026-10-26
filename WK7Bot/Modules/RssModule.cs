@@ -16,7 +16,7 @@ namespace WK7Bot.Modules;
 /// preview, and OPML import/export.
 /// </summary>
 [Group("rss", "Befehle zur Verwaltung von RSS-Newsfeeds und Abonnements")]
-public class RssModule : InteractionModuleBase<SocketInteractionContext>
+public class RssModule : BotModuleBase
 {
     /// <summary>
     /// Upper bound for feed names: the role becomes "RSS: {name}" (100-char role limit) and the dashboard's
@@ -41,6 +41,11 @@ public class RssModule : InteractionModuleBase<SocketInteractionContext>
     private readonly RssParserService _parser;
     private readonly IOpmlService _opmlService;
     private readonly ILogger<RssModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RssModule"/> class.

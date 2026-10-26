@@ -10,7 +10,7 @@ namespace WK7Bot.Modules;
 /// <summary>
 /// Interaction module exposing slash commands for checking Leipzig waste collection schedules on demand.
 /// </summary>
-public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext>
+public class LeipzigWasteModule : BotModuleBase
 {
     private const string CommandKey = "check-waste";
 
@@ -19,6 +19,11 @@ public class LeipzigWasteModule : InteractionModuleBase<SocketInteractionContext
     private readonly ILeipzigWasteService _wasteService;
     private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<LeipzigWasteModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LeipzigWasteModule"/> class.

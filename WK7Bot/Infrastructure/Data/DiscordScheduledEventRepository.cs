@@ -56,4 +56,21 @@ public class DiscordScheduledEventRepository : IDiscordScheduledEventRepository
         context.DiscordScheduledEvents.Remove(existing);
         await context.SaveChangesAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task RemoveRangeAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var idSet = ids.ToList();
+        if (idSet.Count == 0)
+        {
+            return;
+        }
+
+        var existing = await context.DiscordScheduledEvents
+            .Where(e => idSet.Contains(e.Id))
+            .ToListAsync(cancellationToken);
+        context.DiscordScheduledEvents.RemoveRange(existing);
+        await context.SaveChangesAsync(cancellationToken);
+    }
 }

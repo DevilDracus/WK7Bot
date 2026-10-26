@@ -14,7 +14,7 @@ using WK7Bot.Services.Interfaces;
 /// Provides the <c>/spontan-treff</c> slash command that announces a last-minute hangout with one-click
 /// "on my way" / "pass" buttons in the dedicated meetup channel.
 /// </summary>
-public class SpontanTreffModule : InteractionModuleBase<SocketInteractionContext>
+public class SpontanTreffModule : BotModuleBase
 {
     private const string TargetChannelName = "🎉spontan-treff";
     private const string EveryoneMention = "@everyone";
@@ -24,6 +24,11 @@ public class SpontanTreffModule : InteractionModuleBase<SocketInteractionContext
     private readonly ISpontanTreffRepository _repository;
     private readonly IDiscordScheduledEventService _scheduledEventService;
     private readonly ILogger<SpontanTreffModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SpontanTreffModule"/> class.

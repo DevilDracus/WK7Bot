@@ -10,10 +10,15 @@ using WK7Bot.Services.Interfaces;
 /// Shows the DWD pollen hazard index for the configured region together with the UV index of the
 /// configured city.
 /// </summary>
-public class PollenModule : InteractionModuleBase<SocketInteractionContext>
+public class PollenModule : BotModuleBase
 {
     private readonly IPollenService _pollenService;
     private readonly ILogger<PollenModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>Initializes a new instance of the <see cref="PollenModule"/> class.</summary>
     /// <param name="pollenService">The DWD pollen/UV service.</param>

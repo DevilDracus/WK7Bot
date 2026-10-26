@@ -10,10 +10,15 @@ using WK7Bot.Services.Interfaces;
 /// Steam wishlist URLs. New links are mirrored into the Home Assistant add-on options when
 /// <c>link_auto_write_options</c> is enabled.
 /// </summary>
-public class LinkModule : InteractionModuleBase<SocketInteractionContext>
+public class LinkModule : BotModuleBase
 {
     private readonly IAccountLinkService _accountLinkService;
     private readonly ILogger<LinkModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>Initializes a new instance of the <see cref="LinkModule"/> class.</summary>
     /// <param name="accountLinkService">The account link service.</param>

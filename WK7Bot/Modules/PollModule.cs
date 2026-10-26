@@ -8,9 +8,14 @@ using WK7Bot.Core.Utilities;
 /// <summary>
 /// Ad-hoc poll command. Uses Discord's native poll feature so votes need no bot-side bookkeeping.
 /// </summary>
-public class PollModule : InteractionModuleBase<SocketInteractionContext>
+public class PollModule : BotModuleBase
 {
     private readonly ILogger<PollModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>Initializes a new instance of the <see cref="PollModule"/> class.</summary>
     /// <param name="logger">The logger instance.</param>

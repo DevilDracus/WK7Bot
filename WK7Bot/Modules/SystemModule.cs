@@ -14,7 +14,7 @@ namespace WK7Bot.Modules;
 /// Provides general diagnostic slash commands for testing gateway latency, API connections, command usage metrics,
 /// feature health, and bot help.
 /// </summary>
-public class SystemModule : InteractionModuleBase<SocketInteractionContext>
+public class SystemModule : BotModuleBase
 {
     private readonly IHomeAssistantService _homeAssistantService;
     private readonly ICommandUsageRepository _commandUsageRepository;
@@ -22,6 +22,11 @@ public class SystemModule : InteractionModuleBase<SocketInteractionContext>
     private readonly IExternalDependencyHealthChecker _dependencyHealthChecker;
     private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<SystemModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     private const string HomeAssistantStatusCommandKey = "ha-status";
     private const string HealthCommandKey = "health";

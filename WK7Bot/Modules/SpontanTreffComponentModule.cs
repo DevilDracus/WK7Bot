@@ -11,10 +11,15 @@ using WK7Bot.Core.Utilities;
 /// Handles the "on my way" and "pass" buttons of spontaneous meetups, toggling the stored answer and re-rendering
 /// the meetup message so everyone sees the current state.
 /// </summary>
-public class SpontanTreffComponentModule : InteractionModuleBase<SocketInteractionContext>
+public class SpontanTreffComponentModule : BotModuleBase
 {
     private readonly ISpontanTreffRepository _repository;
     private readonly ILogger<SpontanTreffComponentModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SpontanTreffComponentModule"/> class.

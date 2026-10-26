@@ -61,7 +61,6 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateWarningDispatchLogsSql, cancellationToken);
         await ExecuteWithBusyRetryAsync(connection, CreateFoodDispatchLogsSql, cancellationToken);
         await ExecuteWithBusyRetryAsync(connection, CreateRssDashboardSettingsSql, cancellationToken);
-        await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffExpiryIndexSql, cancellationToken);
         await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageLogsSql, cancellationToken);
         await ExecuteWithBusyRetryAsync(connection, CreateWishlistGamesSql, cancellationToken);
         await ExecuteWithBusyRetryAsync(connection, CreateWishlistAlertHistoriesSql, cancellationToken);
@@ -79,6 +78,10 @@ public static class DatabaseSchemaInitializer
         // guarded ADD COLUMN statements. SQLite has no ADD COLUMN IF NOT EXISTS, hence the
         // "duplicate column name" tolerance.
         await AddColumnIfMissingAsync(connection, "SpontanTreffs", "Closed", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+
+        // Index on Closed must run AFTER the column is added.
+        await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffExpiryIndexSql, cancellationToken);
+
         await AddColumnIfMissingAsync(connection, "RssFeeds", "LastItemGuid", "TEXT NULL", cancellationToken);
         await AddColumnIfMissingAsync(connection, "RssFeeds", "LastPublishedDate", "TEXT NULL", cancellationToken);
         await AddColumnIfMissingAsync(connection, "RssFeeds", "LastPolledAt", "TEXT NULL", cancellationToken);
@@ -268,7 +271,7 @@ public static class DatabaseSchemaInitializer
             Closed        INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS SpontanTreffResponses (
-            MeetupId    INTEGER NOT NULL,
+            MeetupId    INTEGER NOT NULL REFERENCES SpontanTreffs(Id) ON DELETE CASCADE,
             UserId      INTEGER NOT NULL,
             Going       INTEGER NOT NULL,
             RespondedAt TEXT    NOT NULL,
@@ -413,6 +416,7 @@ public static class DatabaseSchemaInitializer
         );
         CREATE INDEX IF NOT EXISTS IX_Reminders_DeliveredAt_DueAt ON Reminders (DeliveredAt, DueAt);
         CREATE INDEX IF NOT EXISTS IX_Reminders_DiscordUserId ON Reminders (DiscordUserId);
+        CREATE INDEX IF NOT EXISTS IX_Reminders_DiscordUserId_DeliveredAt ON Reminders (DiscordUserId, DeliveredAt);
         """;
 
     /// <summary>
@@ -422,5 +426,6 @@ public static class DatabaseSchemaInitializer
         """
         CREATE INDEX IF NOT EXISTS IX_CommandUsageLogs_InvokedAt ON CommandUsageLogs (InvokedAt);
         CREATE INDEX IF NOT EXISTS IX_CommandUsageLogs_CommandName ON CommandUsageLogs (CommandName);
+        CREATE INDEX IF NOT EXISTS IX_CommandUsageLogs_CommandName_InvokedAt ON CommandUsageLogs (CommandName, InvokedAt);
         """;
 }

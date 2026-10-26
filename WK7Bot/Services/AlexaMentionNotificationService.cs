@@ -20,7 +20,7 @@ using WK7Bot.Options;
 /// and forwarding notifications to the getnotify.me Alexa API using HTTP Basic Authentication.
 /// Dispatch runs outside the gateway event so a slow endpoint cannot stall other handlers.
 /// </summary>
-public class AlexaMentionNotificationService : IHostedService
+public class AlexaMentionNotificationService : IHostedService, IDisposable
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly HttpClient _httpClient;
@@ -78,6 +78,11 @@ public class AlexaMentionNotificationService : IHostedService
         }
 
         return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _shutdownCts.Dispose();
     }
 
     /// <summary>

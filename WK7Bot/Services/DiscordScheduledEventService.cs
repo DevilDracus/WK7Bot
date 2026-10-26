@@ -125,8 +125,12 @@ public class DiscordScheduledEventService : IDiscordScheduledEventService
                     _logger.LogDebug(ex, "Could not delete expired Discord scheduled event {EventId}.", record.EventId);
                 }
             }
+        }
 
-            await repository.RemoveAsync(record.Id, cancellationToken);
+        // Batch-remove all expired records in one round-trip instead of N.
+        if (expired.Count > 0)
+        {
+            await repository.RemoveRangeAsync(expired.Select(r => r.Id), cancellationToken);
         }
 
         return deleted;

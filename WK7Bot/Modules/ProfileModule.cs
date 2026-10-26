@@ -11,10 +11,15 @@ using WK7Bot.Services.Interfaces;
 /// Warcraft characters and Diablo heroes of the linked Battle.net account. Rendered as a Components V2
 /// card (container with avatar thumbnail and separators) instead of an embed.
 /// </summary>
-public class ProfileModule : InteractionModuleBase<SocketInteractionContext>
+public class ProfileModule : BotModuleBase
 {
     private readonly IProfileService _profileService;
     private readonly ILogger<ProfileModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>Initializes a new instance of the <see cref="ProfileModule"/> class.</summary>
     /// <param name="profileService">The profile aggregation service.</param>

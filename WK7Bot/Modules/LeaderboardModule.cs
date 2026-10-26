@@ -10,10 +10,15 @@ using WK7Bot.Services.Interfaces;
 /// Slash command that posts Steam and Battle.net leaderboards for the linked guild members as a
 /// Components V2 card.
 /// </summary>
-public class LeaderboardModule : InteractionModuleBase<SocketInteractionContext>
+public class LeaderboardModule : BotModuleBase
 {
     private readonly ILeaderboardService _leaderboardService;
     private readonly ILogger<LeaderboardModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>Initializes a new instance of the <see cref="LeaderboardModule"/> class.</summary>
     /// <param name="leaderboardService">The leaderboard aggregation service.</param>

@@ -12,13 +12,18 @@ using WK7Bot.Core.Utilities;
 /// Personal reminders: <c>/remind</c> schedules one, <c>/reminders</c> lists the pending ones and
 /// <c>/remind-cancel</c> removes one. Delivery is handled by <c>ReminderBackgroundService</c>.
 /// </summary>
-public class RemindModule : InteractionModuleBase<SocketInteractionContext>
+public class RemindModule : BotModuleBase
 {
     /// <summary>Schema limit for the reminder text.</summary>
     private const int MaxReminderTextLength = 500;
 
     private readonly IReminderRepository _repository;
     private readonly ILogger<RemindModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>Initializes a new instance of the <see cref="RemindModule"/> class.</summary>
     /// <param name="repository">The reminder repository.</param>

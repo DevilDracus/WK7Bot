@@ -9,10 +9,15 @@ using WK7Bot.Core.Utilities;
 /// <summary>
 /// Slash command that reports the current weather and optional forecast from a Home Assistant weather entity.
 /// </summary>
-public class WeatherModule : InteractionModuleBase<SocketInteractionContext>
+public class WeatherModule : BotModuleBase
 {
     private readonly IWeatherService _weatherService;
     private readonly ILogger<WeatherModule> _logger;
+
+    /// <summary>
+    /// Gets the logger used for error reporting.
+    /// </summary>
+    protected override ILogger Logger => _logger;
 
     /// <summary>Initializes a new instance of the <see cref="WeatherModule"/> class.</summary>
     public WeatherModule(IWeatherService weatherService, ILogger<WeatherModule> logger)

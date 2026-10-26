@@ -32,7 +32,9 @@ public class DiscordPresenceMqttService : BackgroundService
     private readonly BattleNetDataCache _battleNetDataCache;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<DiscordPresenceMqttService> _logger;
+    private readonly IFeatureHealthTracker _health;
     private readonly IServiceScopeFactory _scopeFactory;
+    private static readonly JsonSerializerOptions CompactJsonOptions = new() { WriteIndented = false };
     private readonly ConcurrentDictionary<ulong, bool> _discoveredUsers = new();
     private readonly ConcurrentDictionary<ulong, string> _steamLinks = new();
     private readonly ConcurrentDictionary<ulong, string> _battleNetLinks = new();
@@ -66,6 +68,7 @@ public class DiscordPresenceMqttService : BackgroundService
         ISteamService steamService,
         IBattleNetService battleNetService,
         IOptions<Wk7BotOptions> options,
+        IFeatureHealthTracker health,
         ILogger<DiscordPresenceMqttService> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
@@ -77,6 +80,7 @@ public class DiscordPresenceMqttService : BackgroundService
         _battleNetService = battleNetService ?? throw new ArgumentNullException(nameof(battleNetService));
         _battleNetDataCache = new BattleNetDataCache(battleNetService, BattleNetFetchCooldown);
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -116,19 +120,17 @@ public class DiscordPresenceMqttService : BackgroundService
 
         try
         {
-            using var refreshTimer = new PeriodicTimer(PresenceRefreshInterval);
-            while (await refreshTimer.WaitForNextTickAsync(stoppingToken))
-            {
-                try
+            await BackgroundServiceResilience.RunWithResilienceAsync(
+                iteration: async ct =>
                 {
-                    await RefreshAccountLinksAsync(stoppingToken);
-                    await RefreshMappedPresenceAsync(stoppingToken);
-                }
-                catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
-                {
-                    _logger.LogError(ex, "Periodic mapped-user presence refresh failed; it will retry on the next tick.");
-                }
-            }
+                    await RefreshAccountLinksAsync(ct);
+                    await RefreshMappedPresenceAsync(ct);
+                },
+                featureKey: FeatureKeys.DiscordPresenceMqtt,
+                health: _health,
+                logger: _logger,
+                interval: PresenceRefreshInterval,
+                stoppingToken: stoppingToken);
         }
         catch (OperationCanceledException)
         {
@@ -449,7 +451,7 @@ public class DiscordPresenceMqttService : BackgroundService
     /// <returns>A task tracking asynchronous publication.</returns>
     private async Task SendMqttDiscoveryPayloadAsync(string topic, object payloadObject)
     {
-        string payloadJson = JsonSerializer.Serialize(payloadObject, new JsonSerializerOptions { WriteIndented = false });
+        string payloadJson = JsonSerializer.Serialize(payloadObject, CompactJsonOptions);
 
         await _mqttClient.PublishRetainedAsync(topic, payloadJson);
     }
@@ -502,10 +504,7 @@ public class DiscordPresenceMqttService : BackgroundService
                 : entity.AvatarUrl
         };
 
-        string payload = JsonSerializer.Serialize(payloadObj, new JsonSerializerOptions
-        {
-            WriteIndented = false
-        });
+        string payload = JsonSerializer.Serialize(payloadObj, CompactJsonOptions);
 
         try
         {

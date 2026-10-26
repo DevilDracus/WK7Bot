@@ -14,7 +14,7 @@ using WK7Bot.Options;
 /// verifies the broker's CONNACK result, keeps reconnecting with capped backoff after connection loss, and
 /// raises <see cref="ConnectionEstablishedAsync"/> so subscribers can resubscribe and re-register their entities.
 /// </summary>
-public sealed class MqttConnectionCoordinator
+public sealed class MqttConnectionCoordinator : IDisposable
 {
     private static readonly TimeSpan InitialReconnectDelay = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan MaxReconnectDelay = TimeSpan.FromMinutes(5);
@@ -269,6 +269,14 @@ public sealed class MqttConnectionCoordinator
         {
             _logger.LogError(ex, "Post-connect MQTT setup failed; incoming notifications or discovery may not work.");
         }
+    }
+
+    /// <summary>
+    /// Releases the connection gate semaphore.
+    /// </summary>
+    public void Dispose()
+    {
+        _connectGate.Dispose();
     }
 
     /// <summary>

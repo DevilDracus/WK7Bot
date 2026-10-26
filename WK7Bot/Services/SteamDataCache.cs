@@ -23,8 +23,8 @@ public class SteamDataCache : SingleFlightCache<SteamUserData>
     /// <param name="timeToLive">How long a cached entry remains valid.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="steamService"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is not positive.</exception>
-    public SteamDataCache(ISteamService steamService, TimeSpan timeToLive)
-        : base(timeToLive)
+    public SteamDataCache(ISteamService steamService, TimeSpan timeToLive, int maxEntries = 512)
+        : base(timeToLive, maxEntries)
     {
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
     }

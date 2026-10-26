@@ -24,8 +24,8 @@ public class BattleNetDataCache : SingleFlightCache<BattleNetUserData>
     /// <param name="timeToLive">How long a cached entry remains valid.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="battleNetService"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is not positive.</exception>
-    public BattleNetDataCache(IBattleNetService battleNetService, TimeSpan timeToLive)
-        : base(timeToLive)
+    public BattleNetDataCache(IBattleNetService battleNetService, TimeSpan timeToLive, int maxEntries = 512)
+        : base(timeToLive, maxEntries)
     {
         _battleNetService = battleNetService ?? throw new ArgumentNullException(nameof(battleNetService));
     }
