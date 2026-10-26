@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.0.95"
+version: "1.0.96"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 ingress: true
@@ -97,6 +97,7 @@ options:
     latitude: 00.00
     longitude: 00.00
     lead_minutes: 30
+    max_warning_distance_km: 75
     area_names:
       - "City Name"
       - "City"
@@ -204,6 +205,7 @@ schema:
     latitude: float
     longitude: float
     lead_minutes: int
+    max_warning_distance_km: float
     area_names:
       - str
     events:

@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISpontanTreffRepository, SpontanTreffRepository>();
         services.AddScoped<IWarningDispatchRepository, WarningDispatchRepository>();
         services.AddScoped<IFoodDispatchRepository, FoodDispatchRepository>();
+        services.AddScoped<IPollenDispatchRepository, PollenDispatchRepository>();
         services.AddScoped<IWishlistDealRepository, WishlistDealRepository>();
         services.AddScoped<IUserAccountLinkRepository, UserAccountLinkRepository>();
         services.AddScoped<IDealWatchRepository, DealWatchRepository>();

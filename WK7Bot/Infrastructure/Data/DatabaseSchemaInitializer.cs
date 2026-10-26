@@ -60,6 +60,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateWarningDispatchLogsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateFoodDispatchLogsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreatePollenDispatchStatesSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRssDashboardSettingsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageLogsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateWishlistGamesSql, cancellationToken).ConfigureAwait(false);
@@ -197,6 +198,18 @@ public static class DatabaseSchemaInitializer
             Kind   TEXT    NOT NULL,
             SentOn TEXT    NOT NULL,
             PRIMARY KEY (Kind, SentOn)
+        );
+        """;
+
+    /// <summary>
+    /// Raw DDL for the pollen dispatch state table so deployments created before the feature gain it.
+    /// </summary>
+    public const string CreatePollenDispatchStatesSql =
+        """
+        CREATE TABLE IF NOT EXISTS PollenDispatchStates (
+            GuildId        INTEGER NOT NULL PRIMARY KEY,
+            LastPostedDate TEXT    NOT NULL,
+            ForecastJson   TEXT    NOT NULL
         );
         """;
 

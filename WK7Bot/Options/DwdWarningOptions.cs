@@ -85,9 +85,19 @@ public class DwdWarningOptions
         => !string.IsNullOrWhiteSpace(PostalCode);
 
     /// <summary>
+    /// Gets or sets the maximum distance (in kilometres) between the configured location and a
+    /// warning polygon's centroid for the warning to be considered relevant. Warnings whose
+    /// include polygon contains the configured point but whose centroid is farther away than
+    /// this radius (e.g. a Bavarian warning whose polygon happens to span Leipzig) are skipped.
+    /// A value of zero or less disables the gate.
+    /// </summary>
+    [ConfigurationKeyName("max_warning_distance_km")]
+    public double MaxWarningDistanceKm { get; set; } = 75;
+
+    /// <summary>
     /// Determines whether concrete coordinates are configured for polygon matching.
     /// </summary>
-    /// <returns><see langword="true"/> when latitude and longitude are both non-zero.</returns>
+    /// <returns><see langword="true" /> when latitude and longitude are both non-zero.</returns>
     public bool HasCoordinates()
         => Latitude != 0 || Longitude != 0;
 }

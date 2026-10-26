@@ -38,6 +38,7 @@ public class ErrorNotificationDispatcher : BackgroundService
 
     private readonly DiscordSocketClient _discordClient;
     private readonly ErrorNotificationQueue _queue;
+    private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<ErrorNotificationDispatcher> _logger;
 
@@ -51,13 +52,15 @@ public class ErrorNotificationDispatcher : BackgroundService
     public ErrorNotificationDispatcher(
         DiscordSocketClient discordClient,
         ErrorNotificationQueue queue,
+        IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<ErrorNotificationDispatcher> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _queue = queue ?? throw new ArgumentNullException(nameof(queue));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -75,45 +78,30 @@ public class ErrorNotificationDispatcher : BackgroundService
             return;
         }
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async ct =>
             {
                 if (_discordClient.ConnectionState == ConnectionState.Connected)
                 {
                     var delivered = 0;
                     while (delivered < MaxBatchSize && _queue.TryDequeue(out var notification))
                     {
-                        await DeliverAsync(notification, stoppingToken).ConfigureAwait(false);
-
+                        await DeliverAsync(notification, ct).ConfigureAwait(false);
                         delivered++;
                         if (delivered < MaxBatchSize)
                         {
-                            await Task.Delay(SendDelay, stoppingToken).ConfigureAwait(false);
+                            await Task.Delay(SendDelay, ct).ConfigureAwait(false);
                         }
                     }
                 }
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Unexpected failure while dispatching error notifications.");
-            }
 
-            try
-            {
-                await Task.Delay(PollInterval, stoppingToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                // Shutdown: leaving the delay unguarded would let the OCE escape ExecuteAsync and
-                // stop the whole host instead of just this service.
-                break;
-            }
-        }
+                await Task.Delay(PollInterval, ct).ConfigureAwait(false);
+            },
+            FeatureKeys.ErrorNotifications,
+            _health,
+            _logger,
+            TimeSpan.Zero,
+            stoppingToken: stoppingToken).ConfigureAwait(false);
     }
 
     /// <summary>

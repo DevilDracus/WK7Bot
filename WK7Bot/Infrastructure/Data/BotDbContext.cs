@@ -42,6 +42,11 @@ public class BotDbContext : DbContext
     public DbSet<FoodDispatchLog> FoodDispatchLogs => Set<FoodDispatchLog>();
 
     /// <summary>
+    /// Gets or sets the database set for the last pollen forecast communicated to each guild.
+    /// </summary>
+    public DbSet<PollenDispatchState> PollenDispatchStates => Set<PollenDispatchState>();
+
+    /// <summary>
     /// Gets or sets the database set for spontaneous meetups ("Spontan-Treff").
     /// </summary>
     public DbSet<SpontanTreff> SpontanTreffs => Set<SpontanTreff>();
@@ -135,6 +140,14 @@ public class BotDbContext : DbContext
             entity.HasKey(e => new { e.Kind, e.SentOn });
             entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
             entity.HasIndex(e => e.SentOn);
+        });
+
+        modelBuilder.Entity<PollenDispatchState>(entity =>
+        {
+            entity.ToTable("PollenDispatchStates");
+            entity.HasKey(e => e.GuildId);
+            entity.Property(e => e.LastPostedDate).IsRequired();
+            entity.Property(e => e.ForecastJson).IsRequired();
         });
 
         modelBuilder.Entity<SpontanTreff>(entity =>

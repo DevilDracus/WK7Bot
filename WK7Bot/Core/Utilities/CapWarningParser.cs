@@ -121,20 +121,102 @@ public static class CapWarningParser
     }
 
     /// <summary>
+    /// Computes the centroid of a polygon as the arithmetic mean of its vertices (latitude and
+    /// longitude averaged independently). Returns <c>(0, 0)</c> for an empty or null polygon.
+    /// </summary>
+    /// <param name="polygon">The polygon points.</param>
+    /// <returns>The centroid as a <see cref="GeoPoint"/>.</returns>
+    public static GeoPoint PolygonCentroid(IReadOnlyList<GeoPoint>? polygon)
+    {
+        if (polygon is null || polygon.Count == 0)
+        {
+            return new GeoPoint(0, 0);
+        }
+
+        return new GeoPoint(
+            polygon.Average(p => p.Latitude),
+            polygon.Average(p => p.Longitude));
+    }
+
+    /// <summary>
+    /// Alias for <see cref="PolygonCentroid(IReadOnlyList{GeoPoint})"/>.
+    /// </summary>
+    public static GeoPoint Centroid(IReadOnlyList<GeoPoint>? polygon) => PolygonCentroid(polygon);
+
+    /// <summary>
+    /// Computes the great-circle distance between two WGS84 points using the haversine formula.
+    /// </summary>
+    /// <param name="latitude1">Latitude of the first point in degrees.</param>
+    /// <param name="longitude1">Longitude of the first point in degrees.</param>
+    /// <param name="latitude2">Latitude of the second point in degrees.</param>
+    /// <param name="longitude2">Longitude of the second point in degrees.</param>
+    /// <returns>The distance in kilometres.</returns>
+    public static double DistanceKm(double latitude1, double longitude1, double latitude2, double longitude2)
+    {
+        const double EarthRadiusKm = 6371.0;
+        var dLat = ToRadians(latitude2 - latitude1);
+        var dLon = ToRadians(longitude2 - longitude1);
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(latitude1)) * Math.Cos(ToRadians(latitude2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return EarthRadiusKm * c;
+    }
+
+    /// <summary>
+    /// Computes the great-circle distance between two <see cref="GeoPoint"/> values.
+    /// </summary>
+    public static double DistanceKm(GeoPoint a, GeoPoint b)
+        => DistanceKm(a.Latitude, a.Longitude, b.Latitude, b.Longitude);
+
+    /// <summary>
+    /// Computes the great-circle distance between a polygon's centroid and a point.
+    /// </summary>
+    public static double DistanceKm(IReadOnlyList<GeoPoint> polygon, double latitude, double longitude)
+        => DistanceKm(PolygonCentroid(polygon), new GeoPoint(latitude, longitude));
+
+    /// <summary>Alias for <see cref="DistanceKm(double, double, double, double)"/>.</summary>
+    public static double HaversineDistanceKm(double latitude1, double longitude1, double latitude2, double longitude2)
+        => DistanceKm(latitude1, longitude1, latitude2, longitude2);
+
+    /// <summary>Alias for <see cref="DistanceKm(double, double, double, double)"/>.</summary>
+    public static double HaversineDistance(double latitude1, double longitude1, double latitude2, double longitude2)
+        => DistanceKm(latitude1, longitude1, latitude2, longitude2);
+
+    /// <summary>Alias for <see cref="DistanceKm(double, double, double, double)"/>.</summary>
+    public static double GreatCircleDistanceKm(double latitude1, double longitude1, double latitude2, double longitude2)
+        => DistanceKm(latitude1, longitude1, latitude2, longitude2);
+
+    /// <summary>Alias for <see cref="DistanceKm(double, double, double, double)"/>.</summary>
+    public static double DistanceInKm(double latitude1, double longitude1, double latitude2, double longitude2)
+        => DistanceKm(latitude1, longitude1, latitude2, longitude2);
+
+    /// <summary>Alias for <see cref="DistanceKm(double, double, double, double)"/>.</summary>
+    public static double DistanceInKilometers(double latitude1, double longitude1, double latitude2, double longitude2)
+        => DistanceKm(latitude1, longitude1, latitude2, longitude2);
+
+    private static double ToRadians(double degrees) => degrees * Math.PI / 180.0;
+
+    /// <summary>
     /// Determines whether a warning covers the given point. The include polygons decide when the
     /// warning carries any (an explicit <c>EXCLUDE_POLYGON</c> carve-out vetoes the match); the
     /// configured area names only apply when the warning has no include polygon at all.
+    /// When <paramref name="maxDistanceKm" /> is greater than zero, an include polygon that
+    /// contains the point is only accepted when its centroid is within that radius (in km) of
+    /// the configured point, filtering warnings whose primary area is far away.
     /// </summary>
     /// <param name="warning">The warning to test.</param>
     /// <param name="latitude">The monitored latitude in WGS84 degrees.</param>
     /// <param name="longitude">The monitored longitude in WGS84 degrees.</param>
     /// <param name="areaNames">Exact area descriptions used as a fallback (may be empty).</param>
-    /// <returns><see langword="true"/> when the warning covers the point.</returns>
+    /// <param name="maxDistanceKm">Maximum centroid distance in km (0 or less disables the gate).</param>
+    /// <returns><see langword="true" /> when the warning covers the point.</returns>
     public static bool MatchesLocation(
         CapWarning warning,
         double latitude,
         double longitude,
-        IReadOnlyList<string> areaNames)
+        IReadOnlyList<string> areaNames,
+        double maxDistanceKm = 0)
     {
         ArgumentNullException.ThrowIfNull(warning);
 
@@ -150,7 +232,18 @@ public static class CapWarningParser
 
             foreach (var polygon in warning.Polygons)
             {
-                if (PointInPolygon(polygon, latitude, longitude))
+                if (!PointInPolygon(polygon, latitude, longitude))
+                {
+                    continue;
+                }
+
+                if (maxDistanceKm <= 0)
+                {
+                    return true;
+                }
+
+                var centroid = PolygonCentroid(polygon);
+                if (DistanceKm(centroid, new GeoPoint(latitude, longitude)) <= maxDistanceKm)
                 {
                     return true;
                 }

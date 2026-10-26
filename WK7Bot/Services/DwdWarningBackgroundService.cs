@@ -168,7 +168,8 @@ public class DwdWarningBackgroundService : BackgroundService
             warning,
             configuration.Latitude,
             configuration.Longitude,
-            configuration.AreaNames);
+            configuration.AreaNames,
+            configuration.HasCoordinates() ? configuration.MaxWarningDistanceKm : 0);
     }
 
     /// <summary>

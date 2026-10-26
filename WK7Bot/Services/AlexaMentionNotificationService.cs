@@ -5,7 +5,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -105,7 +104,7 @@ public class AlexaMentionNotificationService : IHostedService, IDisposable
                 return;
             }
 
-            if (userMessage.MentionedUsers.Any(u => u.Id == targetUserId))
+            if (userMessage.MentionedUserIds.Contains(targetUserId))
             {
                 var authorName = userMessage.Author.GlobalName ?? userMessage.Author.Username;
                 var notificationText = $"Neue Nachricht von {authorName}, die Nachricht lautet: {userMessage.CleanContent}";

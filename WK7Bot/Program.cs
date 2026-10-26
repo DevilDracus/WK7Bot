@@ -133,6 +133,8 @@ public static class DatabaseInitializationExtensions
     public const string CreateWasteDispatchLogsSql = DatabaseSchemaInitializer.CreateWasteDispatchLogsSql;
     /// <inheritdoc cref="DatabaseSchemaInitializer.CreateFoodDispatchLogsSql"/>
     public const string CreateFoodDispatchLogsSql = DatabaseSchemaInitializer.CreateFoodDispatchLogsSql;
+    /// <inheritdoc cref="DatabaseSchemaInitializer.CreatePollenDispatchStatesSql"/>
+    public const string CreatePollenDispatchStatesSql = DatabaseSchemaInitializer.CreatePollenDispatchStatesSql;
     /// <inheritdoc cref="DatabaseSchemaInitializer.CreateRssDashboardSettingsSql"/>
     public const string CreateRssDashboardSettingsSql = DatabaseSchemaInitializer.CreateRssDashboardSettingsSql;
     /// <inheritdoc cref="DatabaseSchemaInitializer.CreateSpontanTreffExpiryIndexSql"/>
