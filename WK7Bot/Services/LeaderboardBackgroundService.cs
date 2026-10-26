@@ -46,31 +46,16 @@ public class LeaderboardBackgroundService : BackgroundService
             return;
         }
 
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-        try
-        {
-            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        await BackgroundServiceResilience.RunWithResilienceAsync(
+            async ct =>
             {
-                try
-                {
-                    await MaybePostAsync(stoppingToken).ConfigureAwait(false);
-                    _health.RecordSuccess(FeatureKeys.Leaderboard);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _health.RecordFailure(FeatureKeys.Leaderboard, ex.Message);
-                    _logger.LogError(ex, "Leaderboard weekly post failed.");
-                }
-            }
-        }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-            // Graceful shutdown.
-        }
+                await MaybePostAsync(ct).ConfigureAwait(false);
+            },
+            FeatureKeys.Leaderboard,
+            _health,
+            _logger,
+            TimeSpan.FromMinutes(1),
+            stoppingToken: stoppingToken).ConfigureAwait(false);
     }
 
     /// <summary>Posts the leaderboard when the configured weekday/time matches and it has not run this week.</summary>

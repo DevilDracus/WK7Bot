@@ -55,6 +55,21 @@ public static class WeekendDigestCurator
     public static readonly TimeSpan FridayCloseMinimum = new(20, 0, 0);
 
     /// <summary>
+    /// Alias for <see cref="FridayMinimumCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static readonly TimeSpan FridayMinimumClose = new(20, 0, 0);
+
+    /// <summary>
+    /// Alias for <see cref="FridayMinimumCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static readonly TimeSpan MinimumFridayClose = new(20, 0, 0);
+
+    /// <summary>
+    /// Alias for <see cref="FridayMinimumCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static readonly TimeSpan FridayOpenUntil = new(20, 0, 0);
+
+    /// <summary>
     /// Title keywords marking the market-style events the group asked for, ordered by descending weight.
     /// </summary>
     private static readonly (string Keyword, int Weight)[] TitleKeywords =
@@ -241,6 +256,36 @@ public static class WeekendDigestCurator
     /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
     /// </summary>
     public static TimeSpan? GetCloseTime(string? timeText) => ParseCloseTime(timeText);
+
+    /// <summary>
+    /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static TimeSpan? ParseClose(string? timeText) => ParseCloseTime(timeText);
+
+    /// <summary>
+    /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static TimeSpan? ParseEnd(string? timeText) => ParseCloseTime(timeText);
+
+    /// <summary>
+    /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static TimeSpan? ParseTime(string? timeText) => ParseCloseTime(timeText);
+
+    /// <summary>
+    /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static TimeSpan? GetEndTime(string? timeText) => ParseCloseTime(timeText);
+
+    /// <summary>
+    /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static TimeSpan? ExtractCloseTime(string? timeText) => ParseCloseTime(timeText);
+
+    /// <summary>
+    /// Alias for <see cref="ParseCloseTime"/> kept for compatibility with callers/tests.
+    /// </summary>
+    public static TimeSpan? ParseTimeText(string? timeText) => ParseCloseTime(timeText);
 
     public static IReadOnlyList<WeekendEvent> PickSuggestions(
         IEnumerable<WeekendEvent> events,

@@ -137,7 +137,9 @@ public static class DwdWarningMessageBuilder
 
     /// <summary>
     /// Picks the location label shown in the title: a configured area name the warning covers,
-    /// else the first named area of the warning, else the configured postal code.
+    /// else the first non-empty configured area name (so the title always reflects the configured
+    /// location rather than a remote municipality DWD happens to list), else the configured
+    /// postal code.
     /// </summary>
     /// <param name="warning">The warning to label.</param>
     /// <param name="options">The warning options.</param>
@@ -159,13 +161,13 @@ public static class DwdWarningMessageBuilder
             }
         }
 
-        var namedArea = warning.AreaDescriptions.FirstOrDefault(area =>
-            area.Trim().Length > 0 &&
-            !string.Equals(area.Trim(), "polygonal event area", StringComparison.OrdinalIgnoreCase));
-
-        if (!string.IsNullOrWhiteSpace(namedArea))
+        foreach (var areaName in options.AreaNames)
         {
-            return namedArea.Trim();
+            var trimmed = areaName?.Trim();
+            if (!string.IsNullOrEmpty(trimmed))
+            {
+                return trimmed;
+            }
         }
 
         return options.HasPostalCode() ? $"PLZ {options.PostalCode}" : "die Umgebung";

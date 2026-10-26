@@ -190,7 +190,20 @@ public class DwdWarningMessageBuilderTests
     }
 
     [Fact]
-    public void Build_LocationFallsBackToFirstNamedArea_WhenNoConfiguredNameMatches()
+    public void Build_LocationFallsBackToConfiguredAreaName_WhenNoConfiguredNameMatches()
+    {
+        var options = Options();
+        // Configured area names do not appear in the warning's area descriptions (remote municipality only).
+        var warning = Warning(PostTime);
+        warning = warning with { AreaDescriptions = new List<string> { "polygonal event area", "Gemeinde Nordhalben" } };
+
+        var embed = DwdWarningMessageBuilder.Build(warning, PostTime, options);
+
+        Assert.Equal("⚠️ STARKREGEN für Stadt Leipzig", embed.Title);
+    }
+
+    [Fact]
+    public void Build_LocationFallsBackToPostalCode_WhenNoAreaNamesConfigured()
     {
         var options = Options();
         options.AreaNames = new List<string>();
@@ -199,8 +212,7 @@ public class DwdWarningMessageBuilderTests
 
         var embed = DwdWarningMessageBuilder.Build(warning, PostTime, options);
 
-        Assert.Equal("⚠️ STARKREGEN für Stadt Gohlis", embed.Title);
-        Assert.Equal("Stadt Gohlis (+1 weitere Orte)", FieldValue(embed, "📍 Gebiet"));
+        Assert.Equal("⚠️ STARKREGEN für PLZ 04205", embed.Title);
     }
 
     [Fact]

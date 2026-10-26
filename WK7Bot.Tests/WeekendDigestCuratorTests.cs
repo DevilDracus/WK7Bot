@@ -158,4 +158,101 @@ public class WeekendDigestCuratorTests
         Assert.Equal(2, picks.Count);
         Assert.Equal("Stadtführung", picks[0].Title);
     }
+
+    [Fact]
+    public void PickSuggestions_FridaySkipsEventsClosingBefore20()
+    {
+        var candidates = new[]
+        {
+            Event("Wochenmarkt", Friday, "Augustusplatz") with { TimeText = "09:00 – 17:40 Uhr" },
+            Event("Abendmarkt", Friday, "Zentrum") with { TimeText = "18:00 – 22:00 Uhr" }
+        };
+
+        var picks = WeekendDigestCurator.PickSuggestions(candidates, Friday, 1);
+
+        Assert.Single(picks);
+        Assert.Equal("Abendmarkt", picks[0].Title);
+    }
+
+    [Fact]
+    public void PickSuggestions_FridayKeepsEventsWithNoTimeInfo()
+    {
+        var candidates = new[]
+        {
+            Event("Wochenmarkt", Friday, "Augustusplatz") with { TimeText = null }
+        };
+
+        var picks = WeekendDigestCurator.PickSuggestions(candidates, Friday, 1);
+
+        Assert.Single(picks);
+        Assert.Equal("Wochenmarkt", picks[0].Title);
+    }
+
+    [Fact]
+    public void PickSuggestions_FridayKeepsEventsWithSingleTime()
+    {
+        var candidates = new[]
+        {
+            Event("Wochenmarkt", Friday, "Augustusplatz") with { TimeText = "09:00 Uhr" }
+        };
+
+        var picks = WeekendDigestCurator.PickSuggestions(candidates, Friday, 1);
+
+        Assert.Single(picks);
+        Assert.Equal("Wochenmarkt", picks[0].Title);
+    }
+
+    [Fact]
+    public void PickSuggestions_EarlyClosingFridayRemainsEligibleAsFallback()
+    {
+        var candidates = new[]
+        {
+            Event("Wochenmarkt", Friday, "Augustusplatz") with { TimeText = "09:00 – 17:40 Uhr" },
+            Event("Konzert", Saturday, "Gewandhaus")
+        };
+
+        var picks = WeekendDigestCurator.PickSuggestions(candidates, Friday, 3);
+
+        Assert.Equal(2, picks.Count);
+        Assert.Contains(picks, p => p.Title == "Wochenmarkt");
+    }
+
+    [Fact]
+    public void PickSuggestions_SaturdayUnaffectedByFridayRule()
+    {
+        var candidates = new[]
+        {
+            Event("Wochenmarkt", Saturday, "Augustusplatz") with { TimeText = "09:00 – 12:00 Uhr" }
+        };
+
+        var picks = WeekendDigestCurator.PickSuggestions(candidates, Friday, 1);
+
+        Assert.Single(picks);
+        Assert.Equal("Wochenmarkt", picks[0].Title);
+    }
+
+    [Fact]
+    public void PickSuggestions_MultiDayFridayAppliesCloseRule()
+    {
+        var multiDay = Event("Europacup im Speedklettern", Friday) with
+        {
+            EndDate = new DateTime(2026, 10, 12),
+            TimeText = "09:00 – 17:00 Uhr"
+        };
+
+        var late = Event("Abendmarkt", Friday, "Zentrum") with { TimeText = "18:00 – 22:00 Uhr" };
+
+        var picks = WeekendDigestCurator.PickSuggestions(new[] { multiDay, late }, Friday, 1);
+
+        Assert.Single(picks);
+        Assert.Equal("Abendmarkt", picks[0].Title);
+    }
+
+    [Fact]
+    public void ParseCloseTime_ExtractsSecondTime()
+    {
+        Assert.Equal(new TimeSpan(17, 40, 0), WeekendDigestCurator.ParseCloseTime("09:00 – 17:40 Uhr"));
+        Assert.Null(WeekendDigestCurator.ParseCloseTime("09:00 Uhr"));
+        Assert.Null(WeekendDigestCurator.ParseCloseTime(null));
+    }
 }
