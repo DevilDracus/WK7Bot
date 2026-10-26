@@ -13,6 +13,30 @@ using System.Net.Http;
 public static class HttpRetry
 {
     /// <summary>
+    /// Default transient response predicate: retries on HTTP 5xx and 429 Too Many Requests.
+    /// </summary>
+    public static bool IsTransientResponse(HttpResponseMessage response) =>
+        (int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.TooManyRequests;
+
+    /// <summary>
+    /// Default transient exception predicate: retries on HttpRequestException, TimeoutException,
+    /// TaskCanceledException, and IOException.
+    /// </summary>
+    public static bool IsTransientException(Exception ex) =>
+        ex is HttpRequestException or TimeoutException or TaskCanceledException or IOException;
+
+    /// <summary>
+    /// Default exponential backoff: 2s, 4s, 8s, ...
+    /// </summary>
+    public static TimeSpan ExponentialBackoff(int attempt) =>
+        TimeSpan.FromSeconds(Math.Pow(2, attempt));
+
+    /// <summary>
+    /// Default linear backoff: 500ms, 1s, 1.5s, ...
+    /// </summary>
+    public static TimeSpan LinearBackoff(int attempt) =>
+        TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1)));
+    /// <summary>
     /// Executes <paramref name="sendFactory" /> with a sensible default retry policy: retries on HTTP 5xx,
     /// 429 Too Many Requests, and transient exceptions (HttpRequestException, TimeoutException,
     /// TaskCanceledException, IOException) with exponential backoff (2s, 4s, 8s, ...).
@@ -29,11 +53,9 @@ public static class HttpRetry
         return ExecuteAsync(
             sendFactory,
             maxAttempts,
-            isTransientResponse: static r =>
-                (int)r.StatusCode >= 500 || r.StatusCode == System.Net.HttpStatusCode.TooManyRequests,
-            delayForAttempt: static attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
-            isTransientException: static ex =>
-                ex is HttpRequestException or TimeoutException or TaskCanceledException or IOException,
+            isTransientResponse: IsTransientResponse,
+            delayForAttempt: ExponentialBackoff,
+            isTransientException: IsTransientException,
             cancellationToken: cancellationToken);
     }
 
