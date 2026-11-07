@@ -96,12 +96,7 @@ public class PollenBackgroundService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var dispatchRepository = scope.ServiceProvider.GetRequiredService<IPollenDispatchRepository>();
 
-        var guildIds = AutomaticTargetResolver.Resolve(
-                         _options.Servers,
-                         FeatureKeys.RoutedFeatures.PollenAlerts,
-                         _discordClient.Guilds.Select(guild => guild.Id),
-                         _logger)
-                     .ToList();
+        var guildIds = GetTargetGuildIds().ToList();
 
         if (guildIds.Count == 0)
         {
@@ -143,7 +138,7 @@ public class PollenBackgroundService : BackgroundService
                 continue;
             }
 
-            await CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger, stoppingToken).ConfigureAwait(false);
+            await PostToPollenChannelAsync(channel, embed, stoppingToken).ConfigureAwait(false);
             await dispatchRepository.UpsertAsync(guildId, now.Date, forecastJson, stoppingToken).ConfigureAwait(false);
         }
     }
@@ -163,6 +158,23 @@ public class PollenBackgroundService : BackgroundService
                 "Pollenflug- und UV-Index-Vorhersage des DWD.",
                 _logger);
     }
+
+    /// <summary>Returns the IDs of the guilds that should receive pollen posts. Virtual for testability.</summary>
+    /// <returns>The target Discord guild IDs.</returns>
+    protected virtual IReadOnlyList<ulong> GetTargetGuildIds()
+        => AutomaticTargetResolver.Resolve(
+            _options.Servers,
+            FeatureKeys.RoutedFeatures.PollenAlerts,
+            _discordClient.Guilds.Select(guild => guild.Id),
+            _logger);
+
+    /// <summary>Posts the constructed embed to the resolved pollen channel. Virtual for testability.</summary>
+    /// <param name="channel">The channel that receives the embed.</param>
+    /// <param name="embed">The embed to publish.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task that completes once the message has been sent.</returns>
+    protected virtual Task PostToPollenChannelAsync(ITextChannel channel, Embed embed, CancellationToken cancellationToken)
+        => CardSender.SendCardAsync(channel, CardBuilder.FromEmbed(embed), embed, _logger, cancellationToken);
 
     /// <summary>Parses an <c>HH:mm</c> time-of-day option.</summary>
     /// <param name="value">The configured value.</param>

@@ -334,12 +334,16 @@ public class GeminiFoodService : IGeminiFoodService
         {
             throw;
         }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Gemini request for model {Model} timed out: {Message}", modelName, ex.Message);
+            return null;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Gemini request for model {Model} failed: {Message}", modelName, ex.Message);
             return null;
         }
-
     }
 
     /// <summary>
