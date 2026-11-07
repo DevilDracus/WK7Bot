@@ -84,7 +84,7 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
             IsTransientFailure,
             attempt => TimeSpan.FromMilliseconds(RetryDelay.TotalMilliseconds * attempt),
             null,
-            null,
+            HttpRetry.IsTransientException,
             cancellationToken);
 
         if (IsTransientFailure(response))
