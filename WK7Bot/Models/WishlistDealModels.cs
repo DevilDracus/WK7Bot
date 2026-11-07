@@ -39,6 +39,28 @@ public sealed class SteamWishlistResponse : Dictionary<string, SteamWishlistItem
 }
 
 /// <summary>
+/// Represents the raw JSON response from the IWishlistService/GetWishlist endpoint.
+/// The endpoint returns { "response": { "items": [...] } }.
+/// </summary>
+public sealed class SteamWishlistApiResponse
+{
+    /// <summary>The response wrapper.</summary>
+    [JsonPropertyName("response")]
+    public SteamWishlistApiResponseData? Response { get; set; }
+}
+
+/// <summary>
+/// The inner data of the IWishlistService response.
+/// </summary>
+public sealed class SteamWishlistApiResponseData
+{
+    /// <summary>The wishlist items.</summary>
+    [JsonPropertyName("items")]
+    public List<SteamWishlistItem>? Items { get; set; }
+}
+
+
+/// <summary>
 /// Represents current pricing data for a game from IsThereAnyDeal.
 /// </summary>
 public sealed class ItadPriceData

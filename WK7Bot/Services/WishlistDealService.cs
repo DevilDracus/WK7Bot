@@ -29,33 +29,12 @@ public sealed class WishlistDealService : IWishlistDealService
     /// <param name="wishlistUrl">An optional shared wishlist URL.</param>
     /// <returns>The wishlist data URL to fetch.</returns>
     private static string ResolveWishlistUrl(string steamId, string? wishlistUrl)
-    {
-        if (string.IsNullOrWhiteSpace(wishlistUrl))
         {
-            return string.Format(SteamWishlistEndpoint, steamId);
+            // Use the IWishlistService endpoint which works without authentication.
+            // The shared wishlist URL is stored for reference but the SteamID-based
+            // endpoint is more reliable (does not require a logged-in session).
+            return $"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={steamId}";
         }
-
-        // Strip query string and fragment — Steam's wishlistdata endpoint does not use them.
-        var trimmed = wishlistUrl.Trim();
-        var queryIndex = trimmed.IndexOf('?');
-        if (queryIndex >= 0)
-        {
-            trimmed = trimmed[..queryIndex];
-        }
-        var fragmentIndex = trimmed.IndexOf('#');
-        if (fragmentIndex >= 0)
-        {
-            trimmed = trimmed[..fragmentIndex];
-        }
-        trimmed = trimmed.TrimEnd('/');
-
-        if (trimmed.EndsWith(SteamWishlistDataSuffix.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
-        {
-            return trimmed + "/";
-        }
-
-        return $"{trimmed}/{SteamWishlistDataSuffix}";
-    }
     private const string ItadLookupEndpoint = "https://api.isthereanydeal.com/games/lookup/v1";
     private const string ItadPricesEndpoint = "https://api.isthereanydeal.com/games/prices/v2";
     private const int MaxAttempts = 3;
@@ -108,20 +87,30 @@ public sealed class WishlistDealService : IWishlistDealService
             // Steam occasionally returns HTML (rate limit, maintenance, login page) with 200 OK.
             if (json.TrimStart().StartsWith('<'))
             {
-                _logger.LogWarning(
-                    "Steam wishlist for {SteamId} returned HTML instead of JSON (likely rate-limited or unavailable).",
-                    steamId);
-                return Array.Empty<SteamWishlistItem>();
+            _logger.LogWarning(
+            "Steam wishlist for {SteamId} returned HTML instead of JSON (likely rate-limited or unavailable).",
+            steamId);
+            return Array.Empty<SteamWishlistItem>();
             }
 
+            // Try the IWishlistService format first: { "response": { "items": [...] } }
+            var apiResponse = JsonSerializer.Deserialize<SteamWishlistApiResponse>(json, new JsonSerializerOptions
+            {
+            PropertyNameCaseInsensitive = true
+            });
+            if (apiResponse?.Response?.Items is { Count: > 0 })
+            {
+            return apiResponse.Response.Items;
+            }
+
+            // Fall back to the wishlistdata/ format: { "730": { "name": "...", ... } }
             var wishlist = JsonSerializer.Deserialize<SteamWishlistResponse>(json, new JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+            PropertyNameCaseInsensitive = true
             });
-
             if (wishlist == null || wishlist.Count == 0)
             {
-                return Array.Empty<SteamWishlistItem>();
+            return Array.Empty<SteamWishlistItem>();
             }
 
             return wishlist.Values.ToList();
