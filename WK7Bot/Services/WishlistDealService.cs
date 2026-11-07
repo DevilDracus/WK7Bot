@@ -193,20 +193,20 @@ public sealed class WishlistDealService : IWishlistDealService
             return results;
             }
 
-            var priceData = await priceResponse.Content.ReadFromJsonAsync<ItadPricesV3Response>(cancellationToken: cancellationToken);
-            if (priceData?.Prices == null || priceData.Prices.Count == 0)
+            var priceData = await priceResponse.Content.ReadFromJsonAsync<List<ItadPriceResponse>>(cancellationToken: cancellationToken);
+            if (priceData == null || priceData.Count == 0)
             {
             return results;
             }
 
-            foreach (var item in priceData.Prices)
+            foreach (var item in priceData)
             {
-            if (item.Current == null)
+            if (item.Deals == null || item.Deals.Count == 0)
             {
             continue;
             }
 
-            var bestDeal = item.Current;
+            var bestDeal = item.Deals.OrderBy(d => d.Price.Amount).First();
             var appId = itadIdByAppId.FirstOrDefault(x => x.Value == item.Id).Key;
             if (appId == 0)
             {
@@ -215,15 +215,15 @@ public sealed class WishlistDealService : IWishlistDealService
 
             results[appId] = new ItadPriceData
             {
-            Title = "", // Title not available in v3 price response
+            Title = "",
             CurrentPrice = bestDeal.Price.Amount,
-                                RegularPrice = bestDeal.Regular.Amount,
-                                HistoricalLow = item.Lowest?.Price?.Amount ?? bestDeal.Price.Amount,
-                                StoreName = bestDeal.Shop.Name,
-                                DealUrl = bestDeal.Url
-                            };
-                        }
-        }
+            RegularPrice = bestDeal.Regular.Amount,
+            HistoricalLow = item.HistoryLow?.All?.Amount ?? bestDeal.Price.Amount,
+            StoreName = bestDeal.Shop.Name,
+            DealUrl = bestDeal.Url
+            };
+            }
+            }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
@@ -308,22 +308,22 @@ internal sealed class ItadGameRef
     public string Id { get; set; } = string.Empty;
 }
 
-internal sealed class ItadPricesV3Response
-{
-    [JsonPropertyName("prices")]
-    public List<ItadPriceV3Item>? Prices { get; set; }
-}
-
-internal sealed class ItadPriceV3Item
+internal sealed class ItadPriceResponse
 {
     [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
 
-    [JsonPropertyName("current")]
-    public ItadDeal? Current { get; set; }
+    [JsonPropertyName("deals")]
+    public List<ItadDeal>? Deals { get; set; }
 
-    [JsonPropertyName("lowest")]
-        public ItadDeal? Lowest { get; set; }
+    [JsonPropertyName("historyLow")]
+    public ItadHistoryLow? HistoryLow { get; set; }
+}
+
+internal sealed class ItadHistoryLow
+{
+    [JsonPropertyName("all")]
+    public ItadPricePoint? All { get; set; }
 }
 internal sealed class ItadGameInfo
 {
