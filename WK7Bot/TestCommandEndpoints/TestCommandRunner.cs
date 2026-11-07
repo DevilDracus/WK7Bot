@@ -47,7 +47,7 @@ internal static class TestCommandRunner
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Test endpoint failed for command {Command}", command);
+            logger.LogError(ex, "Test endpoint failed for command {Command}", normalized.Replace("\r", string.Empty).Replace("\n", string.Empty));
             return new TestCommandResult
             {
                 Success = false,
