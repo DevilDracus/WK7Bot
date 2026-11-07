@@ -155,6 +155,7 @@ public sealed class WishlistDealService : IWishlistDealService
                 using var response = await GetWithRetryAsync(url, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
+                    _logger.LogWarning("ITAD lookup for Steam app {AppId} returned {StatusCode}.", appId, response.StatusCode);
                     return (appId: appId, itadId: (string?)null);
                 }
 
@@ -175,12 +176,13 @@ public sealed class WishlistDealService : IWishlistDealService
 
         if (itadIdByAppId.Count == 0)
         {
-            return results;
+        _logger.LogWarning("No ITAD game IDs resolved from {Count} Steam app IDs. Check API key and app IDs.", appIdList.Count);
+        return results;
         }
 
         // ITAD prices: query current prices for resolved game IDs
-        var priceUrl = $"{ItadPricesEndpoint}?key={apiKey}&nondeals=false";
-        var pricePayload = itadIdByAppId.Values.Select(id => new { id }).ToList();
+        var priceUrl = $"{ItadPricesEndpoint}?key={apiKey}&country=US";
+        var pricePayload = itadIdByAppId.Values.ToList();
 
         try
         {
