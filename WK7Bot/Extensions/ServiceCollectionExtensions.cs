@@ -107,7 +107,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICircuitBreaker, GeminiCircuitBreaker>();
 
         // External dependency health checker for /health command.
-        services.AddHttpClient<IExternalDependencyHealthChecker, ExternalDependencyHealthChecker>(client => client.Timeout = TimeSpan.FromSeconds(10));
+        services.AddHttpClient<IExternalDependencyHealthChecker, ExternalDependencyHealthChecker>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("WK7Bot/1.0");
+        });
         services.AddHttpClient<IRecipeSearchService, WebRecipeSearchService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
@@ -119,6 +123,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IWishlistDealService, WishlistDealService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("WK7Bot/1.0");
         });
         services.AddHttpClient<AddOnOptionsWriter>(client =>
         {
