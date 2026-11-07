@@ -52,6 +52,11 @@ public class LeipzigWasteModule : BotModuleBase
         [Summary("days", "Anzahl der Tage in der Zukunft, die abgefragt werden sollen (z. B. 7).")] int? days = null,
         [Summary("datum", "Spezifisches Datum (z. B. 20.09.2026 oder 2026-09-20).")] string? dateInput = null)
     {
+        if (Context == null)
+        {
+            return;
+        }
+
         if (!_rateLimiter.CanExecute(Context.User.Id, CommandKey, WasteCheckCooldown))
         {
             await RespondAsync("⏳ Bitte warte 30 Sekunden, bevor du die Müllabholtermine erneut abfragst.", ephemeral: true).ConfigureAwait(false);

@@ -202,11 +202,11 @@ public class DatabaseMaintenanceService : BackgroundService
             await using var dbContext = await _dbContextFactory.CreateDbContextAsync(stoppingToken).ConfigureAwait(false);
 
             int wastePruned = await dbContext.Database.ExecuteSqlRawAsync(
-                "DELETE FROM WasteDispatchLogs WHERE SentOn < {0}", cutoff, stoppingToken).ConfigureAwait(false);
+            "DELETE FROM WasteDispatchLogs WHERE SentOn < {0}", new object[] { cutoff }, stoppingToken).ConfigureAwait(false);
             int warningPruned = await dbContext.Database.ExecuteSqlRawAsync(
-                "DELETE FROM WarningDispatchLogs WHERE SentAt < {0}", cutoff, stoppingToken).ConfigureAwait(false);
+            "DELETE FROM WarningDispatchLogs WHERE SentAt < {0}", new object[] { cutoff }, stoppingToken).ConfigureAwait(false);
             int foodPruned = await dbContext.Database.ExecuteSqlRawAsync(
-                "DELETE FROM FoodDispatchLogs WHERE SentOn < {0}", cutoff, stoppingToken).ConfigureAwait(false);
+            "DELETE FROM FoodDispatchLogs WHERE SentOn < {0}", new object[] { cutoff }, stoppingToken).ConfigureAwait(false);
 
             var totalPruned = wastePruned + warningPruned + foodPruned;
             if (totalPruned > 0)
