@@ -117,6 +117,11 @@ public partial class SteamService : BaseGameApiClient, ISteamService
         {
             throw;
         }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Steam data fetch timed out for Steam ID {SteamId}; returning partial data.", steamId);
+            return null;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while fetching Steam data for Steam ID {SteamId}", steamId);

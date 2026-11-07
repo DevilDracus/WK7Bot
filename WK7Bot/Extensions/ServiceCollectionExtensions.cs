@@ -101,7 +101,7 @@ public static class ServiceCollectionExtensions
             // Keep the Battle.net presence refresh from stalling on slow external responses.
             client.Timeout = TimeSpan.FromSeconds(30);
         });
-        services.AddHttpClient<IGeminiFoodService, GeminiFoodService>(client => client.Timeout = TimeSpan.FromSeconds(30));
+        services.AddHttpClient<IGeminiFoodService, GeminiFoodService>(client => client.Timeout = TimeSpan.FromSeconds(60));
 
         // Gemini circuit breaker — prevents hammering Gemini when unavailable.
         services.AddSingleton<ICircuitBreaker, GeminiCircuitBreaker>();

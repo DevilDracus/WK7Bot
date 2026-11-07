@@ -292,6 +292,17 @@ public partial class SteamService
                 return fallback;
             }
 
+            if (response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                // 400 typically means the game has no achievements or the API key lacks access.
+                // Treat as "no achievements" without warning spam — expected for many games.
+                _logger.LogDebug(
+                    "Steam API returned 400 BadRequest for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId}); game likely has no achievements.",
+                    appId,
+                    steamId);
+                return new List<SteamAchievement>();
+            }
+
             _logger.LogWarning("Steam API returned status code {StatusCode} for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId})", response.StatusCode, appId, steamId);
             return new List<SteamAchievement>();
         }
