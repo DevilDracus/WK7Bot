@@ -139,12 +139,19 @@ public sealed class WishlistDealService : IWishlistDealService
 
         var results = new Dictionary<uint, ItadPriceData>();
 
+        var apiKey = _options.ItadApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogWarning("No IsThereAnyDeal API key configured. Skipping price lookup. Register at https://isthereanydeal.com/developers/ to obtain a key.");
+            return results;
+        }
+
         // ITAD lookup: resolve Steam app IDs to ITAD game IDs
         var lookupTasks = appIdList.Select(async appId =>
         {
             try
             {
-                var url = $"{ItadLookupEndpoint}?key=free&appid={appId}";
+                var url = $"{ItadLookupEndpoint}?key={apiKey}&appid={appId}";
                 using var response = await GetWithRetryAsync(url, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
@@ -172,7 +179,7 @@ public sealed class WishlistDealService : IWishlistDealService
         }
 
         // ITAD prices: query current prices for resolved game IDs
-        var priceUrl = $"{ItadPricesEndpoint}?key=free&nondeals=false";
+        var priceUrl = $"{ItadPricesEndpoint}?key={apiKey}&nondeals=false";
         var pricePayload = itadIdByAppId.Values.Select(id => new { id }).ToList();
 
         try

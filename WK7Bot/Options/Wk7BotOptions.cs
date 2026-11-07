@@ -291,6 +291,13 @@ public class Wk7BotOptions
     public string ErrorChannelName { get; init; } = "\U0001F916WK7Errors\U00002757";
 
     /// <summary>
+    /// Gets or sets the IsThereAnyDeal API key used for fetching game price data.
+    /// Register at https://isthereanydeal.com/developers/ to obtain a key.
+    /// </summary>
+    [ConfigurationKeyName("itad_api_key")]
+    public string? ItadApiKey { get; init; }
+
+    /// <summary>
     /// Gets or sets the weekday of the weekly leaderboard post (e.g. Monday).
     /// </summary>
     [ConfigurationKeyName("leaderboard_post_weekday")]
