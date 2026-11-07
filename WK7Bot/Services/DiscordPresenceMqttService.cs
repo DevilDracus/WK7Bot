@@ -247,7 +247,6 @@ public class DiscordPresenceMqttService : BackgroundService
                     _logger.LogError(ex, "Error during initial user presence sweep.");
                 }
             });
-        }
 
         return Task.CompletedTask;
     }
