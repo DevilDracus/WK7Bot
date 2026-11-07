@@ -53,7 +53,7 @@ public class WishlistDealRepository : IWishlistDealRepository
     public async Task<bool> IsOnCooldownAsync(uint appId, TimeSpan cooldown, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var cutoff = DateTimeOffset.UtcNow - cooldown;
+        var cutoff = DateTime.UtcNow - cooldown;
         return await context.WishlistAlertHistories
             .AsNoTracking()
             .AnyAsync(h => h.AppId == appId && h.AlertedAt >= cutoff, cancellationToken);
@@ -66,7 +66,7 @@ public class WishlistDealRepository : IWishlistDealRepository
         context.WishlistAlertHistories.Add(new WishlistAlertHistory
         {
             AppId = appId,
-            AlertedAt = DateTimeOffset.UtcNow,
+            AlertedAt = DateTime.UtcNow,
             WasHistoricalLow = isHistoricalLow
         });
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -76,7 +76,7 @@ public class WishlistDealRepository : IWishlistDealRepository
     public async Task PruneAlertHistoryAsync(TimeSpan retention, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var cutoff = DateTimeOffset.UtcNow - retention;
+        var cutoff = DateTime.UtcNow - retention;
         var stale = await context.WishlistAlertHistories
             .Where(h => h.AlertedAt < cutoff)
             .ToListAsync(cancellationToken);

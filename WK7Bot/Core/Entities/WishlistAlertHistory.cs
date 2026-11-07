@@ -18,7 +18,7 @@ public class WishlistAlertHistory
     /// <summary>
     /// Gets or sets the UTC timestamp when the alert was posted.
     /// </summary>
-    public DateTimeOffset AlertedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTime AlertedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
     /// Gets or sets whether the alert was for a historical low price.
