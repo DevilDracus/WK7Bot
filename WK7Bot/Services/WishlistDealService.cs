@@ -159,8 +159,15 @@ public sealed class WishlistDealService : IWishlistDealService
                     return (appId: appId, itadId: (string?)null);
                 }
 
-                var lookup = await response.Content.ReadFromJsonAsync<ItadLookupResponse>(cancellationToken: cancellationToken);
-                return (appId: appId, itadId: lookup?.Game?.Id);
+                var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+                var lookup = JsonSerializer.Deserialize<ItadLookupResponse>(responseJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (lookup?.Game?.Id == null)
+                {
+                _logger.LogWarning("ITAD lookup for app {AppId} returned no game ID. Raw response: {Raw}", appId, responseJson);
+                }
+
+                                return (appId: appId, itadId: lookup?.Game?.Id);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
