@@ -181,7 +181,7 @@ public sealed class WishlistDealService : IWishlistDealService
         }
 
         // ITAD prices: query current prices for resolved game IDs
-        var priceUrl = $"{ItadPricesEndpoint}?key={apiKey}&country=US";
+        var priceUrl = $"{ItadPricesEndpoint}?key={apiKey}&country=DE";
         var pricePayload = itadIdByAppId.Values.ToList();
 
         try
