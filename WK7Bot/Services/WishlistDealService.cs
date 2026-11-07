@@ -36,7 +36,7 @@ public sealed class WishlistDealService : IWishlistDealService
             return $"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={steamId}";
         }
     private const string ItadLookupEndpoint = "https://api.isthereanydeal.com/games/lookup/v1";
-    private const string ItadPricesEndpoint = "https://api.isthereanydeal.com/games/prices/v2";
+    private const string ItadPricesEndpoint = "https://api.isthereanydeal.com/games/prices/v3";
     private const int MaxAttempts = 3;
 
     private readonly HttpClient _httpClient;
@@ -187,40 +187,40 @@ public sealed class WishlistDealService : IWishlistDealService
             using var priceResponse = await PostWithRetryAsync(priceUrl, pricePayload, cancellationToken);
             if (!priceResponse.IsSuccessStatusCode)
             {
-                _logger.LogWarning("ITAD prices request returned {StatusCode}.", priceResponse.StatusCode);
-                return results;
+            _logger.LogWarning("ITAD prices request returned {StatusCode}.", priceResponse.StatusCode);
+            return results;
             }
 
-            var priceData = await priceResponse.Content.ReadFromJsonAsync<List<ItadPriceResponse>>(cancellationToken: cancellationToken);
-            if (priceData == null)
+            var priceData = await priceResponse.Content.ReadFromJsonAsync<ItadPricesV3Response>(cancellationToken: cancellationToken);
+            if (priceData?.Prices == null || priceData.Prices.Count == 0)
             {
-                return results;
+            return results;
             }
 
-            foreach (var item in priceData)
+            foreach (var item in priceData.Prices)
             {
-                if (item.Deals == null || item.Deals.Count == 0)
-                {
-                    continue;
-                }
-
-                var bestDeal = item.Deals.OrderBy(d => d.Price.Amount).First();
-                var appId = itadIdByAppId.FirstOrDefault(x => x.Value == item.Game.Id).Key;
-                if (appId == 0)
-                {
-                    continue;
-                }
-
-                results[appId] = new ItadPriceData
-                {
-                    Title = item.Game.Title,
-                    CurrentPrice = bestDeal.Price.Amount,
-                    RegularPrice = bestDeal.Regular.Amount,
-                    HistoricalLow = item.LowestPrice?.Amount ?? bestDeal.Price.Amount,
-                    StoreName = bestDeal.Shop.Name,
-                    DealUrl = bestDeal.Url
-                };
+            if (item.Current == null)
+            {
+            continue;
             }
+
+            var bestDeal = item.Current;
+            var appId = itadIdByAppId.FirstOrDefault(x => x.Value == item.Id).Key;
+            if (appId == 0)
+            {
+            continue;
+            }
+
+            results[appId] = new ItadPriceData
+            {
+            Title = "", // Title not available in v3 price response
+            CurrentPrice = bestDeal.Price.Amount,
+                                RegularPrice = bestDeal.Regular.Amount,
+                                HistoricalLow = item.Lowest?.Price?.Amount ?? bestDeal.Price.Amount,
+                                StoreName = bestDeal.Shop.Name,
+                                DealUrl = bestDeal.Url
+                            };
+                        }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -306,18 +306,23 @@ internal sealed class ItadGameRef
     public string Id { get; set; } = string.Empty;
 }
 
-internal sealed class ItadPriceResponse
+internal sealed class ItadPricesV3Response
 {
-    [JsonPropertyName("game")]
-    public ItadGameInfo Game { get; set; } = new();
-
-    [JsonPropertyName("deals")]
-    public List<ItadDeal>? Deals { get; set; }
-
-    [JsonPropertyName("lowest")]
-    public ItadPricePoint? LowestPrice { get; set; }
+    [JsonPropertyName("prices")]
+    public List<ItadPriceV3Item>? Prices { get; set; }
 }
 
+internal sealed class ItadPriceV3Item
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("current")]
+    public ItadDeal? Current { get; set; }
+
+    [JsonPropertyName("lowest")]
+        public ItadDeal? Lowest { get; set; }
+}
 internal sealed class ItadGameInfo
 {
     [JsonPropertyName("id")]
