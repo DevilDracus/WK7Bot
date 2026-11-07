@@ -220,22 +220,36 @@ public class DiscordPresenceMqttService : BackgroundService
     /// Performs an initial presence sweep for all cached guild users upon Discord client ready state.
     /// </summary>
     /// <returns>A task representing asynchronous sweep processing.</returns>
-    private async Task OnDiscordReadyAsync()
-    {
-        _logger.LogInformation("Discord client ready. Running initial user presence sweep for Home Assistant...");
-
-        foreach (var guild in _discordClient.Guilds)
+    private Task OnDiscordReadyAsync()
         {
-            foreach (var user in guild.Users)
-            {
-                if (user.IsBot)
-                {
-                    continue;
-                }
+            _logger.LogInformation("Discord client ready. Running initial user presence sweep for Home Assistant...");
 
-                await ProcessUserPresenceAsync(user, null).ConfigureAwait(false);
-            }
+            // Run the sweep in the background so the gateway task is not blocked.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    foreach (var guild in _discordClient.Guilds)
+                    {
+                        foreach (var user in guild.Users)
+                        {
+                            if (user.IsBot)
+                            {
+                                continue;
+                            }
+
+                            await ProcessUserPresenceAsync(user, null).ConfigureAwait(false);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error during initial user presence sweep.");
+                }
+            });
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

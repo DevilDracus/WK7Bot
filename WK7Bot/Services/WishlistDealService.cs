@@ -35,7 +35,20 @@ public sealed class WishlistDealService : IWishlistDealService
             return string.Format(SteamWishlistEndpoint, steamId);
         }
 
-        var trimmed = wishlistUrl.Trim().TrimEnd('/');
+        // Strip query string and fragment — Steam's wishlistdata endpoint does not use them.
+        var trimmed = wishlistUrl.Trim();
+        var queryIndex = trimmed.IndexOf('?');
+        if (queryIndex >= 0)
+        {
+            trimmed = trimmed[..queryIndex];
+        }
+        var fragmentIndex = trimmed.IndexOf('#');
+        if (fragmentIndex >= 0)
+        {
+            trimmed = trimmed[..fragmentIndex];
+        }
+        trimmed = trimmed.TrimEnd('/');
+
         if (trimmed.EndsWith(SteamWishlistDataSuffix.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
         {
             return trimmed + "/";
