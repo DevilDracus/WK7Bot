@@ -167,6 +167,9 @@ public class RemindModule : BotModuleBase
             ephemeral: true).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Lists the invoking user's pending reminders.
+    /// </summary>
     public async Task ListAsync()
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
