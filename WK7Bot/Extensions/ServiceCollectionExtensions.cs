@@ -312,6 +312,9 @@ public static class ServiceCollectionExtensions
 
         if (featureGate.IsEnabled(FeatureKeys.SteamFriendDigest))
         {
+            // The module injects this background service directly, so it must be resolvable via DI
+            // (the AddHostedService registration only provides IHostedService, not the concrete type).
+            services.AddSingleton<SteamFriendDigestBackgroundService>();
             services.AddHostedService<SteamFriendDigestBackgroundService>();
         }
 
