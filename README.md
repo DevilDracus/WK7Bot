@@ -67,9 +67,6 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `/check-food <query>` | Check a food product's nutrition and renal safety via Open Food Facts | everyone |
 | `/deals` | Check Steam wishlist deals on demand | everyone |
 | `/achievements <game>` | Show Steam achievement progress for a game | everyone |
-| `/watch <game>` | Watch a specific game for price drops | everyone |
-| `/watchlist` | List your watched games | everyone |
-| `/unwatch <game>` | Remove a game from your watchlist | everyone |
 | `/wishlist-add-appid <appid> [name]` | Add a Steam AppID to your manual wishlist | everyone |
 | `/wishlist-remove-appid <appid>` | Remove a Steam AppID from your manual wishlist | everyone |
 | `/wishlist-list-appid` | List your manual Steam AppID wishlist | everyone |
