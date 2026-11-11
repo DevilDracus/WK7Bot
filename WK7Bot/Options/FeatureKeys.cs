@@ -25,7 +25,7 @@ public static class FeatureKeys
     /// <summary>Key of the Steam presence enrichment feature.</summary>
     public const string SteamPresence = "steam_presence_enabled";
 
-    /// <summary>Key of the Battle.net presence enrichment feature.</summary>
+    /// <summary>Key of the Battle.net profile enrichment feature.</summary>
     public const string BattleNetPresence = "battlenet_presence_enabled";
 
     /// <summary>Key of the monthly produce and weekly recipe publisher feature.</summary>

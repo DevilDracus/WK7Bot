@@ -116,7 +116,7 @@ public class StartupConfigurationValidator : BackgroundService
             report.Add(
                 "Discord ↔ Steam Mappings",
                 _options.DiscordSteamMappings.Count > 0,
-                "discord_steam_mappings must contain at least one entry for presence tracking.");
+                "discord_steam_mappings must contain at least one entry (or link via /link-steam) for presence tracking.");
         }
 
         // Battle.net

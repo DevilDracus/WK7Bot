@@ -5,7 +5,7 @@ using System.Linq;
 
 /// <summary>
 /// Aggregates Battle.net account identity plus the per-game profile data the API exposes for it
-/// (World of Warcraft characters and Diablo heroes), mirroring <see cref="SteamUserData"/>.
+/// (World of Warcraft characters and Diablo heroes). Note: unlike SteamUserData, this does not include presence or current-game data.
 /// </summary>
 public class BattleNetUserData
 {

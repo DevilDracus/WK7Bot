@@ -17,36 +17,17 @@ using WK7Bot.Services.Interfaces;
 public sealed class WishlistDealService : IWishlistDealService
 {
     /// <summary>
-    /// Resolves the Steam wishlist data URL. If a shared wishlist URL is provided, the data endpoint
-    /// is derived from it (appending <c>wishlistdata/</c> when missing) so that wishlists shared via
-    /// a link can be fetched even when the Steam profile itself is private. Falls back to the
-    /// SteamID-based endpoint when no URL is supplied.
+    /// Resolves the Steam wishlist data URL. Steam's IWishlistService endpoint requires a public wishlist;
+    /// shared links and private wishlists cannot be read programmatically.
     /// </summary>
     /// <param name="steamId">The 64-bit Steam ID of the user.</param>
-    /// <param name="wishlistUrl">An optional shared wishlist URL.</param>
-    /// <returns>The wishlist data URL to fetch.</returns>
+    /// <param name="wishlistUrl">An optional shared Steam wishlist URL (stored for reference only).</param>
+    /// <returns>The IWishlistService endpoint URL.</returns>
     private static string ResolveWishlistUrl(string steamId, string? wishlistUrl)
     {
-        // Shared wishlist links (store.steampowered.com/wishlist/id/{token}) grant read access
-        // to private wishlists via a share token — use the store data endpoint for those.
-        if (!string.IsNullOrWhiteSpace(wishlistUrl))
-        {
-            var shareMatch = System.Text.RegularExpressions.Regex.Match(wishlistUrl, @"wishlist/id/([^/?#]+)");
-            if (shareMatch.Success)
-            {
-                var token = shareMatch.Groups[1].Value;
-                // Fetch the store wishlist page (not wishlistdata/, which is deprecated and redirects to login).
-                // The page embeds app IDs in SSR data when requested with a browser User-Agent.
-                return $"https://store.steampowered.com/wishlist/id/{token}/";
-            }
-
-            var profileMatch = System.Text.RegularExpressions.Regex.Match(wishlistUrl, @"profiles/(\d+)");
-            if (profileMatch.Success)
-            {
-                return $"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={profileMatch.Groups[1].Value}";
-            }
-        }
-
+        // Steam's IWishlistService endpoint requires a public wishlist.
+        // Shared links and private wishlists cannot be read programmatically.
+        _ = wishlistUrl; // Stored for reference only; not used for fetching.
         return $"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={steamId}";
     }
     private const string ItadLookupEndpoint = "https://api.isthereanydeal.com/games/lookup/v1";
@@ -84,9 +65,7 @@ public sealed class WishlistDealService : IWishlistDealService
 
         try
         {
-            using var response = url.Contains("store.steampowered.com", StringComparison.OrdinalIgnoreCase)
-                ? await GetWithBrowserUserAgentAsync(url, cancellationToken)
-                : await GetWithRetryAsync(url, cancellationToken);
+            using var response = await GetWithRetryAsync(url, cancellationToken);
             if (response.StatusCode == HttpStatusCode.Forbidden)
             {
                 _logger.LogWarning("Steam wishlist for {SteamId} is private or unavailable (403).", steamId);
@@ -108,23 +87,8 @@ public sealed class WishlistDealService : IWishlistDealService
             // Steam occasionally returns HTML (rate limit, maintenance, login page) with 200 OK.
             if (json.TrimStart().StartsWith('<'))
             {
-                // The store wishlist page embeds app IDs in JavaScript (g_rgWishlistData / "appid":N).
-                // Parse them so private wishlists accessible via shared links can still be used.
-                var appIdMatches = System.Text.RegularExpressions.Regex.Matches(json, @"appid[^0-9]*(\d{5,8})");
-                var appIds = appIdMatches.Cast<System.Text.RegularExpressions.Match>()
-                    .Select(m => uint.TryParse(m.Groups[1].Value, out var id) ? id : 0u)
-                    .Where(id => id > 0)
-                    .Distinct()
-                    .ToList();
-
-                if (appIds.Count > 0)
-                {
-                    _logger.LogInformation("Parsed {Count} app ID(s) from Steam wishlist HTML.", appIds.Count);
-                    return appIds.Select(id => new SteamWishlistItem { AppId = id }).ToList();
-                }
-
                 _logger.LogWarning(
-                    "Steam wishlist for {SteamId} returned HTML instead of JSON (likely rate-limited, unavailable, or private without a valid share token).",
+                    "Steam wishlist for {SteamId} returned HTML instead of JSON (likely rate-limited or unavailable).",
                     steamId);
                 return Array.Empty<SteamWishlistItem>();
             }
@@ -137,17 +101,6 @@ public sealed class WishlistDealService : IWishlistDealService
             if (apiResponse?.Response?.Items is { Count: > 0 })
             {
                 return apiResponse.Response.Items;
-            }
-
-            // Fall back to the store wishlistdata/ format: { "730": { "name": "...", "appid": 730 } }
-            // Used by shared wishlist links (store.steampowered.com/wishlist/id/{token}/wishlistdata/).
-            var wishlist = JsonSerializer.Deserialize<SteamWishlistResponse>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-            if (wishlist is { Count: > 0 })
-            {
-                return wishlist.Values.ToList();
             }
 
             // IWishlistService returns an empty response for private/empty wishlists.
@@ -332,19 +285,6 @@ public sealed class WishlistDealService : IWishlistDealService
     internal async Task<HttpResponseMessage> GetWithRetryAsync(string url, CancellationToken cancellationToken = default)
         => await ExecuteWithRetryAsync(() => _httpClient.GetAsync(url, cancellationToken), cancellationToken);
 
-    internal async Task<HttpResponseMessage> GetWithBrowserUserAgentAsync(string url, CancellationToken cancellationToken = default)
-    {
-        return await ExecuteWithRetryAsync(
-            async () =>
-            {
-                using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-                request.Headers.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-                request.Headers.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
-                return await _httpClient.SendAsync(request, cancellationToken);
-            },
-            cancellationToken);
-    }
 
     internal async Task<HttpResponseMessage> PostWithRetryAsync(string url, object payload, CancellationToken cancellationToken = default)
         => await ExecuteWithRetryAsync(

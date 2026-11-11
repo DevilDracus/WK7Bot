@@ -15,8 +15,8 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 - **Native Discord events** — Spontan-Treff and the Thursday weekend digest create a guild scheduled event (external) so members get native reminders; `DiscordScheduledEventCleanupService` deletes them after their end time (`discord_events_enabled`).
 - **Weekend digest** — Thursdays 14:15 the curated leipzig.de digest posts with a native Discord poll, retrying up to 4×.
 - **DWD warnings** — 2-minute CAP feed polling, point-in-polygon matching, German embeds with onset countdown into `#⛈️weather-warnings`.
-- **Steam & Battle.net presence** — token-based mapping (no passwords), retries and caches, published to MQTT sensors for Home Assistant.
-- **Wishlist deal alerts** — 12-hour Steam wishlist polling through IsThereAnyDeal, historical-low detection, and on-demand `/deals` lookups. Supports **shared wishlist links** (`store.steampowered.com/wishlist/id/{token}`) so private wishlists can be tracked without making the profile public. Alert titles are resolved from IsThereAnyDeal. Alerts post to `deal_alert_channel_name` (default `game-deals`); the minimum non-historical-low discount defaults to 60%.
+- **Steam presence & Battle.net profile enrichment** — token-based Battle.net mapping (no passwords), Discord presence tracking, retries and caches, published to a single MQTT sensor per user (attributes include Steam game, Battle.net WoW/Diablo profile data).
+- **Wishlist deal alerts** — 12-hour Steam wishlist polling through IsThereAnyDeal, historical-low detection, and on-demand `/deals` lookups. Requires a **public Steam wishlist** (Steam's privacy settings are all-or-nothing: "Game details" must be set to Public). Alert titles are resolved from IsThereAnyDeal. Alerts post to `deal_alert_channel_name` (default `game-deals`); the minimum non-historical-low discount defaults to 60%.
 - **Account linking** — `/link-steam`, `/link-battlenet`, `/link-status` and `/link-remove`; new mappings are stored in SQLite and mirrored into the Home Assistant add-on options through the Supervisor API (`link_auto_write_options`).
 - **Steam wishlist links** — `/wishlist-add <url>` parses Steam profile and wishlist URLs, resolves vanity names through the Steam Web API, and links the account.
 - **Weather** — `/weather [entity]` reads a configurable Home Assistant weather entity (`weather_entity`) and posts current conditions plus an optional forecast.
@@ -39,9 +39,9 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 - **Error notifications** — every `Error`/`Critical` log is buffered, throttled (5 min per signature) and posted to `#🤖WK7Errors❗` on the test server, pinging `error_notify_user_ids`, with DM fallback. Plain-text mirror includes an 8-character stack-trace hash for quick grepping.
 - **Command usage & rate limiting** — every slash command is logged (`CommandUsageLog`); `/stats` shows the top commands of the last 7 days. Per-user cooldowns protect expensive commands such as `/health`, `/ha-status` and `/deals`.
 - **Startup configuration validation** — `StartupConfigurationValidator` checks the Discord token, DWD postal code, Gemini/Steam/Battle.net keys, MQTT host and error recipients after login and posts a report (brief confirmation when everything is valid).
-- **Database maintenance** — `DatabaseMaintenanceService` runs SQLite maintenance daily, including WAL checkpointing and orphan cleanup.
+- **Database maintenance** — `DatabaseMaintenanceService` runs daily, creating compressed backups and pruning old dispatch/command-usage logs.
 - **MQTT health sensors** — uptime, Discord connection state, guild count and a per-feature *enabled*/*problem* sensor for Home Assistant, with a last-will testament so a killed process reports OFFLINE.
-- **External dependency health checks** — `/health` reports reachability and latency for Home Assistant, DWD, Steam, Gemini, Open Food Facts, and IsThereAnyDeal alongside background service status.
+- **External dependency health checks** — `/health` reports reachability and latency for Home Assistant, DWD, Steam, Open Food Facts, and IsThereAnyDeal (Gemini is key-presence only) alongside background service status.
 - **Gemini circuit breaker** — after 3 consecutive Gemini API failures, the circuit opens for 5 minutes, preventing retry storms when the API is unavailable.
 - **Consolidated feature gate** — all feature flag decisions (DI registration + runtime) resolve through a single `FeatureGate` service, eliminating divergence between the two previous decision points.
 - **Optional HTTP test API** — when `test_api_enabled` is true and `test_api_key` (or `WK7_TEST_API_KEY`) is set, `GET /test/commands` lists supported commands and `POST /test/commands/{command}` runs one through a synthetic interaction context. Useful for smoke-testing commands without a Discord client.
@@ -98,7 +98,7 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `DiscordBotWorker` | Gateway login/start, log forwarding | always on |
 | `InteractionHandlingService` | Module registration, interaction routing and guaranteed replies | always on |
 | `StartupConfigurationValidator` | Validate critical configuration and post a startup report | always on |
-| `DatabaseMaintenanceService` | Daily SQLite maintenance (WAL checkpoint, cleanup) | always on |
+| `DatabaseMaintenanceService` | Daily compressed backup + log pruning | always on |
 | `RssPollingBackgroundService` | Poll feeds, post embeds | `rss_polling_enabled` |
 | `HomeAssistantNotifierService` | MQTT notify → channels/DMs | `home_assistant_notifier_enabled` |
 | `LeipzigWasteBackgroundService` | Daily/weekly waste reminders | `leipzig_waste_enabled` |
@@ -293,7 +293,7 @@ dotnet test WK7Bot.sln
   - `itad_api_key` is empty → `FetchPricesAsync` returns no prices and the run stops early. Register a key at https://isthereanydeal.com/developers/.
   - No Discord↔Steam link configured → `mappings.Count == 0` stops the run before fetching anything. Use `/link-steam` or `discord_steam_mappings`.
   - `wk7_server_id` / `test_server_id` are still placeholders → `AutomaticTargetResolver` yields no delivery targets. Set real guild IDs.
-  - The Steam wishlist is private and no shared link was provided → IWishlistService returns an empty response. Use `/wishlist-add <share-link>` (shared wishlists work without making the profile public); private profiles without a share link are indistinguishable from empty wishlists and now log a Warning.
+  - The Steam wishlist is private → IWishlistService returns an empty response. Steam's privacy settings are all-or-nothing ("Game details" must be Public). There is no programmatic way to read a private wishlist. Set "Game details" to Public in Steam profile privacy settings.
 - **Wishlist alert titles are blank.** Titles are resolved from IsThereAnyDeal's lookup response; if the lookup fails (bad API key, unknown app), the title stays empty. Check `/health` for the IsThereAnyDeal dependency status.
 - **Error channel is empty but something feels broken.** An empty channel only means no `Error`/`Critical` logs were emitted. Idle or misconfigured services (missing API keys, empty postal codes) produce no posts and no errors. Check `StartupConfigurationValidator`'s report and the per-feature `binary_sensor.wk7_bot_<feature>_problem` entities.
 - **`no such column` SQLite crash loop on startup.** Schema-order bug in `DatabaseSchemaInitializer`: an index/constraint was added before its column. Move the DDL after the `AddColumnIfMissingAsync` call.

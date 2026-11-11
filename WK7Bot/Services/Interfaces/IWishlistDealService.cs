@@ -11,7 +11,7 @@ public interface IWishlistDealService
     /// Fetches the public Steam wishlist for a single user and returns the items found.
     /// </summary>
     /// <param name="steamId">The 64-bit Steam ID of the user.</param>
-    /// <param name="wishlistUrl">An optional shared wishlist URL that may bypass profile privacy.</param>
+    /// <param name="wishlistUrl">An optional shared Steam wishlist URL (stored for reference, but Steam requires a public wishlist for programmatic access).</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>The wishlist items, or an empty list when the wishlist is private or unavailable.</returns>
     Task<IReadOnlyList<SteamWishlistItem>> FetchWishlistAsync(string steamId, string? wishlistUrl = null, CancellationToken cancellationToken = default);

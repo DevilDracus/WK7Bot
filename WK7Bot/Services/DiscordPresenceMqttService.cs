@@ -269,7 +269,7 @@ public class DiscordPresenceMqttService : BackgroundService
     }
 
     /// <summary>
-    /// Extracts presence entity data, enriches Steam and Battle.net telemetry if enabled, ensures Home Assistant discovery registration, and publishes current state to MQTT.
+    /// Extracts presence entity data, enriches Steam game state and Battle.net profile data if enabled, ensures Home Assistant discovery registration, and publishes current state to MQTT.
     /// </summary>
     /// <param name="user">The socket user target.</param>
     /// <param name="presence">The active presence object containing status and activities, if available.</param>

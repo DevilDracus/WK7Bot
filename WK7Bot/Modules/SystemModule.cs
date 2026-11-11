@@ -242,7 +242,7 @@ public class SystemModule : BotModuleBase
                 .WithFooter("WK7 Bot • Hilfe");
 
             var systemCommands = new[] { "ping", "ha-status", "stats", "health", "help" };
-            var infoCommands = new[] { "check-waste", "spontan-treff" };
+            var infoCommands = new[] { "check-waste", "spontan-treff", "weather", "pollen" };
             var foodCommands = new[] { "recipe", "recipe-seasonal", "recipe-generate", "seasonal-produce", "check-food" };
             var rssCommands = new[] { "rss", "rss add", "rss list", "rss remove", "rss dashboard" };
             var dealCommands = new[] { "deals" };

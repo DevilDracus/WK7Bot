@@ -15,7 +15,7 @@ public static class ServiceCooldowns
     public static readonly TimeSpan SteamPresenceData = TimeSpan.FromSeconds(60);
 
     /// <summary>
-    /// Gets the time-to-live for cached Battle.net presence/data lookups.
+    /// Gets the time-to-live for cached Battle.net profile/data lookups.
     /// </summary>
     public static readonly TimeSpan BattleNetPresenceData = TimeSpan.FromSeconds(60);
 

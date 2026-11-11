@@ -44,7 +44,7 @@ public class FeatureOptions
     public bool SteamPresenceEnabled { get; init; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether Battle.net profile tracking is enabled.
+    /// Gets or sets a value indicating whether Battle.net profile enrichment is enabled.
     /// </summary>
     [ConfigurationKeyName("battlenet_presence_enabled")]
     public bool BattleNetPresenceEnabled { get; init; } = true;
