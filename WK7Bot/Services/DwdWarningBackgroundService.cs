@@ -189,15 +189,11 @@ public class DwdWarningBackgroundService : BackgroundService
         // Resolved once per dispatch: re-resolving per warning would repeat the resolver's
         // "no server configured" warning for every active warning.
         var targetGuildIds = GetTargetGuildIds();
-        var postedAny = false;
+        var pendingGuildIds = await repository.FilterNotSentAsync(targetGuildIds, warning.Identifier, stoppingToken).ConfigureAwait(false);
+        var postedGuildIds = new List<ulong>();
 
-        foreach (var guildId in targetGuildIds)
+        foreach (var guildId in pendingGuildIds)
         {
-            if (await repository.HasSentAsync(warning.Identifier, guildId, stoppingToken))
-            {
-                continue;
-            }
-
             var channel = await GetOrCreateWarningChannelAsync(guildId);
             if (channel is null)
             {
@@ -208,23 +204,36 @@ public class DwdWarningBackgroundService : BackgroundService
                 continue;
             }
 
-            var embed = DwdWarningMessageBuilder.Build(warning, now, _options.DwdWarning);
-            await PostToWarningChannelAsync(channel, embed).ConfigureAwait(false);
+            try
+            {
+                var embed = DwdWarningMessageBuilder.Build(warning, now, _options.DwdWarning);
+                await PostToWarningChannelAsync(channel, embed).ConfigureAwait(false);
+                postedGuildIds.Add(guildId);
 
-            // Record only after a successful send so a crash or failure retries this guild on the
-            // next poll while guilds that already received the warning stay suppressed.
-            await repository.MarkSentAsync(warning.Identifier, guildId, now, stoppingToken).ConfigureAwait(false);
-            postedAny = true;
+                _logger.LogDebug(
+                    "Posted DWD warning {Event} ({WarningId}) to guild {GuildId}.",
+                    warning.Event,
+                    warning.Identifier,
+                    guildId);
+            }
+            catch (Exception) when (!stoppingToken.IsCancellationRequested)
+            {
+                // Record the successful posts before rethrowing so a partial failure retries only the
+                // guilds that did not receive the warning.
+                if (postedGuildIds.Count > 0)
+                {
+                    await repository.MarkSentManyAsync(postedGuildIds, warning.Identifier, now, stoppingToken).ConfigureAwait(false);
+                }
 
-            _logger.LogDebug(
-                "Posted DWD warning {Event} ({WarningId}) to guild {GuildId}.",
-                warning.Event,
-                warning.Identifier,
-                guildId);
+                throw;
+            }
         }
 
-        if (postedAny)
+        // Record only after successful sends so a crash or failure retries those guilds on the next
+        // poll while guilds that already received the warning stay suppressed.
+        if (postedGuildIds.Count > 0)
         {
+            await repository.MarkSentManyAsync(postedGuildIds, warning.Identifier, now, stoppingToken).ConfigureAwait(false);
             await repository.PruneAsync(now.AddDays(-PruneAgeDays), stoppingToken).ConfigureAwait(false);
         }
     }

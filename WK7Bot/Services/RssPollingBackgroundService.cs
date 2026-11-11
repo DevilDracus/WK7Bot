@@ -113,7 +113,8 @@ public class RssPollingBackgroundService : BackgroundService
 
     /// <summary>
     /// Queries all configured feeds and processes those whose refresh interval has elapsed. Each feed
-    /// is isolated, so one failing feed cannot abort the sweep for the others.
+    /// is isolated, so one failing feed cannot abort the sweep for the others. Modified feeds are
+    /// persisted in a single batch at the end to avoid an N+1 update pattern.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>
@@ -128,6 +129,7 @@ public class RssPollingBackgroundService : BackgroundService
 
         var feeds = await repository.GetAllFeedsAsync(cancellationToken);
         var clean = true;
+        var touchedFeeds = new List<RssFeed>();
 
         foreach (var feed in feeds)
         {
@@ -143,7 +145,8 @@ public class RssPollingBackgroundService : BackgroundService
 
             try
             {
-                clean &= await PollFeedAsync(parser, repository, feed, cancellationToken);
+                clean &= await PollFeedAsync(parser, feed, cancellationToken);
+                touchedFeeds.Add(feed);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -158,15 +161,21 @@ public class RssPollingBackgroundService : BackgroundService
                 _logger.LogWarning(ex, "Failed to process feed '{FeedName}'; retrying at its next interval.", feed.Name);
                 _health.RecordFailure(FeatureKeys.RssPolling, ex.Message);
 
-                try
-                {
-                    feed.LastPolledAt = DateTimeOffset.UtcNow;
-                    await repository.UpdateFeedAsync(feed, cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception stampEx)
-                {
-                    _logger.LogWarning(stampEx, "Could not stamp the failed poll of feed '{FeedName}'.", feed.Name);
-                }
+                feed.LastPolledAt = DateTimeOffset.UtcNow;
+                touchedFeeds.Add(feed);
+            }
+        }
+
+        if (touchedFeeds.Count > 0)
+        {
+            try
+            {
+                await repository.UpdateFeedsAsync(touchedFeeds, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not persist the RSS polling state for {Count} touched feed(s).", touchedFeeds.Count);
+                clean = false;
             }
         }
 
@@ -186,26 +195,25 @@ public class RssPollingBackgroundService : BackgroundService
     }
 
     /// <summary>
-    /// Polls a single feed: fetches new items, posts embeds and persists the advanced baseline.
+    /// Polls a single feed: fetches new items, posts embeds and advances the baseline on the in-memory
+    /// feed entity. The caller persists all touched feeds in a single batch.
     /// </summary>
     /// <param name="parser">The RSS parser service used for the fetch.</param>
-    /// <param name="repository">The repository used to persist feed state.</param>
     /// <param name="feed">The feed entity to process.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>
     /// <see langword="true"/> when the feed was processed cleanly; <see langword="false"/> when an item
     /// could not be delivered (or the target channel is unusable), so the pass is not reported healthy.
     /// </returns>
-    private async Task<bool> PollFeedAsync(RssParserService parser, IRssRepository repository, RssFeed feed, CancellationToken cancellationToken)
+    private async Task<bool> PollFeedAsync(RssParserService parser, RssFeed feed, CancellationToken cancellationToken)
     {
         var newItems = await parser.FetchNewItemsAsync(feed, cancellationToken);
 
         if (!newItems.Any())
         {
-            // Persist the attempt (and a freshly seeded baseline) so the history is never re-posted
-            // and a failing feed waits its full interval before the next attempt.
+            // Advance the baseline so the history is never re-posted and a failing feed waits its
+            // full interval before the next attempt. The caller persists the change in a batch.
             feed.LastPolledAt = DateTimeOffset.UtcNow;
-            await repository.UpdateFeedAsync(feed, cancellationToken).ConfigureAwait(false);
             return true;
         }
 
@@ -219,7 +227,6 @@ public class RssPollingBackgroundService : BackgroundService
                 feed.Name,
                 feed.ChannelId);
             feed.LastPolledAt = DateTimeOffset.UtcNow;
-            await repository.UpdateFeedAsync(feed, cancellationToken).ConfigureAwait(false);
             _health.RecordFailure(FeatureKeys.RssPolling, $"RSS feed '{feed.Name}' targets channel {feed.ChannelId}, which is not a text channel.");
             return false;
         }
@@ -233,7 +240,7 @@ public class RssPollingBackgroundService : BackgroundService
                 await SendFeedEmbedAsync(channel, feed, item).ConfigureAwait(false);
 
                 // Advance the baseline per item so a failure on a later item does not re-post the
-                // items that already went out. The values are persisted once after the loop, so a
+                // items that already went out. The values are persisted once after the outer loop, so a
                 // hard crash mid-batch can still re-post the delivered items.
                 feed.LastItemGuid = item.Id;
                 feed.LastPublishedDate = item.PublishingDate;
@@ -249,7 +256,6 @@ public class RssPollingBackgroundService : BackgroundService
         }
 
         feed.LastPolledAt = DateTimeOffset.UtcNow;
-        await repository.UpdateFeedAsync(feed, cancellationToken).ConfigureAwait(false);
         return clean;
     }
 

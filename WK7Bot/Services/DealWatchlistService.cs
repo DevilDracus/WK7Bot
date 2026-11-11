@@ -104,6 +104,7 @@ public class DealWatchlistService : IDealWatchlistService
 
         var prices = await _dealService.FetchPricesAsync(appIds, cancellationToken).ConfigureAwait(false);
         var alerts = 0;
+        var priceUpdates = new List<DealWatchPriceUpdate>();
         foreach (var item in items)
         {
             if (!uint.TryParse(item.ItadId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var appId) ||
@@ -116,7 +117,7 @@ public class DealWatchlistService : IDealWatchlistService
             var meetsTarget = item.TargetPrice.HasValue && price.CurrentPrice <= item.TargetPrice.Value;
             if (!meetsDiscount && !meetsTarget)
             {
-                await _repository.UpdatePriceAsync(item.Id, price.CurrentPrice, price.DiscountPercent, item.LastAlertedAt, cancellationToken).ConfigureAwait(false);
+                priceUpdates.Add(new DealWatchPriceUpdate(item.Id, price.CurrentPrice, price.DiscountPercent, item.LastAlertedAt));
                 continue;
             }
 
@@ -142,7 +143,7 @@ public class DealWatchlistService : IDealWatchlistService
                     .WithTimestamp(DateTimeOffset.UtcNow)
                     .WithFooter("WK7 Bot • Deal-Watchlist");
                 await CardSender.SendCardAsync(dm, CardBuilder.FromEmbed(embed.Build()), embed.Build(), _logger, cancellationToken).ConfigureAwait(false);
-                await _repository.UpdatePriceAsync(item.Id, price.CurrentPrice, price.DiscountPercent, DateTime.UtcNow, cancellationToken).ConfigureAwait(false);
+                priceUpdates.Add(new DealWatchPriceUpdate(item.Id, price.CurrentPrice, price.DiscountPercent, DateTime.UtcNow));
                 alerts++;
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -151,6 +152,7 @@ public class DealWatchlistService : IDealWatchlistService
             }
         }
 
+        await _repository.UpdatePricesAsync(priceUpdates, cancellationToken).ConfigureAwait(false);
         return alerts;
     }
 

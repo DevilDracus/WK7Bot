@@ -86,18 +86,28 @@ public class SpontanTreffExpiryService : BackgroundService
         var repository = scope.ServiceProvider.GetRequiredService<ISpontanTreffRepository>();
 
         var expired = await repository.GetExpiredAsync(now, stoppingToken);
+        if (expired.Count == 0)
+        {
+            return true;
+        }
+
+        // Close every expired meetup and fetch all responses in single round-trips.
+        await repository.CloseManyAsync(expired.Select(m => m.Id), stoppingToken).ConfigureAwait(false);
+        var responsesByMeetup = await repository.GetResponsesForManyAsync(expired.Select(m => m.Id), stoppingToken);
+        foreach (var meetup in expired)
+        {
+            meetup.Closed = true;
+        }
+
         var allClean = true;
         foreach (var meetup in expired)
         {
             stoppingToken.ThrowIfCancellationRequested();
 
-            await repository.CloseAsync(meetup.Id, stoppingToken).ConfigureAwait(false);
-            meetup.Closed = true;
-
             try
             {
-                var responses = await repository.GetResponsesAsync(meetup.Id, stoppingToken);
-                var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, responses, now);
+                responsesByMeetup.TryGetValue(meetup.Id, out var responses);
+                var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, responses ?? Array.Empty<SpontanTreffResponse>(), now);
                 await EditMeetupMessageAsync(meetup, embed, components).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)

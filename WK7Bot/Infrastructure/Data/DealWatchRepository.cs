@@ -75,4 +75,33 @@ public class DealWatchRepository : IDealWatchRepository
         existing.LastAlertedAt = lastAlertedAt;
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    /// <inheritdoc />
+    public async Task UpdatePricesAsync(IEnumerable<DealWatchPriceUpdate> updates, CancellationToken cancellationToken = default)
+    {
+        var updateList = updates.ToList();
+        if (updateList.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var ids = updateList.Select(u => u.Id).ToList();
+        var items = await context.DealWatchItems
+            .Where(w => ids.Contains(w.Id))
+            .ToListAsync(cancellationToken);
+
+        var updateById = updateList.ToDictionary(u => u.Id);
+        foreach (var item in items)
+        {
+            if (updateById.TryGetValue(item.Id, out var update))
+            {
+                item.LastKnownPrice = update.LastPrice;
+                item.LastKnownDiscount = update.LastDiscount;
+                item.LastAlertedAt = update.LastAlertedAt;
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

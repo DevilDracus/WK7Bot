@@ -96,6 +96,112 @@ public class WasteDispatchRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task FilterNotSentAsync_ReturnsAll_WhenNoneMarked()
+    {
+        var guildIds = new[] { 100ul, 200ul, 300ul };
+        var date = new DateTime(2026, 10, 5);
+
+        var notSent = await _repository.FilterNotSentAsync(guildIds, WasteDispatchKinds.DailyConfirmation, date);
+
+        Assert.Equal(guildIds.OrderBy(id => id), notSent.OrderBy(id => id));
+    }
+
+    [Fact]
+    public async Task FilterNotSentAsync_ReturnsOnlyUnmarked()
+    {
+        var guildIds = new[] { 100ul, 200ul, 300ul };
+        var date = new DateTime(2026, 10, 5);
+
+        await _repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 200, date);
+
+        var notSent = await _repository.FilterNotSentAsync(guildIds, WasteDispatchKinds.DailyConfirmation, date);
+
+        Assert.Equal(new[] { 100ul, 300ul }, notSent.OrderBy(id => id));
+    }
+
+    [Fact]
+    public async Task FilterNotSentAsync_ReturnsEmpty_WhenAllMarked()
+    {
+        var guildIds = new[] { 100ul, 200ul };
+        var date = new DateTime(2026, 10, 5);
+
+        await _repository.MarkSentManyAsync(guildIds, WasteDispatchKinds.DailyConfirmation, date);
+
+        var notSent = await _repository.FilterNotSentAsync(guildIds, WasteDispatchKinds.DailyConfirmation, date);
+
+        Assert.Empty(notSent);
+    }
+
+    [Fact]
+    public async Task FilterNotSentAsync_DistinguishesKinds()
+    {
+        var guildIds = new[] { 100ul };
+        var date = new DateTime(2026, 10, 5);
+
+        await _repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date);
+
+        var notSent = await _repository.FilterNotSentAsync(guildIds, WasteDispatchKinds.WeeklyOverview, date);
+
+        Assert.Equal(guildIds, notSent);
+    }
+
+    [Fact]
+    public async Task FilterNotSentAsync_DistinguishesDates()
+    {
+        var guildIds = new[] { 100ul };
+        var date = new DateTime(2026, 10, 5);
+
+        await _repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 100, date);
+
+        var notSent = await _repository.FilterNotSentAsync(guildIds, WasteDispatchKinds.DailyConfirmation, date.AddDays(1));
+
+        Assert.Equal(guildIds, notSent);
+    }
+
+    [Fact]
+    public async Task MarkSentManyAsync_InsertsMultipleRecords()
+    {
+        var guildIds = new[] { 100ul, 200ul, 300ul };
+        var date = new DateTime(2026, 10, 5);
+
+        await _repository.MarkSentManyAsync(guildIds, WasteDispatchKinds.DailyConfirmation, date);
+
+        foreach (var guildId in guildIds)
+        {
+            Assert.True(await _repository.HasSentAsync(WasteDispatchKinds.DailyConfirmation, guildId, date));
+        }
+
+        using var verifyWaste = _factory.CreateDbContext();
+        Assert.Equal(3, verifyWaste.WasteDispatchLogs.Count());
+    }
+
+    [Fact]
+    public async Task MarkSentManyAsync_IsIdempotent()
+    {
+        var guildIds = new[] { 100ul, 200ul };
+        var date = new DateTime(2026, 10, 5);
+
+        await _repository.MarkSentManyAsync(guildIds, WasteDispatchKinds.DailyConfirmation, date);
+        await _repository.MarkSentManyAsync(guildIds, WasteDispatchKinds.DailyConfirmation, date);
+
+        using var verifyWaste = _factory.CreateDbContext();
+        Assert.Equal(2, verifyWaste.WasteDispatchLogs.Count());
+    }
+
+    [Fact]
+    public async Task MarkSentManyAsync_SkipsAlreadySent()
+    {
+        var guildIds = new[] { 100ul, 200ul, 300ul };
+        var date = new DateTime(2026, 10, 5);
+
+        await _repository.MarkSentAsync(WasteDispatchKinds.DailyConfirmation, 200, date);
+        await _repository.MarkSentManyAsync(guildIds, WasteDispatchKinds.DailyConfirmation, date);
+
+        using var verifyWaste = _factory.CreateDbContext();
+        Assert.Equal(3, verifyWaste.WasteDispatchLogs.Count());
+    }
+
+    [Fact]
     public async Task SqliteStartupSequence_EnsureCreatedPlusRawSql_RoundTrips()
     {
         using var connection = new SqliteConnection("Data Source=:memory:");

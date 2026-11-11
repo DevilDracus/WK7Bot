@@ -114,11 +114,11 @@ public class PollenBackgroundService : BackgroundService
 
         var forecastJson = pollen is null ? "null" : JsonSerializer.Serialize(pollen, ForecastJsonOptions);
 
+        var lastByGuildId = await dispatchRepository.GetLastForGuildsAsync(guildIds, stoppingToken).ConfigureAwait(false);
         var pending = new List<ulong>();
         foreach (var guildId in guildIds)
         {
-            var last = await dispatchRepository.GetLastAsync(guildId, stoppingToken);
-            if (ShouldPost(last, now.Date, pollen))
+            if (ShouldPost(lastByGuildId[guildId], now.Date, pollen))
             {
                 pending.Add(guildId);
             }
@@ -129,6 +129,7 @@ public class PollenBackgroundService : BackgroundService
             return;
         }
 
+        var postedGuildIds = new List<ulong>();
         foreach (var guildId in pending)
         {
             var channel = await GetOrCreatePollenChannelAsync(guildId);
@@ -139,7 +140,14 @@ public class PollenBackgroundService : BackgroundService
             }
 
             await PostToPollenChannelAsync(channel, embed, stoppingToken).ConfigureAwait(false);
-            await dispatchRepository.UpsertAsync(guildId, now.Date, forecastJson, stoppingToken).ConfigureAwait(false);
+            postedGuildIds.Add(guildId);
+        }
+
+        if (postedGuildIds.Count > 0)
+        {
+            await dispatchRepository.UpsertManyAsync(
+                postedGuildIds.Select(guildId => (guildId, now.Date, forecastJson)),
+                stoppingToken).ConfigureAwait(false);
         }
     }
 

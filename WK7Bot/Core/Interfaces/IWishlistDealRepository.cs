@@ -32,6 +32,15 @@ public interface IWishlistDealRepository
     Task<bool> IsOnCooldownAsync(uint appId, TimeSpan cooldown, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Determines which of the specified games are currently on cooldown in a single round-trip.
+    /// </summary>
+    /// <param name="appIds">The Steam application identifiers.</param>
+    /// <param name="cooldown">The cooldown duration to check against.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>The set of application identifiers that have a recent alert history entry.</returns>
+    Task<IReadOnlySet<uint>> GetCooldownAppIdsAsync(IEnumerable<uint> appIds, TimeSpan cooldown, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Records that an alert was posted for the specified game.
     /// </summary>
     /// <param name="appId">The Steam application identifier.</param>
@@ -39,6 +48,14 @@ public interface IWishlistDealRepository
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task RecordAlertAsync(uint appId, bool isHistoricalLow, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Records that alerts were posted for multiple games in a single round-trip.
+    /// </summary>
+    /// <param name="alerts">Pairs of Steam application identifier and whether the alert was a historical low.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task RecordAlertsAsync(IEnumerable<(uint AppId, bool IsHistoricalLow)> alerts, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Removes alert history entries older than the specified retention period.

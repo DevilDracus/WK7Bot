@@ -78,6 +78,8 @@ public class ReminderBackgroundService : BackgroundService
         var repository = scope.ServiceProvider.GetRequiredService<IReminderRepository>();
 
         var due = await repository.GetDueAsync(DateTime.UtcNow, cancellationToken);
+        var deliveredIds = new List<int>();
+        var rescheduled = new List<(int Id, DateTime NewDueAt)>();
         foreach (var reminder in due)
         {
             try
@@ -107,14 +109,16 @@ public class ReminderBackgroundService : BackgroundService
             if (reminder.IsRecurring && reminder.RecurrenceTicks > 0)
             {
                 var nextDue = DateTime.UtcNow.AddTicks(reminder.RecurrenceTicks);
-                await repository.RescheduleAsync(reminder.Id, nextDue, cancellationToken).ConfigureAwait(false);
+                rescheduled.Add((reminder.Id, nextDue));
             }
             else
             {
-                await repository.MarkDeliveredAsync(reminder.Id, cancellationToken).ConfigureAwait(false);
+                deliveredIds.Add(reminder.Id);
             }
         }
 
+        await repository.MarkDeliveredManyAsync(deliveredIds, cancellationToken).ConfigureAwait(false);
+        await repository.RescheduleManyAsync(rescheduled, cancellationToken).ConfigureAwait(false);
         await repository.PruneDeliveredAsync(DateTime.UtcNow - DeliveredRetention, cancellationToken).ConfigureAwait(false);
         return due.Count;
     }

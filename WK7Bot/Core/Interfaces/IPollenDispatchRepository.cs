@@ -18,6 +18,14 @@ public interface IPollenDispatchRepository
     Task<PollenDispatchState?> GetLastAsync(ulong guildId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns the last persisted pollen dispatch state for multiple guilds in a single round-trip.
+    /// </summary>
+    /// <param name="guildIds">The target Discord guild IDs.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A dictionary mapping each guild identifier to its persisted state, or <see langword="null"/> when none exists.</returns>
+    Task<IReadOnlyDictionary<ulong, PollenDispatchState?>> GetLastForGuildsAsync(IEnumerable<ulong> guildIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Inserts or updates the persisted pollen dispatch state for the given guild. Idempotent.
     /// </summary>
     /// <param name="guildId">The target Discord guild ID.</param>
@@ -26,4 +34,12 @@ public interface IPollenDispatchRepository
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>A task representing the asynchronous storage operation.</returns>
     Task UpsertAsync(ulong guildId, DateTime lastPostedDate, string forecastJson, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inserts or updates the persisted pollen dispatch state for multiple guilds in a single round-trip. Idempotent.
+    /// </summary>
+    /// <param name="entries">Pairs of guild identifier, last posted date and serialized forecast.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous storage operation.</returns>
+    Task UpsertManyAsync(IEnumerable<(ulong GuildId, DateTime LastPostedDate, string ForecastJson)> entries, CancellationToken cancellationToken = default);
 }

@@ -102,6 +102,62 @@ public class ReleaseDateReminderRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateManyAsync_PersistsChangesForMultipleItems()
+    {
+        var first = new ReleaseDateReminderItem { DiscordUserId = 100, AppId = 1, Name = "A", ReleaseDate = new DateTime(2027, 1, 1) };
+        var second = new ReleaseDateReminderItem { DiscordUserId = 100, AppId = 2, Name = "B", ReleaseDate = new DateTime(2027, 2, 1) };
+        var third = new ReleaseDateReminderItem { DiscordUserId = 100, AppId = 3, Name = "C", ReleaseDate = new DateTime(2027, 3, 1) };
+        await _repository.AddAsync(first);
+        await _repository.AddAsync(second);
+        await _repository.AddAsync(third);
+
+        var updatedFirst = new ReleaseDateReminderItem
+        {
+            Id = first.Id,
+            DiscordUserId = first.DiscordUserId,
+            AppId = first.AppId,
+            Name = "A Updated",
+            ReleaseDate = new DateTime(2027, 1, 15),
+            IsTba = true,
+            LastNotifiedAt = new DateTime(2026, 11, 11)
+        };
+        var updatedSecond = new ReleaseDateReminderItem
+        {
+            Id = second.Id,
+            DiscordUserId = second.DiscordUserId,
+            AppId = second.AppId,
+            Name = "B Updated",
+            ReleaseDate = new DateTime(2027, 2, 15),
+            IsTba = false,
+            LastNotifiedAt = new DateTime(2026, 11, 12)
+        };
+
+        await _repository.UpdateManyAsync(new[] { updatedFirst, updatedSecond });
+
+        var stored = await _repository.GetForUserAsync(100);
+        var byAppId = stored.ToDictionary(i => i.AppId);
+        Assert.Equal("A Updated", byAppId[1].Name);
+        Assert.Equal(new DateTime(2027, 1, 15), byAppId[1].ReleaseDate);
+        Assert.True(byAppId[1].IsTba);
+        Assert.Equal(new DateTime(2026, 11, 11), byAppId[1].LastNotifiedAt);
+        Assert.Equal("B Updated", byAppId[2].Name);
+        Assert.Equal(new DateTime(2027, 2, 15), byAppId[2].ReleaseDate);
+        Assert.Equal("C", byAppId[3].Name);
+    }
+
+    [Fact]
+    public async Task UpdateManyAsync_WithEmptyInput_IsNoOp()
+    {
+        var item = new ReleaseDateReminderItem { DiscordUserId = 100, AppId = 1, Name = "A" };
+        await _repository.AddAsync(item);
+
+        await _repository.UpdateManyAsync(Array.Empty<ReleaseDateReminderItem>());
+
+        var stored = await _repository.GetForUserAsync(100);
+        Assert.Equal("A", Assert.Single(stored).Name);
+    }
+
+    [Fact]
     public async Task SqliteStartupSequence_EnsureCreatedPlusRawSql_RoundTrips()
     {
         using var connection = new SqliteConnection("Data Source=:memory:");

@@ -338,6 +338,9 @@ public class WishlistDealBackgroundService : BackgroundService
         {
             var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
 
+            var candidateAppIds = prices.Keys.Where(appId => usersByAppId.ContainsKey(appId)).ToList();
+            var cooldownAppIds = await repository.GetCooldownAppIdsAsync(candidateAppIds, AlertCooldown, cancellationToken).ConfigureAwait(false);
+
             foreach (var (appId, priceData) in prices)
             {
                 if (!usersByAppId.TryGetValue(appId, out var userIds))
@@ -345,7 +348,7 @@ public class WishlistDealBackgroundService : BackgroundService
                     continue;
                 }
 
-                if (await repository.IsOnCooldownAsync(appId, AlertCooldown, cancellationToken))
+                if (cooldownAppIds.Contains(appId))
                 {
                     continue;
                 }
@@ -413,11 +416,7 @@ public class WishlistDealBackgroundService : BackgroundService
         using (var scope = _scopeFactory.CreateScope())
         {
             var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();
-
-            foreach (var alert in alerts)
-            {
-                await repository.RecordAlertAsync(alert.AppId, alert.IsHistoricalLow, cancellationToken).ConfigureAwait(false);
-            }
+            await repository.RecordAlertsAsync(alerts.Select(a => (a.AppId, a.IsHistoricalLow)), cancellationToken).ConfigureAwait(false);
         }
     }
 

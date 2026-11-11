@@ -31,12 +31,24 @@ public interface IReminderRepository
     /// <returns>A task representing the asynchronous operation.</returns>
     Task MarkDeliveredAsync(int id, CancellationToken cancellationToken = default);
 
+    /// <summary>Marks multiple reminders as delivered in a single round-trip.</summary>
+    /// <param name="ids">The reminder identifiers.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task MarkDeliveredManyAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
+
     /// <summary>Reschedules a recurring reminder to its next due time without marking it delivered.</summary>
     /// <param name="id">The reminder identifier.</param>
     /// <param name="newDueAt">The next UTC due time.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task RescheduleAsync(int id, DateTime newDueAt, CancellationToken cancellationToken = default);
+
+    /// <summary>Reschedules multiple reminders in a single round-trip.</summary>
+    /// <param name="updates">Pairs of reminder identifier and new UTC due time.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task RescheduleManyAsync(IEnumerable<(int Id, DateTime NewDueAt)> updates, CancellationToken cancellationToken = default);
 
     /// <summary>Removes a pending reminder owned by the given user.</summary>
     /// <param name="id">The reminder identifier.</param>

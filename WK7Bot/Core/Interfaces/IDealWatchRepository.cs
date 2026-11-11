@@ -21,4 +21,16 @@ public interface IDealWatchRepository
 
     /// <summary>Updates the last observed price, discount and alert timestamp for an entry.</summary>
     Task UpdatePriceAsync(int id, decimal? lastPrice, int lastDiscount, DateTime? lastAlertedAt, CancellationToken cancellationToken = default);
+
+    /// <summary>Updates the last observed price, discount and alert timestamp for multiple entries in a single round-trip.</summary>
+    Task UpdatePricesAsync(IEnumerable<DealWatchPriceUpdate> updates, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// A single price update for a deal watchlist entry.
+/// </summary>
+/// <param name="Id">The deal watchlist entry identifier.</param>
+/// <param name="LastPrice">The last observed price.</param>
+/// <param name="LastDiscount">The last observed discount percentage.</param>
+/// <param name="LastAlertedAt">The UTC timestamp of the last alert, if any.</param>
+public readonly record struct DealWatchPriceUpdate(int Id, decimal? LastPrice, int LastDiscount, DateTime? LastAlertedAt);

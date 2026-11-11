@@ -239,6 +239,54 @@ public class SpontanTreffRepositoryTests : IDisposable
         await _repository.RemoveAsync(meetup.Id + 999);
     }
 
+    [Fact]
+    public async Task GetResponsesForManyAsync_ReturnsResponsesGroupedByMeetup()
+    {
+        var first = await _repository.AddAsync(NewMeetup());
+        var second = await _repository.AddAsync(NewMeetup());
+        var third = await _repository.AddAsync(NewMeetup());
+
+        await _repository.SetResponseAsync(new SpontanTreffResponse { MeetupId = first.Id, UserId = 11, Going = true, RespondedAt = new DateTime(2026, 10, 6, 18, 5, 0) });
+        await _repository.SetResponseAsync(new SpontanTreffResponse { MeetupId = first.Id, UserId = 12, Going = false, RespondedAt = new DateTime(2026, 10, 6, 18, 3, 0) });
+        await _repository.SetResponseAsync(new SpontanTreffResponse { MeetupId = second.Id, UserId = 13, Going = true, RespondedAt = new DateTime(2026, 10, 6, 18, 4, 0) });
+
+        var byMeetup = await _repository.GetResponsesForManyAsync(new[] { first.Id, second.Id, third.Id });
+
+        Assert.Equal(2, byMeetup.Count);
+        Assert.Equal(new ulong[] { 12, 11 }, byMeetup[first.Id].Select(r => r.UserId).ToArray());
+        Assert.Equal(new ulong[] { 13 }, byMeetup[second.Id].Select(r => r.UserId).ToArray());
+        Assert.False(byMeetup.ContainsKey(third.Id));
+    }
+
+    [Fact]
+    public async Task GetResponsesForManyAsync_WithEmptyInput_ReturnsEmptyDictionary()
+    {
+        var result = await _repository.GetResponsesForManyAsync(Array.Empty<int>());
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task CloseManyAsync_MarksOnlyProvidedMeetupsClosed()
+    {
+        var first = await _repository.AddAsync(NewMeetup(new DateTime(2026, 10, 6, 18, 0, 0)));
+        var second = await _repository.AddAsync(NewMeetup(new DateTime(2026, 10, 6, 18, 0, 0)));
+        var third = await _repository.AddAsync(NewMeetup(new DateTime(2026, 10, 6, 18, 0, 0)));
+
+        await _repository.CloseManyAsync(new[] { first.Id, second.Id });
+
+        Assert.True((await _repository.GetAsync(first.Id))!.Closed);
+        Assert.True((await _repository.GetAsync(second.Id))!.Closed);
+        Assert.False((await _repository.GetAsync(third.Id))!.Closed);
+    }
+
+    [Fact]
+    public async Task CloseManyAsync_WithEmptyInput_IsNoOp()
+    {
+        var meetup = await _repository.AddAsync(NewMeetup());
+        await _repository.CloseManyAsync(Array.Empty<int>());
+        Assert.False((await _repository.GetAsync(meetup.Id))!.Closed);
+    }
+
     private static async Task AssertRoundTripAsync(IDbContextFactory<BotDbContext> factory)
     {
         var repository = new SpontanTreffRepository(factory);

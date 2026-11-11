@@ -85,6 +85,98 @@ public class WarningDispatchRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task FilterNotSentAsync_ReturnsAll_WhenNoneMarked()
+    {
+        var guildIds = new[] { 100ul, 200ul, 300ul };
+
+        var notSent = await _repository.FilterNotSentAsync(guildIds, "warn-1");
+
+        Assert.Equal(guildIds.OrderBy(id => id), notSent.OrderBy(id => id));
+    }
+
+    [Fact]
+    public async Task FilterNotSentAsync_ReturnsOnlyUnmarked()
+    {
+        var guildIds = new[] { 100ul, 200ul, 300ul };
+        var sentAt = new DateTime(2026, 10, 6, 13, 0, 0);
+
+        await _repository.MarkSentAsync("warn-1", 200, sentAt);
+
+        var notSent = await _repository.FilterNotSentAsync(guildIds, "warn-1");
+
+        Assert.Equal(new[] { 100ul, 300ul }, notSent.OrderBy(id => id));
+    }
+
+    [Fact]
+    public async Task FilterNotSentAsync_ReturnsEmpty_WhenAllMarked()
+    {
+        var guildIds = new[] { 100ul, 200ul };
+        var sentAt = new DateTime(2026, 10, 6, 13, 0, 0);
+
+        await _repository.MarkSentManyAsync(guildIds, "warn-1", sentAt);
+
+        var notSent = await _repository.FilterNotSentAsync(guildIds, "warn-1");
+
+        Assert.Empty(notSent);
+    }
+
+    [Fact]
+    public async Task FilterNotSentAsync_DistinguishesWarnings()
+    {
+        var guildIds = new[] { 100ul };
+        var sentAt = new DateTime(2026, 10, 6, 13, 0, 0);
+
+        await _repository.MarkSentAsync("warn-1", 100, sentAt);
+
+        var notSent = await _repository.FilterNotSentAsync(guildIds, "warn-2");
+
+        Assert.Equal(guildIds, notSent);
+    }
+
+    [Fact]
+    public async Task MarkSentManyAsync_InsertsMultipleRecords()
+    {
+        var guildIds = new[] { 100ul, 200ul, 300ul };
+        var sentAt = new DateTime(2026, 10, 6, 13, 0, 0);
+
+        await _repository.MarkSentManyAsync(guildIds, "warn-1", sentAt);
+
+        foreach (var guildId in guildIds)
+        {
+            Assert.True(await _repository.HasSentAsync("warn-1", guildId));
+        }
+
+        using var verifyWarning = _factory.CreateDbContext();
+        Assert.Equal(3, verifyWarning.WarningDispatchLogs.Count());
+    }
+
+    [Fact]
+    public async Task MarkSentManyAsync_IsIdempotent()
+    {
+        var guildIds = new[] { 100ul, 200ul };
+        var sentAt = new DateTime(2026, 10, 6, 13, 0, 0);
+
+        await _repository.MarkSentManyAsync(guildIds, "warn-1", sentAt);
+        await _repository.MarkSentManyAsync(guildIds, "warn-1", sentAt);
+
+        using var verifyWarning = _factory.CreateDbContext();
+        Assert.Equal(2, verifyWarning.WarningDispatchLogs.Count());
+    }
+
+    [Fact]
+    public async Task MarkSentManyAsync_SkipsAlreadySent()
+    {
+        var guildIds = new[] { 100ul, 200ul, 300ul };
+        var sentAt = new DateTime(2026, 10, 6, 13, 0, 0);
+
+        await _repository.MarkSentAsync("warn-1", 200, sentAt);
+        await _repository.MarkSentManyAsync(guildIds, "warn-1", sentAt);
+
+        using var verifyWarning = _factory.CreateDbContext();
+        Assert.Equal(3, verifyWarning.WarningDispatchLogs.Count());
+    }
+
+    [Fact]
     public async Task PruneAsync_RemovesStaleRecords_AndKeepsRecentOnes()
     {
         var now = new DateTime(2026, 10, 6, 13, 0, 0);

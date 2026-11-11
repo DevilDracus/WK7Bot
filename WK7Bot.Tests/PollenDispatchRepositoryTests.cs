@@ -60,4 +60,49 @@ public class PollenDispatchRepositoryTests : IDisposable
     {
         Assert.Null(await _repository.GetLastAsync(999));
     }
+
+    [Fact]
+    public async Task UpsertManyAsync_InsertsMissing_AndUpdatesExisting()
+    {
+        var firstDate = new DateTime(2026, 10, 5);
+        var secondDate = new DateTime(2026, 10, 8);
+
+        await _repository.UpsertAsync(1, firstDate, "{\"forecast\":1}");
+
+        await _repository.UpsertManyAsync(new[]
+        {
+            (1ul, secondDate, "{\"forecast\":2}"),
+            (2ul, firstDate, "{\"forecast\":3}")
+        });
+
+        var stateOne = await _repository.GetLastAsync(1);
+        Assert.NotNull(stateOne);
+        Assert.Equal(secondDate.Date, stateOne!.LastPostedDate);
+        Assert.Equal("{\"forecast\":2}", stateOne.ForecastJson);
+
+        var stateTwo = await _repository.GetLastAsync(2);
+        Assert.NotNull(stateTwo);
+        Assert.Equal(firstDate.Date, stateTwo!.LastPostedDate);
+        Assert.Equal("{\"forecast\":3}", stateTwo.ForecastJson);
+    }
+
+    [Fact]
+    public async Task UpsertManyAsync_WithEmptyInput_IsNoOp()
+    {
+        await _repository.UpsertManyAsync(Array.Empty<(ulong, DateTime, string)>());
+
+        Assert.Null(await _repository.GetLastAsync(1));
+    }
+
+    [Fact]
+    public async Task UpsertManyAsync_HandlesNullForecastJson()
+    {
+        var date = new DateTime(2026, 10, 5);
+
+        await _repository.UpsertManyAsync(new[] { (1ul, date, (string?)null!) });
+
+        var state = await _repository.GetLastAsync(1);
+        Assert.NotNull(state);
+        Assert.Equal(string.Empty, state!.ForecastJson);
+    }
 }

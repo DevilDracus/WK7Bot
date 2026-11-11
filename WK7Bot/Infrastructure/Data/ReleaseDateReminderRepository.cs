@@ -68,4 +68,34 @@ public class ReleaseDateReminderRepository : IReleaseDateReminderRepository
         context.ReleaseDateReminderItems.Update(item);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    /// <inheritdoc />
+    public async Task UpdateManyAsync(IEnumerable<ReleaseDateReminderItem> items, CancellationToken cancellationToken = default)
+    {
+        var itemList = items.ToList();
+        if (itemList.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var ids = itemList.Select(i => i.Id).ToList();
+        var existing = await context.ReleaseDateReminderItems
+            .Where(r => ids.Contains(r.Id))
+            .ToListAsync(cancellationToken);
+
+        var itemById = itemList.ToDictionary(i => i.Id);
+        foreach (var reminder in existing)
+        {
+            if (itemById.TryGetValue(reminder.Id, out var updated))
+            {
+                reminder.Name = updated.Name;
+                reminder.ReleaseDate = updated.ReleaseDate;
+                reminder.IsTba = updated.IsTba;
+                reminder.LastNotifiedAt = updated.LastNotifiedAt;
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

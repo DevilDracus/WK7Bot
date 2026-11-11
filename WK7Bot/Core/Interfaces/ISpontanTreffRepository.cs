@@ -49,6 +49,14 @@ public interface ISpontanTreffRepository
     Task<IReadOnlyList<SpontanTreffResponse>> GetResponsesAsync(int meetupId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves all answers for multiple meetups in a single round-trip.
+    /// </summary>
+    /// <param name="meetupIds">The meetup identifiers.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A dictionary mapping each meetup identifier to its ordered answers.</returns>
+    Task<IReadOnlyDictionary<int, IReadOnlyList<SpontanTreffResponse>>> GetResponsesForManyAsync(IEnumerable<int> meetupIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves the answer a single user gave for a meetup.
     /// </summary>
     /// <param name="meetupId">The meetup identifier.</param>
@@ -78,6 +86,13 @@ public interface ISpontanTreffRepository
     /// <param name="meetupId">The meetup identifier.</param>
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     Task CloseAsync(int meetupId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Marks multiple meetups as closed in a single round-trip.
+    /// </summary>
+    /// <param name="meetupIds">The meetup identifiers.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    Task CloseManyAsync(IEnumerable<int> meetupIds, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves all meetups whose deadline has passed and that are not closed yet.

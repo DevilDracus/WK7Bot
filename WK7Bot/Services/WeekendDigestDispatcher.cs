@@ -50,14 +50,11 @@ public class WeekendDigestDispatcher
         IReadOnlyList<ulong> targetGuildIds,
         CancellationToken cancellationToken)
     {
-        var pendingGuildIds = new List<ulong>();
-        foreach (var guildId in targetGuildIds)
-        {
-            if (!await dispatchRepository.HasSentAsync(WeekendDigestBackgroundService.DispatchKind, guildId, thursday, cancellationToken))
-            {
-                pendingGuildIds.Add(guildId);
-            }
-        }
+        var pendingGuildIds = await dispatchRepository.FilterNotSentAsync(
+            targetGuildIds,
+            WeekendDigestBackgroundService.DispatchKind,
+            thursday,
+            cancellationToken).ConfigureAwait(false);
 
         if (pendingGuildIds.Count == 0)
         {
@@ -69,6 +66,7 @@ public class WeekendDigestDispatcher
         }
 
         int dispatchedCount = 0;
+        var postedGuildIds = new List<ulong>();
         foreach (var guildId in pendingGuildIds)
         {
             var channel = await GetOrCreateWeekendChannelAsync(guildId);
@@ -78,25 +76,52 @@ public class WeekendDigestDispatcher
                 continue;
             }
 
-            await PostToWeekendChannelAsync(channel, digest.Embed, digest.Poll).ConfigureAwait(false);
-            dispatchedCount++;
-
-            if (channel.Guild is not null)
+            try
             {
-                var now = DateTimeOffset.Now;
-                await _scheduledEventService.CreateAsync(
-                    channel.Guild,
-                    "Wochenend-Digest",
-                    "Die Wochenend-Tipps und die Abstimmung sind da.",
-                    channel.Name,
-                    now,
-                    now.AddHours(2),
-                    "weekend_digest");
-            }
+                await PostToWeekendChannelAsync(channel, digest.Embed, digest.Poll).ConfigureAwait(false);
 
-            // Record only after a successful send so a crash or failure retries this guild next attempt
-            // while guilds that already received the digest stay suppressed.
-            await dispatchRepository.MarkSentAsync(WeekendDigestBackgroundService.DispatchKind, guildId, thursday, cancellationToken).ConfigureAwait(false);
+                if (channel.Guild is not null)
+                {
+                    var now = DateTimeOffset.Now;
+                    await _scheduledEventService.CreateAsync(
+                        channel.Guild,
+                        "Wochenend-Digest",
+                        "Die Wochenend-Tipps und die Abstimmung sind da.",
+                        channel.Name,
+                        now,
+                        now.AddHours(2),
+                        "weekend_digest");
+                }
+
+                postedGuildIds.Add(guildId);
+                dispatchedCount++;
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Record the successful posts before rethrowing so a partial failure retries only the
+                // guilds that did not receive the digest.
+                if (postedGuildIds.Count > 0)
+                {
+                    await dispatchRepository.MarkSentManyAsync(
+                        postedGuildIds,
+                        WeekendDigestBackgroundService.DispatchKind,
+                        thursday,
+                        cancellationToken).ConfigureAwait(false);
+                }
+
+                throw;
+            }
+        }
+
+        // Record only after successful sends so a crash or failure retries those guilds next attempt
+        // while guilds that already received the digest stay suppressed.
+        if (postedGuildIds.Count > 0)
+        {
+            await dispatchRepository.MarkSentManyAsync(
+                postedGuildIds,
+                WeekendDigestBackgroundService.DispatchKind,
+                thursday,
+                cancellationToken).ConfigureAwait(false);
         }
 
         _logger.LogDebug(

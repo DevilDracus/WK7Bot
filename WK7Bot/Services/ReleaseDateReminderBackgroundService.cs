@@ -92,6 +92,7 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
 
         var now = DateTime.UtcNow;
         var notified = false;
+        var updatedReminders = new List<ReleaseDateReminderItem>();
 
         foreach (var reminder in reminders)
         {
@@ -107,7 +108,7 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
                 reminder.Name = string.IsNullOrWhiteSpace(details.Name) ? reminder.Name : details.Name;
                 reminder.IsTba = details.IsTba;
                 reminder.ReleaseDate = details.ReleaseDate;
-                await _repository.UpdateAsync(reminder, cancellationToken).ConfigureAwait(false);
+                updatedReminders.Add(reminder);
 
                 if (details.IsTba)
                 {
@@ -133,8 +134,10 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
                     continue;
                 }
 
-                await NotifyUserAsync(reminder, releaseDateUtc, cancellationToken).ConfigureAwait(false);
-                notified = true;
+                if (await NotifyUserAsync(reminder, releaseDateUtc, cancellationToken).ConfigureAwait(false))
+                {
+                    notified = true;
+                }
             }
             catch (Exception ex)
             {
@@ -142,19 +145,21 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
             }
         }
 
+        await _repository.UpdateManyAsync(updatedReminders, cancellationToken).ConfigureAwait(false);
+
         if (notified)
         {
             _logger.LogInformation("Sent release-date reminder notifications.");
         }
     }
 
-    private async Task NotifyUserAsync(ReleaseDateReminderItem reminder, DateTime releaseDateUtc, CancellationToken cancellationToken)
+    private async Task<bool> NotifyUserAsync(ReleaseDateReminderItem reminder, DateTime releaseDateUtc, CancellationToken cancellationToken)
     {
         var user = _discordClient.GetUser(reminder.DiscordUserId);
         if (user is null)
         {
             _logger.LogWarning("Could not resolve Discord user {UserId} for release reminder.", reminder.DiscordUserId);
-            return;
+            return false;
         }
 
         var daysUntil = (releaseDateUtc.Date - DateTime.UtcNow.Date).Days;
@@ -181,11 +186,12 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
             await dm.SendMessageAsync(embed: embed).ConfigureAwait(false);
 
             reminder.LastNotifiedAt = DateTime.UtcNow;
-            await _repository.UpdateAsync(reminder, cancellationToken).ConfigureAwait(false);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not send release-date reminder to user {UserId}.", reminder.DiscordUserId);
+            return false;
         }
     }
 }

@@ -100,6 +100,30 @@ public class SpontanTreffRepository : ISpontanTreffRepository
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyDictionary<int, IReadOnlyList<SpontanTreffResponse>>> GetResponsesForManyAsync(IEnumerable<int> meetupIds, CancellationToken cancellationToken = default)
+    {
+        var idSet = meetupIds.ToList();
+        if (idSet.Count == 0)
+        {
+            return new Dictionary<int, IReadOnlyList<SpontanTreffResponse>>();
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var responses = await context.SpontanTreffResponses.AsNoTracking()
+            .Where(r => idSet.Contains(r.MeetupId))
+            .ToListAsync(cancellationToken);
+
+        return responses
+            .GroupBy(r => r.MeetupId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<SpontanTreffResponse>)g
+                    .OrderBy(r => r.RespondedAt)
+                    .ThenBy(r => r.UserId)
+                    .ToList());
+    }
+
+    /// <inheritdoc/>
     public async Task<SpontanTreffResponse?> GetResponseAsync(int meetupId, ulong userId, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -172,6 +196,28 @@ public class SpontanTreffRepository : ISpontanTreffRepository
         }
 
         meetup.Closed = true;
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task CloseManyAsync(IEnumerable<int> meetupIds, CancellationToken cancellationToken = default)
+    {
+        var idSet = meetupIds.ToList();
+        if (idSet.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var meetups = await context.SpontanTreffs
+            .Where(m => idSet.Contains(m.Id) && !m.Closed)
+            .ToListAsync(cancellationToken);
+
+        foreach (var meetup in meetups)
+        {
+            meetup.Closed = true;
+        }
+
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 

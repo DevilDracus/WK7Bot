@@ -39,6 +39,14 @@ public interface IRssRepository
     Task UpdateFeedAsync(RssFeed feed, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Updates multiple RSS feed entities in a single round-trip.
+    /// </summary>
+    /// <param name="feeds">The modified feed entities.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task UpdateFeedsAsync(IEnumerable<RssFeed> feeds, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Removes an RSS feed entity by its unique identifier.
     /// </summary>
     /// <param name="id">The database identifier of the feed to remove.</param>

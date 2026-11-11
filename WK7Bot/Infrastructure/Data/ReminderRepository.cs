@@ -65,6 +65,29 @@ public class ReminderRepository : IReminderRepository
     }
 
     /// <inheritdoc />
+    public async Task MarkDeliveredManyAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.ToList();
+        if (idSet.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var deliveredAt = DateTime.UtcNow;
+        var reminders = await context.Reminders
+            .Where(r => idSet.Contains(r.Id))
+            .ToListAsync(cancellationToken);
+
+        foreach (var reminder in reminders)
+        {
+            reminder.DeliveredAt = deliveredAt;
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task RescheduleAsync(int id, DateTime newDueAt, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -76,6 +99,34 @@ public class ReminderRepository : IReminderRepository
 
         reminder.DueAt = newDueAt;
         reminder.DeliveredAt = null;
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task RescheduleManyAsync(IEnumerable<(int Id, DateTime NewDueAt)> updates, CancellationToken cancellationToken = default)
+    {
+        var updateList = updates.ToList();
+        if (updateList.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var ids = updateList.Select(u => u.Id).ToList();
+        var reminders = await context.Reminders
+            .Where(r => ids.Contains(r.Id))
+            .ToListAsync(cancellationToken);
+
+        var updateById = updateList.ToDictionary(u => u.Id, u => u.NewDueAt);
+        foreach (var reminder in reminders)
+        {
+            if (updateById.TryGetValue(reminder.Id, out var newDueAt))
+            {
+                reminder.DueAt = newDueAt;
+                reminder.DeliveredAt = null;
+            }
+        }
+
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
     /// <summary>

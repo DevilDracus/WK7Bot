@@ -60,6 +60,27 @@ public class WishlistDealRepository : IWishlistDealRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlySet<uint>> GetCooldownAppIdsAsync(IEnumerable<uint> appIds, TimeSpan cooldown, CancellationToken cancellationToken = default)
+    {
+        var appIdSet = appIds.ToList();
+        if (appIdSet.Count == 0)
+        {
+            return new HashSet<uint>();
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var cutoff = DateTime.UtcNow - cooldown;
+        var onCooldown = await context.WishlistAlertHistories
+            .AsNoTracking()
+            .Where(h => appIdSet.Contains(h.AppId) && h.AlertedAt >= cutoff)
+            .Select(h => h.AppId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return new HashSet<uint>(onCooldown);
+    }
+
+    /// <inheritdoc />
     public async Task RecordAlertAsync(uint appId, bool isHistoricalLow, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -69,6 +90,28 @@ public class WishlistDealRepository : IWishlistDealRepository
             AlertedAt = DateTime.UtcNow,
             WasHistoricalLow = isHistoricalLow
         });
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task RecordAlertsAsync(IEnumerable<(uint AppId, bool IsHistoricalLow)> alerts, CancellationToken cancellationToken = default)
+    {
+        var alertList = alerts.ToList();
+        if (alertList.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var now = DateTime.UtcNow;
+        await context.WishlistAlertHistories.AddRangeAsync(
+            alertList.Select(a => new WishlistAlertHistory
+            {
+                AppId = a.AppId,
+                AlertedAt = now,
+                WasHistoricalLow = a.IsHistoricalLow
+            }),
+            cancellationToken).ConfigureAwait(false);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 

@@ -12,7 +12,8 @@ namespace WK7Bot.Infrastructure.Data;
 /// <typeparam name="TEntity">The dispatch log entity type.</typeparam>
 public abstract class DispatchRepositoryBase<TEntity> where TEntity : class, new()
 {
-    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
+    /// <summary>The database context factory available to concrete dispatch repositories.</summary>
+    protected readonly IDbContextFactory<BotDbContext> _dbContextFactory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DispatchRepositoryBase{TEntity}" /> class.

@@ -17,6 +17,17 @@ public interface IWasteDispatchRepository
     Task<bool> HasSentAsync(string kind, ulong guildId, DateTime sentOn, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns the guild identifiers from <paramref name="guildIds"/> that have not yet received the
+    /// specified dispatch kind on the given date, evaluated in a single round-trip.
+    /// </summary>
+    /// <param name="guildIds">The target Discord guild IDs.</param>
+    /// <param name="kind">The dispatch kind (see <c>WasteDispatchKinds</c>).</param>
+    /// <param name="sentOn">The calendar date the message would be sent on.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>The guild identifiers that still need the dispatch.</returns>
+    Task<IReadOnlyList<ulong>> FilterNotSentAsync(IEnumerable<ulong> guildIds, string kind, DateTime sentOn, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Records that a dispatch of the given kind was sent to a guild on a specific date. Idempotent.
     /// </summary>
     /// <param name="kind">The dispatch kind (see <c>WasteDispatchKinds</c>).</param>
@@ -25,6 +36,16 @@ public interface IWasteDispatchRepository
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>A task representing the asynchronous storage operation.</returns>
     Task MarkSentAsync(string kind, ulong guildId, DateTime sentOn, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Records that a dispatch of the given kind was sent to multiple guilds on a specific date in a single round-trip. Idempotent.
+    /// </summary>
+    /// <param name="guildIds">The target Discord guild IDs.</param>
+    /// <param name="kind">The dispatch kind (see <c>WasteDispatchKinds</c>).</param>
+    /// <param name="sentOn">The calendar date the message was sent on.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous storage operation.</returns>
+    Task MarkSentManyAsync(IEnumerable<ulong> guildIds, string kind, DateTime sentOn, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Removes dispatch records older than the given retention window so the table stays bounded.

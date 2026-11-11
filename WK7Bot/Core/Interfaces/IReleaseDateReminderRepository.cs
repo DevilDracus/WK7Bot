@@ -21,4 +21,7 @@ public interface IReleaseDateReminderRepository
 
     /// <summary>Updates the release date and last-notification timestamp for an entry.</summary>
     Task UpdateAsync(ReleaseDateReminderItem item, CancellationToken cancellationToken = default);
+
+    /// <summary>Updates multiple release-date reminders in a single round-trip.</summary>
+    Task UpdateManyAsync(IEnumerable<ReleaseDateReminderItem> items, CancellationToken cancellationToken = default);
 }

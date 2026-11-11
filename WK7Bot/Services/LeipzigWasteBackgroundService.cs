@@ -175,14 +175,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
         await dispatchRepository.PruneAsync(DateTime.UtcNow.Date - DispatchRetention, cancellationToken).ConfigureAwait(false);
 
         var targetGuildIds = GetTargetGuildIds();
-        var pendingGuildIds = new List<ulong>();
-        foreach (var guildId in targetGuildIds)
-        {
-            if (!await dispatchRepository.HasSentAsync(kind, guildId, date, cancellationToken))
-            {
-                pendingGuildIds.Add(guildId);
-            }
-        }
+        var pendingGuildIds = await dispatchRepository.FilterNotSentAsync(targetGuildIds, kind, date, cancellationToken).ConfigureAwait(false);
 
         if (pendingGuildIds.Count == 0)
         {
@@ -200,7 +193,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
             return true;
         }
 
-        var deliveredAll = true;
+        var deliveredGuildIds = new List<ulong>();
         foreach (var guildId in pendingGuildIds)
         {
             var channel = await GetOrCreateWasteChannelAsync(guildId);
@@ -208,24 +201,41 @@ public class LeipzigWasteBackgroundService : BackgroundService
             {
                 // Not marked sent on purpose, but the day must stay open so the next tick retries.
                 _logger.LogWarning("Could not resolve or create the waste channel for guild {GuildId}; skipping.", guildId);
-                deliveredAll = false;
                 continue;
             }
 
-            await PostToWasteChannelAsync(channel, embed).ConfigureAwait(false);
+            try
+            {
+                await PostToWasteChannelAsync(channel, embed).ConfigureAwait(false);
+                deliveredGuildIds.Add(guildId);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Record the successful posts before rethrowing so a partial failure retries only the
+                // guilds that did not receive the message.
+                if (deliveredGuildIds.Count > 0)
+                {
+                    await dispatchRepository.MarkSentManyAsync(deliveredGuildIds, kind, date, cancellationToken).ConfigureAwait(false);
+                }
 
-            // Record only after a successful send so a crash or failure retries this guild next tick
-            // while guilds that already received the message stay suppressed.
-            await dispatchRepository.MarkSentAsync(kind, guildId, date, cancellationToken).ConfigureAwait(false);
+                throw;
+            }
+        }
+
+        // Record only after successful sends so a crash or failure retries those guilds next tick
+        // while guilds that already received the message stay suppressed.
+        if (deliveredGuildIds.Count > 0)
+        {
+            await dispatchRepository.MarkSentManyAsync(deliveredGuildIds, kind, date, cancellationToken).ConfigureAwait(false);
         }
 
         _logger.LogDebug(
             "Dispatched {Kind} for {Date} to {Count} guild(s).",
             kind,
             date,
-            pendingGuildIds.Count);
+            deliveredGuildIds.Count);
 
-        return deliveredAll;
+        return deliveredGuildIds.Count == pendingGuildIds.Count;
     }
 
     /// <summary>

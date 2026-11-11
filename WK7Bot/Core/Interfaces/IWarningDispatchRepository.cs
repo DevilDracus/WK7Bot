@@ -18,6 +18,16 @@ public interface IWarningDispatchRepository
     Task<bool> HasSentAsync(string warningId, ulong guildId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns the guild identifiers from <paramref name="guildIds"/> that have not yet received the
+    /// specified warning, evaluated in a single round-trip.
+    /// </summary>
+    /// <param name="guildIds">The target Discord guild IDs.</param>
+    /// <param name="warningId">The stable CAP warning identifier.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>The guild identifiers that still need the warning.</returns>
+    Task<IReadOnlyList<ulong>> FilterNotSentAsync(IEnumerable<ulong> guildIds, string warningId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Records that the warning with the given identifier was posted to a guild. Idempotent.
     /// </summary>
     /// <param name="warningId">The stable CAP warning identifier.</param>
@@ -26,6 +36,16 @@ public interface IWarningDispatchRepository
     /// <param name="cancellationToken">Cancellation token to observe.</param>
     /// <returns>A task representing the asynchronous storage operation.</returns>
     Task MarkSentAsync(string warningId, ulong guildId, DateTime sentAt, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Records that the warning with the given identifier was posted to multiple guilds in a single round-trip. Idempotent.
+    /// </summary>
+    /// <param name="guildIds">The target Discord guild IDs.</param>
+    /// <param name="warningId">The stable CAP warning identifier.</param>
+    /// <param name="sentAt">The local time the message was sent.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous storage operation.</returns>
+    Task MarkSentManyAsync(IEnumerable<ulong> guildIds, string warningId, DateTime sentAt, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Removes dispatch records older than the given cutoff so the table does not grow forever.

@@ -191,12 +191,10 @@ public class WeekendDigestBackgroundService : BackgroundService
                 "No weekend events found for the weekend after {Thursday:dd.MM.yyyy}; marking the digest as handled.",
                 thursday);
 
-            foreach (var guildId in targetGuildIds)
+            var pendingGuildIds = await dispatchRepository.FilterNotSentAsync(targetGuildIds, DispatchKind, thursday, cancellationToken).ConfigureAwait(false);
+            if (pendingGuildIds.Count > 0)
             {
-                if (!await dispatchRepository.HasSentAsync(DispatchKind, guildId, thursday, cancellationToken))
-                {
-                    await dispatchRepository.MarkSentAsync(DispatchKind, guildId, thursday, cancellationToken).ConfigureAwait(false);
-                }
+                await dispatchRepository.MarkSentManyAsync(pendingGuildIds, DispatchKind, thursday, cancellationToken).ConfigureAwait(false);
             }
 
             return;

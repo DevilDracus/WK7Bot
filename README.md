@@ -289,7 +289,7 @@ On Windows override `ConnectionStrings:DefaultConnection` to a writable path (e.
 dotnet test WK7Bot.sln
 ```
 
-**735 tests** cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite DDL replay for restart-safe dispatch, circuit breaker logic, feature gate resolution (including runtime overrides), DM-context module safety, command cooldowns and usage metrics, startup validation, reminder time parsing, DWD pollen/UV parsing, OPML import/export, Components V2 card structure, and all embed/poll/button builders. Last verified: 735 passed, 0 failed.
+**820 tests** cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite DDL replay for restart-safe dispatch, circuit breaker logic, feature gate resolution (including runtime overrides), DM-context module safety, command cooldowns and usage metrics, startup validation, reminder time parsing, DWD pollen/UV parsing, OPML import/export, Components V2 card structure, all embed/poll/button builders, and bulk dispatch-state helpers. Last verified: 820 passed, 0 failed.
 
 ## Stack
 

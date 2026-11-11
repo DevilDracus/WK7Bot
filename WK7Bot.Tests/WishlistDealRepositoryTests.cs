@@ -80,4 +80,45 @@ public class WishlistDealRepositoryTests : IDisposable
         await _repository.PruneAlertHistoryAsync(TimeSpan.FromMinutes(-1));
         Assert.False(await _repository.IsOnCooldownAsync(20, TimeSpan.FromHours(1)));
     }
+
+    [Fact]
+    public async Task GetCooldownAppIdsAsync_ReturnsOnlyIdsOnCooldown()
+    {
+        await _repository.RecordAlertAsync(10, true);
+        await _repository.RecordAlertAsync(11, false);
+
+        var onCooldown = await _repository.GetCooldownAppIdsAsync(new uint[] { 10, 11, 12 }, TimeSpan.FromHours(1));
+
+        Assert.Contains(10u, onCooldown);
+        Assert.Contains(11u, onCooldown);
+        Assert.DoesNotContain(12u, onCooldown);
+    }
+
+    [Fact]
+    public async Task GetCooldownAppIdsAsync_WithEmptyInput_ReturnsEmptySet()
+    {
+        var onCooldown = await _repository.GetCooldownAppIdsAsync(Array.Empty<uint>(), TimeSpan.FromHours(1));
+        Assert.Empty(onCooldown);
+    }
+
+    [Fact]
+    public async Task RecordAlertsAsync_RecordsMultipleAlertsInOneRoundTrip()
+    {
+        await _repository.RecordAlertsAsync(new[]
+        {
+            (30u, true),
+            (31u, false)
+        });
+
+        Assert.True(await _repository.IsOnCooldownAsync(30, TimeSpan.FromHours(1)));
+        Assert.True(await _repository.IsOnCooldownAsync(31, TimeSpan.FromHours(1)));
+    }
+
+    [Fact]
+    public async Task RecordAlertsAsync_WithEmptyInput_IsNoOp()
+    {
+        await _repository.RecordAlertsAsync(Array.Empty<(uint, bool)>());
+
+        Assert.False(await _repository.IsOnCooldownAsync(40, TimeSpan.FromHours(1)));
+    }
 }

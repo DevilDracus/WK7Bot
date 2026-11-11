@@ -82,6 +82,47 @@ public class RssRepository : IRssRepository
     }
 
     /// <summary>
+    /// Updates multiple RSS feed entities in a single round-trip.
+    /// </summary>
+    /// <param name="feeds">The modified feed entities.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task UpdateFeedsAsync(IEnumerable<RssFeed> feeds, CancellationToken cancellationToken = default)
+    {
+        var feedList = feeds.ToList();
+        if (feedList.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var ids = feedList.Select(f => f.Id).ToList();
+        var existing = await context.RssFeeds
+            .Where(f => ids.Contains(f.Id))
+            .ToListAsync(cancellationToken);
+
+        var feedById = feedList.ToDictionary(f => f.Id);
+        foreach (var entity in existing)
+        {
+            if (feedById.TryGetValue(entity.Id, out var updated))
+            {
+                entity.LastItemGuid = updated.LastItemGuid;
+                entity.LastPublishedDate = updated.LastPublishedDate;
+                entity.LastPolledAt = updated.LastPolledAt;
+                entity.IsPaused = updated.IsPaused;
+                entity.Name = updated.Name;
+                entity.NormalizedName = updated.NormalizedName;
+                entity.Url = updated.Url;
+                entity.ChannelId = updated.ChannelId;
+                entity.RoleId = updated.RoleId;
+                entity.RefreshIntervalMinutes = updated.RefreshIntervalMinutes;
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Removes an RSS feed entity by its unique identifier.
     /// </summary>
     /// <param name="id">The database identifier of the feed to remove.</param>
