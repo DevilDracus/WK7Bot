@@ -294,6 +294,17 @@ public sealed class WishlistDealService : IWishlistDealService
             return null;
         }
 
+        // Users requested free games and regular-priced games be excluded from deal alerts.
+        if (priceData.CurrentPrice <= 0)
+        {
+            return null; // Free game
+        }
+
+        if (priceData.RegularPrice > 0 && priceData.CurrentPrice >= priceData.RegularPrice)
+        {
+            return null; // No actual discount
+        }
+
         var resolvedTitle = string.IsNullOrWhiteSpace(priceData.Title) ? gameTitle : priceData.Title;
         var minDiscount = _options.DealMinDiscountPercent;
         var meetsThreshold = priceData.IsHistoricalLow || priceData.DiscountPercent >= minDiscount;

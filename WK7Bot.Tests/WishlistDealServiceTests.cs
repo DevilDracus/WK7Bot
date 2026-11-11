@@ -170,6 +170,65 @@ public class WishlistDealServiceTests
     }
 
     [Fact]
+    public void EvaluateAlert_ReturnsNull_WhenPriceIsFree()
+    {
+        var service = CreateService(new HttpClient(), minDiscount: 0);
+        var priceData = new ItadPriceData
+        {
+            CurrentPrice = 0m,
+            RegularPrice = 0m,
+            HistoricalLow = 0m,
+            StoreName = "Steam",
+            DealUrl = "https://example.com/deal"
+        };
+        var userIds = new List<ulong> { 111111111111111111 };
+
+        var result = service.EvaluateAlert(123, "Game", priceData, userIds);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void EvaluateAlert_ReturnsNull_WhenPriceEqualsRegular()
+    {
+        var service = CreateService(new HttpClient(), minDiscount: 0);
+        var priceData = new ItadPriceData
+        {
+            CurrentPrice = 20m,
+            RegularPrice = 20m,
+            HistoricalLow = 20m,
+            StoreName = "Steam",
+            DealUrl = "https://example.com/deal"
+        };
+        var userIds = new List<ulong> { 111111111111111111 };
+
+        var result = service.EvaluateAlert(123, "Game", priceData, userIds);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void EvaluateAlert_ReturnsAlert_WhenPriceIsBelowRegular()
+    {
+        var service = CreateService(new HttpClient(), minDiscount: 40);
+        var priceData = new ItadPriceData
+        {
+            CurrentPrice = 15m,
+            RegularPrice = 20m,
+            HistoricalLow = 20m,
+            StoreName = "Steam",
+            DealUrl = "https://example.com/deal"
+        };
+        var userIds = new List<ulong> { 111111111111111111 };
+
+        var result = service.EvaluateAlert(123, "Game", priceData, userIds);
+
+        Assert.NotNull(result);
+        Assert.Equal("Game", result!.GameTitle);
+        Assert.Equal(25, result.DiscountPercent);
+    }
+
+    [Fact]
     public void Constructor_Throws_WhenDependenciesAreNull()
     {
         Assert.Throws<ArgumentNullException>(() => new WishlistDealService(null!, Options.Create(new Wk7BotOptions()), NullLogger<WishlistDealService>.Instance));
