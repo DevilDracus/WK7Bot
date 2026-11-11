@@ -63,23 +63,7 @@ public static class OpenFoodFactsEmbedBuilder
         }
 
         var n = product.Nutriments;
-        var nutritionText = new StringBuilder();
-        if (n.EnergyKcal.HasValue)
-            nutritionText.AppendLine($"🔥 **Kalorien:** {n.EnergyKcal.Value:F0} kcal");
-        if (n.Proteins.HasValue)
-            nutritionText.AppendLine($"🥩 **Eiweiß:** {n.Proteins.Value:F1} g");
-        if (n.Carbohydrates.HasValue)
-            nutritionText.AppendLine($"🥤 **Kohlenhydrate:** {n.Carbohydrates.Value:F1} g");
-        if (n.Sugars.HasValue)
-            nutritionText.AppendLine($"🍬 **Zucker:** {n.Sugars.Value:F1} g");
-        if (n.Fat.HasValue)
-            nutritionText.AppendLine($"🧈 **Fett:** {n.Fat.Value:F1} g");
-        if (n.SaturatedFat.HasValue)
-            nutritionText.AppendLine($"🧅 **Gesättigte Fettsäuren:** {n.SaturatedFat.Value:F1} g");
-        if (n.Salt.HasValue)
-            nutritionText.AppendLine($"🧂 **Salz:** {n.Salt.Value:F2} g");
-        if (n.Fiber.HasValue)
-            nutritionText.AppendLine($"🌿 **Ballaststoffe:** {n.Fiber.Value:F1} g");
+        var nutritionText = BuildNutritionText(n);
 
         if (nutritionText.Length > 0)
         {
@@ -87,26 +71,7 @@ public static class OpenFoodFactsEmbedBuilder
         }
 
         // Renal safety assessment
-        var renalText = new StringBuilder();
-        var potassiumMg = n.Potassium.HasValue ? n.Potassium.Value * 1000 : (double?)null;
-        var phosphorusMg = n.Phosphorus.HasValue ? n.Phosphorus.Value * 1000 : (double?)null;
-        var sodiumMg = n.Sodium.HasValue ? n.Sodium.Value * 1000 : (double?)null;
-
-        if (potassiumMg.HasValue)
-        {
-            var status = potassiumMg.Value > PotassiumHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
-            renalText.AppendLine($"**Kalium:** {potassiumMg.Value:F0} mg — {status}");
-        }
-        if (phosphorusMg.HasValue)
-        {
-            var status = phosphorusMg.Value > PhosphorusHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
-            renalText.AppendLine($"**Phosphor:** {phosphorusMg.Value:F0} mg — {status}");
-        }
-        if (sodiumMg.HasValue)
-        {
-            var status = sodiumMg.Value > SodiumHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
-            renalText.AppendLine($"**Natrium:** {sodiumMg.Value:F0} mg — {status}");
-        }
+        var renalText = BuildRenalSafetyText(n);
 
         if (renalText.Length > 0)
         {
@@ -128,6 +93,57 @@ public static class OpenFoodFactsEmbedBuilder
         }
 
         return embed;
+    }
+
+    private static StringBuilder BuildNutritionText(OpenFoodFactsNutriments n)
+    {
+        var nutritionText = new StringBuilder();
+        if (n.EnergyKcal.HasValue)
+            nutritionText.AppendLine($"🔥 **Kalorien:** {n.EnergyKcal.Value:F0} kcal");
+        if (n.Proteins.HasValue)
+            nutritionText.AppendLine($"🥩 **Eiweiß:** {n.Proteins.Value:F1} g");
+        if (n.Carbohydrates.HasValue)
+            nutritionText.AppendLine($"🥤 **Kohlenhydrate:** {n.Carbohydrates.Value:F1} g");
+        if (n.Sugars.HasValue)
+            nutritionText.AppendLine($"🍬 **Zucker:** {n.Sugars.Value:F1} g");
+        if (n.Fat.HasValue)
+            nutritionText.AppendLine($"🧈 **Fett:** {n.Fat.Value:F1} g");
+        if (n.SaturatedFat.HasValue)
+            nutritionText.AppendLine($"🧅 **Gesättigte Fettsäuren:** {n.SaturatedFat.Value:F1} g");
+        if (n.Salt.HasValue)
+            nutritionText.AppendLine($"🧂 **Salz:** {n.Salt.Value:F2} g");
+        if (n.Fiber.HasValue)
+            nutritionText.AppendLine($"🌿 **Ballaststoffe:** {n.Fiber.Value:F1} g");
+
+        return nutritionText;
+    }
+
+    private static StringBuilder BuildRenalSafetyText(OpenFoodFactsNutriments n)
+    {
+        var renalText = new StringBuilder();
+
+        if (n.Potassium.HasValue)
+        {
+            var potassiumMg = n.Potassium.Value * 1000;
+            var status = potassiumMg > PotassiumHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
+            renalText.AppendLine($"**Kalium:** {potassiumMg:F0} mg — {status}");
+        }
+
+        if (n.Phosphorus.HasValue)
+        {
+            var phosphorusMg = n.Phosphorus.Value * 1000;
+            var status = phosphorusMg > PhosphorusHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
+            renalText.AppendLine($"**Phosphor:** {phosphorusMg:F0} mg — {status}");
+        }
+
+        if (n.Sodium.HasValue)
+        {
+            var sodiumMg = n.Sodium.Value * 1000;
+            var status = sodiumMg > SodiumHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
+            renalText.AppendLine($"**Natrium:** {sodiumMg:F0} mg — {status}");
+        }
+
+        return renalText;
     }
 
     /// <summary>

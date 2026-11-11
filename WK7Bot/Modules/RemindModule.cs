@@ -51,11 +51,34 @@ public class RemindModule : BotModuleBase
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
+        var (reminderText, dueAt, validationError) = await ParseAndValidateReminderAsync(text, wann, wiederholung).ConfigureAwait(false);
+
+        if (validationError is not null)
+        {
+            await FollowupAsync($"❌ {validationError}", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        var reminder = CreateReminderEntity(Context.User.Id, Context.Guild, Context.Channel, reminderText, dueAt, wiederholung);
+
+        if (!await StoreReminderAsync(reminder).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        await SendReminderConfirmationAsync(reminder, hier).ConfigureAwait(false);
+    }
+
+    private static async Task<(string ReminderText, DateTimeOffset DueAt, string? ValidationError)> ParseAndValidateReminderAsync(
+        string text,
+        string wann,
+        string? wiederholung)
+    {
         text = (text ?? string.Empty).Trim();
+
         if (text.Length == 0)
         {
-            await FollowupAsync("❌ Bitte gib an, woran erinnert werden soll.", ephemeral: true).ConfigureAwait(false);
-            return;
+            return (string.Empty, DateTimeOffset.UtcNow, "Bitte gib an, woran erinnert werden soll.");
         }
 
         if (text.Length > MaxReminderTextLength)
@@ -66,60 +89,84 @@ public class RemindModule : BotModuleBase
         var now = DateTime.UtcNow;
         if (!ReminderTimeParser.TryParse(wann, now, out var dueAt, out var error))
         {
-            await FollowupAsync($"❌ {error}", ephemeral: true).ConfigureAwait(false);
-            return;
+            return (text, DateTimeOffset.UtcNow, error);
         }
 
-        var isRecurring = false;
-        var recurrenceTicks = 0L;
-        if (!string.IsNullOrWhiteSpace(wiederholung))
-        {
-            if (!ReminderTimeParser.TryParseRecurrence(wiederholung, out var interval))
-            {
-                await FollowupAsync("❌ Die Wiederholung konnte nicht gelesen werden. Beispiele: `daily`, `weekly`, `1d`, `2h`.", ephemeral: true).ConfigureAwait(false);
-                return;
-            }
+        var (isRecurring, recurrenceTicks, recurrenceError) = await ParseRecurrenceAsync(wiederholung).ConfigureAwait(false);
 
-            isRecurring = true;
-            recurrenceTicks = interval.Ticks;
+        if (recurrenceError is not null)
+        {
+            return (text, dueAt, recurrenceError);
         }
 
-        var reminder = new Reminder
+        return (text, dueAt, null);
+    }
+
+    private static async Task<(bool IsRecurring, long RecurrenceTicks, string? Error)> ParseRecurrenceAsync(string? wiederholung)
+    {
+        if (string.IsNullOrWhiteSpace(wiederholung))
         {
-            DiscordUserId = Context.User.Id,
-            GuildId = Context.Guild?.Id ?? 0,
-            ChannelId = hier ? Context.Channel.Id : 0,
-            Text = text,
-            DueAt = dueAt.ToUniversalTime(),
+            return (false, 0L, null);
+        }
+
+        if (!ReminderTimeParser.TryParseRecurrence(wiederholung, out var interval))
+        {
+            return (false, 0L, "Die Wiederholung konnte nicht gelesen werden. Beispiele: `daily`, `weekly`, `1d`, `2h`.");
+        }
+
+        return (true, interval.Ticks, null);
+    }
+
+    private static Reminder CreateReminderEntity(
+        ulong userId,
+        dynamic guild,
+        dynamic channel,
+        string reminderText,
+        DateTimeOffset dueAt,
+        string? wiederholung)
+    {
+        var isRecurring = !string.IsNullOrWhiteSpace(wiederholung);
+        var recurrenceTicks = isRecurring ? ReminderTimeParser.TryParseRecurrence(wiederholung, out var interval) == true ? interval.Ticks : 0L : 0L;
+
+        return new Reminder
+        {
+            DiscordUserId = userId,
+            GuildId = Convert.ToUInt64(guild?.Id ?? 0),
+            ChannelId = Convert.ToUInt64(channel?.Id ?? 0),
+            Text = reminderText,
+            DueAt = dueAt.UtcDateTime,
             CreatedAt = DateTime.UtcNow,
             IsRecurring = isRecurring,
             RecurrenceTicks = recurrenceTicks
         };
+    }
 
+    private async Task<bool> StoreReminderAsync(Reminder reminder)
+    {
         try
         {
             await _repository.AddAsync(reminder).ConfigureAwait(false);
+            return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Could not store a reminder for user {UserId}.", Context.User.Id);
             await FollowupAsync("❌ Die Erinnerung konnte nicht gespeichert werden.", ephemeral: true).ConfigureAwait(false);
-            return;
+            return false;
         }
-
-        var unix = new DateTimeOffset(dueAt).ToUnixTimeSeconds();
-        var target = hier ? "in diesem Kanal" : "per DM";
-        var recurringNote = isRecurring ? " (wiederholt sich)" : string.Empty;
-        await FollowupAsync(
-            $"⏰ Erinnerung {target} gesetzt für <t:{unix}:f> (<t:{unix}:R>){recurringNote}:\n> {text}",
-            ephemeral: true);
     }
 
-    /// <summary>
-    /// Lists the invoking user's pending reminders.
-    /// </summary>
-    /// <returns>A task representing the command response operation.</returns>
-    [SlashCommand("reminders", "Zeigt deine offenen Erinnerungen.")]
+    private async Task SendReminderConfirmationAsync(Reminder reminder, bool hier)
+    {
+        var unix = new DateTimeOffset(reminder.DueAt, TimeSpan.Zero).ToUnixTimeSeconds();
+        var target = hier ? "in diesem Kanal" : "per DM";
+        var recurringNote = reminder.IsRecurring ? " (wiederholt sich)" : string.Empty;
+
+        await FollowupAsync(
+            $"⏰ Erinnerung {target} gesetzt für <t:{unix}:f> (<t:{unix}:R>){recurringNote}:\n> {reminder.Text}",
+            ephemeral: true).ConfigureAwait(false);
+    }
+
     public async Task ListAsync()
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);

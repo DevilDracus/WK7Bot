@@ -145,11 +145,31 @@ public static class WeekendDigestCurator
         var usedVenues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var preferredDays = new[] { weekendFriday, weekendFriday.AddDays(1), weekendFriday.AddDays(2) };
 
+        TryPickPreferredDays(picked, usedVenues, scored, count, weekendFriday, minimumFridayClose);
+        TryFillRemainingSuggestions(picked, scored, usedVenues, count);
+
+        return picked
+            .OrderBy(e => e.StartDate)
+            .ThenByDescending(Score)
+            .ThenBy(e => e.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static bool TryPickPreferredDays(
+        List<WeekendEvent> picked,
+        HashSet<string> usedVenues,
+        IReadOnlyList<(WeekendEvent Event, int Score)> scored,
+        int count,
+        DateTime weekendFriday,
+        TimeSpan minimumFridayClose)
+    {
+        var preferredDays = new[] { weekendFriday, weekendFriday.AddDays(1), weekendFriday.AddDays(2) };
+
         foreach (var day in preferredDays)
         {
             if (picked.Count >= count)
             {
-                break;
+                return true;
             }
 
             var candidate = scored.FirstOrDefault(x =>
@@ -165,11 +185,20 @@ public static class WeekendDigestCurator
             }
         }
 
+        return picked.Count >= count;
+    }
+
+    private static bool TryFillRemainingSuggestions(
+        List<WeekendEvent> picked,
+        IReadOnlyList<(WeekendEvent Event, int Score)> scored,
+        HashSet<string> usedVenues,
+        int count)
+    {
         foreach (var (candidate, _) in scored)
         {
             if (picked.Count >= count)
             {
-                break;
+                return true;
             }
 
             if (picked.Contains(candidate) || IsVenueUsed(candidate, usedVenues))
@@ -181,11 +210,7 @@ public static class WeekendDigestCurator
             picked.Add(candidate);
         }
 
-        return picked
-            .OrderBy(e => e.StartDate)
-            .ThenByDescending(Score)
-            .ThenBy(e => e.Title, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        return picked.Count >= count;
     }
 
     /// <summary>

@@ -43,6 +43,19 @@ public static class CardBuilder
         var fields = new List<string>();
         var tail = new List<IMessageComponentBuilder>();
 
+        BuildHead(head, budget, embed);
+        BuildFields(fields, embed);
+        BuildTail(tail, budget, embed);
+
+        var container = AssembleContainer(budget, head, fields, tail, embed);
+        return new ComponentBuilderV2().AddComponent(container).Build();
+    }
+
+    private static void BuildHead(
+        List<IMessageComponentBuilder> head,
+        TextBudget budget,
+        Embed embed)
+    {
         if (!string.IsNullOrWhiteSpace(embed.Title))
         {
             head.Add(Display(budget, $"# {embed.Title.Trim()}"));
@@ -54,7 +67,6 @@ public static class CardBuilder
 
         if (!string.IsNullOrWhiteSpace(description) && hasThumbnail)
         {
-            // A section pairs the description with the thumbnail as its accessory.
             head.Add(new SectionBuilder()
                 .AddComponent(Display(budget, description!))
                 .WithAccessory(new ThumbnailBuilder().WithMedia(new UnfurledMediaItemProperties(thumbnailUrl!))));
@@ -65,12 +77,14 @@ public static class CardBuilder
         }
         else if (hasThumbnail)
         {
-            // A thumbnail cannot be a direct container child, so it rides along in a section.
             head.Add(new SectionBuilder()
                 .AddComponent(Display(budget, "\u200b"))
                 .WithAccessory(new ThumbnailBuilder().WithMedia(new UnfurledMediaItemProperties(thumbnailUrl!))));
         }
+    }
 
+    private static void BuildFields(List<string> fields, Embed embed)
+    {
         foreach (var field in embed.Fields)
         {
             var text = string.IsNullOrWhiteSpace(field.Name)
@@ -82,7 +96,13 @@ public static class CardBuilder
                 fields.Add(text);
             }
         }
+    }
 
+    private static void BuildTail(
+        List<IMessageComponentBuilder> tail,
+        TextBudget budget,
+        Embed embed)
+    {
         if (embed.Image?.Url is { Length: > 0 } imageUrl)
         {
             tail.Add(new MediaGalleryBuilder().AddItem(imageUrl, null, false));
@@ -98,9 +118,16 @@ public static class CardBuilder
         {
             tail.Add(Display(budget, footer));
         }
+    }
 
+    private static ContainerBuilder AssembleContainer(
+        TextBudget budget,
+        List<IMessageComponentBuilder> head,
+        List<string> fields,
+        List<IMessageComponentBuilder> tail,
+        Embed embed)
+    {
         var container = new ContainerBuilder().WithAccentColor(embed.Color ?? DefaultAccent);
-
         foreach (var child in head)
         {
             container.AddComponent(child);
@@ -108,7 +135,6 @@ public static class CardBuilder
 
         if (fields.Count > 0)
         {
-            // Separate displays read better, but a container only holds 40 children.
             var asSeparateDisplays = head.Count + fields.Count + tail.Count <= MaxChildrenPerContainer;
             if (asSeparateDisplays)
             {
@@ -128,7 +154,7 @@ public static class CardBuilder
             container.AddComponent(child);
         }
 
-        return new ComponentBuilderV2().AddComponent(container).Build();
+        return container;
     }
 
     /// <summary>
