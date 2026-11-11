@@ -49,6 +49,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReminderRepository, ReminderRepository>();
         services.AddScoped<IBirthdayRepository, BirthdayRepository>();
         services.AddScoped<IVoiceStatsRepository, VoiceStatsRepository>();
+        services.AddScoped<ITriviaScoreRepository, TriviaScoreRepository>();
         return services;
     }
 

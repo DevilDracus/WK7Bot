@@ -73,6 +73,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateBirthdaysSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateVoiceSessionsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateTriviaScoresSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql, cancellationToken).ConfigureAwait(false);
 
@@ -472,6 +473,23 @@ public static class DatabaseSchemaInitializer
         );
         CREATE INDEX IF NOT EXISTS IX_VoiceSessions_DiscordUserId ON VoiceSessions (DiscordUserId);
         CREATE INDEX IF NOT EXISTS IX_VoiceSessions_GuildId ON VoiceSessions (GuildId);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the trivia score table.
+    /// </summary>
+    public const string CreateTriviaScoresSql =
+        """
+        CREATE TABLE IF NOT EXISTS TriviaScores (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId INTEGER NOT NULL,
+            GuildId       INTEGER NOT NULL,
+            Score         INTEGER NOT NULL DEFAULT 0,
+            WeekStart     TEXT    NOT NULL,
+            LastPlayedAt  TEXT    NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_TriviaScores_User_Guild_Week ON TriviaScores (DiscordUserId, GuildId, WeekStart);
+        CREATE INDEX IF NOT EXISTS IX_TriviaScores_Guild_Week ON TriviaScores (GuildId, WeekStart);
         """;
 
     /// <summary>

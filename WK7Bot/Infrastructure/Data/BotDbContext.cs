@@ -97,6 +97,9 @@ public class BotDbContext : DbContext
     /// <summary>Gets or sets the database set for voice-channel sessions.</summary>
     public DbSet<VoiceSession> VoiceSessions => Set<VoiceSession>();
 
+    /// <summary>Gets or sets the database set for trivia scores.</summary>
+    public DbSet<TriviaScore> TriviaScores => Set<TriviaScore>();
+
     /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
@@ -257,6 +260,14 @@ public class BotDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.DiscordUserId);
             entity.HasIndex(e => e.GuildId);
+        });
+
+        modelBuilder.Entity<TriviaScore>(entity =>
+        {
+            entity.ToTable("TriviaScores");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.GuildId, e.WeekStart });
+            entity.HasIndex(e => new { e.DiscordUserId, e.GuildId, e.WeekStart }).IsUnique();
         });
     }
 }
