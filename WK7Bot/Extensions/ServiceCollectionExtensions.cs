@@ -156,7 +156,10 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(45);
         }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
-            AutomaticDecompression = DecompressionMethods.All
+            AutomaticDecompression = DecompressionMethods.All,
+            // The HA add-on container may inherit a broken HTTP_PROXY; bypass it for DWD so the
+            // open-data feed is reached directly instead of stalling on a proxy.
+            UseProxy = false
         });
 
         // Shared resilience policy for DWD requests (retry + circuit breaker).

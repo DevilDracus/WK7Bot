@@ -58,7 +58,15 @@ public static class BackgroundServiceResilience
             {
                 consecutiveFailures++;
                 health.RecordFailure(featureKey, ex.Message);
-                logger.LogError(
+
+                // External timeouts / network cancellations are transient environmental failures
+                // (e.g. a container-to-host network stall) and are reported at Warning level so they
+                // do not flood the Discord error channel. Genuine failures stay at Error level.
+                var isTransientNetworkFailure = IsTransientNetworkFailure(ex);
+                var failureLevel = isTransientNetworkFailure ? LogLevel.Warning : LogLevel.Error;
+
+                logger.Log(
+                    failureLevel,
                     ex,
                     "Service {Feature} iteration failed ({ConsecutiveFailures}/{MaxFailures}).",
                     featureKey,
@@ -67,7 +75,8 @@ public static class BackgroundServiceResilience
 
                 if (consecutiveFailures >= maxConsecutiveFailures)
                 {
-                    logger.LogError(
+                    logger.Log(
+                        failureLevel,
                         "Service {Feature} has failed {MaxFailures} times consecutively. Pausing for {RestartDelay} before resuming.",
                         featureKey,
                         maxConsecutiveFailures,
@@ -97,5 +106,24 @@ public static class BackgroundServiceResilience
                 break;
             }
         }
+    }
+
+    /// <summary>
+    /// Determines whether the given exception represents an external network timeout or cancellation
+    /// (as opposed to a genuine, non-transient failure). Such failures are reported at Warning level
+    /// so they do not flood the Discord error channel.
+    /// </summary>
+    /// <param name="ex">The exception thrown by the iteration.</param>
+    /// <returns><see langword="true"/> when the exception is an external timeout or cancellation.</returns>
+    private static bool IsTransientNetworkFailure(Exception ex)
+    {
+        // Genuine shutdown cancellation is re-thrown above and never reaches here, so any
+        // TaskCanceledException here is an external timeout (e.g. HttpClient.Timeout).
+        if (ex is TaskCanceledException or TimeoutException)
+        {
+            return true;
+        }
+
+        return ex.InnerException is TaskCanceledException or TimeoutException;
     }
 }
