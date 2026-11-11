@@ -17,6 +17,13 @@ public static class PollenFeedParser
         "Hasel", "Erle", "Esche", "Birke", "Graeser", "Roggen", "Beifuss", "Ambrosia"
     };
 
+    private const int ExactRegionMatchScore = 2;
+    private const int SubstringRegionMatchScore = 1;
+    private const int ExactPartRegionMatchScore = 4;
+    private const int SubstringPartRegionMatchScore = 2;
+    private const int LegendLevelCount = 7;
+    private const int MissingLevelNumeric = -1;
+
     /// <summary>
     /// Parses the pollen feed and extracts the requested region.
     /// </summary>
@@ -42,6 +49,23 @@ public static class PollenFeedParser
             return null;
         }
 
+        var best = FindBestContent(content, regionName, partRegionName);
+
+        if (best is null || !best.Value.TryGetProperty("Pollen", out var pollen))
+        {
+            return null;
+        }
+
+        var types = BuildPollenTypes(pollen, legend);
+
+        var regionLabel = best.Value.TryGetProperty("region_name", out var rn) ? rn.GetString() ?? regionName : regionName;
+        var partLabel = best.Value.TryGetProperty("partregion_name", out var pn) ? pn.GetString() ?? partRegionName : partRegionName;
+
+        return new PollenForecast(regionLabel, partLabel, lastUpdate, types);
+    }
+
+    private static JsonElement? FindBestContent(JsonElement content, string regionName, string partRegionName)
+    {
         JsonElement? best = null;
         var bestScore = 0;
 
@@ -50,22 +74,7 @@ public static class PollenFeedParser
             var region = entry.TryGetProperty("region_name", out var r) ? r.GetString() ?? string.Empty : string.Empty;
             var part = entry.TryGetProperty("partregion_name", out var p) ? p.GetString() ?? string.Empty : string.Empty;
 
-            // An exact match must always beat a substring match: "Tiefland Sachsen" is a substring of
-            // "Tiefland Sachsen-Anhalt", so counting only substrings would pick the neighbouring state.
-            var score = 0;
-            if (!string.IsNullOrWhiteSpace(regionName))
-            {
-                score += region.Equals(regionName, StringComparison.OrdinalIgnoreCase) ? 2
-                    : region.Contains(regionName, StringComparison.OrdinalIgnoreCase) ? 1
-                    : 0;
-            }
-
-            if (!string.IsNullOrWhiteSpace(partRegionName))
-            {
-                score += part.Equals(partRegionName, StringComparison.OrdinalIgnoreCase) ? 4
-                    : part.Contains(partRegionName, StringComparison.OrdinalIgnoreCase) ? 2
-                    : 0;
-            }
+            var score = ScoreRegion(region, regionName) + ScorePart(part, partRegionName);
 
             if (score > bestScore)
             {
@@ -74,12 +83,37 @@ public static class PollenFeedParser
             }
         }
 
-        if (best is null || !best.Value.TryGetProperty("Pollen", out var pollen))
+        return best;
+    }
+
+    private static int ScoreRegion(string region, string? regionName)
+    {
+        if (string.IsNullOrWhiteSpace(regionName))
         {
-            return null;
+            return 0;
         }
 
+        return region.Equals(regionName, StringComparison.OrdinalIgnoreCase) ? 2
+            : region.Contains(regionName, StringComparison.OrdinalIgnoreCase) ? 1
+            : 0;
+    }
+
+    private static int ScorePart(string part, string? partRegionName)
+    {
+        if (string.IsNullOrWhiteSpace(partRegionName))
+        {
+            return 0;
+        }
+
+        return part.Equals(partRegionName, StringComparison.OrdinalIgnoreCase) ? 4
+            : part.Contains(partRegionName, StringComparison.OrdinalIgnoreCase) ? 2
+            : 0;
+    }
+
+    private static List<PollenTypeForecast> BuildPollenTypes(JsonElement pollen, Dictionary<string, string> legend)
+    {
         var types = new List<PollenTypeForecast>();
+
         foreach (var typeName in PollenTypes)
         {
             if (!pollen.TryGetProperty(typeName, out var levels))
@@ -94,10 +128,7 @@ public static class PollenFeedParser
                 ParseLevel(levels, "dayafter_to", legend)));
         }
 
-        var regionLabel = best.Value.TryGetProperty("region_name", out var rn) ? rn.GetString() ?? regionName : regionName;
-        var partLabel = best.Value.TryGetProperty("partregion_name", out var pn) ? pn.GetString() ?? partRegionName : partRegionName;
-
-        return new PollenForecast(regionLabel, partLabel, lastUpdate, types);
+        return types;
     }
 
     /// <summary>
@@ -158,7 +189,7 @@ public static class PollenFeedParser
             return legend;
         }
 
-        for (var i = 1; i <= 7; i++)
+        for (var i = 1; i <= LegendLevelCount; i++)
         {
             if (legendElement.TryGetProperty($"id{i}", out var key) && legendElement.TryGetProperty($"id{i}_desc", out var description))
             {
@@ -185,7 +216,7 @@ public static class PollenFeedParser
 
         if (raw.Length == 0)
         {
-            return new PollenLevel("-1", -1, "keine Daten");
+            return new PollenLevel("-1", MissingLevelNumeric, "keine Daten");
         }
 
         var description = legend.TryGetValue(raw, out var text) ? text : raw;
@@ -199,7 +230,7 @@ public static class PollenFeedParser
     {
         if (raw.StartsWith('-'))
         {
-            return -1;
+            return MissingLevelNumeric;
         }
 
         var parts = raw.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -212,7 +243,7 @@ public static class PollenFeedParser
             }
         }
 
-        return values.Count == 0 ? -1 : values.Average();
+        return values.Count == 0 ? MissingLevelNumeric : values.Average();
     }
 
     /// <summary>Reads an integer property, defaulting to 0.</summary>

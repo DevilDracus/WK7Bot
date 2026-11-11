@@ -12,6 +12,18 @@ using System.Net.Http;
 /// </summary>
 public static class HttpRetry
 {
+    /// <summary>Default number of retry attempts for the simplified overload.</summary>
+    public const int DefaultMaxAttempts = 3;
+
+    /// <summary>Minimum sensible attempt count; anything lower is normalized to this.</summary>
+    private const int MinAttempts = 1;
+
+    /// <summary>Base multiplier for the default linear backoff (milliseconds per attempt).</summary>
+    private const int LinearBackoffBaseMilliseconds = 500;
+
+    /// <summary>Base raised to the attempt number for the default exponential backoff.</summary>
+    private const double ExponentialBackoffBase = 2;
+
     /// <summary>
     /// Default transient response predicate: retries on HTTP 5xx and 429 Too Many Requests.
     /// </summary>
@@ -29,13 +41,14 @@ public static class HttpRetry
     /// Default exponential backoff: 2s, 4s, 8s, ...
     /// </summary>
     public static TimeSpan ExponentialBackoff(int attempt) =>
-        TimeSpan.FromSeconds(Math.Pow(2, attempt));
+        TimeSpan.FromSeconds(Math.Pow(ExponentialBackoffBase, attempt));
 
     /// <summary>
     /// Default linear backoff: 500ms, 1s, 1.5s, ...
     /// </summary>
     public static TimeSpan LinearBackoff(int attempt) =>
-        TimeSpan.FromMilliseconds(500 * attempt);
+        TimeSpan.FromMilliseconds(LinearBackoffBaseMilliseconds * attempt);
+
     /// <summary>
     /// Executes <paramref name="sendFactory" /> with a sensible default retry policy: retries on HTTP 5xx,
     /// 429 Too Many Requests, and transient exceptions (HttpRequestException, TimeoutException,
@@ -47,7 +60,7 @@ public static class HttpRetry
     /// <returns>The final HTTP response (caller owns disposal).</returns>
     public static Task<HttpResponseMessage> ExecuteAsync(
         Func<Task<HttpResponseMessage>> sendFactory,
-        int maxAttempts = 3,
+        int maxAttempts = DefaultMaxAttempts,
         CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(
@@ -83,51 +96,24 @@ public static class HttpRetry
         ArgumentNullException.ThrowIfNull(isTransientResponse);
         ArgumentNullException.ThrowIfNull(delayForAttempt);
 
-        if (maxAttempts < 1)
+        if (maxAttempts < MinAttempts)
         {
-            maxAttempts = 1;
+            maxAttempts = MinAttempts;
         }
-
-        HttpResponseMessage? response = null;
-        Exception? lastException = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            try
-            {
-                response = await sendFactory().ConfigureAwait(false);
-                lastException = null;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex) when (isTransientException is not null && isTransientException(ex) && attempt < maxAttempts)
-            {
-                lastException = ex;
-                var delay = delayForAttempt(attempt);
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-                continue;
-            }
+            var (response, lastException) = await TrySendAsync(sendFactory, cancellationToken).ConfigureAwait(false);
 
             if (response is not null && isTransientResponse(response) && attempt < maxAttempts)
             {
-                TimeSpan extra = TimeSpan.Zero;
-                if (extraDelay is not null)
-                {
-                    extra = extraDelay(response);
-                }
+                await DelayForResponseAsync(response, attempt, delayForAttempt, extraDelay, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
 
-                response.Dispose();
-
-                var delay = delayForAttempt(attempt);
-                if (extra > TimeSpan.Zero)
-                {
-                    delay += extra;
-                }
-
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-                response = null;
+            if (lastException is not null && isTransientException is not null && isTransientException(lastException) && attempt < maxAttempts)
+            {
+                await DelayForExceptionAsync(lastException, attempt, delayForAttempt, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
@@ -135,6 +121,59 @@ public static class HttpRetry
             return response ?? throw lastException ?? new InvalidOperationException("No response received.");
         }
 
-        return response ?? throw lastException ?? new InvalidOperationException("No response received.");
+        throw new InvalidOperationException("No response received.");
+    }
+
+    private static async Task<(HttpResponseMessage? Response, Exception? Exception)> TrySendAsync(
+        Func<Task<HttpResponseMessage>> sendFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return (await sendFactory().ConfigureAwait(false), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return (null, ex);
+        }
+    }
+
+    private static async Task DelayForResponseAsync(
+        HttpResponseMessage response,
+        int attempt,
+        Func<int, TimeSpan> delayForAttempt,
+        Func<HttpResponseMessage, TimeSpan>? extraDelay,
+        CancellationToken cancellationToken)
+    {
+        using (response)
+        {
+            var delay = delayForAttempt(attempt);
+            if (extraDelay is not null)
+            {
+                delay += extraDelay(response);
+            }
+
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static async Task DelayForExceptionAsync(
+        Exception ex,
+        int attempt,
+        Func<int, TimeSpan> delayForAttempt,
+        CancellationToken cancellationToken)
+    {
+        var delay = delayForAttempt(attempt);
+        if (delay > TimeSpan.Zero)
+        {
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+        }
     }
 }
