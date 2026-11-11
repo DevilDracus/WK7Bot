@@ -22,27 +22,37 @@ public class TriviaScoreRepository : ITriviaScoreRepository
     public async Task IncrementAsync(ulong discordUserId, ulong guildId, DateTime weekStart, int points, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var score = await context.Set<TriviaScore>()
-            .FirstOrDefaultAsync(s => s.DiscordUserId == discordUserId && s.GuildId == guildId && s.WeekStart == weekStart, cancellationToken);
-
-        if (score is null)
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            context.Set<TriviaScore>().Add(new TriviaScore
+            var score = await context.Set<TriviaScore>()
+                .FirstOrDefaultAsync(s => s.DiscordUserId == discordUserId && s.GuildId == guildId && s.WeekStart == weekStart, cancellationToken);
+
+            if (score is null)
             {
-                DiscordUserId = discordUserId,
-                GuildId = guildId,
-                WeekStart = weekStart,
-                Score = points,
-                LastPlayedAt = DateTime.UtcNow
-            });
-        }
-        else
-        {
-            score.Score += points;
-            score.LastPlayedAt = DateTime.UtcNow;
-        }
+                context.Set<TriviaScore>().Add(new TriviaScore
+                {
+                    DiscordUserId = discordUserId,
+                    GuildId = guildId,
+                    WeekStart = weekStart,
+                    Score = points,
+                    LastPlayedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                score.Score += points;
+                score.LastPlayedAt = DateTime.UtcNow;
+            }
 
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <inheritdoc />

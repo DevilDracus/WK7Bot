@@ -15,6 +15,7 @@ public class RssRepositoryTests : IDisposable
     {
         var options = new DbContextOptionsBuilder<BotDbContext>()
             .UseInMemoryDatabase(databaseName: $"rss-tests-{Guid.NewGuid()}")
+            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         _factory = new PooledDbContextFactory<BotDbContext>(options);

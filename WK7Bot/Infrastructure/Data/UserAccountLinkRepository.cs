@@ -48,24 +48,34 @@ public class UserAccountLinkRepository : IUserAccountLinkRepository
     public async Task UpsertAsync(UserAccountLink link, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var existing = await context.UserAccountLinks
-            .FirstOrDefaultAsync(l => l.DiscordUserId == link.DiscordUserId && l.Provider == link.Provider, cancellationToken);
-
-        if (existing is null)
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            context.UserAccountLinks.Add(link);
-        }
-        else
-        {
-            existing.ExternalId = link.ExternalId;
-            existing.DisplayName = link.DisplayName;
-            existing.RefreshToken = link.RefreshToken;
-            existing.Region = link.Region;
-            existing.WishlistUrl = link.WishlistUrl;
-            existing.LinkedAt = link.LinkedAt;
-        }
+            var existing = await context.UserAccountLinks
+                .FirstOrDefaultAsync(l => l.DiscordUserId == link.DiscordUserId && l.Provider == link.Provider, cancellationToken);
 
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            if (existing is null)
+            {
+                context.UserAccountLinks.Add(link);
+            }
+            else
+            {
+                existing.ExternalId = link.ExternalId;
+                existing.DisplayName = link.DisplayName;
+                existing.RefreshToken = link.RefreshToken;
+                existing.Region = link.Region;
+                existing.WishlistUrl = link.WishlistUrl;
+                existing.LinkedAt = link.LinkedAt;
+            }
+
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <inheritdoc />

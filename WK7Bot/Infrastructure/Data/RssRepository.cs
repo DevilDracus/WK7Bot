@@ -108,20 +108,30 @@ public class RssRepository : IRssRepository
     public async Task SaveDashboardLocationAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var setting = await context.RssDashboardSettings.FirstOrDefaultAsync(cancellationToken);
-        if (setting == null)
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            setting = new RssDashboardSetting { ChannelId = channelId, MessageId = messageId };
-            await context.RssDashboardSettings.AddAsync(setting, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            setting.ChannelId = channelId;
-            setting.MessageId = messageId;
-            context.RssDashboardSettings.Update(setting);
-        }
+            var setting = await context.RssDashboardSettings.FirstOrDefaultAsync(cancellationToken);
+            if (setting == null)
+            {
+                setting = new RssDashboardSetting { ChannelId = channelId, MessageId = messageId };
+                await context.RssDashboardSettings.AddAsync(setting, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                setting.ChannelId = channelId;
+                setting.MessageId = messageId;
+                context.RssDashboardSettings.Update(setting);
+            }
 
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <summary>

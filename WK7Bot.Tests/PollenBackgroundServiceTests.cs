@@ -86,9 +86,11 @@ public class PollenBackgroundServiceTests
             var services = new ServiceCollection();
             services.AddLogging();
             services.AddDbContext<BotDbContext>(options =>
-                options.UseInMemoryDatabase(databaseName: dbName));
+                options.UseInMemoryDatabase(databaseName: dbName)
+                    .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning)));
             services.AddDbContextFactory<BotDbContext>(options =>
-                options.UseInMemoryDatabase(databaseName: dbName));
+                options.UseInMemoryDatabase(databaseName: dbName)
+                    .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning)));
             services.AddScoped<IPollenDispatchRepository, PollenDispatchRepository>();
             Provider = services.BuildServiceProvider();
         }

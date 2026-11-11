@@ -34,28 +34,37 @@ public class PollenDispatchRepository : IPollenDispatchRepository
     public async Task UpsertAsync(ulong guildId, DateTime lastPostedDate, string forecastJson, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-
-        var existing = await context.PollenDispatchStates
-            .FirstOrDefaultAsync(state => state.GuildId == guildId, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (existing is null)
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            await context.PollenDispatchStates.AddAsync(
-                new PollenDispatchState
-                {
-                    GuildId = guildId,
-                    LastPostedDate = lastPostedDate.Date,
-                    ForecastJson = forecastJson ?? string.Empty
-                },
-                cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            existing.LastPostedDate = lastPostedDate.Date;
-            existing.ForecastJson = forecastJson ?? string.Empty;
-        }
+            var existing = await context.PollenDispatchStates
+                .FirstOrDefaultAsync(state => state.GuildId == guildId, cancellationToken)
+                .ConfigureAwait(false);
 
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            if (existing is null)
+            {
+                await context.PollenDispatchStates.AddAsync(
+                    new PollenDispatchState
+                    {
+                        GuildId = guildId,
+                        LastPostedDate = lastPostedDate.Date,
+                        ForecastJson = forecastJson ?? string.Empty
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                existing.LastPostedDate = lastPostedDate.Date;
+                existing.ForecastJson = forecastJson ?? string.Empty;
+            }
+
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            throw;
+        }
     }
 }

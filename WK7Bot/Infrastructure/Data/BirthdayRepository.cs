@@ -24,21 +24,31 @@ public class BirthdayRepository : IBirthdayRepository
         ArgumentNullException.ThrowIfNull(birthday);
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var existing = await context.Birthdays
-            .FirstOrDefaultAsync(b => b.DiscordUserId == birthday.DiscordUserId, cancellationToken);
-
-        if (existing is null)
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            context.Birthdays.Add(birthday);
-        }
-        else
-        {
-            existing.Month = birthday.Month;
-            existing.Day = birthday.Day;
-            existing.GuildId = birthday.GuildId;
-        }
+            var existing = await context.Birthdays
+                .FirstOrDefaultAsync(b => b.DiscordUserId == birthday.DiscordUserId, cancellationToken);
 
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            if (existing is null)
+            {
+                context.Birthdays.Add(birthday);
+            }
+            else
+            {
+                existing.Month = birthday.Month;
+                existing.Day = birthday.Day;
+                existing.GuildId = birthday.GuildId;
+            }
+
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <inheritdoc />
