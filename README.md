@@ -73,6 +73,9 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `/wishlist-add-appid <appid> [name]` | Add a Steam AppID to your manual wishlist | everyone |
 | `/wishlist-remove-appid <appid>` | Remove a Steam AppID from your manual wishlist | everyone |
 | `/wishlist-list-appid` | List your manual Steam AppID wishlist | everyone |
+| `/release-remind <game>` | Get notified before a game releases | everyone |
+| `/release-unremind <appid>` | Remove a release reminder | everyone |
+| `/release-list` | List your release reminders | everyone |
 | `/link-steam <steam>` | Link a Steam account from SteamID64 or profile URL | everyone |
 | `/link-battlenet <refresh_token> [region] [battle_tag]` | Link a Battle.net account | everyone |
 | `/link-status` | Show your linked accounts | everyone |

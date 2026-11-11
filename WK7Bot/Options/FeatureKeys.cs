@@ -67,6 +67,9 @@ public static class FeatureKeys
     /// <summary>Key of the birthday announcement feature.</summary>
     public const string Birthdays = "birthday_enabled";
 
+    /// <summary>Key of the game release-date reminder feature.</summary>
+    public const string ReleaseDateReminders = "release_date_reminders_enabled";
+
     /// <summary>
     /// Every known feature key. Used by the runtime <c>/config feature</c> command to validate input
     /// and to render the current state of all switches.
@@ -92,7 +95,8 @@ public static class FeatureKeys
         DiscordEvents,
         PollenAlerts,
         Reminders,
-        Birthdays
+        Birthdays,
+        ReleaseDateReminders
     };
 
     /// <summary>

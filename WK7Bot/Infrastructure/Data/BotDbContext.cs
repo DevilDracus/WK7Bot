@@ -87,6 +87,11 @@ public class BotDbContext : DbContext
     public DbSet<ManualWishlistItem> ManualWishlistItems => Set<ManualWishlistItem>();
 
     /// <summary>
+    /// Gets or sets the database set for per-user game release-date reminders.
+    /// </summary>
+    public DbSet<ReleaseDateReminderItem> ReleaseDateReminderItems => Set<ReleaseDateReminderItem>();
+
+    /// <summary>
     /// Gets or sets the database set for Discord guild scheduled events created by the bot.
     /// </summary>
     public DbSet<DiscordScheduledEvent> DiscordScheduledEvents => Set<DiscordScheduledEvent>();
@@ -234,6 +239,14 @@ public class BotDbContext : DbContext
         modelBuilder.Entity<ManualWishlistItem>(entity =>
         {
             entity.ToTable("ManualWishlistItems");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.DiscordUserId, e.AppId }).IsUnique();
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<ReleaseDateReminderItem>(entity =>
+        {
+            entity.ToTable("ReleaseDateReminderItems");
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.DiscordUserId, e.AppId }).IsUnique();
             entity.Property(e => e.Name).IsRequired().HasMaxLength(300);

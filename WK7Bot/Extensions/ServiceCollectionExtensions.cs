@@ -45,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserAccountLinkRepository, UserAccountLinkRepository>();
         services.AddScoped<IDealWatchRepository, DealWatchRepository>();
         services.AddScoped<IManualWishlistRepository, ManualWishlistRepository>();
+        services.AddScoped<IReleaseDateReminderRepository, ReleaseDateReminderRepository>();
         services.AddScoped<IAccountLinkResolver, AccountLinkResolver>();
         services.AddScoped<IDiscordScheduledEventRepository, DiscordScheduledEventRepository>();
         services.AddScoped<IReminderRepository, ReminderRepository>();
@@ -125,6 +126,11 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddHttpClient<IWishlistDealService, WishlistDealService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("WK7Bot/1.0");
+        });
+        services.AddHttpClient<ISteamStoreService, SteamStoreService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("WK7Bot/1.0");
@@ -291,6 +297,11 @@ public static class ServiceCollectionExtensions
         if (featureGate.IsEnabled(FeatureKeys.WishlistDealAlerts))
         {
             services.AddHostedService<WishlistDealBackgroundService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.ReleaseDateReminders))
+        {
+            services.AddHostedService<ReleaseDateReminderBackgroundService>();
         }
 
         if (featureGate.IsEnabled(FeatureKeys.Leaderboard))

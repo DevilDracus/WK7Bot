@@ -127,6 +127,12 @@ public class FeatureOptions
     public bool BirthdayEnabled { get; init; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether game release-date reminders are enabled.
+    /// </summary>
+    [ConfigurationKeyName("release_date_reminders_enabled")]
+    public bool ReleaseDateRemindersEnabled { get; init; } = true;
+
+    /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
     /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
     /// feature on older configuration.
@@ -155,6 +161,7 @@ public class FeatureOptions
         FeatureKeys.PollenAlerts => PollenAlertsEnabled,
         FeatureKeys.Reminders => RemindersEnabled,
         FeatureKeys.Birthdays => BirthdayEnabled,
+        FeatureKeys.ReleaseDateReminders => ReleaseDateRemindersEnabled,
         _ => true
     };
 }

@@ -70,6 +70,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateUserAccountLinksSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateManualWishlistItemsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateReleaseDateReminderItemsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateBirthdaysSql, cancellationToken).ConfigureAwait(false);
@@ -414,6 +415,24 @@ public static class DatabaseSchemaInitializer
             CreatedAt     TEXT    NOT NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS IX_ManualWishlistItems_DiscordUserId_AppId ON ManualWishlistItems (DiscordUserId, AppId);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the per-user game release-date reminder table so deployments created before the feature gain the table.
+    /// </summary>
+    public const string CreateReleaseDateReminderItemsSql =
+        """
+        CREATE TABLE IF NOT EXISTS ReleaseDateReminderItems (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId INTEGER NOT NULL,
+            AppId         INTEGER NOT NULL,
+            Name          TEXT    NOT NULL,
+            ReleaseDate   TEXT    NULL,
+            IsTba         INTEGER NOT NULL DEFAULT 0,
+            CreatedAt     TEXT    NOT NULL,
+            LastNotifiedAt TEXT   NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_ReleaseDateReminderItems_DiscordUserId_AppId ON ReleaseDateReminderItems (DiscordUserId, AppId);
         """;
 
     /// <summary>
