@@ -88,7 +88,8 @@ public class TriviaModule : BotModuleBase
             }
 
             await RespondAsync($"✅ Richtig, <@{Context.User.Id}>!", ephemeral: false).ConfigureAwait(false);
-            lock (ActiveAnswers) { if (component != null) ActiveAnswers.Remove(component.Message.Id); }
+            lock (ActiveAnswers)
+            { if (component != null) ActiveAnswers.Remove(component.Message.Id); }
         }
         else
         {

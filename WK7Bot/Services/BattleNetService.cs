@@ -15,12 +15,11 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Models.BattleNet;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
-
-using WK7Bot.Core.Utilities;
 
 namespace WK7Bot.Services;
 
@@ -79,12 +78,12 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
             ILogger<BattleNetService> logger,
             MetricsRegistry metrics)
             : base(metrics)
-        {
-            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-            _cache = cache ?? throw new ArgumentNullException(nameof(cache));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        }
+    {
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+    }
 
     /// <summary>
     /// Resolves the configured Battle.net mapping for a specified Discord user snowflake ID.

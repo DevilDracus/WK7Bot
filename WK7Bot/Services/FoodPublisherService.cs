@@ -145,12 +145,15 @@ public class FoodPublisherService : BackgroundService
     /// </summary>
     protected virtual bool ShouldPublishMonthlyProduce(DateTime now)
     {
-        if (now.Day != 1) return false;
-        if (now.TimeOfDay < MonthlyWindowOpen) return false;
+        if (now.Day != 1)
+            return false;
+        if (now.TimeOfDay < MonthlyWindowOpen)
+            return false;
 
         // The year is compared as well: a process that stays up for over a year must still post the
         // same calendar month of every later year.
-        if (_monthlySlot.CompletedInMonth(now)) return false;
+        if (_monthlySlot.CompletedInMonth(now))
+            return false;
 
         return now >= _monthlySlot.NextAttempt;
     }
@@ -161,9 +164,12 @@ public class FoodPublisherService : BackgroundService
     /// </summary>
     protected virtual bool ShouldPublishWeeklyRecipe(DateTime now)
     {
-        if (now.DayOfWeek != DayOfWeek.Thursday) return false;
-        if (now.TimeOfDay < WeeklyWindowOpen) return false;
-        if (_weeklySlot.LastPost?.Date == now.Date) return false;
+        if (now.DayOfWeek != DayOfWeek.Thursday)
+            return false;
+        if (now.TimeOfDay < WeeklyWindowOpen)
+            return false;
+        if (_weeklySlot.LastPost?.Date == now.Date)
+            return false;
 
         return now >= _weeklySlot.NextAttempt;
     }
@@ -245,12 +251,14 @@ public class FoodPublisherService : BackgroundService
         }
 
         var channel = await ResolveTargetChannelAsync();
-        if (channel == null) return false;
+        if (channel == null)
+            return false;
 
         _logger.LogInformation("Generating monthly seasonal produce list for {Month:MM/yyyy}.", now);
 
         var produce = await _geminiFoodService.GetSeasonalProduceAsync(now, cancellationToken);
-        if (produce == null) return false;
+        if (produce == null)
+            return false;
 
         var embed = SeasonalProduceEmbedBuilder.Build(
             produce,
@@ -276,7 +284,8 @@ public class FoodPublisherService : BackgroundService
         }
 
         var channel = await ResolveTargetChannelAsync();
-        if (channel == null) return false;
+        if (channel == null)
+            return false;
 
         _logger.LogInformation("Searching a seasonal web recipe for {Date}", now.ToShortDateString());
 
@@ -303,7 +312,8 @@ public class FoodPublisherService : BackgroundService
             now.ToShortDateString());
 
         var generated = await _geminiFoodService.GetWeeklyRenalRecipeAsync(now, cancellationToken);
-        if (generated == null) return false;
+        if (generated == null)
+            return false;
 
         await channel.SendMessageAsync(
             embed: RecipeEmbedBuilder.BuildGenerated(generated, "Geeignet für Dialyse & Nierentransplantation"));
@@ -425,7 +435,8 @@ public class FoodPublisherService : BackgroundService
                 TargetChannelName,
                 "Food publishing channel",
                 _logger);
-            if (channel is ITextChannel textChannel) return (SocketTextChannel?)textChannel;
+            if (channel is ITextChannel textChannel)
+                return (SocketTextChannel?)textChannel;
         }
 
         _logger.LogWarning("Target channel '{ChannelName}' could not be resolved in any target server.", TargetChannelName);

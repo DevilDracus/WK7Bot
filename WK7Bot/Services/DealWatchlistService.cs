@@ -7,9 +7,9 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
-using WK7Bot.Core.Utilities;
 
 /// <summary>
 /// Stores per-user deal watchlist entries, resolves game names through the Steam store search API,

@@ -1,10 +1,10 @@
+using System.Runtime.CompilerServices;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using System.Runtime.CompilerServices;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Options;
@@ -29,7 +29,7 @@ public class TmpServiceDistanceTest
         protected override Task PostToWarningChannelAsync(ITextChannel channel, Embed embed) { Posts.Add((channel.Id, embed.Title ?? "")); return Task.CompletedTask; }
     }
 
-    private static Wk7BotOptions Opts() => new() { DwdWarning = new DwdWarningOptions { PostalCode="04205", Latitude=51.34, Longitude=12.36, LeadMinutes=30, AreaNames=new List<string>{"Stadt Leipzig"} } };
+    private static Wk7BotOptions Opts() => new() { DwdWarning = new DwdWarningOptions { PostalCode = "04205", Latitude = 51.34, Longitude = 12.36, LeadMinutes = 30, AreaNames = new List<string> { "Stadt Leipzig" } } };
 
     [Fact]
     public async Task FarCentroid_IsSkipped()
@@ -44,11 +44,11 @@ public class TmpServiceDistanceTest
         using var provider = services.BuildServiceProvider();
         var sf = new ServiceProviderScopeFactory(provider);
 
-        var pts = new List<GeoPoint> { new(49.0,11.0), new(49.0,13.0), new(52.0,13.0), new(52.0,11.0), new(49.0,11.0) };
-        var warning = new CapWarning { Identifier="w1", Event="STARKREGEN", EventGroup="HEAVY RAIN", Severity="Severe", Headline="h", Onset=DateTime.UtcNow.AddMinutes(20), Expires=DateTime.UtcNow.AddHours(3), AreaDescriptions=new List<string>{"polygonal event area"}, Polygons=new List<IReadOnlyList<GeoPoint>>{pts} };
+        var pts = new List<GeoPoint> { new(49.0, 11.0), new(49.0, 13.0), new(52.0, 13.0), new(52.0, 11.0), new(49.0, 11.0) };
+        var warning = new CapWarning { Identifier = "w1", Event = "STARKREGEN", EventGroup = "HEAVY RAIN", Severity = "Severe", Headline = "h", Onset = DateTime.UtcNow.AddMinutes(20), Expires = DateTime.UtcNow.AddHours(3), AreaDescriptions = new List<string> { "polygonal event area" }, Polygons = new List<IReadOnlyList<GeoPoint>> { pts } };
         var mock = new Mock<IDwdWarningService>();
-        mock.Setup(s => s.FetchWarningsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new List<CapWarning>{warning});
-        var svc = new Testable(sf, mock.Object, new ulong[]{100}, Opts());
+        mock.Setup(s => s.FetchWarningsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new List<CapWarning> { warning });
+        var svc = new Testable(sf, mock.Object, new ulong[] { 100 }, Opts());
         await svc.RunAsync(DateTime.UtcNow);
         Assert.Empty(svc.Posts);
     }

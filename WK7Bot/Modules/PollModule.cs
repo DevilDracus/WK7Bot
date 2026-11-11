@@ -34,7 +34,7 @@ public class PollModule : BotModuleBase
     /// <returns>A task representing the command response operation.</returns>
     [SlashCommand("poll", "Erstellt eine Umfrage mit nativen Discord-Abstimmungen.")]
     public async Task PollAsync(
-        [Summary("frage", "Die Umfragefrage")] [MaxLength(PollOptionParser.MaxQuestionLength)] string frage,
+        [Summary("frage", "Die Umfragefrage")][MaxLength(PollOptionParser.MaxQuestionLength)] string frage,
         [Summary("optionen", "Antworten, getrennt durch | oder Zeilenumbrüche (2-10)")] string optionen,
         [Summary("dauer_stunden", "Laufzeit in Stunden (1-168)")] int dauer_stunden = 24,
         [Summary("mehrfachauswahl", "Mehrere Antworten erlauben")] bool mehrfachauswahl = false)

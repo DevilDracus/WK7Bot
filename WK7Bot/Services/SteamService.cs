@@ -11,12 +11,11 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using WK7Bot.Models.Steam;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
+using WK7Bot.Models.Steam;
 using WK7Bot.Options;
 using WK7Bot.Services.Interfaces;
-
-using WK7Bot.Core.Utilities;
 
 namespace WK7Bot.Services;
 

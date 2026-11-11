@@ -46,7 +46,7 @@ public class UserPresenceEntity
     /// Gets or sets the UTC timestamp when the presence snapshot was captured and published.
     /// </summary>
     public DateTimeOffset LastUpdated { get; set; } = DateTimeOffset.UtcNow;
-    
+
     /// <summary>
     /// Gets or sets the SteamUserData for the mapped discord user entity.
     /// </summary>

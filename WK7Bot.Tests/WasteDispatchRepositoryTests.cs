@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
@@ -163,7 +163,9 @@ public class WasteDispatchRepositoryTests : IDisposable
         {
             GC.Collect();
             GC.WaitForPendingFinalizers();
-            try { File.Delete(databasePath); } catch { /* Windows may still hold the SQLite handle; best-effort cleanup. */ }
+            try
+            { File.Delete(databasePath); }
+            catch { /* Windows may still hold the SQLite handle; best-effort cleanup. */ }
         }
     }
 

@@ -63,17 +63,17 @@ public class LeaderboardService : ILeaderboardService
                         return ((string Name, long Sort, string Value, string? Detail)?)null;
                     }
 
-            if (achievements)
-            {
-                var unlocked = data.RecentGames.Sum(g => g.AchievementsUnlocked);
-                var total = data.RecentGames.Sum(g => g.AchievementsTotal);
-                return ((string Name, long Sort, string Value, string? Detail)?)(ResolveDisplayName(guildId, link.DiscordUserId), (long)unlocked, $"{unlocked}/{total}", data.PersonaName);
-            }
-            else
-            {
-                return ((string Name, long Sort, string Value, string? Detail)?)(ResolveDisplayName(guildId, link.DiscordUserId), (long)data.PlaytimeLastTwoWeeksMinutes, SteamUserData.FormatPlaytime(data.PlaytimeLastTwoWeeksMinutes), data.PersonaName);
-            }
-        }).ToList();
+                    if (achievements)
+                    {
+                        var unlocked = data.RecentGames.Sum(g => g.AchievementsUnlocked);
+                        var total = data.RecentGames.Sum(g => g.AchievementsTotal);
+                        return ((string Name, long Sort, string Value, string? Detail)?)(ResolveDisplayName(guildId, link.DiscordUserId), (long)unlocked, $"{unlocked}/{total}", data.PersonaName);
+                    }
+                    else
+                    {
+                        return ((string Name, long Sort, string Value, string? Detail)?)(ResolveDisplayName(guildId, link.DiscordUserId), (long)data.PlaytimeLastTwoWeeksMinutes, SteamUserData.FormatPlaytime(data.PlaytimeLastTwoWeeksMinutes), data.PersonaName);
+                    }
+                }).ToList();
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         var rows = results.Where(r => r is not null).Select(r => r!.Value).ToList();

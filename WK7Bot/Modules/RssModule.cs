@@ -75,8 +75,8 @@ public class RssModule : BotModuleBase
     [SlashCommand("add", "F\u00fcgt einen neuen RSS-Feed hinzu")]
     [RequireUserPermission(GuildPermission.ManageChannels)]
     public async Task AddFeedAsync(
-        [Summary("name", "Name des Feeds (z. B. PD Leipzig)")] [MaxLength(MaxFeedNameLength)] string name,
-        [Summary("url", "RSS-Feed-URL")] [MaxLength(MaxFeedUrlLength)] string url)
+        [Summary("name", "Name des Feeds (z. B. PD Leipzig)")][MaxLength(MaxFeedNameLength)] string name,
+        [Summary("url", "RSS-Feed-URL")][MaxLength(MaxFeedUrlLength)] string url)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
@@ -102,7 +102,7 @@ public class RssModule : BotModuleBase
     /// <returns>A task representing the command response operation.</returns>
     [SlashCommand("pause", "Pausiert die Aktualisierung eines Feeds")]
     [RequireUserPermission(GuildPermission.ManageChannels)]
-    public Task PauseFeedAsync([Summary("name", "Name des Feeds")] [MaxLength(MaxFeedNameLength)] string name)
+    public Task PauseFeedAsync([Summary("name", "Name des Feeds")][MaxLength(MaxFeedNameLength)] string name)
         => SetPausedAsync(name, paused: true);
 
     /// <summary>
@@ -112,7 +112,7 @@ public class RssModule : BotModuleBase
     /// <returns>A task representing the command response operation.</returns>
     [SlashCommand("resume", "Setzt die Aktualisierung eines Feeds fort")]
     [RequireUserPermission(GuildPermission.ManageChannels)]
-    public Task ResumeFeedAsync([Summary("name", "Name des Feeds")] [MaxLength(MaxFeedNameLength)] string name)
+    public Task ResumeFeedAsync([Summary("name", "Name des Feeds")][MaxLength(MaxFeedNameLength)] string name)
         => SetPausedAsync(name, paused: false);
 
     /// <summary>
@@ -121,7 +121,7 @@ public class RssModule : BotModuleBase
     /// <param name="url">The feed URL to preview.</param>
     /// <returns>A task representing the command response operation.</returns>
     [SlashCommand("test", "Zeigt eine Vorschau der neuesten Eintr\u00e4ge einer Feed-URL")]
-    public async Task TestFeedAsync([Summary("url", "RSS-Feed-URL")] [MaxLength(MaxFeedUrlLength)] string url)
+    public async Task TestFeedAsync([Summary("url", "RSS-Feed-URL")][MaxLength(MaxFeedUrlLength)] string url)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
@@ -348,7 +348,7 @@ public class RssModule : BotModuleBase
     /// <returns>A task representing the command response operation.</returns>
     [SlashCommand("remove", "Entfernt einen RSS-Feed inklusive Kanal und Rolle")]
     [RequireUserPermission(GuildPermission.ManageChannels)]
-    public async Task RemoveFeedAsync([Summary("name", "Name des zu entfernenden Feeds")] [MaxLength(MaxFeedNameLength)] string name)
+    public async Task RemoveFeedAsync([Summary("name", "Name des zu entfernenden Feeds")][MaxLength(MaxFeedNameLength)] string name)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
 

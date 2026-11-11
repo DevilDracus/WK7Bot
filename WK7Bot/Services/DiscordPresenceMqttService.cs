@@ -1,5 +1,11 @@
 namespace WK7Bot.Services;
 
+using System;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,12 +13,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MQTTnet;
-using System;
-using System.Collections.Concurrent;
-using System.Linq;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
 using WK7Bot.Options;
@@ -222,32 +222,32 @@ public class DiscordPresenceMqttService : BackgroundService
     /// </summary>
     /// <returns>A task representing asynchronous sweep processing.</returns>
     private Task OnDiscordReadyAsync()
+    {
+        _logger.LogInformation("Discord client ready. Running initial user presence sweep for Home Assistant...");
+
+        // Run the sweep in the background so the gateway task is not blocked.
+        _ = Task.Run(async () =>
         {
-            _logger.LogInformation("Discord client ready. Running initial user presence sweep for Home Assistant...");
-
-            // Run the sweep in the background so the gateway task is not blocked.
-            _ = Task.Run(async () =>
+            try
             {
-                try
+                foreach (var guild in _discordClient.Guilds)
                 {
-                    foreach (var guild in _discordClient.Guilds)
+                    foreach (var user in guild.Users)
                     {
-                        foreach (var user in guild.Users)
+                        if (user.IsBot)
                         {
-                            if (user.IsBot)
-                            {
-                                continue;
-                            }
-
-                            await ProcessUserPresenceAsync(user, null).ConfigureAwait(false);
+                            continue;
                         }
+
+                        await ProcessUserPresenceAsync(user, null).ConfigureAwait(false);
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error during initial user presence sweep.");
-                }
-            });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during initial user presence sweep.");
+            }
+        });
 
         return Task.CompletedTask;
     }
@@ -513,8 +513,8 @@ public class DiscordPresenceMqttService : BackgroundService
             WoWMainCharacter = entity.BattleNetData?.MainCharacterDisplay,
             entity.BattleNetData,
             entity.LastUpdated,
-            entity_picture = !string.IsNullOrWhiteSpace(entity.GameThumbnailUrl) 
-                ? entity.GameThumbnailUrl 
+            entity_picture = !string.IsNullOrWhiteSpace(entity.GameThumbnailUrl)
+                ? entity.GameThumbnailUrl
                 : entity.AvatarUrl
         };
 

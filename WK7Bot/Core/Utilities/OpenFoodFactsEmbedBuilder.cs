@@ -64,14 +64,22 @@ public static class OpenFoodFactsEmbedBuilder
 
         var n = product.Nutriments;
         var nutritionText = new StringBuilder();
-        if (n.EnergyKcal.HasValue) nutritionText.AppendLine($"🔥 **Kalorien:** {n.EnergyKcal.Value:F0} kcal");
-        if (n.Proteins.HasValue) nutritionText.AppendLine($"🥩 **Eiweiß:** {n.Proteins.Value:F1} g");
-        if (n.Carbohydrates.HasValue) nutritionText.AppendLine($"🥤 **Kohlenhydrate:** {n.Carbohydrates.Value:F1} g");
-        if (n.Sugars.HasValue) nutritionText.AppendLine($"🍬 **Zucker:** {n.Sugars.Value:F1} g");
-        if (n.Fat.HasValue) nutritionText.AppendLine($"🧈 **Fett:** {n.Fat.Value:F1} g");
-        if (n.SaturatedFat.HasValue) nutritionText.AppendLine($"🧅 **Gesättigte Fettsäuren:** {n.SaturatedFat.Value:F1} g");
-        if (n.Salt.HasValue) nutritionText.AppendLine($"🧂 **Salz:** {n.Salt.Value:F2} g");
-        if (n.Fiber.HasValue) nutritionText.AppendLine($"🌿 **Ballaststoffe:** {n.Fiber.Value:F1} g");
+        if (n.EnergyKcal.HasValue)
+            nutritionText.AppendLine($"🔥 **Kalorien:** {n.EnergyKcal.Value:F0} kcal");
+        if (n.Proteins.HasValue)
+            nutritionText.AppendLine($"🥩 **Eiweiß:** {n.Proteins.Value:F1} g");
+        if (n.Carbohydrates.HasValue)
+            nutritionText.AppendLine($"🥤 **Kohlenhydrate:** {n.Carbohydrates.Value:F1} g");
+        if (n.Sugars.HasValue)
+            nutritionText.AppendLine($"🍬 **Zucker:** {n.Sugars.Value:F1} g");
+        if (n.Fat.HasValue)
+            nutritionText.AppendLine($"🧈 **Fett:** {n.Fat.Value:F1} g");
+        if (n.SaturatedFat.HasValue)
+            nutritionText.AppendLine($"🧅 **Gesättigte Fettsäuren:** {n.SaturatedFat.Value:F1} g");
+        if (n.Salt.HasValue)
+            nutritionText.AppendLine($"🧂 **Salz:** {n.Salt.Value:F2} g");
+        if (n.Fiber.HasValue)
+            nutritionText.AppendLine($"🌿 **Ballaststoffe:** {n.Fiber.Value:F1} g");
 
         if (nutritionText.Length > 0)
         {

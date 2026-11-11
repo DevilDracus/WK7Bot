@@ -1,19 +1,18 @@
-using WK7Bot.Core.Utilities;
-
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
 
 namespace WK7Bot.Services;
 
+using System;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 using WK7Bot.Infrastructure.Data;
 
 /// <summary>

@@ -45,7 +45,7 @@ public class RemindModule : BotModuleBase
     [SlashCommand("remind", "Legt eine Erinnerung an (per DM oder im Kanal).")]
     public async Task RemindAsync(
         [Summary("wann", "z. B. 'in 30m', 'in 2h', '18:30', 'morgen 08:00'")] string wann,
-        [Summary("text", "Woran soll erinnert werden?")] [MaxLength(MaxReminderTextLength)] string text,
+        [Summary("text", "Woran soll erinnert werden?")][MaxLength(MaxReminderTextLength)] string text,
         [Summary("wiederholung", "Wiederholung, z. B. 'daily', 'weekly', '1d', '2h' (optional)")] string? wiederholung = null,
         [Summary("hier", "Im aktuellen Kanal erinnern statt per DM")] bool hier = false)
     {

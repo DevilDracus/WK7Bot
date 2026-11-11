@@ -2,8 +2,8 @@ namespace WK7Bot.Services;
 
 using Discord;
 using Discord.WebSocket;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;

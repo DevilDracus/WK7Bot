@@ -3,8 +3,8 @@ namespace WK7Bot.Core.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using WK7Bot.Models;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Models;
 
 /// <summary>
 /// Picks the seasonal produce terms used to seed recipe searches. Categories are sampled randomly with a weighted

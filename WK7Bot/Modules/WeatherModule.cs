@@ -3,8 +3,8 @@ namespace WK7Bot.Modules;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Logging;
-using WK7Bot.Services.Interfaces;
 using WK7Bot.Core.Utilities;
+using WK7Bot.Services.Interfaces;
 
 /// <summary>
 /// Slash command that reports the current weather and optional forecast from a Home Assistant weather entity.
@@ -46,10 +46,14 @@ public class WeatherModule : BotModuleBase
             .WithTimestamp(DateTimeOffset.UtcNow)
             .WithFooter("WK7 Bot • Home Assistant");
 
-        if (snapshot.Temperature.HasValue) embed.AddField("Temperatur", $"{snapshot.Temperature.Value:0.#} °C", inline: true);
-        if (snapshot.Humidity.HasValue) embed.AddField("Luftfeuchte", $"{snapshot.Humidity.Value:0} %", inline: true);
-        if (snapshot.WindSpeed.HasValue) embed.AddField("Wind", $"{snapshot.WindSpeed.Value:0.#} km/h", inline: true);
-        if (snapshot.Pressure.HasValue) embed.AddField("Luftdruck", $"{snapshot.Pressure.Value:0} hPa", inline: true);
+        if (snapshot.Temperature.HasValue)
+            embed.AddField("Temperatur", $"{snapshot.Temperature.Value:0.#} °C", inline: true);
+        if (snapshot.Humidity.HasValue)
+            embed.AddField("Luftfeuchte", $"{snapshot.Humidity.Value:0} %", inline: true);
+        if (snapshot.WindSpeed.HasValue)
+            embed.AddField("Wind", $"{snapshot.WindSpeed.Value:0.#} km/h", inline: true);
+        if (snapshot.Pressure.HasValue)
+            embed.AddField("Luftdruck", $"{snapshot.Pressure.Value:0} hPa", inline: true);
 
         if (snapshot.Forecast.Count > 0)
         {

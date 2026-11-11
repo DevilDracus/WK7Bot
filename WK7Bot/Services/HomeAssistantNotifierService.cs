@@ -1,16 +1,16 @@
 namespace WK7Bot.Services;
 
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MQTTnet;
-using System;
-using System.Collections.Generic;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
 
@@ -36,7 +36,7 @@ public class HomeAssistantNotifierService : BackgroundService
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The diagnostic logging service instance.</param>
     public HomeAssistantNotifierService(
-        DiscordSocketClient discordClient, 
+        DiscordSocketClient discordClient,
         IMqttClient mqttClient,
         MqttConnectionCoordinator coordinator,
         IOptions<Wk7BotOptions> options,
@@ -311,7 +311,7 @@ public class HomeAssistantNotifierService : BackgroundService
 
         var username = user?.Username ?? userId.ToString();
         var sanitizedUsername = NameSanitizer.ToMqttSafeName(username);
-        
+
         var uniqueId = $"wk7_notify_dm_{sanitizedUsername}_{userId}";
         var discoveryTopic = $"homeassistant/notify/{uniqueId}/config";
         var commandTopic = $"homeassistant/notify/wk7_dm_{userId}/set";

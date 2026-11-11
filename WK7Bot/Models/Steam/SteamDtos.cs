@@ -353,9 +353,12 @@ public class FlexibleIntConverter : JsonConverter<int>
     /// <returns>An integer representation of the JSON token value.</returns>
     public override int Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.Number) return reader.GetInt32();
-        if (reader.TokenType == JsonTokenType.True) return 1;
-        if (reader.TokenType == JsonTokenType.False) return 0;
+        if (reader.TokenType == JsonTokenType.Number)
+            return reader.GetInt32();
+        if (reader.TokenType == JsonTokenType.True)
+            return 1;
+        if (reader.TokenType == JsonTokenType.False)
+            return 0;
         if (reader.TokenType == JsonTokenType.String
             && int.TryParse(reader.GetString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int val))
         {
@@ -391,7 +394,8 @@ public class FlexibleDoubleConverter : JsonConverter<double>
     /// <returns>A double representation of the JSON token value.</returns>
     public override double Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.Number) return reader.GetDouble();
+        if (reader.TokenType == JsonTokenType.Number)
+            return reader.GetDouble();
         if (reader.TokenType == JsonTokenType.String
             && double.TryParse(reader.GetString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double val))
         {
@@ -427,14 +431,19 @@ public class FlexibleBoolConverter : JsonConverter<bool>
     /// <returns>A boolean representation of the JSON token value.</returns>
     public override bool Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.True) return true;
-        if (reader.TokenType == JsonTokenType.False) return false;
-        if (reader.TokenType == JsonTokenType.Number) return reader.GetDouble() != 0;
+        if (reader.TokenType == JsonTokenType.True)
+            return true;
+        if (reader.TokenType == JsonTokenType.False)
+            return false;
+        if (reader.TokenType == JsonTokenType.Number)
+            return reader.GetDouble() != 0;
         if (reader.TokenType == JsonTokenType.String)
         {
             var value = reader.GetString();
-            if (bool.TryParse(value, out bool parsed)) return parsed;
-            if (double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double numeric)) return numeric != 0;
+            if (bool.TryParse(value, out bool parsed))
+                return parsed;
+            if (double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double numeric))
+                return numeric != 0;
         }
 
         return false;
@@ -466,7 +475,8 @@ public class FlexibleLongConverter : JsonConverter<long>
     /// <returns>A 64-bit integer representation of the JSON token value.</returns>
     public override long Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.Number) return reader.GetInt64();
+        if (reader.TokenType == JsonTokenType.Number)
+            return reader.GetInt64();
         if (reader.TokenType == JsonTokenType.String
             && long.TryParse(reader.GetString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long val))
         {

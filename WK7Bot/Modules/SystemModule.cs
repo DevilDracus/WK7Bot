@@ -1,12 +1,11 @@
+using System.Text;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Logging;
-using System.Text;
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Services.Interfaces;
-
-using WK7Bot.Core.Interfaces;
 
 namespace WK7Bot.Modules;
 

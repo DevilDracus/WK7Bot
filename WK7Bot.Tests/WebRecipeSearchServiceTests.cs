@@ -3,9 +3,9 @@ using System.Text;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using WK7Bot.Core.Exceptions;
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Models;
 using WK7Bot.Services;
-using WK7Bot.Core.Interfaces;
 using Xunit;
 
 namespace WK7Bot.Tests;

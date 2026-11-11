@@ -50,10 +50,10 @@ public class OpmlService : IOpmlService
 
         var builder = new StringBuilder();
         using (var writer = XmlWriter.Create(builder, new XmlWriterSettings
-               {
-                   Indent = true,
-                   Encoding = new UTF8Encoding(false)
-               }))
+        {
+            Indent = true,
+            Encoding = new UTF8Encoding(false)
+        }))
         {
             document.Save(writer);
         }
