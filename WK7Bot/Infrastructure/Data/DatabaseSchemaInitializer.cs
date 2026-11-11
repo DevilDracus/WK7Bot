@@ -71,6 +71,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateBirthdaysSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql, cancellationToken).ConfigureAwait(false);
 
@@ -434,6 +435,24 @@ public static class DatabaseSchemaInitializer
         CREATE INDEX IF NOT EXISTS IX_Reminders_DeliveredAt_DueAt ON Reminders (DeliveredAt, DueAt);
         CREATE INDEX IF NOT EXISTS IX_Reminders_DiscordUserId ON Reminders (DiscordUserId);
         CREATE INDEX IF NOT EXISTS IX_Reminders_DiscordUserId_DeliveredAt ON Reminders (DiscordUserId, DeliveredAt);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the member birthday table.
+    /// </summary>
+    public const string CreateBirthdaysSql =
+        """
+        CREATE TABLE IF NOT EXISTS Birthdays (
+            Id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId     INTEGER NOT NULL,
+            GuildId           INTEGER NOT NULL DEFAULT 0,
+            Month             INTEGER NOT NULL,
+            Day               INTEGER NOT NULL,
+            CreatedAt         TEXT    NOT NULL,
+            LastAnnouncedYear INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_Birthdays_DiscordUserId ON Birthdays (DiscordUserId);
+        CREATE INDEX IF NOT EXISTS IX_Birthdays_Month_Day ON Birthdays (Month, Day);
         """;
 
     /// <summary>

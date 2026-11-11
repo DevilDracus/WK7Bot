@@ -291,6 +291,12 @@ public class Wk7BotOptions
     public string ErrorChannelName { get; init; } = "\U0001F916WK7Errors\U00002757";
 
     /// <summary>
+    /// Gets or sets the Discord channel name for birthday announcements.
+    /// </summary>
+    [ConfigurationKeyName("birthday_channel_name")]
+    public string BirthdayChannelName { get; init; } = "\U0001F382birthdays";
+
+    /// <summary>
     /// Gets or sets the IsThereAnyDeal API key used for fetching game price data.
     /// Register at https://isthereanydeal.com/developers/ to obtain a key.
     /// </summary>

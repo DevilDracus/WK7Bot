@@ -91,6 +91,9 @@ public class BotDbContext : DbContext
     /// </summary>
     public DbSet<Reminder> Reminders => Set<Reminder>();
 
+    /// <summary>Gets or sets the database set for member birthdays.</summary>
+    public DbSet<Birthday> Birthdays => Set<Birthday>();
+
     /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
@@ -235,6 +238,14 @@ public class BotDbContext : DbContext
             // Backs the delivery sweep (DeliveredAt IS NULL AND DueAt <= now) and the per-user list.
             entity.HasIndex(e => new { e.DeliveredAt, e.DueAt });
             entity.HasIndex(e => e.DiscordUserId);
+        });
+
+        modelBuilder.Entity<Birthday>(entity =>
+        {
+            entity.ToTable("Birthdays");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.DiscordUserId).IsUnique();
+            entity.HasIndex(e => new { e.Month, e.Day });
         });
     }
 }

@@ -47,6 +47,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAccountLinkResolver, AccountLinkResolver>();
         services.AddScoped<IDiscordScheduledEventRepository, DiscordScheduledEventRepository>();
         services.AddScoped<IReminderRepository, ReminderRepository>();
+        services.AddScoped<IBirthdayRepository, BirthdayRepository>();
         return services;
     }
 
@@ -312,6 +313,11 @@ public static class ServiceCollectionExtensions
         if (featureGate.IsEnabled(FeatureKeys.Reminders))
         {
             services.AddHostedService<ReminderBackgroundService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.Birthdays))
+        {
+            services.AddHostedService<BirthdayBackgroundService>();
         }
 
         // Always-on infrastructure services

@@ -64,6 +64,9 @@ public static class FeatureKeys
     /// <summary>Key of the personal reminder delivery service.</summary>
     public const string Reminders = "reminders_enabled";
 
+    /// <summary>Key of the birthday announcement feature.</summary>
+    public const string Birthdays = "birthday_enabled";
+
     /// <summary>
     /// Every known feature key. Used by the runtime <c>/config feature</c> command to validate input
     /// and to render the current state of all switches.
@@ -88,7 +91,8 @@ public static class FeatureKeys
         DealWatchlist,
         DiscordEvents,
         PollenAlerts,
-        Reminders
+        Reminders,
+        Birthdays
     };
 
     /// <summary>
@@ -120,5 +124,8 @@ public static class FeatureKeys
 
         /// <summary>Routing key of the daily pollen and UV index post.</summary>
         public const string PollenAlerts = "pollen_alerts";
+
+        /// <summary>Routing key of the birthday announcements.</summary>
+        public const string Birthdays = "birthdays";
     }
 }

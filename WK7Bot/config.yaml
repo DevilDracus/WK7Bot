@@ -46,6 +46,7 @@ options:
   weekend_digest_channel_name: "\U0001F4C5wochenende"
   dwd_warning_channel_name: "\U000026C8\U0000FE0Fweather-warnings"
   error_channel_name: "\U0001F916WK7Errors\U00002757"
+  birthday_channel_name: "\U0001F382birthdays"
   trivia_channel_name: "\U0001F9E0trivia"
   leaderboard_post_weekday: "Monday"
   leaderboard_post_time: "18:00"
@@ -90,6 +91,7 @@ options:
     discord_events_enabled: true
     pollen_alerts_enabled: true
     reminders_enabled: true
+  birthday_enabled: true
   servers:
     wk7_server_id: "YOUR_WK7_SERVER_ID"
     test_server_id: "YOUR_BOT_TEST_SERVER_ID"
@@ -147,6 +149,7 @@ schema:
   weekend_digest_channel_name: str
   dwd_warning_channel_name: str
   error_channel_name: str
+  birthday_channel_name: str
   trivia_channel_name: str
   leaderboard_post_weekday: str
   leaderboard_post_time: str
@@ -199,6 +202,7 @@ schema:
     discord_events_enabled: bool
     pollen_alerts_enabled: bool
     reminders_enabled: bool
+  birthday_enabled: bool
   servers:
     wk7_server_id: str
     test_server_id: str

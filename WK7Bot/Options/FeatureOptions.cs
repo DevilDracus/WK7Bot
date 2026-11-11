@@ -123,6 +123,9 @@ public class FeatureOptions
     [ConfigurationKeyName("reminders_enabled")]
     public bool RemindersEnabled { get; init; } = true;
 
+    [ConfigurationKeyName("birthday_enabled")]
+    public bool BirthdayEnabled { get; init; } = true;
+
     /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
     /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
@@ -151,6 +154,7 @@ public class FeatureOptions
         FeatureKeys.DiscordEvents => DiscordEventsEnabled,
         FeatureKeys.PollenAlerts => PollenAlertsEnabled,
         FeatureKeys.Reminders => RemindersEnabled,
+        FeatureKeys.Birthdays => BirthdayEnabled,
         _ => true
     };
 }
