@@ -41,6 +41,12 @@ public partial class SteamService : BaseGameApiClient, ISteamService
     /// <inheritdoc/>
     protected override SemaphoreSlim ApiThrottle => _achievementApiThrottle;
 
+    /// <summary>
+    /// The achievement throttle is intentionally static so all <see cref="SteamService"/> instances share
+    /// one process-wide concurrency limit. Static lifetime means disposal is intentionally skipped.
+    /// </summary>
+    protected override bool DisposeApiThrottle => false;
+
     /// <inheritdoc/>
     protected override ILogger Logger => _logger;
 

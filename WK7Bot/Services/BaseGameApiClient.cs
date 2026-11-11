@@ -1,6 +1,8 @@
+using System;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Utilities;
 
@@ -10,7 +12,7 @@ namespace WK7Bot.Services;
 /// Base class providing the shared HTTP transport behaviour used by game API clients, including concurrency
 /// throttling, transient-failure retries with linear backoff, and transient-status classification.
 /// </summary>
-public abstract class BaseGameApiClient : IGameApiHttpTransport
+public abstract class BaseGameApiClient : IGameApiHttpTransport, IDisposable
 {
     /// <summary>
     /// Gets the maximum number of attempts made before giving up on a transient failure.
@@ -50,6 +52,23 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport
     /// Gets the service name used in log messages (e.g. "Steam", "Battle.net").
     /// </summary>
     protected abstract string ServiceName { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether <see cref="ApiThrottle"/> should be disposed with this instance.
+    /// Derived classes that return a shared/static semaphore must override this to <see langword="false"/>.
+    /// </summary>
+    protected virtual bool DisposeApiThrottle => true;
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        if (DisposeApiThrottle)
+        {
+            ApiThrottle.Dispose();
+        }
+
+        GC.SuppressFinalize(this);
+    }
 
     /// <inheritdoc/>
     public virtual async Task<HttpResponseMessage> SendThrottledAsync(
