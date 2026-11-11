@@ -35,7 +35,9 @@ public sealed class WishlistDealService : IWishlistDealService
             if (shareMatch.Success)
             {
                 var token = shareMatch.Groups[1].Value;
-                return $"https://store.steampowered.com/wishlist/id/{token}/wishlistdata/";
+                // Fetch the store wishlist page (not wishlistdata/, which is deprecated and redirects to login).
+                // The page embeds app IDs in SSR data when requested with a browser User-Agent.
+                return $"https://store.steampowered.com/wishlist/id/{token}/";
             }
 
             var profileMatch = System.Text.RegularExpressions.Regex.Match(wishlistUrl, @"profiles/(\d+)");
@@ -82,7 +84,9 @@ public sealed class WishlistDealService : IWishlistDealService
 
         try
         {
-            using var response = await GetWithRetryAsync(url, cancellationToken);
+            using var response = url.Contains("store.steampowered.com", StringComparison.OrdinalIgnoreCase)
+                ? await GetWithBrowserUserAgentAsync(url, cancellationToken)
+                : await GetWithRetryAsync(url, cancellationToken);
             if (response.StatusCode == HttpStatusCode.Forbidden)
             {
                 _logger.LogWarning("Steam wishlist for {SteamId} is private or unavailable (403).", steamId);
@@ -106,7 +110,7 @@ public sealed class WishlistDealService : IWishlistDealService
             {
                 // The store wishlist page embeds app IDs in JavaScript (g_rgWishlistData / "appid":N).
                 // Parse them so private wishlists accessible via shared links can still be used.
-                var appIdMatches = System.Text.RegularExpressions.Regex.Matches(json, @"""appid""\s*:\s*(\d+)");
+                var appIdMatches = System.Text.RegularExpressions.Regex.Matches(json, @"appid[^0-9]*(\d{5,8})");
                 var appIds = appIdMatches.Cast<System.Text.RegularExpressions.Match>()
                     .Select(m => uint.TryParse(m.Groups[1].Value, out var id) ? id : 0u)
                     .Where(id => id > 0)
@@ -327,6 +331,20 @@ public sealed class WishlistDealService : IWishlistDealService
 
     internal async Task<HttpResponseMessage> GetWithRetryAsync(string url, CancellationToken cancellationToken = default)
         => await ExecuteWithRetryAsync(() => _httpClient.GetAsync(url, cancellationToken), cancellationToken);
+
+    internal async Task<HttpResponseMessage> GetWithBrowserUserAgentAsync(string url, CancellationToken cancellationToken = default)
+    {
+        return await ExecuteWithRetryAsync(
+            async () =>
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+                request.Headers.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                request.Headers.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
+                return await _httpClient.SendAsync(request, cancellationToken);
+            },
+            cancellationToken);
+    }
 
     internal async Task<HttpResponseMessage> PostWithRetryAsync(string url, object payload, CancellationToken cancellationToken = default)
         => await ExecuteWithRetryAsync(
