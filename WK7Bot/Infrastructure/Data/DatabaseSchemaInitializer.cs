@@ -69,6 +69,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateCommandUsageIndexesSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateUserAccountLinksSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateManualWishlistItemsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateBirthdaysSql, cancellationToken).ConfigureAwait(false);
@@ -398,6 +399,21 @@ public static class DatabaseSchemaInitializer
             LastAlertedAt      TEXT    NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS IX_DealWatchItems_DiscordUserId_GameName ON DealWatchItems (DiscordUserId, GameName);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the per-user manual wishlist AppID table so deployments created before the feature gain the table.
+    /// </summary>
+    public const string CreateManualWishlistItemsSql =
+        """
+        CREATE TABLE IF NOT EXISTS ManualWishlistItems (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId INTEGER NOT NULL,
+            AppId         INTEGER NOT NULL,
+            Name          TEXT    NOT NULL,
+            CreatedAt     TEXT    NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_ManualWishlistItems_DiscordUserId_AppId ON ManualWishlistItems (DiscordUserId, AppId);
         """;
 
     /// <summary>

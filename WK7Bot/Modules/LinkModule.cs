@@ -3,6 +3,8 @@ namespace WK7Bot.Modules;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Logging;
+using WK7Bot.Core.Entities;
+using WK7Bot.Core.Interfaces;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>
@@ -13,6 +15,7 @@ using WK7Bot.Services.Interfaces;
 public class LinkModule : BotModuleBase
 {
     private readonly IAccountLinkService _accountLinkService;
+    private readonly IManualWishlistRepository _manualWishlistRepository;
     private readonly ILogger<LinkModule> _logger;
 
     /// <summary>
@@ -22,10 +25,15 @@ public class LinkModule : BotModuleBase
 
     /// <summary>Initializes a new instance of the <see cref="LinkModule"/> class.</summary>
     /// <param name="accountLinkService">The account link service.</param>
+    /// <param name="manualWishlistRepository">The repository for per-user manual wishlist AppID entries.</param>
     /// <param name="logger">The logger instance.</param>
-    public LinkModule(IAccountLinkService accountLinkService, ILogger<LinkModule> logger)
+    public LinkModule(
+        IAccountLinkService accountLinkService,
+        IManualWishlistRepository manualWishlistRepository,
+        ILogger<LinkModule> logger)
     {
         _accountLinkService = accountLinkService ?? throw new ArgumentNullException(nameof(accountLinkService));
+        _manualWishlistRepository = manualWishlistRepository ?? throw new ArgumentNullException(nameof(manualWishlistRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -88,5 +96,60 @@ public class LinkModule : BotModuleBase
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var result = await _accountLinkService.LinkWishlistAsync(Context.User.Id, url);
         await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
+    }
+
+    /// <summary>Adds a Steam AppID to the invoking user's manual wishlist.</summary>
+    /// <param name="appid">The Steam application identifier.</param>
+    /// <param name="name">An optional display name for the game.</param>
+    [SlashCommand("wishlist-add-appid", "Fügt eine Steam AppID zur manuellen Wunschliste hinzu.")]
+    public async Task WishlistAddAppIdAsync(
+        [Summary("appid", "Steam AppID")] uint appid,
+        [Summary("name", "Optionaler Anzeigename")] string? name = null)
+    {
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        var existing = await _manualWishlistRepository.GetForUserAsync(Context.User.Id).ConfigureAwait(false);
+        if (existing.Any(i => i.AppId == appid))
+        {
+            await FollowupAsync($"❌ AppID **{appid}** steht bereits auf deiner manuellen Wunschliste.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        await _manualWishlistRepository.AddAsync(new ManualWishlistItem
+        {
+            DiscordUserId = Context.User.Id,
+            AppId = appid,
+            Name = string.IsNullOrWhiteSpace(name) ? $"AppID {appid}" : name.Trim()
+        }, CancellationToken.None).ConfigureAwait(false);
+
+        await FollowupAsync($"✅ AppID **{appid}** wurde zur manuellen Wunschliste hinzugefügt.", ephemeral: true).ConfigureAwait(false);
+    }
+
+    /// <summary>Removes a Steam AppID from the invoking user's manual wishlist.</summary>
+    /// <param name="appid">The Steam application identifier.</param>
+    [SlashCommand("wishlist-remove-appid", "Entfernt eine Steam AppID von der manuellen Wunschliste.")]
+    public async Task WishlistRemoveAppIdAsync([Summary("appid", "Steam AppID")] uint appid)
+    {
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var removed = await _manualWishlistRepository.RemoveAsync(Context.User.Id, appid).ConfigureAwait(false);
+        await FollowupAsync(removed
+            ? $"✅ AppID **{appid}** wurde entfernt."
+            : $"❌ AppID **{appid}** steht nicht auf deiner manuellen Wunschliste.", ephemeral: true).ConfigureAwait(false);
+    }
+
+    /// <summary>Lists the Steam AppIDs on the invoking user's manual wishlist.</summary>
+    [SlashCommand("wishlist-list-appid", "Zeigt deine manuelle Steam-Wunschliste.")]
+    public async Task WishlistListAppIdAsync()
+    {
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var items = await _manualWishlistRepository.GetForUserAsync(Context.User.Id).ConfigureAwait(false);
+        if (items.Count == 0)
+        {
+            await FollowupAsync("Deine manuelle Wunschliste ist leer. Nutze `/wishlist-add-appid <AppID>`.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        var lines = items.Select(i => $"• **{i.Name}** — AppID `{i.AppId}`");
+        await FollowupAsync(string.Join("\n", lines), ephemeral: true).ConfigureAwait(false);
     }
 }

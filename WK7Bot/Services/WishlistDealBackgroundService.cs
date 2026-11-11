@@ -1,5 +1,6 @@
 namespace WK7Bot.Services;
 
+using System.Linq;
 using System.Text;
 using Discord;
 using Discord.WebSocket;
@@ -22,6 +23,7 @@ public class WishlistDealBackgroundService : BackgroundService
     private readonly DiscordSocketClient _discordClient;
     private readonly IWishlistDealService _dealService;
     private readonly ISteamService _steamService;
+    private readonly IManualWishlistRepository _manualWishlistRepository;
     private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly FeatureGate _featureGate;
@@ -44,6 +46,7 @@ public class WishlistDealBackgroundService : BackgroundService
     /// <param name="discordClient">The connected Discord socket client.</param>
     /// <param name="dealService">The wishlist deal evaluation service.</param>
     /// <param name="steamService">The Steam service for resolving Discord-to-Steam mappings.</param>
+    /// <param name="manualWishlistRepository">The repository for per-user manual wishlist AppID entries.</param>
     /// <param name="health">The feature health tracker.</param>
     /// <param name="options">The application configuration options.</param>
     /// <param name="featureGate">The consolidated feature gate.</param>
@@ -53,6 +56,7 @@ public class WishlistDealBackgroundService : BackgroundService
         DiscordSocketClient discordClient,
         IWishlistDealService dealService,
         ISteamService steamService,
+        IManualWishlistRepository manualWishlistRepository,
         IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         FeatureGate featureGate,
@@ -62,6 +66,7 @@ public class WishlistDealBackgroundService : BackgroundService
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _dealService = dealService ?? throw new ArgumentNullException(nameof(dealService));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
+        _manualWishlistRepository = manualWishlistRepository ?? throw new ArgumentNullException(nameof(manualWishlistRepository));
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
@@ -111,8 +116,7 @@ public class WishlistDealBackgroundService : BackgroundService
 
         if (mappings.Count == 0)
         {
-            _logger.LogInformation("No Discord-Steam mappings configured; skipping wishlist deal check.");
-            return;
+            _logger.LogInformation("No Discord-Steam mappings configured; only checking manual wishlist entries.");
         }
 
         var (wishlistsByDiscordId, allAppIds) = await FetchWishlistsAsync(mappings, cancellationToken);
@@ -121,6 +125,8 @@ public class WishlistDealBackgroundService : BackgroundService
             _logger.LogInformation("No wishlist items found for any mapped user.");
             return;
         }
+
+        await MergeManualWishlistItemsAsync(wishlistsByDiscordId, allAppIds, cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation("Found {Count} unique wishlisted games across {Users} mapped users.", allAppIds.Count, wishlistsByDiscordId.Count);
 
@@ -189,6 +195,41 @@ public class WishlistDealBackgroundService : BackgroundService
         }
 
         return (wishlistsByDiscordId, allAppIds);
+    }
+
+    /// <summary>
+    /// Merges manually added AppIDs into the wishlist map so users without a public Steam wishlist
+    /// can still receive deal alerts for specific games.
+    /// </summary>
+    /// <param name="wishlistsByDiscordId">Wishlists grouped by Discord user id.</param>
+    /// <param name="allAppIds">The set of all wishlisted application ids.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    protected virtual async Task MergeManualWishlistItemsAsync(
+        Dictionary<ulong, List<SteamWishlistItem>> wishlistsByDiscordId,
+        HashSet<uint> allAppIds,
+        CancellationToken cancellationToken)
+    {
+        var manualItems = await _manualWishlistRepository.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        foreach (var item in manualItems)
+        {
+            if (!wishlistsByDiscordId.TryGetValue(item.DiscordUserId, out var list))
+            {
+                list = new List<SteamWishlistItem>();
+                wishlistsByDiscordId[item.DiscordUserId] = list;
+            }
+
+            if (list.Any(w => w.AppId == item.AppId))
+            {
+                continue;
+            }
+
+            list.Add(new SteamWishlistItem
+            {
+                AppId = item.AppId,
+                Name = string.IsNullOrWhiteSpace(item.Name) ? $"AppID {item.AppId}" : item.Name
+            });
+            allAppIds.Add(item.AppId);
+        }
     }
 
     /// <summary>

@@ -82,6 +82,11 @@ public class BotDbContext : DbContext
     public DbSet<DealWatchItem> DealWatchItems => Set<DealWatchItem>();
 
     /// <summary>
+    /// Gets or sets the database set for per-user manual wishlist AppID entries.
+    /// </summary>
+    public DbSet<ManualWishlistItem> ManualWishlistItems => Set<ManualWishlistItem>();
+
+    /// <summary>
     /// Gets or sets the database set for Discord guild scheduled events created by the bot.
     /// </summary>
     public DbSet<DiscordScheduledEvent> DiscordScheduledEvents => Set<DiscordScheduledEvent>();
@@ -224,6 +229,14 @@ public class BotDbContext : DbContext
             entity.HasIndex(e => new { e.DiscordUserId, e.GameName }).IsUnique();
             entity.Property(e => e.GameName).IsRequired().HasMaxLength(300);
             entity.Property(e => e.ItadId).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<ManualWishlistItem>(entity =>
+        {
+            entity.ToTable("ManualWishlistItems");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.DiscordUserId, e.AppId }).IsUnique();
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(300);
         });
 
         modelBuilder.Entity<DiscordScheduledEvent>(entity =>

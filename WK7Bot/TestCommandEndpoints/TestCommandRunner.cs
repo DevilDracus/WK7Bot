@@ -545,8 +545,8 @@ internal sealed class TestableSpontanTreffModule : SpontanTreffModule
 
 internal sealed class TestableLinkModule : LinkModule
 {
-    public TestableLinkModule(IAccountLinkService accountLinkService, ILogger<LinkModule> logger)
-        : base(accountLinkService, logger) { }
+    public TestableLinkModule(IAccountLinkService accountLinkService, IManualWishlistRepository manualWishlistRepository, ILogger<LinkModule> logger)
+        : base(accountLinkService, manualWishlistRepository, logger) { }
 
     protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
         Task.CompletedTask;
