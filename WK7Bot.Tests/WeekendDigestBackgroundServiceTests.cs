@@ -79,6 +79,7 @@ public class WeekendDigestBackgroundServiceTests
                 scopeFactory,
                 (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
                 eventSource,
+                Mock.Of<IWeatherService>(),
                 new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(options ?? new Wk7BotOptions()),
                 NullLogger<WeekendDigestBackgroundService>.Instance,

@@ -245,7 +245,7 @@ public class SystemModule : BotModuleBase
             var infoCommands = new[] { "check-waste", "spontan-treff", "weather", "pollen" };
             var foodCommands = new[] { "recipe", "recipe-seasonal", "recipe-generate", "seasonal-produce", "check-food" };
             var rssCommands = new[] { "rss", "rss add", "rss list", "rss remove", "rss dashboard" };
-            var dealCommands = new[] { "deals" };
+            var dealCommands = new[] { "deals", "achievements" };
 
             AddCommandField(embed, "🖥️ System", systemCommands);
             AddCommandField(embed, "📰 Info", infoCommands);

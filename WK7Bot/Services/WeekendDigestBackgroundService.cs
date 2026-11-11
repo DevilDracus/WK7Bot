@@ -33,6 +33,7 @@ public class WeekendDigestBackgroundService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IWeekendEventSource _eventSource;
+    private readonly IWeatherService _weatherService;
     private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<WeekendDigestBackgroundService> _logger;
@@ -49,14 +50,16 @@ public class WeekendDigestBackgroundService : BackgroundService
     /// <param name="scopeFactory">The scope factory used to create database scopes for dispatch state.</param>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="eventSource">The weekend event source providing the listing data.</param>
+    /// <param name="weatherService">The weather service providing the current conditions and forecast.</param>
     /// <param name="health">The feature health tracker recording the outcome of each schedule evaluation.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
-    /// <param name="logger">The logger instance for background execution diagnostics.</param>
+    /// <param name="logger">The logging service instance for background execution diagnostics.</param>
     /// <param name="dispatcher">The guild-level digest dispatcher that handles channel resolution and posting.</param>
     public WeekendDigestBackgroundService(
         IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IWeekendEventSource eventSource,
+        IWeatherService weatherService,
         IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         ILogger<WeekendDigestBackgroundService> logger,
@@ -65,6 +68,7 @@ public class WeekendDigestBackgroundService : BackgroundService
         _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _eventSource = eventSource ?? throw new ArgumentNullException(nameof(eventSource));
+        _weatherService = weatherService ?? throw new ArgumentNullException(nameof(weatherService));
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
@@ -223,7 +227,8 @@ public class WeekendDigestBackgroundService : BackgroundService
             return null;
         }
 
-        var digest = WeekendDigestMessageBuilder.Build(suggestions, weekendFriday, now);
+        var weather = await _weatherService.GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var digest = WeekendDigestMessageBuilder.Build(suggestions, weekendFriday, now, weather);
         _cachedDigest = digest;
         return digest;
     }

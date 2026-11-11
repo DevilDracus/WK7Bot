@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using Discord;
 using WK7Bot.Models;
+using WK7Bot.Services.Interfaces;
 
 /// <summary>
 /// Builds the embed and native Discord poll of the weekend digest: one field per suggestion plus a
@@ -33,7 +34,8 @@ public static class WeekendDigestMessageBuilder
     public static (Embed Embed, PollProperties? Poll) Build(
         IReadOnlyList<WeekendEvent> suggestions,
         DateTime weekendFriday,
-        DateTime postTime)
+        DateTime postTime,
+        WeatherSnapshot? weather = null)
     {
         ArgumentNullException.ThrowIfNull(suggestions);
 
@@ -52,6 +54,23 @@ public static class WeekendDigestMessageBuilder
                 EmbedText.Truncate($"{i + 1}️⃣ {FormatDayLabel(suggestion.StartDate)} · {suggestion.Title}", EmbedText.FieldNameLimit),
                 EmbedText.Truncate(BuildFieldValue(suggestion), EmbedText.FieldValueLimit),
                 false);
+        }
+
+        if (weather is not null)
+        {
+            var currentTemp = weather.Temperature?.ToString("F1", GermanCulture) ?? "?";
+            var weatherText = $"Aktuell: {weather.Condition}, {currentTemp}°C";
+            if (weather.Forecast.Count > 0)
+            {
+                var forecastParts = weather.Forecast.Take(3).Select(f =>
+                {
+                    var high = f.Temperature?.ToString("F0", GermanCulture) ?? "?";
+                    var low = f.TemperatureLow?.ToString("F0", GermanCulture) ?? "?";
+                    return $"{f.DateTime?.ToString("ddd", GermanCulture) ?? "?"}: {f.Condition} {high}°/{low}°";
+                });
+                weatherText += "\n" + string.Join(" | ", forecastParts);
+            }
+            embedBuilder.AddField("🌤️ Wetter", weatherText, false);
         }
 
         var poll = suggestions.Count >= 2 ? BuildPoll(suggestions, postTime, sunday) : null;

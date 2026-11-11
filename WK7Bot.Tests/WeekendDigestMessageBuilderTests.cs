@@ -1,6 +1,7 @@
 using Discord;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
+using WK7Bot.Services.Interfaces;
 using Xunit;
 
 namespace WK7Bot.Tests;
@@ -186,5 +187,30 @@ public class WeekendDigestMessageBuilderTests
         Assert.Equal("Dieses Wochenende wurden keine passenden Tipps gefunden.", embed.Description);
         Assert.Empty(embed.Fields);
         Assert.Null(poll);
+    }
+
+    [Fact]
+    public void Build_WithWeather_RendersWeatherField()
+    {
+        var suggestions = new[] { Event("Wochenmarkt", Friday) };
+        var weather = new WeatherSnapshot(
+            EntityId: "weather.demo",
+            FriendlyName: "Demo Wetter",
+            Condition: "Leicht bew\u00f6lkt",
+            Temperature: 14.5,
+            Humidity: null,
+            WindSpeed: null,
+            Pressure: null,
+            Forecast: new List<WeatherForecastDay>
+            {
+                new(Friday, "Sonnig", 16, 8)
+            });
+
+        var (embed, _) = WeekendDigestMessageBuilder.Build(suggestions, Friday, PostTime, weather);
+
+        var weatherField = Assert.Single(embed.Fields, f => f.Name == "\ud83c\udf24\ufe0f Wetter");
+        Assert.Contains("Leicht bew\u00f6lkt", weatherField.Value);
+        Assert.Contains("14,5\u00b0C", weatherField.Value);
+        Assert.Contains("Fr: Sonnig 16\u00b0/8\u00b0", weatherField.Value);
     }
 }
