@@ -120,7 +120,7 @@ public class SpontanTreffComponentModule : BotModuleBase
             {
                 await EditMeetupMessageAsync(meetup, embed, components).ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
             {
                 // The answer is already persisted — a deleted or inaccessible message must not
                 // surface as a fake "save failed" error to the clicking user.
@@ -129,7 +129,7 @@ public class SpontanTreffComponentModule : BotModuleBase
 
             await FollowupAsync(confirmation, ephemeral: true).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while handling a Spontan-Treff button interaction.");
             await FollowupAsync("❌ Deine Antwort konnte nicht gespeichert werden.", ephemeral: true).ConfigureAwait(false);

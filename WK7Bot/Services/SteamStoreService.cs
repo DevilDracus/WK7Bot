@@ -61,7 +61,7 @@ public sealed class SteamStoreService : ISteamStoreService
 
             return (id.GetUInt32(), name.GetString() ?? gameName);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Steam store search failed for {Game}.", gameName);
             return null;
@@ -139,7 +139,7 @@ public sealed class SteamStoreService : ISteamStoreService
 
             return new SteamStoreAppDetails(appId, name, releaseDate, isTba, isComingSoon);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Steam appdetails request failed for {AppId}.", appId);
             return null;

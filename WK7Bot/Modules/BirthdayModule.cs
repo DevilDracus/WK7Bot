@@ -71,7 +71,7 @@ public class BirthdayModule : BotModuleBase
         {
             await _repository.UpsertAsync(birthday).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Could not store birthday for user {UserId}.", Context.User.Id);
             await FollowupAsync("❌ Der Geburtstag konnte nicht gespeichert werden.", ephemeral: true).ConfigureAwait(false);

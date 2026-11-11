@@ -89,7 +89,7 @@ public class DiscordScheduledEventService : IDiscordScheduledEventService
             _logger.LogWarning(ex, "Could not create the Discord scheduled event '{Name}' for guild {GuildId}.", name, guild.Id);
             return null;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Unexpected error while creating the Discord scheduled event '{Name}'.", name);
             return null;

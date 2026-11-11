@@ -75,7 +75,7 @@ public class HomeAssistantService : IHomeAssistantService
             _metrics.RecordHttp($"HomeAssistant:{endpoint}", stopwatch.Elapsed.TotalMilliseconds, true);
             return payload;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             stopwatch.Stop();
             _metrics.RecordHttp($"HomeAssistant:{endpoint}", stopwatch.Elapsed.TotalMilliseconds, false);

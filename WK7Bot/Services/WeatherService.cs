@@ -71,7 +71,7 @@ public class WeatherService : IWeatherService
                 ReadDouble(attributes, "pressure"),
                 forecast);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Could not parse weather entity {Entity}.", entityId);
             return null;

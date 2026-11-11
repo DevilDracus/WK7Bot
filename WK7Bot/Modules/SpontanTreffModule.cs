@@ -168,7 +168,7 @@ public class SpontanTreffModule : BotModuleBase
                 throw;
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing the /spontan-treff slash command.");
             await FollowupAsync("❌ Der Spontan-Treff konnte nicht erstellt werden.", ephemeral: true).ConfigureAwait(false);

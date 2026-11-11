@@ -139,7 +139,7 @@ public class AddOnOptionsWriter : IAddOnOptionsWriter
             _logger.LogWarning("Supervisor rejected the add-on options update: HTTP {StatusCode}", (int)response.StatusCode);
             return false;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Failed to update add-on options via Supervisor.");
             return false;

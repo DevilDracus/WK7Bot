@@ -107,7 +107,7 @@ public class DealsModule : BotModuleBase
             var embed = BuildDealsEmbed(wishlist, prices);
             await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Error occurred while executing /deals slash command.");
             await FollowupAsync("❌ Bei der Deals-Abfrage ist ein unerwarteter Fehler aufgetreten.", ephemeral: true).ConfigureAwait(false);

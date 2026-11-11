@@ -60,7 +60,7 @@ public partial class SteamService
             var result = await response.Content.ReadFromJsonAsync<SteamPlayerSummariesResponse>(cancellationToken: cancellationToken);
             return result?.Response?.Players ?? new List<PlayerSummaryItem>();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Batch GetPlayerSummaries request failed.");
             return new List<PlayerSummaryItem>();
@@ -122,7 +122,7 @@ public partial class SteamService
                 PlaytimeForeverMinutes = g.PlaytimeForever
             }).ToList();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Failed to fetch recently played games for Steam ID {SteamId}.", activity.SteamId);
         }
