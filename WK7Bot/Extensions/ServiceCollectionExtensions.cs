@@ -48,6 +48,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDiscordScheduledEventRepository, DiscordScheduledEventRepository>();
         services.AddScoped<IReminderRepository, ReminderRepository>();
         services.AddScoped<IBirthdayRepository, BirthdayRepository>();
+        services.AddScoped<IVoiceStatsRepository, VoiceStatsRepository>();
         return services;
     }
 
@@ -323,6 +324,7 @@ public static class ServiceCollectionExtensions
         // Always-on infrastructure services
         services.AddHostedService<StartupConfigurationValidator>();
         services.AddHostedService<DatabaseMaintenanceService>();
+        services.AddHostedService<VoiceStatsService>();
 
         return services;
     }

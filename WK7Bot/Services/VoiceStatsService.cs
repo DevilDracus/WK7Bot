@@ -1,0 +1,115 @@
+namespace WK7Bot.Services;
+
+using Discord;
+using Discord.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using WK7Bot.Core.Entities;
+using WK7Bot.Core.Interfaces;
+using WK7Bot.Options;
+
+/// <summary>
+/// Tracks voice-channel sessions and records them for later reporting.
+/// </summary>
+public class VoiceStatsService : IHostedService, IDisposable
+{
+    private readonly DiscordSocketClient _discordClient;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<VoiceStatsService> _logger;
+    private readonly Dictionary<ulong, (ulong GuildId, ulong ChannelId, DateTime JoinedAt)> _active = new();
+
+    /// <summary>Initializes a new instance of the <see cref="VoiceStatsService"/> class.</summary>
+    /// <param name="discordClient">The connected Discord socket client.</param>
+    /// <param name="scopeFactory">The scope factory used for the repository.</param>
+    /// <param name="logger">The logger instance.</param>
+    public VoiceStatsService(DiscordSocketClient discordClient, IServiceScopeFactory scopeFactory, ILogger<VoiceStatsService> logger)
+    {
+        _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    /// <inheritdoc />
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        _discordClient.UserVoiceStateUpdated += OnVoiceStateUpdatedAsync;
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _discordClient.UserVoiceStateUpdated -= OnVoiceStateUpdatedAsync;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnVoiceStateUpdatedAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)
+    {
+        try
+        {
+            var userId = user.Id;
+
+            // User joined a channel (was not in voice, now is)
+            if (before.VoiceChannel is null && after.VoiceChannel is not null)
+            {
+                _active[userId] = (after.VoiceChannel.Guild.Id, after.VoiceChannel.Id, DateTime.UtcNow);
+                return;
+            }
+
+            // User left voice entirely
+            if (before.VoiceChannel is not null && after.VoiceChannel is null)
+            {
+                if (_active.TryGetValue(userId, out var session))
+                {
+                    await RecordSessionAsync(userId, session, DateTime.UtcNow).ConfigureAwait(false);
+                    _active.Remove(userId);
+                }
+                return;
+            }
+
+            // User moved between channels: close previous, open new
+            if (before.VoiceChannel is not null && after.VoiceChannel is not null
+                && before.VoiceChannel.Id != after.VoiceChannel.Id)
+            {
+                if (_active.TryGetValue(userId, out var session))
+                {
+                    await RecordSessionAsync(userId, session, DateTime.UtcNow).ConfigureAwait(false);
+                }
+
+                _active[userId] = (after.VoiceChannel.Guild.Id, after.VoiceChannel.Id, DateTime.UtcNow);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to process voice state update for user {UserId}.", user.Id);
+        }
+    }
+
+    private async Task RecordSessionAsync(ulong userId, (ulong GuildId, ulong ChannelId, DateTime JoinedAt) session, DateTime leftAt)
+    {
+        var duration = (int)(leftAt - session.JoinedAt).TotalSeconds;
+        if (duration < 5)
+        {
+            return;
+        }
+
+        using var scope = _scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IVoiceStatsRepository>();
+
+        await repository.AddAsync(new VoiceSession
+        {
+            DiscordUserId = userId,
+            GuildId = session.GuildId,
+            ChannelId = session.ChannelId,
+            JoinedAt = session.JoinedAt,
+            LeftAt = leftAt,
+            DurationSeconds = duration
+        }).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        // no unmanaged resources
+    }
+}

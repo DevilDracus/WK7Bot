@@ -72,6 +72,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateBirthdaysSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateVoiceSessionsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql, cancellationToken).ConfigureAwait(false);
 
@@ -453,6 +454,24 @@ public static class DatabaseSchemaInitializer
         );
         CREATE UNIQUE INDEX IF NOT EXISTS IX_Birthdays_DiscordUserId ON Birthdays (DiscordUserId);
         CREATE INDEX IF NOT EXISTS IX_Birthdays_Month_Day ON Birthdays (Month, Day);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the voice-channel session table.
+    /// </summary>
+    public const string CreateVoiceSessionsSql =
+        """
+        CREATE TABLE IF NOT EXISTS VoiceSessions (
+            Id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId    INTEGER NOT NULL,
+            GuildId          INTEGER NOT NULL,
+            ChannelId        INTEGER NOT NULL,
+            JoinedAt         TEXT    NOT NULL,
+            LeftAt           TEXT    NOT NULL,
+            DurationSeconds  INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS IX_VoiceSessions_DiscordUserId ON VoiceSessions (DiscordUserId);
+        CREATE INDEX IF NOT EXISTS IX_VoiceSessions_GuildId ON VoiceSessions (GuildId);
         """;
 
     /// <summary>
