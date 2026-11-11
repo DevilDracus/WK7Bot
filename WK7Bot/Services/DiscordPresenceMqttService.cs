@@ -524,7 +524,7 @@ public class DiscordPresenceMqttService : BackgroundService
             await _mqttClient.PublishRetainedAsync(topic, payload).ConfigureAwait(false);
             _logger.LogDebug("Published presence state for {Username} to MQTT topic {Topic}", entity.Username, topic);
         }
-        catch (MQTTnet.Exceptions.MqttCommunicationException ex)
+        catch (Exception ex) when (ex is MQTTnet.Exceptions.MqttCommunicationException or ObjectDisposedException)
         {
             // The TCP socket died between the IsConnected check and the publish.
             // Try once more after forcing a reconnect; if it still fails, log and move on
@@ -543,7 +543,7 @@ public class DiscordPresenceMqttService : BackgroundService
                         "Published presence state for {Username} to MQTT topic {Topic} after reconnect.",
                         entity.Username, topic);
                 }
-                catch (MQTTnet.Exceptions.MqttCommunicationException ex2)
+                catch (Exception ex2) when (ex2 is MQTTnet.Exceptions.MqttCommunicationException or ObjectDisposedException)
                 {
                     _logger.LogWarning(
                         ex2,
