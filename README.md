@@ -22,6 +22,8 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 - **Weather** — `/weather [entity]` reads a configurable Home Assistant weather entity (`weather_entity`) and posts current conditions plus an optional forecast.
 - **Leaderboards** — `/leaderboard` ranks linked members by Steam playtime, Steam achievements, WoW level or Diablo Paragon; a weekly post goes to `leaderboard_channel_name` on `leaderboard_post_weekday` at `leaderboard_post_time`.
 - **Per-user deal watchlist** — `/watch`, `/unwatch` and `/watchlist` with background price checks and DM alerts (`deal_watchlist_*` options).
+- **Release-date reminders** — `/release-remind <game>` tracks an upcoming Steam release; `ReleaseDateReminderBackgroundService` notifies when the date is near or has arrived (`release_date_reminders_enabled`).
+- **Steam friend digest** — `SteamFriendDigestBackgroundService` posts a weekly summary of what linked Steam friends are currently playing and have played in the last two weeks (`steam_friend_digest_enabled`).
 - **Prometheus metrics** — `GET /metrics` exposes command, error, feature-health, uptime and per-operation HTTP request/failure/duration metrics when `metrics_enabled` is true; the game API clients, the Supervisor client and the dependency health checks feed the HTTP counters.
 - **Pollen & UV index** — `/pollen` renders the DWD pollen hazard index (eight pollen types, today/tomorrow/the day after) for the configured region plus the DWD UV index of the configured city; a daily post goes to `pollen_channel_name` at `pollen_post_time` (`pollen_alerts_enabled`). Same open-data host and resilience policy as the CAP warnings.
 - **Personal reminders** — `/remind <wann> <text> [hier]` schedules a reminder (`in 30m`, `in 2h`, `18:30`, `morgen 08:00`), delivered as a DM or as a channel post; `/reminders` lists the pending ones and `/remind-cancel <id>` removes one (`reminders_enabled`).
@@ -131,6 +133,8 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `WishlistDealBackgroundService` | 12-hour wishlist price polling + deal alerts | `wishlist_deal_alerts_enabled` |
 | `LeaderboardBackgroundService` | Weekly leaderboard post | `leaderboard_enabled` |
 | `DealWatchlistBackgroundService` | Per-user deal watchlist price checks + DM alerts | `deal_watchlist_enabled` |
+| `ReleaseDateReminderBackgroundService` | Release-date reminders for tracked games | `release_date_reminders_enabled` |
+| `SteamFriendDigestBackgroundService` | Weekly Steam friend activity digest | `steam_friend_digest_enabled` |
 | `DiscordScheduledEventCleanupService` | Delete finished Discord scheduled events | `discord_events_enabled` |
 | `PollenBackgroundService` | Daily DWD pollen/UV post | `pollen_alerts_enabled` |
 | `ReminderBackgroundService` | Deliver due personal reminders | `reminders_enabled` |
@@ -255,6 +259,8 @@ features:
   leaderboard_enabled: true
   deal_watchlist_enabled: true
   birthday_enabled: true
+  release_date_reminders_enabled: true
+  steam_friend_digest_enabled: true
 servers:
   wk7_server_id: "YOUR_WK7_SERVER_ID"    # scheduled messages
   test_server_id: "YOUR_BOT_TEST_SERVER_ID"  # testing_features + all error reports
