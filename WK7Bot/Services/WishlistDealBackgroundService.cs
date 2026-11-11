@@ -388,8 +388,16 @@ public class WishlistDealBackgroundService : BackgroundService
             {
                 var embed = BuildDealEmbed(alert);
                 var mentions = string.Join(" ", alert.NotifiedUserIds.Select(id => $"<@{id}>"));
-                await channel.SendMessageAsync(text: mentions, embed: embed, allowedMentions: new AllowedMentions { UserIds = alert.NotifiedUserIds }).ConfigureAwait(false);
-                postedAny = true;
+
+                try
+                {
+                    await channel.SendMessageAsync(text: mentions, embed: embed, allowedMentions: new AllowedMentions { UserIds = alert.NotifiedUserIds }).ConfigureAwait(false);
+                    postedAny = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deliver deal alert for {AppId} to channel {Channel}.", alert.AppId, channel.Id);
+                }
             }
         }
 

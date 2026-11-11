@@ -3,6 +3,7 @@ namespace WK7Bot.Modules;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Options;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
 using WK7Bot.Services;
 using WK7Bot.Services.Interfaces;
@@ -15,6 +16,7 @@ public class SteamFriendDigestModule : BotModuleBase
     private readonly SteamFriendDigestBackgroundService _backgroundService;
     private readonly ISteamService _steamService;
     private readonly Wk7BotOptions _options;
+    private readonly FeatureGate _featureGate;
     private readonly ILogger<SteamFriendDigestModule> _logger;
 
     /// <summary>Gets the logger used for error reporting.</summary>
@@ -25,11 +27,13 @@ public class SteamFriendDigestModule : BotModuleBase
         SteamFriendDigestBackgroundService backgroundService,
         ISteamService steamService,
         IOptions<Wk7BotOptions> options,
+        FeatureGate featureGate,
         ILogger<SteamFriendDigestModule> logger)
     {
         _backgroundService = backgroundService ?? throw new ArgumentNullException(nameof(backgroundService));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _featureGate = featureGate ?? throw new ArgumentNullException(nameof(featureGate));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -38,6 +42,12 @@ public class SteamFriendDigestModule : BotModuleBase
     public async Task TriggerAsync()
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (!_featureGate.IsEnabled(FeatureKeys.SteamFriendDigest))
+        {
+            await FollowupAsync("Die Steam-Freunde Digest-Funktion ist derzeit deaktiviert.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
 
         if (string.IsNullOrWhiteSpace(_options.SteamApiKey))
         {

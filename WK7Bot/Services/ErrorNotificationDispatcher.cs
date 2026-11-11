@@ -331,7 +331,7 @@ public class ErrorNotificationDispatcher : BackgroundService
 
         var trimmed = stackTrace.Trim().Length > 500 ? stackTrace[..500] : stackTrace.Trim();
         var bytes = System.Text.Encoding.UTF8.GetBytes(trimmed);
-        var hash = System.Security.Cryptography.MD5.HashData(bytes);
+        var hash = System.Security.Cryptography.SHA256.HashData(bytes);
         return Convert.ToHexString(hash)[..8];
     }
 
