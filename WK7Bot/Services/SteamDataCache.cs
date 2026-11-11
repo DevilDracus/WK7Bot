@@ -21,6 +21,7 @@ public class SteamDataCache : SingleFlightCache<SteamUserData>
     /// </summary>
     /// <param name="steamService">The underlying Steam service used on cache misses.</param>
     /// <param name="timeToLive">How long a cached entry remains valid.</param>
+    /// <param name="maxEntries">Maximum number of cached entries before eviction.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="steamService"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is not positive.</exception>
     public SteamDataCache(ISteamService steamService, TimeSpan timeToLive, int maxEntries = 512)

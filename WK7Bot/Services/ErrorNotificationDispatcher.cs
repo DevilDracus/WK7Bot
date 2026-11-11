@@ -47,6 +47,7 @@ public class ErrorNotificationDispatcher : BackgroundService
     /// </summary>
     /// <param name="discordClient">The connected Discord socket client instance.</param>
     /// <param name="queue">The queue that buffers captured error reports.</param>
+    /// <param name="health">The feature health tracker recording the outcome of each delivery cycle.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
     /// <param name="logger">The diagnostic logging service.</param>
     public ErrorNotificationDispatcher(

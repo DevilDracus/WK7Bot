@@ -52,7 +52,6 @@ public class SteamFriendDigestBackgroundServiceTests
 
         Assert.Contains("Steam-Freunde Aktivit\u00e4t", embed.Title);
         var currentField = embed.Fields.FirstOrDefault(f => f.Name == "Gerade online");
-        Assert.NotNull(currentField);
         Assert.Contains("Alice", currentField.Value);
         Assert.Contains("Game One", currentField.Value);
     }
@@ -77,7 +76,6 @@ public class SteamFriendDigestBackgroundServiceTests
         var embed = CreateService().BuildDigestEmbed(activities);
 
         var recentField = embed.Fields.FirstOrDefault(f => f.Name.StartsWith("Bob"));
-        Assert.NotNull(recentField);
         Assert.Contains("Game A", recentField.Value);
         Assert.Contains("2 Std.", recentField.Value);
         Assert.Contains("Game B", recentField.Value);
@@ -99,6 +97,6 @@ public class SteamFriendDigestBackgroundServiceTests
         var embed = CreateService().BuildDigestEmbed(activities);
 
         var noActivityField = embed.Fields.FirstOrDefault(f => f.Name == "Keine Aktivit\u00e4t");
-        Assert.NotNull(noActivityField);
+        Assert.Contains("In den letzten 14 Tagen wurde nichts auf Steam gespielt.", noActivityField.Value);
     }
 }

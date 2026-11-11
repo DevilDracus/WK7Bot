@@ -40,7 +40,10 @@ public sealed record BotStatusAttributes(
 /// </summary>
 public static class BotStatusEntities
 {
+    /// <summary>Payload that represents an enabled/ON state.</summary>
     public const string OnPayload = "ON";
+
+    /// <summary>Payload that represents a disabled/OFF state.</summary>
     public const string OffPayload = "OFF";
     /// <summary>Root MQTT topic of all bot status topics.</summary>
     public const string TopicPrefix = "wk7bot";

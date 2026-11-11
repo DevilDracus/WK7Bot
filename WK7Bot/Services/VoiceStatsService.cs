@@ -11,7 +11,7 @@ using WK7Bot.Options;
 /// <summary>
 /// Tracks voice-channel sessions and records them for later reporting.
 /// </summary>
-public class VoiceStatsService : IHostedService, IDisposable
+public class VoiceStatsService : IHostedService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -107,9 +107,4 @@ public class VoiceStatsService : IHostedService, IDisposable
         }).ConfigureAwait(false);
     }
 
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        // no unmanaged resources
-    }
 }

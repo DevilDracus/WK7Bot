@@ -69,7 +69,7 @@ public class DwdWarningBackgroundService : BackgroundService
 
     /// <summary>
     /// Runs the poll loop: the feed is checked once at startup and then every
-    /// <see cref="PollInterval"/>, evaluating all warnings for the configured lead window.
+    /// <c>DwdPollIntervalMinutes</c>, evaluating all warnings for the configured lead window.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token monitored for background service shutdown.</param>
     /// <returns>A task representing the background execution process.</returns>

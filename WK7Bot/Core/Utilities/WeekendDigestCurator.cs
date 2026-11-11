@@ -287,6 +287,13 @@ public static class WeekendDigestCurator
     /// </summary>
     public static TimeSpan? ParseTimeText(string? timeText) => ParseCloseTime(timeText);
 
+    /// <summary>
+    /// Picks a default number of weekend suggestions, excluding any events whose title contains a banned word.
+    /// </summary>
+    /// <param name="events">Candidate events parsed from the configured source.</param>
+    /// <param name="weekendFriday">The Friday that starts the weekend window.</param>
+    /// <param name="bannedWords">Optional list of substrings that disqualify an event.</param>
+    /// <returns>A ranked list of suggestions for the weekend.</returns>
     public static IReadOnlyList<WeekendEvent> PickSuggestions(
         IEnumerable<WeekendEvent> events,
         DateTime weekendFriday,

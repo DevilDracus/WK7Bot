@@ -22,6 +22,7 @@ public class BattleNetDataCache : SingleFlightCache<BattleNetUserData>
     /// </summary>
     /// <param name="battleNetService">The underlying Battle.net service used on cache misses.</param>
     /// <param name="timeToLive">How long a cached entry remains valid.</param>
+    /// <param name="maxEntries">Maximum number of cached entries before eviction.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="battleNetService"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is not positive.</exception>
     public BattleNetDataCache(IBattleNetService battleNetService, TimeSpan timeToLive, int maxEntries = 512)

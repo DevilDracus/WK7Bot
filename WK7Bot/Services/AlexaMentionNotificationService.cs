@@ -79,6 +79,9 @@ public class AlexaMentionNotificationService : IHostedService, IDisposable
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Releases the shutdown cancellation token source held by this service.
+    /// </summary>
     public void Dispose()
     {
         _shutdownCts.Dispose();

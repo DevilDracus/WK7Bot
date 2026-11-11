@@ -39,6 +39,7 @@ public class RemindModule : BotModuleBase
     /// </summary>
     /// <param name="wann">When to remind (for example <c>in 30m</c>, <c>18:30</c>, <c>morgen 08:00</c>).</param>
     /// <param name="text">What to remind about.</param>
+    /// <param name="wiederholung">Optional recurrence, for example <c>daily</c>, <c>weekly</c>, <c>1d</c>, <c>2h</c>.</param>
     /// <param name="hier">Post in the current channel instead of sending a direct message.</param>
     /// <returns>A task representing the command response operation.</returns>
     [SlashCommand("remind", "Legt eine Erinnerung an (per DM oder im Kanal).")]

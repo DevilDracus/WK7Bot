@@ -21,6 +21,7 @@ public class SteamFriendDigestBackgroundService : BackgroundService
     private readonly Wk7BotOptions _options;
     private readonly ILogger<SteamFriendDigestBackgroundService> _logger;
     private DateOnly? _lastPostedWeek;
+    private readonly object _lastPostedLock = new();
 
     /// <summary>Initializes a new instance of the <see cref="SteamFriendDigestBackgroundService"/> class.</summary>
     public SteamFriendDigestBackgroundService(
@@ -99,13 +100,19 @@ public class SteamFriendDigestBackgroundService : BackgroundService
 
         var daysSinceMonday = ((int)now.DayOfWeek + 6) % 7;
         var week = DateOnly.FromDateTime(now.AddDays(-daysSinceMonday));
-        if (_lastPostedWeek == week)
+        lock (_lastPostedLock)
         {
-            return;
+            if (_lastPostedWeek == week)
+            {
+                return;
+            }
         }
 
         await BuildAndPostDigestAsync(steamIds, cancellationToken).ConfigureAwait(false);
-        _lastPostedWeek = week;
+        lock (_lastPostedLock)
+        {
+            _lastPostedWeek = week;
+        }
     }
 
     /// <summary>

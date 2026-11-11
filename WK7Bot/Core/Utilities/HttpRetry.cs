@@ -35,7 +35,7 @@ public static class HttpRetry
     /// Default linear backoff: 500ms, 1s, 1.5s, ...
     /// </summary>
     public static TimeSpan LinearBackoff(int attempt) =>
-        TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1)));
+        TimeSpan.FromMilliseconds(500 * attempt);
     /// <summary>
     /// Executes <paramref name="sendFactory" /> with a sensible default retry policy: retries on HTTP 5xx,
     /// 429 Too Many Requests, and transient exceptions (HttpRequestException, TimeoutException,
@@ -64,9 +64,10 @@ public static class HttpRetry
     /// </summary>
     /// <param name="sendFactory">Factory that produces an HTTP response (may be called multiple times).</param>
     /// <param name="maxAttempts">Maximum number of attempts before giving up.</param>
-    /// <param name="isTransient">Predicate deciding whether a response is a transient failure worth retrying.</param>
+    /// <param name="isTransientResponse">Predicate deciding whether a response is a transient failure worth retrying.</param>
     /// <param name="delayForAttempt">Delay before the next attempt given the current attempt number (1-based).</param>
     /// <param name="extraDelay">Optional extra delay applied after the normal delay (e.g. for 503).</param>
+    /// <param name="isTransientException">Optional predicate deciding whether a caught exception is transient.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The final HTTP response (caller owns disposal).</returns>
     public static async Task<HttpResponseMessage> ExecuteAsync(

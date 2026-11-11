@@ -11,6 +11,9 @@ public class PriceHistoryRepository : IPriceHistoryRepository
 {
     private readonly IDbContextFactory<BotDbContext> _factory;
 
+    // Serializes snapshot inserts so concurrent callers cannot race on the hourly dedup bucket.
+    private static readonly SemaphoreSlim AddSnapshotsLock = new(1, 1);
+
     /// <summary>Initializes a new instance of the <see cref="PriceHistoryRepository"/> class.</summary>
     public PriceHistoryRepository(IDbContextFactory<BotDbContext> factory)
     {
@@ -20,37 +23,45 @@ public class PriceHistoryRepository : IPriceHistoryRepository
     /// <inheritdoc />
     public async Task<int> AddSnapshotsAsync(IEnumerable<PriceHistorySnapshot> snapshots, CancellationToken cancellationToken = default)
     {
-        var list = snapshots?.ToList() ?? new List<PriceHistorySnapshot>();
-        if (list.Count == 0)
+        await AddSnapshotsLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            return 0;
-        }
-
-        await using var context = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-
-        // Deduplicate within the same hour and store to avoid runaway growth. In-memory filtering
-        // works across SQLite and EF InMemory providers; database-backed queries cannot see pending adds.
-        var existing = await context.PriceHistorySnapshots
-            .Where(s => list.Select(x => x.AppId).Contains(s.AppId))
-            .Select(s => new { s.AppId, s.Store, Hour = new DateTime(s.RecordedAt.Year, s.RecordedAt.Month, s.RecordedAt.Day, s.RecordedAt.Hour, 0, 0, DateTimeKind.Utc) })
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        var seen = existing.ToHashSet();
-        var inserted = 0;
-        foreach (var snapshot in list)
-        {
-            var bucket = new DateTime(snapshot.RecordedAt.Year, snapshot.RecordedAt.Month, snapshot.RecordedAt.Day, snapshot.RecordedAt.Hour, 0, 0, DateTimeKind.Utc);
-            var key = new { snapshot.AppId, snapshot.Store, Hour = bucket };
-            if (seen.Add(key))
+            var list = snapshots?.ToList() ?? new List<PriceHistorySnapshot>();
+            if (list.Count == 0)
             {
-                context.PriceHistorySnapshots.Add(snapshot);
-                inserted++;
+                return 0;
             }
-        }
 
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return inserted;
+            await using var context = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+
+            // Deduplicate within the same hour and store to avoid runaway growth. In-memory filtering
+            // works across SQLite and EF InMemory providers; database-backed queries cannot see pending adds.
+            var existing = await context.PriceHistorySnapshots
+                .Where(s => list.Select(x => x.AppId).Contains(s.AppId))
+                .Select(s => new { s.AppId, s.Store, Hour = new DateTime(s.RecordedAt.Year, s.RecordedAt.Month, s.RecordedAt.Day, s.RecordedAt.Hour, 0, 0, DateTimeKind.Utc) })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var seen = existing.ToHashSet();
+            var inserted = 0;
+            foreach (var snapshot in list)
+            {
+                var bucket = new DateTime(snapshot.RecordedAt.Year, snapshot.RecordedAt.Month, snapshot.RecordedAt.Day, snapshot.RecordedAt.Hour, 0, 0, DateTimeKind.Utc);
+                var key = new { snapshot.AppId, snapshot.Store, Hour = bucket };
+                if (seen.Add(key))
+                {
+                    context.PriceHistorySnapshots.Add(snapshot);
+                    inserted++;
+                }
+            }
+
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return inserted;
+        }
+        finally
+        {
+            AddSnapshotsLock.Release();
+        }
     }
 
     /// <inheritdoc />

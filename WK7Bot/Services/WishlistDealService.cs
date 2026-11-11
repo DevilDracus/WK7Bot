@@ -257,6 +257,7 @@ public sealed class WishlistDealService : IWishlistDealService
             }
 
             var offers = item.Deals
+                .Where(d => d.Price is not null && d.Regular is not null)
                 .Select(d => new StorePriceOffer
                 {
                     StoreName = d.Shop.Name,

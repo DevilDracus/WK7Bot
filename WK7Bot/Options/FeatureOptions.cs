@@ -123,6 +123,9 @@ public class FeatureOptions
     [ConfigurationKeyName("reminders_enabled")]
     public bool RemindersEnabled { get; init; } = true;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the birthday tracker and daily/weekly birthday posts are enabled.
+    /// </summary>
     [ConfigurationKeyName("birthday_enabled")]
     public bool BirthdayEnabled { get; init; } = true;
 

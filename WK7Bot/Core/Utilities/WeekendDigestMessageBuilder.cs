@@ -30,6 +30,7 @@ public static class WeekendDigestMessageBuilder
     /// <param name="suggestions">The curated suggestions (at most three), in day order.</param>
     /// <param name="weekendFriday">The Friday date identifying the target weekend.</param>
     /// <param name="postTime">The local time the digest is posted; also anchors the poll duration.</param>
+    /// <param name="weather">Optional weather snapshot rendered into the digest footer.</param>
     /// <returns>The embed and the poll to attach, or a <see langword="null"/> poll for a single suggestion.</returns>
     public static (Embed Embed, PollProperties? Poll) Build(
         IReadOnlyList<WeekendEvent> suggestions,

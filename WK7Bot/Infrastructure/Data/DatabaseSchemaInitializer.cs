@@ -113,6 +113,7 @@ public static class DatabaseSchemaInitializer
     /// </summary>
     /// <param name="connection">The open SQLite connection the statement runs on.</param>
     /// <param name="sql">The schema statement (compile-time constant — never user input).</param>
+    /// <param name="cancellationToken">A cancellation token to observe during execution.</param>
     /// <returns>A task representing the asynchronous schema operation.</returns>
     private static async Task ExecuteWithBusyRetryAsync(SqliteConnection connection, string sql, CancellationToken cancellationToken = default)
     {
@@ -140,6 +141,7 @@ public static class DatabaseSchemaInitializer
     /// <param name="table">The table to alter (compile-time constant — never user input).</param>
     /// <param name="column">The column to add (compile-time constant — never user input).</param>
     /// <param name="definition">The column definition (type, nullability, default).</param>
+    /// <param name="cancellationToken">A cancellation token to observe during execution.</param>
     /// <returns>A task representing the asynchronous schema operation.</returns>
     private static async Task AddColumnIfMissingAsync(SqliteConnection connection, string table, string column, string definition, CancellationToken cancellationToken = default)
     {

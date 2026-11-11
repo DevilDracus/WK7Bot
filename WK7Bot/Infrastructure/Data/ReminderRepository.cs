@@ -78,6 +78,13 @@ public class ReminderRepository : IReminderRepository
         reminder.DeliveredAt = null;
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
+    /// <summary>
+    /// Removes the pending reminder with the given identifier for the specified Discord user.
+    /// </summary>
+    /// <param name="id">The reminder identifier.</param>
+    /// <param name="discordUserId">The Discord user identifier that owns the reminder.</param>
+    /// <param name="cancellationToken">A cancellation token to observe.</param>
+    /// <returns><see langword="true"/> when a pending reminder was removed; otherwise <see langword="false"/>.</returns>
     public async Task<bool> RemovePendingAsync(int id, ulong discordUserId, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);

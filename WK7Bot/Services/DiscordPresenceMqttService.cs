@@ -59,6 +59,7 @@ public class DiscordPresenceMqttService : BackgroundService
     /// <param name="steamService">The Steam service instance used to fetch Steam metadata.</param>
     /// <param name="battleNetService">The Battle.net service instance used to fetch Battle.net profile data.</param>
     /// <param name="options">The strongly-typed application configuration options.</param>
+    /// <param name="health">The feature health tracker recording sweep outcomes.</param>
     /// <param name="logger">The logging service instance for operational diagnostics.</param>
     public DiscordPresenceMqttService(
         DiscordSocketClient discordClient,
