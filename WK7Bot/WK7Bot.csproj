@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="WK7Bot.Tests" />
+        <EmbeddedResource Include="Assets\trivia-questions.json" />
     </ItemGroup>
 
     <!-- The Home Assistant add-on version in config.yaml is the single source of truth for the
