@@ -61,6 +61,11 @@ public sealed class WishlistDealService : IWishlistDealService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(steamId);
 
+        if (!steamId.StartsWith("7656119", StringComparison.Ordinal) || steamId.Length != 17)
+        {
+            _logger.LogWarning("Steam ID {SteamId} does not look like a 64-bit Steam ID; wishlist fetch may fail.", steamId);
+        }
+
         var url = ResolveWishlistUrl(steamId, wishlistUrl);
 
         try
@@ -156,40 +161,41 @@ public sealed class WishlistDealService : IWishlistDealService
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("ITAD lookup for Steam app {AppId} returned {StatusCode}.", appId, response.StatusCode);
-                    return (appId: appId, itadId: (string?)null);
+                    return (appId: appId, itadId: (string?)null, title: (string?)null);
                 }
 
                 var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
                 var lookup = JsonSerializer.Deserialize<ItadLookupResponse>(responseJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-                if (lookup?.Game?.Id == null)
+                if (lookup?.Found != true || lookup?.Game?.Id == null)
                 {
-                _logger.LogWarning("ITAD lookup for app {AppId} returned no game ID. Raw response: {Raw}", appId, responseJson);
+                    _logger.LogWarning("ITAD lookup for app {AppId} returned no game ID. Raw response: {Raw}", appId, responseJson);
+                    return (appId: appId, itadId: (string?)null, title: (string?)null);
                 }
 
-                                return (appId: appId, itadId: lookup?.Game?.Id);
+                return (appId: appId, itadId: lookup.Game.Id, title: lookup.Game.Title);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || (ex is OperationCanceledException oce && !oce.CancellationToken.IsCancellationRequested))
             {
                 _logger.LogDebug(ex, "ITAD lookup failed for Steam app {AppId}.", appId);
-                return (appId: appId, itadId: (string?)null);
+                return (appId: appId, itadId: (string?)null, title: (string?)null);
             }
         });
 
         var lookups = await Task.WhenAll(lookupTasks);
-        var itadIdByAppId = lookups
+        var lookupByAppId = lookups
             .Where(x => x.itadId != null)
-            .ToDictionary(x => x.appId, x => x.itadId!);
+            .ToDictionary(x => x.appId, x => (itadId: x.itadId!, title: x.title ?? string.Empty));
 
-        if (itadIdByAppId.Count == 0)
+        if (lookupByAppId.Count == 0)
         {
-        _logger.LogWarning("No ITAD game IDs resolved from {Count} Steam app IDs. Check API key and app IDs.", appIdList.Count);
-        return results;
+            _logger.LogWarning("No ITAD game IDs resolved from {Count} Steam app IDs. Check API key and app IDs.", appIdList.Count);
+            return results;
         }
 
         // ITAD prices: query current prices for resolved game IDs
         var priceUrl = $"{ItadPricesEndpoint}?key={apiKey}&country=DE";
-        var pricePayload = itadIdByAppId.Values.ToList();
+        var pricePayload = lookupByAppId.Values.Select(x => x.itadId).ToList();
 
         try
         {
@@ -214,20 +220,27 @@ public sealed class WishlistDealService : IWishlistDealService
             }
 
             var bestDeal = item.Deals.OrderBy(d => d.Price.Amount).First();
-            var appId = itadIdByAppId.FirstOrDefault(x => x.Value == item.Id).Key;
-            if (appId == 0)
+            var match = lookupByAppId.FirstOrDefault(x => x.Value.itadId == item.Id);
+            if (match.Key == 0 && !lookupByAppId.ContainsKey(0))
             {
-            continue;
+                continue;
+            }
+
+            var appId = match.Key;
+            var title = lookupByAppId.TryGetValue(appId, out var info) ? info.title : string.Empty;
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                title = string.Empty;
             }
 
             results[appId] = new ItadPriceData
             {
-            Title = "",
-            CurrentPrice = bestDeal.Price.Amount,
-            RegularPrice = bestDeal.Regular.Amount,
-            HistoricalLow = item.HistoryLow?.All?.Amount ?? bestDeal.Price.Amount,
-            StoreName = bestDeal.Shop.Name,
-            DealUrl = bestDeal.Url
+                Title = title,
+                CurrentPrice = bestDeal.Price.Amount,
+                RegularPrice = bestDeal.Regular.Amount,
+                HistoricalLow = item.HistoryLow?.All?.Amount ?? bestDeal.Price.Amount,
+                StoreName = bestDeal.Shop.Name,
+                DealUrl = bestDeal.Url
             };
             }
             }
@@ -246,11 +259,12 @@ public sealed class WishlistDealService : IWishlistDealService
     /// <inheritdoc />
     public WishlistDealAlert? EvaluateAlert(uint appId, string gameTitle, ItadPriceData priceData, IReadOnlyList<ulong> notifiedUserIds)
     {
-        if (priceData == null)
+        if (priceData is null)
         {
             return null;
         }
 
+        var resolvedTitle = string.IsNullOrWhiteSpace(priceData.Title) ? gameTitle : priceData.Title;
         var minDiscount = _options.DealMinDiscountPercent;
         var meetsThreshold = priceData.IsHistoricalLow || priceData.DiscountPercent >= minDiscount;
 
@@ -262,7 +276,7 @@ public sealed class WishlistDealService : IWishlistDealService
         return new WishlistDealAlert
         {
             AppId = appId,
-            GameTitle = gameTitle,
+            GameTitle = resolvedTitle,
             CurrentPrice = priceData.CurrentPrice,
             RegularPrice = priceData.RegularPrice,
             HistoricalLow = priceData.HistoricalLow,
@@ -293,10 +307,10 @@ public sealed class WishlistDealService : IWishlistDealService
         return await HttpRetry.ExecuteAsync(
             sendFactory,
             MaxAttempts,
-            response => !response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.Forbidden,
+            HttpRetry.IsTransientResponse,
             attempt => TimeSpan.FromSeconds(attempt),
             null,
-            null,
+            HttpRetry.IsTransientException,
             cancellationToken);
     }
 }
@@ -305,6 +319,9 @@ public sealed class WishlistDealService : IWishlistDealService
 
 internal sealed class ItadLookupResponse
 {
+    [JsonPropertyName("found")]
+    public bool Found { get; set; }
+
     [JsonPropertyName("game")]
     public ItadGameRef? Game { get; set; }
 }
@@ -313,6 +330,9 @@ internal sealed class ItadGameRef
 {
     [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
 }
 
 internal sealed class ItadPriceResponse

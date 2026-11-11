@@ -134,6 +134,15 @@ public class StartupConfigurationValidator : BackgroundService
             !string.IsNullOrWhiteSpace(_options.MqttHost),
             "mqtt_host must point to a reachable broker (default: core-mosquitto).");
 
+        // ITAD / wishlist deals
+        if (_options.Features.WishlistDealAlertsEnabled)
+        {
+            report.Add(
+                "IsThereAnyDeal API Key",
+                !string.IsNullOrWhiteSpace(_options.ItadApiKey),
+                "itad_api_key is required for wishlist deal alerts. Register at https://isthereanydeal.com/developers/.");
+        }
+
         // Error notifications
         if (_options.Features.ErrorNotificationsEnabled)
         {

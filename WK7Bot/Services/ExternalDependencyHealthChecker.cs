@@ -204,9 +204,15 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         var sw = Stopwatch.StartNew();
         try
         {
+            var apiKey = _options.Value.ItadApiKey;
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                sw.Stop();
+                return new DependencyHealthStatus("IsThereAnyDeal", false, "Kein API-Key konfiguriert (itad_api_key).", sw.Elapsed);
+            }
 
             using var response = await HttpRetry.ExecuteAsync(
-                () => _httpClient.GetAsync("https://api.isthereanydeal.com/v01/web/regions/", cancellationToken),
+                () => _httpClient.GetAsync($"https://api.isthereanydeal.com/games/lookup/v1?key={apiKey}&appid=730", cancellationToken),
                 3,
                 HttpRetry.IsTransientResponse,
                 HttpRetry.LinearBackoff,

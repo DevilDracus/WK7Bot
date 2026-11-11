@@ -182,6 +182,10 @@ public class WishlistDealBackgroundService : BackgroundService
                     allAppIds.Add(item.AppId);
                 }
             }
+            else
+            {
+                _logger.LogWarning("Steam wishlist for Discord user {UserId} (Steam {SteamId}) is empty or unavailable (private profile?).", discordUserId, mapping.SteamId);
+            }
         }
 
         return (wishlistsByDiscordId, allAppIds);
