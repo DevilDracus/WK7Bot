@@ -17,8 +17,19 @@ public static class ReminderTimeParser
     /// <summary>Longest allowed lead time.</summary>
     public static readonly TimeSpan MaximumLead = TimeSpan.FromDays(365);
 
+    /// <summary>Shortest allowed recurrence interval.</summary>
+    public static readonly TimeSpan MinimumRecurrence = TimeSpan.FromMinutes(5);
+
     private static readonly Regex RelativePattern = new(
         @"^(?:in\s+)?(?<n>\d+)\s*(?<u>s|sek|sekunden|m|min|minuten|h|std|stunde|stunden|d|t|tag|tage|w|woche|wochen)$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex RecurrencePattern = new(
+        @"^(?:(?<every>every|jede[nr]?|wiederhol(?:ung|e)?)\s+)?(?<n>\d+)\s*(?<u>s|sek|sekunden|m|min|minuten|h|std|stunde|stunden|d|t|tag|tage|w|woche|wochen|monat|monate|month|months)$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex RecurrenceKeywordPattern = new(
+        @"^(täglich|taeglich|daily|wöchentlich|woechentlich|weekly|monatlich|monthly|stündlich|stuendlich|hourly)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ClockTimePattern = new(
@@ -69,6 +80,68 @@ public static class ReminderTimeParser
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Parses a recurrence interval (for example <c>daily</c>, <c>weekly</c>, <c>1d</c>, <c>2h</c>).
+    /// </summary>
+    /// <param name="input">The raw recurrence input.</param>
+    /// <param name="interval">The resolved interval, or <see cref="TimeSpan.Zero"/> on failure.</param>
+    /// <returns><see langword="true"/> when the input was understood.</returns>
+    public static bool TryParseRecurrence(string? input, out TimeSpan interval)
+    {
+        interval = TimeSpan.Zero;
+        var text = (input ?? string.Empty).Trim();
+        if (text.Length == 0)
+        {
+            return false;
+        }
+
+        var keyword = RecurrenceKeywordPattern.Match(text);
+        if (keyword.Success)
+        {
+            var k = keyword.Value.ToLowerInvariant();
+            interval = k switch
+            {
+                "täglich" or "taeglich" or "daily" => TimeSpan.FromDays(1),
+                "wöchentlich" or "woechentlich" or "weekly" => TimeSpan.FromDays(7),
+                "monatlich" or "monthly" => TimeSpan.FromDays(30),
+                "stündlich" or "stuendlich" or "hourly" => TimeSpan.FromHours(1),
+                _ => TimeSpan.Zero
+            };
+            return interval > TimeSpan.Zero;
+        }
+
+        var match = RecurrencePattern.Match(text);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        var amount = int.Parse(match.Groups["n"].Value, CultureInfo.InvariantCulture);
+        if (amount <= 0)
+        {
+            return false;
+        }
+
+        var unit = match.Groups["u"].Value.ToLowerInvariant();
+        interval = unit switch
+        {
+            "s" or "sek" or "sekunden" => TimeSpan.FromSeconds(amount),
+            "m" or "min" or "minuten" => TimeSpan.FromMinutes(amount),
+            "h" or "std" or "stunde" or "stunden" => TimeSpan.FromHours(amount),
+            "d" or "t" or "tag" or "tage" => TimeSpan.FromDays(amount),
+            "w" or "woche" or "wochen" => TimeSpan.FromDays(amount * 7),
+            "monat" or "monate" or "month" or "months" => TimeSpan.FromDays(amount * 30),
+            _ => TimeSpan.Zero
+        };
+
+        if (interval < MinimumRecurrence)
+        {
+            return false;
+        }
+
+        return interval > TimeSpan.Zero;
     }
 
     /// <summary>Resolves one of the supported input forms into a local due time.</summary>

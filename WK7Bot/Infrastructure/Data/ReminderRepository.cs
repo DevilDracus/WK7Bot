@@ -65,6 +65,19 @@ public class ReminderRepository : IReminderRepository
     }
 
     /// <inheritdoc />
+    public async Task RescheduleAsync(int id, DateTime newDueAt, CancellationToken cancellationToken = default)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var reminder = await context.Reminders.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        if (reminder is null)
+        {
+            return;
+        }
+
+        reminder.DueAt = newDueAt;
+        reminder.DeliveredAt = null;
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
     public async Task<bool> RemovePendingAsync(int id, ulong discordUserId, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);

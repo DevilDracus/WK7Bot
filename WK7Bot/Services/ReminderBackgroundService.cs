@@ -104,7 +104,15 @@ public class ReminderBackgroundService : BackgroundService
                 _logger.LogWarning(ex, "Could not deliver reminder {ReminderId}.", reminder.Id);
             }
 
-            await repository.MarkDeliveredAsync(reminder.Id, cancellationToken).ConfigureAwait(false);
+            if (reminder.IsRecurring && reminder.RecurrenceTicks > 0)
+            {
+                var nextDue = DateTime.UtcNow.AddTicks(reminder.RecurrenceTicks);
+                await repository.RescheduleAsync(reminder.Id, nextDue, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await repository.MarkDeliveredAsync(reminder.Id, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         await repository.PruneDeliveredAsync(DateTime.UtcNow - DeliveredRetention, cancellationToken).ConfigureAwait(false);

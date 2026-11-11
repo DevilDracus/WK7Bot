@@ -45,6 +45,7 @@ public class RemindModule : BotModuleBase
     public async Task RemindAsync(
         [Summary("wann", "z. B. 'in 30m', 'in 2h', '18:30', 'morgen 08:00'")] string wann,
         [Summary("text", "Woran soll erinnert werden?")] [MaxLength(MaxReminderTextLength)] string text,
+        [Summary("wiederholung", "Wiederholung, z. B. 'daily', 'weekly', '1d', '2h' (optional)")] string? wiederholung = null,
         [Summary("hier", "Im aktuellen Kanal erinnern statt per DM")] bool hier = false)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
@@ -68,6 +69,20 @@ public class RemindModule : BotModuleBase
             return;
         }
 
+        var isRecurring = false;
+        var recurrenceTicks = 0L;
+        if (!string.IsNullOrWhiteSpace(wiederholung))
+        {
+            if (!ReminderTimeParser.TryParseRecurrence(wiederholung, out var interval))
+            {
+                await FollowupAsync("❌ Die Wiederholung konnte nicht gelesen werden. Beispiele: `daily`, `weekly`, `1d`, `2h`.", ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
+            isRecurring = true;
+            recurrenceTicks = interval.Ticks;
+        }
+
         var reminder = new Reminder
         {
             DiscordUserId = Context.User.Id,
@@ -75,7 +90,9 @@ public class RemindModule : BotModuleBase
             ChannelId = hier ? Context.Channel.Id : 0,
             Text = text,
             DueAt = dueAt.ToUniversalTime(),
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsRecurring = isRecurring,
+            RecurrenceTicks = recurrenceTicks
         };
 
         try
@@ -91,8 +108,9 @@ public class RemindModule : BotModuleBase
 
         var unix = new DateTimeOffset(dueAt).ToUnixTimeSeconds();
         var target = hier ? "in diesem Kanal" : "per DM";
+        var recurringNote = isRecurring ? " (wiederholt sich)" : string.Empty;
         await FollowupAsync(
-            $"⏰ Erinnerung {target} gesetzt für <t:{unix}:f> (<t:{unix}:R>):\n> {text}",
+            $"⏰ Erinnerung {target} gesetzt für <t:{unix}:f> (<t:{unix}:R>){recurringNote}:\n> {text}",
             ephemeral: true);
     }
 

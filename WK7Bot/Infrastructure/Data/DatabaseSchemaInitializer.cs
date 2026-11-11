@@ -89,6 +89,8 @@ public static class DatabaseSchemaInitializer
         await AddColumnIfMissingAsync(connection, "RssFeeds", "RefreshIntervalMinutes", "INTEGER NOT NULL DEFAULT 15", cancellationToken).ConfigureAwait(false);
         await AddColumnIfMissingAsync(connection, "RssFeeds", "IsPaused", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
         await AddColumnIfMissingAsync(connection, "RssFeeds", "NormalizedName", "TEXT NOT NULL DEFAULT ''", cancellationToken).ConfigureAwait(false);
+        await AddColumnIfMissingAsync(connection, "Reminders", "IsRecurring", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+        await AddColumnIfMissingAsync(connection, "Reminders", "RecurrenceTicks", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
 
         // Index on NormalizedName must run AFTER the column is added (see line above).
         await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNormalizedNameIndexSql, cancellationToken).ConfigureAwait(false);
@@ -425,7 +427,9 @@ public static class DatabaseSchemaInitializer
             Text          TEXT    NOT NULL,
             DueAt         TEXT    NOT NULL,
             CreatedAt     TEXT    NOT NULL,
-            DeliveredAt   TEXT    NULL
+            DeliveredAt   TEXT    NULL,
+            IsRecurring   INTEGER NOT NULL DEFAULT 0,
+            RecurrenceTicks INTEGER NOT NULL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS IX_Reminders_DeliveredAt_DueAt ON Reminders (DeliveredAt, DueAt);
         CREATE INDEX IF NOT EXISTS IX_Reminders_DiscordUserId ON Reminders (DiscordUserId);

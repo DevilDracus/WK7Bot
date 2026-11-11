@@ -46,6 +46,7 @@ options:
   weekend_digest_channel_name: "\U0001F4C5wochenende"
   dwd_warning_channel_name: "\U000026C8\U0000FE0Fweather-warnings"
   error_channel_name: "\U0001F916WK7Errors\U00002757"
+  trivia_channel_name: "\U0001F9E0trivia"
   leaderboard_post_weekday: "Monday"
   leaderboard_post_time: "18:00"
   mqtt_host: "core-mosquitto"
@@ -146,6 +147,7 @@ schema:
   weekend_digest_channel_name: str
   dwd_warning_channel_name: str
   error_channel_name: str
+  trivia_channel_name: str
   leaderboard_post_weekday: str
   leaderboard_post_time: str
   mqtt_host: str

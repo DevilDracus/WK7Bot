@@ -25,6 +25,12 @@ public class Reminder
     /// <summary>Gets or sets the UTC due time.</summary>
     public DateTime DueAt { get; set; }
 
+    /// <summary>Gets or sets whether this reminder repeats on a fixed interval.</summary>
+    public bool IsRecurring { get; set; }
+
+    /// <summary>Gets or sets the recurrence interval in ticks (only meaningful when <see cref="IsRecurring"/> is true).</summary>
+    public long RecurrenceTicks { get; set; }
+
     /// <summary>Gets or sets the UTC creation timestamp.</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

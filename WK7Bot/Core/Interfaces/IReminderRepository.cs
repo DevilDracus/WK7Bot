@@ -31,6 +31,13 @@ public interface IReminderRepository
     /// <returns>A task representing the asynchronous operation.</returns>
     Task MarkDeliveredAsync(int id, CancellationToken cancellationToken = default);
 
+    /// <summary>Reschedules a recurring reminder to its next due time without marking it delivered.</summary>
+    /// <param name="id">The reminder identifier.</param>
+    /// <param name="newDueAt">The next UTC due time.</param>
+    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task RescheduleAsync(int id, DateTime newDueAt, CancellationToken cancellationToken = default);
+
     /// <summary>Removes a pending reminder owned by the given user.</summary>
     /// <param name="id">The reminder identifier.</param>
     /// <param name="discordUserId">The owning Discord user; used so one member cannot cancel another's reminder.</param>

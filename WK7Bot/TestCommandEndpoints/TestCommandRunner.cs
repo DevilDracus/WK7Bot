@@ -295,10 +295,11 @@ internal static class TestCommandRunner
                 {
                     var wann = string.IsNullOrWhiteSpace(Arg("wann")) ? "in 30m" : Arg("wann");
                     var text = string.IsNullOrWhiteSpace(Arg("text")) ? "Test-Erinnerung" : Arg("text");
+                    var wiederholung = Arg("wiederholung");
                     var hier = string.Equals(Arg("hier"), "true", StringComparison.OrdinalIgnoreCase);
                     var module = CreateModule<TestableRemindModule>(services);
                     SetContext(module, context);
-                    await module.RemindAsync(wann, text, hier).ConfigureAwait(false);
+                    await module.RemindAsync(wann, text, wiederholung, hier).ConfigureAwait(false);
                     return $"remind completed ({wann})";
                 }
             case "reminders":
