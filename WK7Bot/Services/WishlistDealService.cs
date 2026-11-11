@@ -104,10 +104,25 @@ public sealed class WishlistDealService : IWishlistDealService
             // Steam occasionally returns HTML (rate limit, maintenance, login page) with 200 OK.
             if (json.TrimStart().StartsWith('<'))
             {
-            _logger.LogWarning(
-            "Steam wishlist for {SteamId} returned HTML instead of JSON (likely rate-limited or unavailable).",
-            steamId);
-            return Array.Empty<SteamWishlistItem>();
+                // The store wishlist page embeds app IDs in JavaScript (g_rgWishlistData / "appid":N).
+                // Parse them so private wishlists accessible via shared links can still be used.
+                var appIdMatches = System.Text.RegularExpressions.Regex.Matches(json, @"""appid""\s*:\s*(\d+)");
+                var appIds = appIdMatches.Cast<System.Text.RegularExpressions.Match>()
+                    .Select(m => uint.TryParse(m.Groups[1].Value, out var id) ? id : 0u)
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToList();
+
+                if (appIds.Count > 0)
+                {
+                    _logger.LogInformation("Parsed {Count} app ID(s) from Steam wishlist HTML.", appIds.Count);
+                    return appIds.Select(id => new SteamWishlistItem { AppId = id }).ToList();
+                }
+
+                _logger.LogWarning(
+                    "Steam wishlist for {SteamId} returned HTML instead of JSON (likely rate-limited, unavailable, or private without a valid share token).",
+                    steamId);
+                return Array.Empty<SteamWishlistItem>();
             }
 
             // Try the IWishlistService format first: { "response": { "items": [...] } }
