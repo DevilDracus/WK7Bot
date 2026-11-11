@@ -150,6 +150,11 @@ public static class ServiceCollectionExtensions
         {
             // Same host as the CAP warnings: a slow open-data response must not hang the caller.
             client.Timeout = TimeSpan.FromSeconds(45);
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All,
+            // Same rationale as DWD: bypass any proxy inherited from the HA container environment.
+            UseProxy = false
         });
         services.AddHttpClient<IDwdWarningService, DwdWarningService>(client =>
         {

@@ -258,6 +258,8 @@ Every request must carry `X-WK7-Test: <key>`. The API is off by default and stay
 
 ## Getting Started
 
+Requires the **.NET 10 SDK** (`dotnet --version` should report `10.x`).
+
 ```bash
 git clone https://github.com/DevilDracus/WK7Bot.git
 cd WK7Bot
@@ -279,6 +281,18 @@ dotnet test WK7Bot.sln
 ## Stack
 
 .NET 10 (C# 14) · `Discord.Net` 3.19 (`Discord.Interactions`, Components V2) · EF Core + SQLite · `MQTTnet` · Polly 8 · `CodeHollow.FeedReader`, `Ical.Net`, JSON-LD recipes · DuckDuckGo/Chefkoch search · Open Food Facts · Steam Web API, Battle.net OAuth and IsThereAnyDeal · DWD CAP open data · Google Gemini · xUnit, Moq, EF InMemory · Docker, Home Assistant Supervisor Add-On.
+
+## Troubleshooting
+
+- **DWD warnings never post.** The service polls `opendata.dwd.de` every 2 minutes. Three common causes:
+  - `dwd_warning.postal_code` is empty → the service stays idle and posts nothing (no error). Set a postal code in the add-on options.
+  - `servers.wk7_server_id` / `test_server_id` are still the shipped placeholders → `AutomaticTargetResolver` skips posting and logs a Warning. Set real guild IDs.
+  - `dwd_warning_enabled` is false, or no active warning matches the configured events/area. DWD warnings are episodic; absence of posts is normal when nothing is active.
+- **DWD `TaskCanceledException` (45 s timeout) spam in `#🤖WK7Errors❗`.** The DWD feed answers in ~0.2 s from outside the container; timeouts mean the HA container's network path to DWD is stalled (often a stale/broken `HTTP_PROXY`). The bot bypasses the proxy for DWD/Pollen and reports these timeouts at **Warning** level (not Error) so they no longer flood the error channel. Check the HA container's DNS/IPv4 reachability to `opendata.dwd.de` if they persist.
+- **Error channel is empty but something feels broken.** An empty channel only means no `Error`/`Critical` logs were emitted. Idle or misconfigured services (missing API keys, empty postal codes) produce no posts and no errors. Check `StartupConfigurationValidator`'s report and the per-feature `binary_sensor.wk7_bot_<feature>_problem` entities.
+- **`no such column` SQLite crash loop on startup.** Schema-order bug in `DatabaseSchemaInitializer`: an index/constraint was added before its column. Move the DDL after the `AddColumnIfMissingAsync` call.
+- **`wk7_errors_total` stays 0 on `/metrics`.** `MetricsRegistry` is registered twice (Program.cs instance + DI container instance); the queue uses the Program.cs instance. Known gap, not a runtime error.
+- **Build fails with `no such column` or version mismatch.** Run `dotnet build WK7Bot.sln --no-incremental`; the assembly version is read from `WK7Bot/config.yaml` at build time.
 
 ## License
 
