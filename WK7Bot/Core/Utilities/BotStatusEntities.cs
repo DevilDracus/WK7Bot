@@ -85,7 +85,8 @@ public static class BotStatusEntities
         new BotStatusFeature(FeatureKeys.LeipzigWaste, FeatureKeys.RoutedFeatures.LeipzigWaste, "Leipzig Waste"),
         new BotStatusFeature(FeatureKeys.WeekendDigest, FeatureKeys.RoutedFeatures.WeekendDigest, "Weekend Digest"),
         new BotStatusFeature(FeatureKeys.DwdWarning, FeatureKeys.RoutedFeatures.DwdWarning, "DWD Warnings"),
-        new BotStatusFeature(FeatureKeys.SpontanTreff, "spontan_treff", "Spontan-Treff")
+        new BotStatusFeature(FeatureKeys.SpontanTreff, "spontan_treff", "Spontan-Treff"),
+        new BotStatusFeature(FeatureKeys.SteamFriendDigest, FeatureKeys.RoutedFeatures.SteamFriendDigest, "Steam Friend Digest")
     };
 
     /// <summary>State topic of a feature's enabled sensor.</summary>

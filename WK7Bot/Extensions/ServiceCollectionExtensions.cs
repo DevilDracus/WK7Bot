@@ -309,6 +309,11 @@ public static class ServiceCollectionExtensions
             services.AddHostedService<LeaderboardBackgroundService>();
         }
 
+        if (featureGate.IsEnabled(FeatureKeys.SteamFriendDigest))
+        {
+            services.AddHostedService<SteamFriendDigestBackgroundService>();
+        }
+
         if (featureGate.IsEnabled(FeatureKeys.DealWatchlist))
         {
             services.AddHostedService<DealWatchlistBackgroundService>();

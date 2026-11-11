@@ -36,6 +36,12 @@ public class PlayerSummaryContainer
 public class PlayerSummaryItem
 {
     /// <summary>
+    /// Gets or sets the 64-bit Steam identifier of the player.
+    /// </summary>
+    [JsonPropertyName("steamid")]
+    public string? SteamId { get; set; }
+
+    /// <summary>
     /// Gets or sets the display persona name of the player.
     /// </summary>
     [JsonPropertyName("personaname")]

@@ -36,4 +36,14 @@ public interface ISteamService
         string steamId,
         uint appId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches lightweight activity summaries for multiple Steam IDs in a single batch.
+    /// </summary>
+    /// <param name="steamIds">The 64-bit Steam IDs to query.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A collection of <see cref="SteamUserActivity"/> snapshots containing current and recent game activity.</returns>
+    Task<IReadOnlyList<SteamUserActivity>> GetUserActivitiesAsync(
+        IEnumerable<string> steamIds,
+        CancellationToken cancellationToken = default);
 }

@@ -70,6 +70,9 @@ public static class FeatureKeys
     /// <summary>Key of the game release-date reminder feature.</summary>
     public const string ReleaseDateReminders = "release_date_reminders_enabled";
 
+    /// <summary>Key of the Steam friend activity digest feature.</summary>
+    public const string SteamFriendDigest = "steam_friend_digest_enabled";
+
     /// <summary>
     /// Every known feature key. Used by the runtime <c>/config feature</c> command to validate input
     /// and to render the current state of all switches.
@@ -96,7 +99,8 @@ public static class FeatureKeys
         PollenAlerts,
         Reminders,
         Birthdays,
-        ReleaseDateReminders
+        ReleaseDateReminders,
+        SteamFriendDigest
     };
 
     /// <summary>
@@ -131,5 +135,8 @@ public static class FeatureKeys
 
         /// <summary>Routing key of the birthday announcements.</summary>
         public const string Birthdays = "birthdays";
+
+        /// <summary>Routing key of the Steam friend activity digest.</summary>
+        public const string SteamFriendDigest = "steam_friend_digest";
     }
 }

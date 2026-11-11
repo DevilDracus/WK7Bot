@@ -133,6 +133,12 @@ public class FeatureOptions
     public bool ReleaseDateRemindersEnabled { get; init; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the Steam friend activity digest is enabled.
+    /// </summary>
+    [ConfigurationKeyName("steam_friend_digest_enabled")]
+    public bool SteamFriendDigestEnabled { get; init; } = true;
+
+    /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
     /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
     /// feature on older configuration.
@@ -162,6 +168,7 @@ public class FeatureOptions
         FeatureKeys.Reminders => RemindersEnabled,
         FeatureKeys.Birthdays => BirthdayEnabled,
         FeatureKeys.ReleaseDateReminders => ReleaseDateRemindersEnabled,
+        FeatureKeys.SteamFriendDigest => SteamFriendDigestEnabled,
         _ => true
     };
 }

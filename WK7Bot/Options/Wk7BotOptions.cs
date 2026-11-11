@@ -297,6 +297,24 @@ public class Wk7BotOptions
     public string BirthdayChannelName { get; init; } = "\U0001F382birthdays";
 
     /// <summary>
+    /// Gets or sets the Discord channel name for the Steam friend activity digest.
+    /// </summary>
+    [ConfigurationKeyName("steam_friend_digest_channel_name")]
+    public string SteamFriendDigestChannelName { get; init; } = "\U0001F3AEgame-deals";
+
+    /// <summary>
+    /// Gets or sets the local time (HH:mm) of the Steam friend activity digest post.
+    /// </summary>
+    [ConfigurationKeyName("steam_friend_digest_post_time")]
+    public string SteamFriendDigestPostTime { get; init; } = "19:00";
+
+    /// <summary>
+    /// Gets or sets the weekday of the Steam friend activity digest post.
+    /// </summary>
+    [ConfigurationKeyName("steam_friend_digest_post_weekday")]
+    public string SteamFriendDigestPostWeekday { get; init; } = "Saturday";
+
+    /// <summary>
     /// Gets or sets the IsThereAnyDeal API key used for fetching game price data.
     /// Register at https://isthereanydeal.com/developers/ to obtain a key.
     /// </summary>
