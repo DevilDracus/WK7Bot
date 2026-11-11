@@ -105,6 +105,7 @@ public class TriviaModule : BotModuleBase
 
         var guildId = Context.Guild?.Id ?? 0;
         var weekStart = GetWeekStart(DateTime.UtcNow);
+        await _scoreRepository.PruneOlderThanAsync(weekStart.AddDays(-14)).ConfigureAwait(false);
         var top = await _scoreRepository.GetTopAsync(guildId, weekStart, 10).ConfigureAwait(false);
 
         if (top.Count == 0)
