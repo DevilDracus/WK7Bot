@@ -44,7 +44,7 @@ public class WishlistDealServiceTests
     [Fact]
     public async Task FetchWishlistAsync_ReturnsItems_WhenWishlistIsPublic()
     {
-        var json = @"{""123"":{""appid"":123,""name"":""Test Game"",""subs"":[]},""456"":{""appid"":456,""name"":""Other Game"",""subs"":[]}}";
+        var json = @"{""response"":{""items"":[{""appid"":123},{""appid"":456}]}}";
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json)
@@ -54,8 +54,8 @@ public class WishlistDealServiceTests
         var result = await service.FetchWishlistAsync("123456789");
 
         Assert.Equal(2, result.Count);
-        Assert.Contains(result, i => i.AppId == 123 && i.Name == "Test Game");
-        Assert.Contains(result, i => i.AppId == 456 && i.Name == "Other Game");
+        Assert.Contains(result, i => i.AppId == 123);
+        Assert.Contains(result, i => i.AppId == 456);
     }
 
     [Fact]

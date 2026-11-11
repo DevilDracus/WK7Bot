@@ -16,9 +16,6 @@ using WK7Bot.Services.Interfaces;
 /// </summary>
 public sealed class WishlistDealService : IWishlistDealService
 {
-    private const string SteamWishlistEndpoint = "https://store.steampowered.com/wishlist/profiles/{0}/wishlistdata/";
-    private const string SteamWishlistDataSuffix = "wishlistdata/";
-
     /// <summary>
     /// Resolves the Steam wishlist data URL. If a shared wishlist URL is provided, the data endpoint
     /// is derived from it (appending <c>wishlistdata/</c> when missing) so that wishlists shared via
@@ -29,12 +26,21 @@ public sealed class WishlistDealService : IWishlistDealService
     /// <param name="wishlistUrl">An optional shared wishlist URL.</param>
     /// <returns>The wishlist data URL to fetch.</returns>
     private static string ResolveWishlistUrl(string steamId, string? wishlistUrl)
+    {
+        // The IWishlistService endpoint is the reliable one (no auth, no login redirect).
+        // A shared wishlist URL is stored for reference; if it contains a steamid we honour it,
+        // otherwise fall back to the configured Steam ID.
+        if (!string.IsNullOrWhiteSpace(wishlistUrl))
         {
-            // Use the IWishlistService endpoint which works without authentication.
-            // The shared wishlist URL is stored for reference but the SteamID-based
-            // endpoint is more reliable (does not require a logged-in session).
-            return $"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={steamId}";
+            var match = System.Text.RegularExpressions.Regex.Match(wishlistUrl, @"profiles/(\d+)");
+            if (match.Success)
+            {
+                return $"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={match.Groups[1].Value}";
+            }
         }
+
+        return $"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={steamId}";
+    }
     private const string ItadLookupEndpoint = "https://api.isthereanydeal.com/games/lookup/v1";
     private const string ItadPricesEndpoint = "https://api.isthereanydeal.com/games/prices/v3";
     private const int MaxAttempts = 3;
@@ -108,17 +114,9 @@ public sealed class WishlistDealService : IWishlistDealService
             return apiResponse.Response.Items;
             }
 
-            // Fall back to the wishlistdata/ format: { "730": { "name": "...", ... } }
-            var wishlist = JsonSerializer.Deserialize<SteamWishlistResponse>(json, new JsonSerializerOptions
-            {
-            PropertyNameCaseInsensitive = true
-            });
-            if (wishlist == null || wishlist.Count == 0)
-            {
+            // IWishlistService returns an empty response for private/empty wishlists.
+            _logger.LogDebug("Steam wishlist for {SteamId} returned no items (private or empty).", steamId);
             return Array.Empty<SteamWishlistItem>();
-            }
-
-            return wishlist.Values.ToList();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -193,57 +191,56 @@ public sealed class WishlistDealService : IWishlistDealService
             return results;
         }
 
-        // ITAD prices: query current prices for resolved game IDs
+        // ITAD prices: query current prices for resolved game IDs (chunked to respect the 200-id limit).
+        var allItadIds = lookupByAppId.Values.Select(x => x.itadId).ToList();
         var priceUrl = $"{ItadPricesEndpoint}?key={apiKey}&country=DE";
-        var pricePayload = lookupByAppId.Values.Select(x => x.itadId).ToList();
 
         try
         {
-            using var priceResponse = await PostWithRetryAsync(priceUrl, pricePayload, cancellationToken);
-            if (!priceResponse.IsSuccessStatusCode)
+            foreach (var chunk in Chunk(allItadIds, 200))
             {
-            _logger.LogWarning("ITAD prices request returned {StatusCode}.", priceResponse.StatusCode);
-            return results;
-            }
+                using var priceResponse = await PostWithRetryAsync(priceUrl, chunk, cancellationToken);
+                if (!priceResponse.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("ITAD prices request returned {StatusCode}.", priceResponse.StatusCode);
+                    continue;
+                }
 
-            var priceData = await priceResponse.Content.ReadFromJsonAsync<List<ItadPriceResponse>>(cancellationToken: cancellationToken);
-            if (priceData == null || priceData.Count == 0)
-            {
-            return results;
-            }
+                var priceData = await priceResponse.Content.ReadFromJsonAsync<List<ItadPriceResponse>>(cancellationToken: cancellationToken);
+                if (priceData == null || priceData.Count == 0)
+                {
+                    continue;
+                }
 
-            foreach (var item in priceData)
-            {
-            if (item.Deals == null || item.Deals.Count == 0)
-            {
-            continue;
-            }
+                foreach (var item in priceData)
+                {
+                    if (item.Deals == null || item.Deals.Count == 0)
+                    {
+                        continue;
+                    }
 
-            var bestDeal = item.Deals.OrderBy(d => d.Price.Amount).First();
-            var match = lookupByAppId.FirstOrDefault(x => x.Value.itadId == item.Id);
-            if (match.Key == 0 && !lookupByAppId.ContainsKey(0))
-            {
-                continue;
-            }
+                    var bestDeal = item.Deals.OrderBy(d => d.Price.Amount).First();
+                    var match = lookupByAppId.FirstOrDefault(x => x.Value.itadId == item.Id);
+                    if (match.Key == 0 && !lookupByAppId.ContainsKey(0))
+                    {
+                        continue;
+                    }
 
-            var appId = match.Key;
-            var title = lookupByAppId.TryGetValue(appId, out var info) ? info.title : string.Empty;
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                title = string.Empty;
-            }
+                    var appId = match.Key;
+                    var title = lookupByAppId.TryGetValue(appId, out var info) ? info.title : string.Empty;
 
-            results[appId] = new ItadPriceData
-            {
-                Title = title,
-                CurrentPrice = bestDeal.Price.Amount,
-                RegularPrice = bestDeal.Regular.Amount,
-                HistoricalLow = item.HistoryLow?.All?.Amount ?? bestDeal.Price.Amount,
-                StoreName = bestDeal.Shop.Name,
-                DealUrl = bestDeal.Url
-            };
+                    results[appId] = new ItadPriceData
+                    {
+                        Title = title,
+                        CurrentPrice = bestDeal.Price.Amount,
+                        RegularPrice = bestDeal.Regular.Amount,
+                        HistoricalLow = item.HistoryLow?.All?.Amount ?? bestDeal.Price.Amount,
+                        StoreName = bestDeal.Shop.Name,
+                        DealUrl = bestDeal.Url
+                    };
+                }
             }
-            }
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
@@ -286,6 +283,14 @@ public sealed class WishlistDealService : IWishlistDealService
             DealUrl = priceData.DealUrl,
             NotifiedUserIds = notifiedUserIds.ToList()
         };
+    }
+
+    private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> source, int size)
+    {
+        for (var i = 0; i < source.Count; i += size)
+        {
+            yield return source.Skip(i).Take(size).ToList();
+        }
     }
 
     internal async Task<HttpResponseMessage> GetWithRetryAsync(string url, CancellationToken cancellationToken = default)
