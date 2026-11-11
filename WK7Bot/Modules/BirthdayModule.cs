@@ -37,6 +37,19 @@ public class BirthdayModule : BotModuleBase
     public async Task SetAsync(
         [Summary("tag", "Tag des Monats (1-31)")] int day,
         [Summary("monat", "Monat (1-12)")] int month)
+        => await SetBirthdayAsync(day, month).ConfigureAwait(false);
+
+    /// <summary>Adds or updates the invoking user's birthday (alias for <c>/birthday-set</c>).</summary>
+    /// <param name="day">Day of month (1-31).</param>
+    /// <param name="month">Month (1-12).</param>
+    /// <returns>A task representing the command response.</returns>
+    [SlashCommand("add-birthday", "Fügt deinen Geburtstag hinzu (Tag und Monat).")]
+    public async Task AddBirthdayAsync(
+        [Summary("tag", "Tag des Monats (1-31)")] int day,
+        [Summary("monat", "Monat (1-12)")] int month)
+        => await SetBirthdayAsync(day, month).ConfigureAwait(false);
+
+    private async Task SetBirthdayAsync(int day, int month)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
