@@ -46,6 +46,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDealWatchRepository, DealWatchRepository>();
         services.AddScoped<IManualWishlistRepository, ManualWishlistRepository>();
         services.AddScoped<IReleaseDateReminderRepository, ReleaseDateReminderRepository>();
+        services.AddScoped<IPriceHistoryRepository, PriceHistoryRepository>();
         services.AddScoped<IAccountLinkResolver, AccountLinkResolver>();
         services.AddScoped<IDiscordScheduledEventRepository, DiscordScheduledEventRepository>();
         services.AddScoped<IReminderRepository, ReminderRepository>();

@@ -1,6 +1,6 @@
 ﻿name: "WK7 Bot"
 description: "Discord Bot for Home Assistant integration and RSS feed management."
-version: "1.1.20"
+version: "1.1.21"
 slug: "wk7bot"
 image: "ghcr.io/devildracus/wk7bot"
 ingress: true
@@ -96,6 +96,7 @@ options:
     reminders_enabled: true
     release_date_reminders_enabled: true
     steam_friend_digest_enabled: true
+    price_history_enabled: true
   birthday_enabled: true
   servers:
     wk7_server_id: "YOUR_WK7_SERVER_ID"
@@ -212,6 +213,7 @@ schema:
     reminders_enabled: bool
     release_date_reminders_enabled: bool
     steam_friend_digest_enabled: bool
+    price_history_enabled: bool
   birthday_enabled: bool
   servers:
     wk7_server_id: str

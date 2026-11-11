@@ -73,6 +73,9 @@ public static class FeatureKeys
     /// <summary>Key of the Steam friend activity digest feature.</summary>
     public const string SteamFriendDigest = "steam_friend_digest_enabled";
 
+    /// <summary>Key of the price history snapshot feature.</summary>
+    public const string PriceHistory = "price_history_enabled";
+
     /// <summary>
     /// Every known feature key. Used by the runtime <c>/config feature</c> command to validate input
     /// and to render the current state of all switches.
@@ -100,7 +103,8 @@ public static class FeatureKeys
         Reminders,
         Birthdays,
         ReleaseDateReminders,
-        SteamFriendDigest
+        SteamFriendDigest,
+        PriceHistory
     };
 
     /// <summary>

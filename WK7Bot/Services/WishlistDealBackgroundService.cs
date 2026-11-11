@@ -24,6 +24,7 @@ public class WishlistDealBackgroundService : BackgroundService
     private readonly IWishlistDealService _dealService;
     private readonly ISteamService _steamService;
     private readonly IManualWishlistRepository _manualWishlistRepository;
+    private readonly IPriceHistoryRepository _priceHistoryRepository;
     private readonly IFeatureHealthTracker _health;
     private readonly Wk7BotOptions _options;
     private readonly FeatureGate _featureGate;
@@ -47,6 +48,7 @@ public class WishlistDealBackgroundService : BackgroundService
     /// <param name="dealService">The wishlist deal evaluation service.</param>
     /// <param name="steamService">The Steam service for resolving Discord-to-Steam mappings.</param>
     /// <param name="manualWishlistRepository">The repository for per-user manual wishlist AppID entries.</param>
+    /// <param name="priceHistoryRepository">The repository for price history snapshots.</param>
     /// <param name="health">The feature health tracker.</param>
     /// <param name="options">The application configuration options.</param>
     /// <param name="featureGate">The consolidated feature gate.</param>
@@ -57,6 +59,7 @@ public class WishlistDealBackgroundService : BackgroundService
         IWishlistDealService dealService,
         ISteamService steamService,
         IManualWishlistRepository manualWishlistRepository,
+        IPriceHistoryRepository priceHistoryRepository,
         IFeatureHealthTracker health,
         IOptions<Wk7BotOptions> options,
         FeatureGate featureGate,
@@ -67,6 +70,7 @@ public class WishlistDealBackgroundService : BackgroundService
         _dealService = dealService ?? throw new ArgumentNullException(nameof(dealService));
         _steamService = steamService ?? throw new ArgumentNullException(nameof(steamService));
         _manualWishlistRepository = manualWishlistRepository ?? throw new ArgumentNullException(nameof(manualWishlistRepository));
+        _priceHistoryRepository = priceHistoryRepository ?? throw new ArgumentNullException(nameof(priceHistoryRepository));
         _health = health ?? throw new ArgumentNullException(nameof(health));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
@@ -138,6 +142,11 @@ public class WishlistDealBackgroundService : BackgroundService
         {
             _logger.LogWarning("No price data returned from IsThereAnyDeal.");
             return;
+        }
+
+        if (_featureGate.IsEnabled(FeatureKeys.PriceHistory))
+        {
+            await RecordPriceSnapshotsAsync(prices, cancellationToken).ConfigureAwait(false);
         }
 
         // Evaluate alerts
@@ -262,6 +271,39 @@ public class WishlistDealBackgroundService : BackgroundService
 
             await repository.ReplaceTrackedGamesAsync(games, cancellationToken).ConfigureAwait(false);
             await repository.PruneAlertHistoryAsync(AlertRetention, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Records current ITAD prices as snapshots so the price history command can render discount charts.
+    /// </summary>
+    /// <param name="prices">The current price data per Steam AppID.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    private async Task RecordPriceSnapshotsAsync(
+        IReadOnlyDictionary<uint, ItadPriceData> prices,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            var snapshots = prices.Select(p => new PriceHistorySnapshot
+            {
+                AppId = p.Key,
+                Name = p.Value.Title,
+                Store = p.Value.StoreName,
+                Price = p.Value.CurrentPrice,
+                RegularPrice = p.Value.RegularPrice,
+                DiscountPercent = p.Value.DiscountPercent,
+                Currency = "EUR",
+                RecordedAt = now
+            }).ToList();
+
+            var inserted = await _priceHistoryRepository.AddSnapshotsAsync(snapshots, cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("Recorded {Inserted} price history snapshots.", inserted);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to record price history snapshots; continuing without them.");
         }
     }
 

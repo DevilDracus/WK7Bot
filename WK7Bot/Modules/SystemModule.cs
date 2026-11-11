@@ -245,7 +245,7 @@ public class SystemModule : BotModuleBase
             var infoCommands = new[] { "check-waste", "spontan-treff", "weather", "pollen" };
             var foodCommands = new[] { "recipe", "recipe-seasonal", "recipe-generate", "seasonal-produce", "check-food" };
             var rssCommands = new[] { "rss", "rss add", "rss list", "rss remove", "rss dashboard" };
-            var dealCommands = new[] { "deals", "achievements", "watch", "watchlist", "unwatch", "wishlist-add-appid", "wishlist-remove-appid", "wishlist-list-appid", "release-remind", "release-unremind", "release-list", "steam-friends-digest" };
+            var dealCommands = new[] { "deals", "achievements", "watch", "watchlist", "unwatch", "wishlist-add-appid", "wishlist-remove-appid", "wishlist-list-appid", "release-remind", "release-unremind", "release-list", "steam-friends-digest", "price-history" };
 
             AddCommandField(embed, "🖥️ System", systemCommands);
             AddCommandField(embed, "📰 Info", infoCommands);

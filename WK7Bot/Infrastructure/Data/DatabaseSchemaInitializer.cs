@@ -71,6 +71,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateDealWatchItemsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateManualWishlistItemsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateReleaseDateReminderItemsSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreatePriceHistorySnapshotsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDiscordScheduledEventsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRemindersSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateBirthdaysSql, cancellationToken).ConfigureAwait(false);
@@ -433,6 +434,26 @@ public static class DatabaseSchemaInitializer
             LastNotifiedAt TEXT   NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS IX_ReleaseDateReminderItems_DiscordUserId_AppId ON ReleaseDateReminderItems (DiscordUserId, AppId);
+        """;
+
+    /// <summary>
+    /// Raw DDL for price history snapshots collected from periodic ITAD checks.
+    /// </summary>
+    public const string CreatePriceHistorySnapshotsSql =
+        """
+        CREATE TABLE IF NOT EXISTS PriceHistorySnapshots (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            AppId         INTEGER NOT NULL,
+            Name          TEXT    NOT NULL,
+            Store         TEXT    NOT NULL,
+            Price         TEXT    NOT NULL,
+            RegularPrice  TEXT    NULL,
+            DiscountPercent INTEGER NOT NULL DEFAULT 0,
+            Currency      TEXT    NOT NULL DEFAULT 'EUR',
+            RecordedAt    TEXT    NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS IX_PriceHistorySnapshots_AppId_Store_RecordedAt ON PriceHistorySnapshots (AppId, Store, RecordedAt);
+        CREATE INDEX IF NOT EXISTS IX_PriceHistorySnapshots_RecordedAt ON PriceHistorySnapshots (RecordedAt);
         """;
 
     /// <summary>

@@ -139,6 +139,12 @@ public class FeatureOptions
     public bool SteamFriendDigestEnabled { get; init; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether price history snapshots are recorded.
+    /// </summary>
+    [ConfigurationKeyName("price_history_enabled")]
+    public bool PriceHistoryEnabled { get; init; } = true;
+
+    /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
     /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
     /// feature on older configuration.
@@ -169,6 +175,7 @@ public class FeatureOptions
         FeatureKeys.Birthdays => BirthdayEnabled,
         FeatureKeys.ReleaseDateReminders => ReleaseDateRemindersEnabled,
         FeatureKeys.SteamFriendDigest => SteamFriendDigestEnabled,
+        FeatureKeys.PriceHistory => PriceHistoryEnabled,
         _ => true
     };
 }

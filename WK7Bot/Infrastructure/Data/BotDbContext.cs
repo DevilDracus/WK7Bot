@@ -92,6 +92,11 @@ public class BotDbContext : DbContext
     public DbSet<ReleaseDateReminderItem> ReleaseDateReminderItems => Set<ReleaseDateReminderItem>();
 
     /// <summary>
+    /// Gets or sets the database set for price history snapshots.
+    /// </summary>
+    public DbSet<PriceHistorySnapshot> PriceHistorySnapshots => Set<PriceHistorySnapshot>();
+
+    /// <summary>
     /// Gets or sets the database set for Discord guild scheduled events created by the bot.
     /// </summary>
     public DbSet<DiscordScheduledEvent> DiscordScheduledEvents => Set<DiscordScheduledEvent>();
@@ -250,6 +255,17 @@ public class BotDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.DiscordUserId, e.AppId }).IsUnique();
             entity.Property(e => e.Name).IsRequired().HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<PriceHistorySnapshot>(entity =>
+        {
+            entity.ToTable("PriceHistorySnapshots");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.AppId, e.Store, e.RecordedAt });
+            entity.HasIndex(e => e.RecordedAt);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(300);
+            entity.Property(e => e.Store).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Currency).IsRequired().HasMaxLength(3);
         });
 
         modelBuilder.Entity<DiscordScheduledEvent>(entity =>

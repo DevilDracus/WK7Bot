@@ -24,10 +24,11 @@ public class WishlistDealBackgroundServiceTests
             IWishlistDealService dealService,
             ISteamService steamService,
             IManualWishlistRepository manualWishlistRepository,
+            IPriceHistoryRepository priceHistoryRepository,
             IFeatureHealthTracker health,
             IOptions<Wk7BotOptions> options,
             FeatureGate featureGate)
-            : base(scopeFactory, discordClient, dealService, steamService, manualWishlistRepository, health, options, featureGate, NullLogger<WishlistDealBackgroundService>.Instance)
+            : base(scopeFactory, discordClient, dealService, steamService, manualWishlistRepository, priceHistoryRepository, health, options, featureGate, NullLogger<WishlistDealBackgroundService>.Instance)
         {
         }
 
@@ -47,6 +48,7 @@ public class WishlistDealBackgroundServiceTests
             Mock.Of<IWishlistDealService>(),
             Mock.Of<ISteamService>(),
             manualRepository,
+            Mock.Of<IPriceHistoryRepository>(),
             Mock.Of<IFeatureHealthTracker>(),
             options,
             new FeatureGate(options));
