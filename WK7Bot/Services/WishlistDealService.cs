@@ -27,15 +27,21 @@ public sealed class WishlistDealService : IWishlistDealService
     /// <returns>The wishlist data URL to fetch.</returns>
     private static string ResolveWishlistUrl(string steamId, string? wishlistUrl)
     {
-        // The IWishlistService endpoint is the reliable one (no auth, no login redirect).
-        // A shared wishlist URL is stored for reference; if it contains a steamid we honour it,
-        // otherwise fall back to the configured Steam ID.
+        // Shared wishlist links (store.steampowered.com/wishlist/id/{token}) grant read access
+        // to private wishlists via a share token — use the store data endpoint for those.
         if (!string.IsNullOrWhiteSpace(wishlistUrl))
         {
-            var match = System.Text.RegularExpressions.Regex.Match(wishlistUrl, @"profiles/(\d+)");
-            if (match.Success)
+            var shareMatch = System.Text.RegularExpressions.Regex.Match(wishlistUrl, @"wishlist/id/([^/?#]+)");
+            if (shareMatch.Success)
             {
-                return $"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={match.Groups[1].Value}";
+                var token = shareMatch.Groups[1].Value;
+                return $"https://store.steampowered.com/wishlist/id/{token}/wishlistdata/";
+            }
+
+            var profileMatch = System.Text.RegularExpressions.Regex.Match(wishlistUrl, @"profiles/(\d+)");
+            if (profileMatch.Success)
+            {
+                return $"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={profileMatch.Groups[1].Value}";
             }
         }
 
@@ -107,11 +113,22 @@ public sealed class WishlistDealService : IWishlistDealService
             // Try the IWishlistService format first: { "response": { "items": [...] } }
             var apiResponse = JsonSerializer.Deserialize<SteamWishlistApiResponse>(json, new JsonSerializerOptions
             {
-            PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true
             });
             if (apiResponse?.Response?.Items is { Count: > 0 })
             {
-            return apiResponse.Response.Items;
+                return apiResponse.Response.Items;
+            }
+
+            // Fall back to the store wishlistdata/ format: { "730": { "name": "...", "appid": 730 } }
+            // Used by shared wishlist links (store.steampowered.com/wishlist/id/{token}/wishlistdata/).
+            var wishlist = JsonSerializer.Deserialize<SteamWishlistResponse>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            if (wishlist is { Count: > 0 })
+            {
+                return wishlist.Values.ToList();
             }
 
             // IWishlistService returns an empty response for private/empty wishlists.
