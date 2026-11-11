@@ -56,55 +56,92 @@ public static class BackgroundServiceResilience
             }
             catch (Exception ex)
             {
-                consecutiveFailures++;
-                health.RecordFailure(featureKey, ex.Message);
-
-                // External timeouts / network cancellations are transient environmental failures
-                // (e.g. a container-to-host network stall) and are reported at Warning level so they
-                // do not flood the Discord error channel. Genuine failures stay at Error level.
-                var isTransientNetworkFailure = IsTransientNetworkFailure(ex);
-                var failureLevel = isTransientNetworkFailure ? LogLevel.Warning : LogLevel.Error;
-
-                logger.Log(
-                    failureLevel,
+                var (handled, updatedFailures) = await HandleFailureAsync(
                     ex,
-                    "Service {Feature} iteration failed ({ConsecutiveFailures}/{MaxFailures}).",
                     featureKey,
+                    health,
+                    logger,
+                    maxConsecutiveFailures,
+                    restartDelay.Value,
                     consecutiveFailures,
-                    maxConsecutiveFailures);
+                    stoppingToken).ConfigureAwait(false);
 
-                if (consecutiveFailures >= maxConsecutiveFailures)
+                consecutiveFailures = updatedFailures;
+
+                if (!handled)
                 {
-                    logger.Log(
-                        failureLevel,
-                        "Service {Feature} has failed {MaxFailures} times consecutively. Pausing for {RestartDelay} before resuming.",
-                        featureKey,
-                        maxConsecutiveFailures,
-                        restartDelay.Value);
-
-                    try
-                    {
-                        await Task.Delay(restartDelay.Value, stoppingToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
-                    }
-
-                    consecutiveFailures = 0;
-                    logger.LogInformation("Service {Feature} resuming after restart delay.", featureKey);
-                    continue;
+                    break;
                 }
+
+                continue;
             }
 
-            try
-            {
-                await Task.Delay(interval, stoppingToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
+            if (!await TryDelayAsync(interval, stoppingToken).ConfigureAwait(false))
             {
                 break;
             }
+        }
+    }
+
+    private static async Task<(bool Handled, int ConsecutiveFailures)> HandleFailureAsync(
+        Exception ex,
+        string featureKey,
+        IFeatureHealthTracker health,
+        ILogger logger,
+        int maxConsecutiveFailures,
+        TimeSpan restartDelay,
+        int consecutiveFailures,
+        CancellationToken stoppingToken)
+    {
+        consecutiveFailures++;
+        health.RecordFailure(featureKey, ex.Message);
+
+        // External timeouts / network cancellations are transient environmental failures
+        // (e.g. a container-to-host network stall) and are reported at Warning level so they
+        // do not flood the Discord error channel. Genuine failures stay at Error level.
+        var isTransientNetworkFailure = IsTransientNetworkFailure(ex);
+        var failureLevel = isTransientNetworkFailure ? LogLevel.Warning : LogLevel.Error;
+
+        logger.Log(
+            failureLevel,
+            ex,
+            "Service {Feature} iteration failed ({ConsecutiveFailures}/{MaxFailures}).",
+            featureKey,
+            consecutiveFailures,
+            maxConsecutiveFailures);
+
+        if (consecutiveFailures < maxConsecutiveFailures)
+        {
+            return (true, consecutiveFailures);
+        }
+
+        logger.Log(
+            failureLevel,
+            "Service {Feature} has failed {MaxFailures} times consecutively. Pausing for {RestartDelay} before resuming.",
+            featureKey,
+            maxConsecutiveFailures,
+            restartDelay);
+
+        if (!await TryDelayAsync(restartDelay, stoppingToken).ConfigureAwait(false))
+        {
+            return (false, consecutiveFailures);
+        }
+
+        consecutiveFailures = 0;
+        logger.LogInformation("Service {Feature} resuming after restart delay.", featureKey);
+        return (true, consecutiveFailures);
+    }
+
+    private static async Task<bool> TryDelayAsync(TimeSpan interval, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await Task.Delay(interval, stoppingToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
         }
     }
 
