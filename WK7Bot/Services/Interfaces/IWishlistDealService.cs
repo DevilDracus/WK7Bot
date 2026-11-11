@@ -25,6 +25,14 @@ public interface IWishlistDealService
     Task<IReadOnlyDictionary<uint, ItadPriceData>> FetchPricesAsync(IEnumerable<uint> appIds, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Queries IsThereAnyDeal for current prices across all stores for a single Steam app ID.
+    /// </summary>
+    /// <param name="appId">The Steam application identifier.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A price comparison result, or null when the game cannot be resolved or has no deals.</returns>
+    Task<PriceComparisonResult?> ComparePricesAsync(uint appId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Evaluates a single game's price data against the alert thresholds and returns an alert if warranted.
     /// </summary>
     /// <param name="appId">The Steam application identifier.</param>

@@ -78,6 +78,7 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `/release-list` | List your release reminders | everyone |
 | `/steam-friends-digest` | Manually trigger the Steam friend activity digest | everyone |
 | `/price-history <game>` | Show discount history text chart for a game | everyone |
+| `/compare-prices <game>` | Compare current game prices across stores via ITAD | everyone |
 | `/link-steam <steam>` | Link a Steam account from SteamID64 or profile URL | everyone |
 | `/link-battlenet <refresh_token> [region] [battle_tag]` | Link a Battle.net account | everyone |
 | `/link-status` | Show your linked accounts | everyone |

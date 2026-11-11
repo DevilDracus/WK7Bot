@@ -141,32 +141,13 @@ public sealed class WishlistDealService : IWishlistDealService
         // ITAD lookup: resolve Steam app IDs to ITAD game IDs
         var lookupTasks = appIdList.Select(async appId =>
         {
-            try
+            var lookup = await LookupItadGameAsync(appId, cancellationToken).ConfigureAwait(false);
+            if (lookup is null)
             {
-                var url = $"{ItadLookupEndpoint}?key={apiKey}&appid={appId}";
-                using var response = await GetWithRetryAsync(url, cancellationToken);
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("ITAD lookup for Steam app {AppId} returned {StatusCode}.", appId, response.StatusCode);
-                    return (appId: appId, itadId: (string?)null, title: (string?)null);
-                }
-
-                var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-                var lookup = JsonSerializer.Deserialize<ItadLookupResponse>(responseJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                if (lookup?.Found != true || lookup?.Game?.Id == null)
-                {
-                    _logger.LogWarning("ITAD lookup for app {AppId} returned no game ID. Raw response: {Raw}", appId, responseJson);
-                    return (appId: appId, itadId: (string?)null, title: (string?)null);
-                }
-
-                return (appId: appId, itadId: lookup.Game.Id, title: lookup.Game.Title);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || (ex is OperationCanceledException oce && !oce.CancellationToken.IsCancellationRequested))
-            {
-                _logger.LogDebug(ex, "ITAD lookup failed for Steam app {AppId}.", appId);
                 return (appId: appId, itadId: (string?)null, title: (string?)null);
             }
+
+            return (appId: appId, itadId: lookup.Value.ItadId, title: lookup.Value.Title);
         });
 
         var lookups = await Task.WhenAll(lookupTasks);
@@ -243,6 +224,69 @@ public sealed class WishlistDealService : IWishlistDealService
     }
 
     /// <inheritdoc />
+    public async Task<PriceComparisonResult?> ComparePricesAsync(uint appId, CancellationToken cancellationToken = default)
+    {
+        var lookup = await LookupItadGameAsync(appId, cancellationToken).ConfigureAwait(false);
+        if (lookup is null)
+        {
+            return null;
+        }
+
+        var apiKey = _options.ItadApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogWarning("No IsThereAnyDeal API key configured. Skipping price comparison.");
+            return null;
+        }
+
+        var priceUrl = $"{ItadPricesEndpoint}?key={apiKey}&country=DE";
+        try
+        {
+            using var priceResponse = await PostWithRetryAsync(priceUrl, new[] { lookup.Value.ItadId }, cancellationToken).ConfigureAwait(false);
+            if (!priceResponse.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("ITAD prices request returned {StatusCode}.", priceResponse.StatusCode);
+                return null;
+            }
+
+            var priceData = await priceResponse.Content.ReadFromJsonAsync<List<ItadPriceResponse>>(cancellationToken: cancellationToken).ConfigureAwait(false);
+            var item = priceData?.FirstOrDefault();
+            if (item?.Deals == null || item.Deals.Count == 0)
+            {
+                return null;
+            }
+
+            var offers = item.Deals
+                .Select(d => new StorePriceOffer
+                {
+                    StoreName = d.Shop.Name,
+                    Price = d.Price.Amount,
+                    RegularPrice = d.Regular.Amount,
+                    DiscountPercent = d.Regular.Amount > 0 ? (int)((1 - (d.Price.Amount / d.Regular.Amount)) * 100) : 0,
+                    DealUrl = d.Url
+                })
+                .OrderBy(o => o.Price)
+                .ToList();
+
+            return new PriceComparisonResult
+            {
+                AppId = appId,
+                Title = lookup.Value.Title,
+                Offers = offers
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to compare prices for AppId {AppId}.", appId);
+            return null;
+        }
+    }
+
+    /// <inheritdoc />
     public WishlistDealAlert? EvaluateAlert(uint appId, string gameTitle, ItadPriceData priceData, IReadOnlyList<ulong> notifiedUserIds)
     {
         if (priceData is null)
@@ -279,6 +323,47 @@ public sealed class WishlistDealService : IWishlistDealService
         for (var i = 0; i < source.Count; i += size)
         {
             yield return source.Skip(i).Take(size).ToList();
+        }
+    }
+
+    private async Task<(string ItadId, string Title)?> LookupItadGameAsync(uint appId, CancellationToken cancellationToken)
+    {
+        var apiKey = _options.ItadApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogWarning("No IsThereAnyDeal API key configured. Skipping ITAD lookup.");
+            return null;
+        }
+
+        try
+        {
+            var url = $"{ItadLookupEndpoint}?key={apiKey}&appid={appId}";
+            using var response = await GetWithRetryAsync(url, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("ITAD lookup for Steam app {AppId} returned {StatusCode}.", appId, response.StatusCode);
+                return null;
+            }
+
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var lookup = JsonSerializer.Deserialize<ItadLookupResponse>(responseJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (lookup?.Found != true || lookup?.Game?.Id == null)
+            {
+                _logger.LogWarning("ITAD lookup for app {AppId} returned no game ID. Raw response: {Raw}", appId, responseJson);
+                return null;
+            }
+
+            return (lookup.Game.Id, lookup.Game.Title);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "ITAD lookup failed for Steam app {AppId}.", appId);
+            return null;
         }
     }
 
