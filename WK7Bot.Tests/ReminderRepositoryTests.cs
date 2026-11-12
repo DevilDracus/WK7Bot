@@ -33,12 +33,12 @@ public class ReminderRepositoryTests : IDisposable
         DateTime? dueAt = null,
         string text = "Test reminder",
         DateTime? deliveredAt = null) => new()
-    {
-        DiscordUserId = userId,
-        DueAt = dueAt ?? DateTime.UtcNow.AddMinutes(-5),
-        Text = text,
-        DeliveredAt = deliveredAt
-    };
+        {
+            DiscordUserId = userId,
+            DueAt = dueAt ?? DateTime.UtcNow.AddMinutes(-5),
+            Text = text,
+            DeliveredAt = deliveredAt
+        };
 
     private async Task<Reminder> AddReminderAsync(Reminder reminder)
     {
