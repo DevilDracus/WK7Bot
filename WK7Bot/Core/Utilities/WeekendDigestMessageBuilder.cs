@@ -18,6 +18,9 @@ public static class WeekendDigestMessageBuilder
     private const int PollQuestionLimit = 300;
     private const int PollAnswerLimit = 55;
     private const uint MaxPollDurationHours = 168;
+    private const int ForecastDayCount = 3;
+    private const int TimeTextLength = 5;
+    private const int TimeTextColonIndex = 2;
 
     private static readonly CultureInfo GermanCulture = new("de-DE");
 
@@ -63,7 +66,7 @@ public static class WeekendDigestMessageBuilder
             var weatherText = $"Aktuell: {weather.Condition}, {currentTemp}°C";
             if (weather.Forecast.Count > 0)
             {
-                var forecastParts = weather.Forecast.Take(3).Select(f =>
+                var forecastParts = weather.Forecast.Take(ForecastDayCount).Select(f =>
                 {
                     var high = f.Temperature?.ToString("F0", GermanCulture) ?? "?";
                     var low = f.TemperatureLow?.ToString("F0", GermanCulture) ?? "?";
@@ -176,9 +179,9 @@ public static class WeekendDigestMessageBuilder
         builder.Append(DayAbbreviations[(int)weekendEvent.StartDate.DayOfWeek]);
 
         var timeText = weekendEvent.TimeText;
-        if (timeText is { Length: >= 5 } && timeText[2] == ':')
+        if (timeText is { Length: >= TimeTextLength } && timeText[TimeTextColonIndex] == ':')
         {
-            builder.Append(' ').Append(timeText.Substring(0, 5));
+            builder.Append(' ').Append(timeText.Substring(0, TimeTextLength));
         }
 
         builder.Append(" · ").Append(weekendEvent.Title);

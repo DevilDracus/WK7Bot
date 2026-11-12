@@ -22,6 +22,9 @@ public class AchievementsModule : BotModuleBase
     /// <summary>Length of the ellipsis suffix appended when a field value is truncated.</summary>
     private const int EllipsisLength = 3;
 
+    /// <summary>Timeout applied to the Steam store search HTTP request.</summary>
+    private static readonly TimeSpan StoreSearchTimeout = TimeSpan.FromSeconds(15);
+
     private readonly ISteamService _steamService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AchievementsModule> _logger;
@@ -64,7 +67,7 @@ public class AchievementsModule : BotModuleBase
         else
         {
             using var http = _httpClientFactory.CreateClient();
-            http.Timeout = TimeSpan.FromSeconds(15);
+            http.Timeout = StoreSearchTimeout;
             try
             {
                 var url = $"https://store.steampowered.com/api/storesearch/?term={Uri.EscapeDataString(game)}&cc=de&l=german";
