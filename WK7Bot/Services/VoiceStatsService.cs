@@ -18,6 +18,9 @@ public class VoiceStatsService : IHostedService
     private readonly ILogger<VoiceStatsService> _logger;
     private readonly Dictionary<ulong, (ulong GuildId, ulong ChannelId, DateTime JoinedAt)> _active = new();
 
+    /// <summary>Minimum voice session length (in seconds) worth recording; shorter sessions are ignored as noise.</summary>
+    private const int MinimumSessionDurationSeconds = 5;
+
     /// <summary>Initializes a new instance of the <see cref="VoiceStatsService"/> class.</summary>
     /// <param name="discordClient">The connected Discord socket client.</param>
     /// <param name="scopeFactory">The scope factory used for the repository.</param>
@@ -88,7 +91,7 @@ public class VoiceStatsService : IHostedService
     private async Task RecordSessionAsync(ulong userId, (ulong GuildId, ulong ChannelId, DateTime JoinedAt) session, DateTime leftAt)
     {
         var duration = (int)(leftAt - session.JoinedAt).TotalSeconds;
-        if (duration < 5)
+        if (duration < MinimumSessionDurationSeconds)
         {
             return;
         }
