@@ -12,6 +12,9 @@ using WK7Bot.Services.Interfaces;
 /// </summary>
 public class DealsModule : BotModuleBase
 {
+    /// <summary>Maximum number of wishlist items rendered in the deals embed (Discord field/select limit).</summary>
+    private const int WishlistDisplayLimit = 25;
+
     private readonly IWishlistDealService _dealService;
     private readonly ISteamService _steamService;
     private readonly IAccountLinkResolver _accountLinkResolver;
@@ -128,7 +131,7 @@ public class DealsModule : BotModuleBase
             .WithTimestamp(DateTimeOffset.UtcNow)
             .WithFooter("Daten von IsThereAnyDeal");
 
-        foreach (var item in wishlist.Take(25))
+        foreach (var item in wishlist.Take(WishlistDisplayLimit))
         {
             if (!prices.TryGetValue(item.AppId, out var priceData))
             {
