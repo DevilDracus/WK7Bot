@@ -485,7 +485,7 @@ public class WebRecipeSearchService : IRecipeSearchService
                     req.Headers.TryAddWithoutValidation("Accept-Language", "de-DE,de;q=0.9,en;q=0.8");
                     return await _httpClient.SendAsync(req, cancellationToken);
                 },
-                3,
+                HttpRetry.DefaultMaxAttempts,
                 HttpRetry.IsTransientResponse,
                 HttpRetry.LinearBackoff,
                 null,

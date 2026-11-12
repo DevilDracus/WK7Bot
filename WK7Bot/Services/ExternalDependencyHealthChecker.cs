@@ -101,7 +101,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             using var response = await HttpRetry.ExecuteAsync(
                 () => _httpClient.GetAsync("https://opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/", cancellationToken),
-                3,
+                HttpRetry.DefaultMaxAttempts,
                 HttpRetry.IsTransientResponse,
                 HttpRetry.LinearBackoff,
                 null,
@@ -133,7 +133,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             using var response = await HttpRetry.ExecuteAsync(
                 () => _httpClient.GetAsync("https://store.steampowered.com/api/appdetails?appids=620", cancellationToken),
-                3,
+                HttpRetry.DefaultMaxAttempts,
                 HttpRetry.IsTransientResponse,
                 HttpRetry.LinearBackoff,
                 null,
@@ -175,7 +175,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             using var response = await HttpRetry.ExecuteAsync(
                 () => _httpClient.GetAsync("https://world.openfoodfacts.org/cgi/search.pl?search_terms=banana&json=1&page_size=1", cancellationToken),
-                3,
+                HttpRetry.DefaultMaxAttempts,
                 HttpRetry.IsTransientResponse,
                 HttpRetry.LinearBackoff,
                 null,
@@ -213,7 +213,7 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
 
             using var response = await HttpRetry.ExecuteAsync(
                 () => _httpClient.GetAsync($"https://api.isthereanydeal.com/games/lookup/v1?key={apiKey}&appid=730", cancellationToken),
-                3,
+                HttpRetry.DefaultMaxAttempts,
                 HttpRetry.IsTransientResponse,
                 HttpRetry.LinearBackoff,
                 null,
