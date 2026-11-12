@@ -16,6 +16,12 @@ public class TriviaModule : BotModuleBase
     private static readonly Random Rng = new();
     private static readonly Dictionary<ulong, int> ActiveAnswers = new(); // messageId -> correct option index
 
+    /// <summary>Number of days of trivia scores retained for pruning.</summary>
+    private const int TriviaPruneDays = 14;
+
+    /// <summary>Number of entries shown on the trivia leaderboard.</summary>
+    private const int TriviaLeaderboardTopCount = 10;
+
     private readonly ITriviaScoreRepository _scoreRepository;
     private readonly ILogger<TriviaModule> _logger;
 
@@ -106,8 +112,8 @@ public class TriviaModule : BotModuleBase
 
         var guildId = Context.Guild?.Id ?? 0;
         var weekStart = GetWeekStart(DateTime.UtcNow);
-        await _scoreRepository.PruneOlderThanAsync(weekStart.AddDays(-14)).ConfigureAwait(false);
-        var top = await _scoreRepository.GetTopAsync(guildId, weekStart, 10).ConfigureAwait(false);
+        await _scoreRepository.PruneOlderThanAsync(weekStart.AddDays(-TriviaPruneDays)).ConfigureAwait(false);
+        var top = await _scoreRepository.GetTopAsync(guildId, weekStart, TriviaLeaderboardTopCount).ConfigureAwait(false);
 
         if (top.Count == 0)
         {

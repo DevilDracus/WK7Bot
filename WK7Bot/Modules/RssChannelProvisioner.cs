@@ -8,6 +8,11 @@ namespace WK7Bot.Modules;
 /// </summary>
 internal static class RssChannelProvisioner
 {
+    /// <summary>Maximum suffix counter tried before falling back to a GUID-based name.</summary>
+    private const int MaxChannelSuffixAttempts = 100;
+
+    /// <summary>Total length of the GUID suffix appended in the fallback name (hyphen + 32 hex chars).</summary>
+    private const int GuidSuffixLength = 33;
     /// <summary>
     /// Fetches the existing Discord category or creates a new one if it does not exist.
     /// </summary>
@@ -46,7 +51,7 @@ internal static class RssChannelProvisioner
             return baseChannelName;
         }
 
-        for (var suffix = 2; suffix < 100; suffix++)
+        for (var suffix = 2; suffix < MaxChannelSuffixAttempts; suffix++)
         {
             var candidate = $"{baseChannelName}-{suffix}";
             if (taken.Add(candidate))
@@ -57,6 +62,6 @@ internal static class RssChannelProvisioner
 
         // Impractical in practice (a guild with 99 identically-slugged channels), but a guaranteed
         // unique suffix beats a Discord 400 that surfaces as the generic error message.
-        return $"{baseChannelName}-{Guid.NewGuid():N}"[..Math.Min(baseChannelName.Length + 33, Core.Utilities.NameSanitizer.MaxChannelNameLength)];
+        return $"{baseChannelName}-{Guid.NewGuid():N}"[..Math.Min(baseChannelName.Length + GuidSuffixLength, Core.Utilities.NameSanitizer.MaxChannelNameLength)];
     }
 }

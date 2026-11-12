@@ -108,6 +108,12 @@ public static class DatabaseSchemaInitializer
     /// </summary>
     private const int SchemaStatementAttempts = 10;
 
+    /// <summary>Base delay (ms) for the linear retry backoff on transient SQLite failures.</summary>
+    private const int SchemaRetryBaseDelayMs = 100;
+
+    /// <summary>Cap (ms) on the retry backoff delay.</summary>
+    private const int SchemaRetryMaxDelayMs = 1000;
+
     /// <summary>
     /// Executes a schema statement, retrying while SQLite reports the database as busy or locked.
     /// </summary>
@@ -128,7 +134,7 @@ public static class DatabaseSchemaInitializer
             }
             catch (SqliteException ex) when (IsTransientSqliteFailure(ex) && attempt < SchemaStatementAttempts)
             {
-                await Task.Delay(Math.Min(100 * attempt, 1000), cancellationToken).ConfigureAwait(false);
+                await Task.Delay(Math.Min(SchemaRetryBaseDelayMs * attempt, SchemaRetryMaxDelayMs), cancellationToken).ConfigureAwait(false);
             }
         }
     }
@@ -161,7 +167,7 @@ public static class DatabaseSchemaInitializer
             }
             catch (SqliteException ex) when (IsTransientSqliteFailure(ex) && attempt < SchemaStatementAttempts)
             {
-                await Task.Delay(Math.Min(100 * attempt, 1000), cancellationToken).ConfigureAwait(false);
+                await Task.Delay(Math.Min(SchemaRetryBaseDelayMs * attempt, SchemaRetryMaxDelayMs), cancellationToken).ConfigureAwait(false);
             }
         }
     }

@@ -15,6 +15,9 @@ using WK7Bot.Services.Interfaces;
 /// </summary>
 public class LeaderboardService : ILeaderboardService
 {
+    /// <summary>Maximum number of entries rendered in a leaderboard.</summary>
+    private const int MaxLeaderboardEntries = 25;
+
     private readonly IUserAccountLinkRepository _linkRepository;
     private readonly ISteamService _steamService;
     private readonly IBattleNetService _battleNetService;
@@ -179,7 +182,7 @@ public class LeaderboardService : ILeaderboardService
         var entries = rows
             .OrderByDescending(r => r.Sort)
             .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(Math.Clamp(limit, 1, 25))
+            .Take(Math.Clamp(limit, 1, MaxLeaderboardEntries))
             .Select((r, index) => new LeaderboardEntry(index + 1, r.Name, r.Value, r.Detail))
             .ToList();
 

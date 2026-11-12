@@ -16,6 +16,12 @@ public class LeipzigWasteModule : BotModuleBase
 
     private static readonly TimeSpan WasteCheckCooldown = TimeSpan.FromSeconds(30);
 
+    /// <summary>Default number of days shown when no explicit range is given.</summary>
+    private const int DefaultWasteRangeDays = 2;
+
+    /// <summary>Maximum number of days allowed in a waste date range.</summary>
+    private const int MaxWasteRangeDays = 14;
+
     private readonly ILeipzigWasteService _wasteService;
     private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<LeipzigWasteModule> _logger;
@@ -73,7 +79,7 @@ public class LeipzigWasteModule : BotModuleBase
                 return;
             }
 
-            var rangeDays = Math.Clamp(days ?? 2, 1, 14);
+            var rangeDays = Math.Clamp(days ?? DefaultWasteRangeDays, 1, MaxWasteRangeDays);
             await HandleDateRangeQueryAsync(rangeDays).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)

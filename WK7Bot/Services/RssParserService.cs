@@ -10,6 +10,9 @@ namespace WK7Bot.Services;
 /// </summary>
 public class RssParserService
 {
+    /// <summary>Maximum number of feed items returned per preview.</summary>
+    private const int MaxFeedItems = 10;
+
     private readonly ILogger<RssParserService> _logger;
 
     /// <summary>
@@ -101,7 +104,7 @@ public class RssParserService
             var parsedFeed = await FeedReader.ReadAsync(url, cancellationToken);
             var items = parsedFeed.Items
                 .OrderByDescending(item => item.PublishingDate ?? DateTimeOffset.MinValue)
-                .Take(Math.Clamp(maxItems, 1, 10))
+                .Take(Math.Clamp(maxItems, 1, MaxFeedItems))
                 .Select(item => new FeedPreviewItem(
                     string.IsNullOrWhiteSpace(item.Title) ? "(ohne Titel)" : item.Title,
                     item.Link,
