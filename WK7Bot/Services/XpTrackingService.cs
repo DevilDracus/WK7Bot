@@ -196,5 +196,34 @@ public class XpTrackingService : IHostedService
                 _logger.LogWarning(ex, "Failed to grant level role {RoleId}.", roleId);
             }
         }
+
+        // Remove any lower-level roles so they do not stack.
+        foreach (var (level, roleId) in mappings)
+        {
+            if (level >= newLevel)
+            {
+                continue;
+            }
+
+            if (!guildUser.Roles.Any(r => r.Id == roleId))
+            {
+                continue;
+            }
+
+            var role = guild.GetRole(roleId);
+            if (role is null)
+            {
+                continue;
+            }
+
+            try
+            {
+                await guildUser.RemoveRoleAsync(role).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to remove previous level role {RoleId}.", roleId);
+            }
+        }
     }
 }

@@ -163,6 +163,15 @@ public class VoiceStatsService : IHostedService
                                     if (role is null) continue;
                                     try { await guildUser.AddRoleAsync(role).ConfigureAwait(false); } catch { }
                                 }
+
+                                // Remove lower-level roles so they do not stack.
+                                foreach (var (level, roleId) in mappings)
+                                {
+                                    if (level >= newLevel || !guildUser.Roles.Any(r => r.Id == roleId)) continue;
+                                    var role = guild.GetRole(roleId);
+                                    if (role is null) continue;
+                                    try { await guildUser.RemoveRoleAsync(role).ConfigureAwait(false); } catch { }
+                                }
                             }
                         }
                     }
