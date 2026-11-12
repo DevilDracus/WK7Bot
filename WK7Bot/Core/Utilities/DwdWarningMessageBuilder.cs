@@ -19,6 +19,9 @@ public static class DwdWarningMessageBuilder
     /// </summary>
     private const int SafetyMargin = 150;
 
+    /// <summary>Discord's default blurple accent colour used as the fallback embed colour.</summary>
+    private static readonly Color DiscordBlurple = new(88, 101, 242);
+
     private static readonly CultureInfo GermanCulture = new("de-DE");
 
     /// <summary>
@@ -262,7 +265,7 @@ public static class DwdWarningMessageBuilder
             "EXTREME" => Color.Red,
             "SEVERE" => Color.Orange,
             "MODERATE" => Color.Gold,
-            _ => new Color(88, 101, 242)
+            _ => DiscordBlurple
         };
 
     /// <summary>
