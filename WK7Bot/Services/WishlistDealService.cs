@@ -34,6 +34,9 @@ public sealed class WishlistDealService : IWishlistDealService
     private const string ItadPricesEndpoint = "https://api.isthereanydeal.com/games/prices/v3";
     private const int MaxAttempts = 3;
 
+    /// <summary>Maximum number of ITAD game IDs per prices request (API limit).</summary>
+    private const int ItadPriceChunkSize = 200;
+
     private readonly HttpClient _httpClient;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<WishlistDealService> _logger;
@@ -167,7 +170,7 @@ public sealed class WishlistDealService : IWishlistDealService
 
         try
         {
-            foreach (var chunk in Chunk(allItadIds, 200))
+            foreach (var chunk in Chunk(allItadIds, ItadPriceChunkSize))
             {
                 using var priceResponse = await PostWithRetryAsync(priceUrl, chunk, cancellationToken);
                 if (!priceResponse.IsSuccessStatusCode)

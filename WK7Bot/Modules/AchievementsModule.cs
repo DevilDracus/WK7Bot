@@ -121,7 +121,7 @@ public class AchievementsModule : BotModuleBase
         if (lockedList.Count > 0)
         {
             var text = string.Join("\n", lockedList.Select(a => $"🔒 {a.Name}" + (string.IsNullOrWhiteSpace(a.Description) ? "" : $" — {a.Description}")));
-            embed.AddField("Noch offen", text.Length > 1024 ? text[..1021] + "..." : text, inline: false);
+            embed.AddField("Noch offen", text.Length > FieldLimit ? text[..(FieldLimit - EllipsisLength)] + "..." : text, inline: false);
         }
 
         await FollowupAsync(embed: embed.Build(), ephemeral: true).ConfigureAwait(false);
