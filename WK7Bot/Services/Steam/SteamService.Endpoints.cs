@@ -13,6 +13,11 @@ namespace WK7Bot.Services;
 
 public partial class SteamService
 {
+    /// <summary>Maximum number of recent games whose achievements are fetched for enrichment.</summary>
+    private const int RecentGamesForAchievementsLimit = 5;
+
+    /// <summary>Maximum number of recent achievements rendered.</summary>
+    private const int RecentAchievementsLimit = 5;
     /// <summary>
     /// Requests player summary state including display name, online status, and current active game.
     /// </summary>
@@ -124,7 +129,7 @@ public partial class SteamService
             appIdsToFetch.Add(userData.CurrentGameAppId.Value);
         }
 
-        foreach (var recentGame in userData.RecentGames.Take(5))
+        foreach (var recentGame in userData.RecentGames.Take(RecentGamesForAchievementsLimit))
         {
             appIdsToFetch.Add(recentGame.AppId);
         }
@@ -179,7 +184,7 @@ public partial class SteamService
         userData.RecentAchievements = achievementsArrays
             .SelectMany(a => a)
             .OrderByDescending(a => a.UnlockTime)
-            .Take(5)
+            .Take(RecentAchievementsLimit)
             .ToList();
 
         _logger.LogDebug(
