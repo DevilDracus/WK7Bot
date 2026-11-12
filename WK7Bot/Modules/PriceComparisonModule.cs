@@ -9,6 +9,9 @@ using WK7Bot.Services.Interfaces;
 /// </summary>
 public class PriceComparisonModule : BotModuleBase
 {
+    /// <summary>Maximum number of store offers rendered in the price comparison embed.</summary>
+    private const int OfferLimit = 10;
+
     private readonly IWishlistDealService _dealService;
     private readonly ISteamStoreService _steamStoreService;
     private readonly ILogger<PriceComparisonModule> _logger;
@@ -70,7 +73,7 @@ public class PriceComparisonModule : BotModuleBase
 
         var embed = new EmbedBuilder()
             .WithTitle($"\ud83d\udd0d Preisvergleich: {comparison.Title}")
-            .WithDescription(string.Join("\n", lines.Take(10)))
+            .WithDescription(string.Join("\n", lines.Take(OfferLimit)))
             .WithUrl($"https://store.steampowered.com/app/{appId.Value}")
             .WithColor(Color.Green)
             .WithTimestamp(DateTimeOffset.UtcNow)
