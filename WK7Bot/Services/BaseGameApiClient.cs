@@ -15,6 +15,10 @@ namespace WK7Bot.Services;
 public abstract class BaseGameApiClient : IGameApiHttpTransport, IDisposable
 {
     /// <summary>
+    /// Default base retry delay in milliseconds used when a derived class does not override <see cref="RetryDelay"/>.
+    /// </summary>
+    protected const int DefaultRetryDelayMilliseconds = 500;
+    /// <summary>
     /// Gets the maximum number of attempts made before giving up on a transient failure.
     /// </summary>
     protected abstract int MaxAttempts { get; }
@@ -22,7 +26,7 @@ public abstract class BaseGameApiClient : IGameApiHttpTransport, IDisposable
     /// <summary>
     /// Gets the base delay applied between retry attempts. Virtual for testability.
     /// </summary>
-    protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(500);
+    protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(DefaultRetryDelayMilliseconds);
 
     /// <summary>
     /// Gets the concurrency throttle controlling how many requests may be in flight simultaneously.

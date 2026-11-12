@@ -21,6 +21,9 @@ public partial class SteamService
 
     /// <summary>Cache lifetime for Steam schema responses.</summary>
     private static readonly TimeSpan SchemaCacheLifetime = TimeSpan.FromHours(24);
+
+    /// <summary>Maximum number of characters retained from a forbidden response body in log output.</summary>
+    private const int ForbiddenBodySnippetLength = 200;
     /// <summary>
     /// Requests player summary state including display name, online status, and current active game.
     /// </summary>
@@ -276,7 +279,7 @@ public partial class SteamService
                 var body = (await response.Content.ReadAsStringAsync(cancellationToken)).Trim();
                 var bodySnippet = string.IsNullOrEmpty(body)
                     ? "(empty)"
-                    : body.Length > 200 ? body[..200] : body;
+                    : body.Length > ForbiddenBodySnippetLength ? body[..ForbiddenBodySnippetLength] : body;
 
                 _logger.LogWarning(
                     "Steam API returned 403 Forbidden for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId}). "

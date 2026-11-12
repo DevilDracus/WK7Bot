@@ -37,6 +37,12 @@ public sealed class WishlistDealService : IWishlistDealService
     /// <summary>Maximum number of ITAD game IDs per prices request (API limit).</summary>
     private const int ItadPriceChunkSize = 200;
 
+    /// <summary>Expected length of a 64-bit Steam ID.</summary>
+    private const int SteamId64Length = 17;
+
+    /// <summary>Prefix shared by all 64-bit Steam IDs.</summary>
+    private const string SteamId64Prefix = "7656119";
+
     private readonly HttpClient _httpClient;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<WishlistDealService> _logger;
@@ -59,7 +65,7 @@ public sealed class WishlistDealService : IWishlistDealService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(steamId);
 
-        if (!steamId.StartsWith("7656119", StringComparison.Ordinal) || steamId.Length != 17)
+        if (!steamId.StartsWith(SteamId64Prefix, StringComparison.Ordinal) || steamId.Length != SteamId64Length)
         {
             _logger.LogWarning("Steam ID {SteamId} does not look like a 64-bit Steam ID; wishlist fetch may fail.", steamId);
         }

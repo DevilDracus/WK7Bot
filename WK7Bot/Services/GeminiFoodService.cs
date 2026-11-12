@@ -30,6 +30,15 @@ public class GeminiFoodService : IGeminiFoodService
     /// </summary>
     private const string PrimaryModel = "gemini-3.8-flash";
 
+    /// <summary>Base retry delay in milliseconds for transient Gemini failures.</summary>
+    private const int GeminiRetryDelayMilliseconds = 2000;
+
+    /// <summary>Top-K sampling parameter sent to the Gemini API.</summary>
+    private const int GeminiTopK = 40;
+
+    /// <summary>Maximum output token budget requested from the Gemini API.</summary>
+    private const int GeminiMaxOutputTokens = 8192;
+
     /// <summary>
     /// Lite fallback model tried when the primary model is unavailable.
     /// </summary>
@@ -39,7 +48,7 @@ public class GeminiFoodService : IGeminiFoodService
     /// Delay before the first retry of a transient (429/503) Gemini failure; doubles per attempt.
     /// Virtual so tests can override it to zero instead of sleeping through real backoff.
     /// </summary>
-    protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(2000);
+    protected virtual TimeSpan RetryDelay => TimeSpan.FromMilliseconds(GeminiRetryDelayMilliseconds);
 
     /// <summary>
     /// Additional delay applied when the server returns 503 Service Unavailable,
@@ -372,8 +381,8 @@ public class GeminiFoodService : IGeminiFoodService
                 ["responseJsonSchema"] = schemaClone,
                 ["temperature"] = 0.1,
                 ["topP"] = 0.8,
-                ["topK"] = 40,
-                ["maxOutputTokens"] = 8192
+                ["topK"] = GeminiTopK,
+                ["maxOutputTokens"] = GeminiMaxOutputTokens
             }
         };
         return payload;
