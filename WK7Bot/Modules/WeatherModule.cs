@@ -11,6 +11,9 @@ using WK7Bot.Services.Interfaces;
 /// </summary>
 public class WeatherModule : BotModuleBase
 {
+    /// <summary>Number of forecast days rendered in the weather embed.</summary>
+    private const int ForecastDayCount = 3;
+
     private readonly IWeatherService _weatherService;
     private readonly ILogger<WeatherModule> _logger;
 
@@ -57,7 +60,7 @@ public class WeatherModule : BotModuleBase
 
         if (snapshot.Forecast.Count > 0)
         {
-            var lines = snapshot.Forecast.Take(3).Select(day =>
+            var lines = snapshot.Forecast.Take(ForecastDayCount).Select(day =>
                 $"{day.DateTime:ddd dd.MM.} — {day.Condition}" +
                 (day.Temperature.HasValue ? $", {day.Temperature.Value:0.#}°" : string.Empty) +
                 (day.TemperatureLow.HasValue ? $"/{day.TemperatureLow.Value:0.#}°" : string.Empty));
