@@ -306,7 +306,7 @@ dotnet test WK7Bot.sln
 dotnet test WK7Bot.Tests --no-build
 ```
 
-| **844 tests** cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite DDL replay for restart-safe dispatch, circuit breaker logic, feature gate resolution (including runtime overrides), DM-context module safety, command cooldowns and usage metrics, startup validation, reminder time parsing, DWD pollen/UV parsing, OPML import/export, Components V2 card structure, all embed/poll/button builders, and bulk dispatch-state helpers. Last verified: 844 passed, 0 failed.
+| **852 tests** cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite DDL replay for restart-safe dispatch, circuit breaker logic, feature gate resolution (including runtime overrides), DM-context module safety, command cooldowns and usage metrics, startup validation, reminder time parsing, DWD pollen/UV parsing, OPML import/export, Components V2 card structure, all embed/poll/button builders, bulk dispatch-state helpers, and FeatureHealthTracker problem-state transitions. Last verified: 852 passed, 0 failed.
 
 ## Stack
 
