@@ -37,6 +37,9 @@ public class RssModule : BotModuleBase
     /// <summary>Number of items shown by <c>/rss test</c>.</summary>
     private const int PreviewItemCount = 5;
 
+    /// <summary>Maximum number of feed names listed per outcome in the OPML import summary.</summary>
+    private const int OpmlSummaryItemLimit = 10;
+
     private readonly IRssRepository _repository;
     private readonly RssParserService _parser;
     private readonly IOpmlService _opmlService;
@@ -283,17 +286,17 @@ public class RssModule : BotModuleBase
         summary.AppendLine($"\ud83d\udce5 OPML-Import abgeschlossen: **{created.Count}** neu, **{skipped.Count}** \u00fcbersprungen, **{failed.Count}** fehlgeschlagen.");
         if (created.Count > 0)
         {
-            summary.AppendLine($"Neu: {string.Join(", ", created.Take(10))}");
+            summary.AppendLine($"Neu: {string.Join(", ", created.Take(OpmlSummaryItemLimit))}");
         }
 
         if (skipped.Count > 0)
         {
-            summary.AppendLine($"Bereits vorhanden: {string.Join(", ", skipped.Take(10))}");
+            summary.AppendLine($"Bereits vorhanden: {string.Join(", ", skipped.Take(OpmlSummaryItemLimit))}");
         }
 
         if (failed.Count > 0)
         {
-            summary.AppendLine($"Fehlgeschlagen: {string.Join(", ", failed.Take(10))}");
+            summary.AppendLine($"Fehlgeschlagen: {string.Join(", ", failed.Take(OpmlSummaryItemLimit))}");
         }
 
         await FollowupAsync(summary.ToString().TrimEnd(), ephemeral: true).ConfigureAwait(false);
