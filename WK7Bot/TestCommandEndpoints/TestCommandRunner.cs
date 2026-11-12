@@ -412,6 +412,9 @@ internal static class TestCommandRunner
         return ActivatorUtilities.CreateInstance<T>(services);
     }
 
+    /// <summary>Sets the interaction context on a module.</summary>
+    /// <param name="module">The module.</param>
+    /// <param name="context">The context.</param>
     private static void SetContext(object module, SocketInteractionContext context)
     {
         var method = typeof(IInteractionModuleBase).GetMethod("SetContext");

@@ -18,6 +18,9 @@ public class VoiceStatsService : IHostedService
     private readonly ILogger<VoiceStatsService> _logger;
     private readonly Dictionary<ulong, (ulong GuildId, ulong ChannelId, DateTime JoinedAt)> _active = new();
 
+    /// <summary>Minimum voice session length (in seconds) worth recording; shorter sessions are ignored as noise.</summary>
+    private const int MinimumSessionDurationSeconds = 5;
+
     /// <summary>Initializes a new instance of the <see cref="VoiceStatsService"/> class.</summary>
     /// <param name="discordClient">The connected Discord socket client.</param>
     /// <param name="scopeFactory">The scope factory used for the repository.</param>
@@ -43,6 +46,11 @@ public class VoiceStatsService : IHostedService
         return Task.CompletedTask;
     }
 
+    /// <summary>Handles voice state updates for stats tracking.</summary>
+    /// <param name="user">The user.</param>
+    /// <param name="before">The previous state.</param>
+    /// <param name="after">The new state.</param>
+    /// <returns>A task tracking the operation.</returns>
     private async Task OnVoiceStateUpdatedAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)
     {
         try
@@ -85,10 +93,15 @@ public class VoiceStatsService : IHostedService
         }
     }
 
+    /// <summary>Records a completed voice session if it exceeds the minimum duration.</summary>
+    /// <param name="userId">The user id.</param>
+    /// <param name="session">The session data.</param>
+    /// <param name="leftAt">When the user left.</param>
+    /// <returns>A task tracking the operation.</returns>
     private async Task RecordSessionAsync(ulong userId, (ulong GuildId, ulong ChannelId, DateTime JoinedAt) session, DateTime leftAt)
     {
         var duration = (int)(leftAt - session.JoinedAt).TotalSeconds;
-        if (duration < 5)
+        if (duration < MinimumSessionDurationSeconds)
         {
             return;
         }

@@ -65,7 +65,9 @@ public class PriceHistoryRepositoryTests : IDisposable
     [Fact]
     public async Task AddSnapshotsAsync_DeduplicatesSameHour()
     {
-        var now = DateTime.UtcNow;
+        // Anchor to a time safely inside an hour so the two snapshots (5 min apart)
+        // cannot straddle an hour boundary and make the test time-dependent/flaky.
+        var now = new DateTime(2026, 11, 12, 10, 30, 0, DateTimeKind.Utc);
         var inserted = await _repository.AddSnapshotsAsync(new[]
         {
             new PriceHistorySnapshot { AppId = 1, Store = "Steam", Price = 10m, RecordedAt = now },

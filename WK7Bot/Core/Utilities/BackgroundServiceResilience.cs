@@ -132,6 +132,10 @@ public static class BackgroundServiceResilience
         return (true, consecutiveFailures);
     }
 
+    /// <summary>Delays for the given interval, returning false when cancelled.</summary>
+    /// <param name="interval">The delay duration.</param>
+    /// <param name="stoppingToken">Cancellation token.</param>
+    /// <returns>True when the delay completed; false when cancelled.</returns>
     private static async Task<bool> TryDelayAsync(TimeSpan interval, CancellationToken stoppingToken)
     {
         try

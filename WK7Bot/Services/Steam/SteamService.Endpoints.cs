@@ -13,6 +13,17 @@ namespace WK7Bot.Services;
 
 public partial class SteamService
 {
+    /// <summary>Maximum number of recent games whose achievements are fetched for enrichment.</summary>
+    private const int RecentGamesForAchievementsLimit = 5;
+
+    /// <summary>Maximum number of recent achievements rendered.</summary>
+    private const int RecentAchievementsLimit = 5;
+
+    /// <summary>Cache lifetime for Steam schema responses.</summary>
+    private static readonly TimeSpan SchemaCacheLifetime = TimeSpan.FromHours(24);
+
+    /// <summary>Maximum number of characters retained from a forbidden response body in log output.</summary>
+    private const int ForbiddenBodySnippetLength = 200;
     /// <summary>
     /// Requests player summary state including display name, online status, and current active game.
     /// </summary>
@@ -124,7 +135,7 @@ public partial class SteamService
             appIdsToFetch.Add(userData.CurrentGameAppId.Value);
         }
 
-        foreach (var recentGame in userData.RecentGames.Take(5))
+        foreach (var recentGame in userData.RecentGames.Take(RecentGamesForAchievementsLimit))
         {
             appIdsToFetch.Add(recentGame.AppId);
         }
@@ -179,7 +190,7 @@ public partial class SteamService
         userData.RecentAchievements = achievementsArrays
             .SelectMany(a => a)
             .OrderByDescending(a => a.UnlockTime)
-            .Take(5)
+            .Take(RecentAchievementsLimit)
             .ToList();
 
         _logger.LogDebug(
@@ -223,7 +234,7 @@ public partial class SteamService
             if (achievements == null || achievements.Count == 0)
             {
                 var emptySchema = new Dictionary<string, SchemaAchievementItem>();
-                _cache.Set(cacheKey, emptySchema, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24), Size = 1 });
+                _cache.Set(cacheKey, emptySchema, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = SchemaCacheLifetime, Size = 1 });
                 return emptySchema;
             }
 
@@ -234,7 +245,7 @@ public partial class SteamService
                     g => g.First(),
                     StringComparer.OrdinalIgnoreCase);
 
-            _cache.Set(cacheKey, schemaMap, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24), Size = 1 });
+            _cache.Set(cacheKey, schemaMap, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = SchemaCacheLifetime, Size = 1 });
             return schemaMap;
         }
         catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
@@ -268,7 +279,7 @@ public partial class SteamService
                 var body = (await response.Content.ReadAsStringAsync(cancellationToken)).Trim();
                 var bodySnippet = string.IsNullOrEmpty(body)
                     ? "(empty)"
-                    : body.Length > 200 ? body[..200] : body;
+                    : body.Length > ForbiddenBodySnippetLength ? body[..ForbiddenBodySnippetLength] : body;
 
                 _logger.LogWarning(
                     "Steam API returned 403 Forbidden for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId}). "

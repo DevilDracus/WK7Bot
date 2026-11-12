@@ -19,6 +19,9 @@ public class PriceHistoryModule : BotModuleBase
     /// <summary>Gets the logger used for error reporting.</summary>
     protected override ILogger Logger => _logger;
 
+    /// <summary>Number of days of price history shown by the command.</summary>
+    private const int PriceHistoryWindowDays = 30;
+
     /// <summary>Initializes a new instance of the <see cref="PriceHistoryModule"/> class.</summary>
     public PriceHistoryModule(
         IPriceHistoryRepository priceHistoryRepository,
@@ -64,7 +67,7 @@ public class PriceHistoryModule : BotModuleBase
             return;
         }
 
-        var since = DateTime.UtcNow.AddDays(-30);
+        var since = DateTime.UtcNow.AddDays(-PriceHistoryWindowDays);
         var snapshots = await _priceHistoryRepository.GetSnapshotsAsync(appId.Value, since).ConfigureAwait(false);
 
         if (snapshots.Count < 2)
@@ -95,7 +98,7 @@ public class PriceHistoryModule : BotModuleBase
             .WithTitle($"\ud83d\udcc8 Preisverlauf: {latest.Name}")
             .WithDescription($"```\n{chart}\n```")
             .AddField("Aktuell", $"{latest.Price:C} bei {latest.Store} ({latest.DiscountPercent}%)", inline: true)
-            .AddField("Bestpreis (30 Tage)", $"{best.Price:C} bei {best.Store}", inline: true)
+            .AddField($"Bestpreis ({PriceHistoryWindowDays} Tage)", $"{best.Price:C} bei {best.Store}", inline: true)
             .WithUrl($"https://store.steampowered.com/app/{appId.Value}")
             .WithColor(Color.Purple)
             .WithTimestamp(DateTimeOffset.UtcNow)

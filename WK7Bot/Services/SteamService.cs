@@ -26,17 +26,23 @@ public partial class SteamService : BaseGameApiClient, ISteamService
 {
     private const int MaxAttemptsValue = 3;
 
+    /// <summary>Concurrency limit for the Steam achievement API throttle (process-wide).</summary>
+    private const int AchievementApiThrottleConcurrency = 2;
+
+    /// <summary>Base retry delay in milliseconds for transient Steam API failures.</summary>
+    private const int RetryDelayMilliseconds = 500;
+
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _cache;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<SteamService> _logger;
-    private static readonly SemaphoreSlim _achievementApiThrottle = new(2, 2);
+    private static readonly SemaphoreSlim _achievementApiThrottle = new(AchievementApiThrottleConcurrency, AchievementApiThrottleConcurrency);
 
     /// <inheritdoc/>
     protected override int MaxAttempts => MaxAttemptsValue;
 
     /// <inheritdoc/>
-    protected override TimeSpan RetryDelay => TimeSpan.FromMilliseconds(500);
+    protected override TimeSpan RetryDelay => TimeSpan.FromMilliseconds(RetryDelayMilliseconds);
 
     /// <inheritdoc/>
     protected override SemaphoreSlim ApiThrottle => _achievementApiThrottle;

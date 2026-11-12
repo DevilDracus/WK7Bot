@@ -170,6 +170,12 @@ public class AccountLinkService : IAccountLinkService
         return null;
     }
 
+    /// <summary>Mirrors a Steam mapping to the linked account store.</summary>
+    /// <param name="discordUserId">The Discord user id.</param>
+    /// <param name="steamId">The Steam id.</param>
+    /// <param name="wishlistUrl">The optional wishlist URL.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task tracking the operation.</returns>
     private async Task MirrorSteamMappingAsync(ulong discordUserId, string steamId, string? wishlistUrl = null, CancellationToken cancellationToken = default)
     {
         if (!_options.Value.LinkAutoWriteOptions)
@@ -202,6 +208,13 @@ public class AccountLinkService : IAccountLinkService
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Mirrors a Battle.net mapping to the linked account store.</summary>
+    /// <param name="discordUserId">The Discord user id.</param>
+    /// <param name="refreshToken">The refresh token.</param>
+    /// <param name="region">The region.</param>
+    /// <param name="battleTag">The optional battle tag.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task tracking the operation.</returns>
     private async Task MirrorBattleNetMappingAsync(ulong discordUserId, string refreshToken, string region, string? battleTag, CancellationToken cancellationToken)
     {
         if (!_options.Value.LinkAutoWriteOptions)

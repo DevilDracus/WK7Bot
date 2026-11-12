@@ -32,6 +32,9 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
     /// </summary>
     private static readonly TimeSpan NotificationCooldown = TimeSpan.FromDays(7);
 
+    /// <summary>How often the release-date reminder schedule is evaluated.</summary>
+    private static readonly TimeSpan TickInterval = TimeSpan.FromHours(12);
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ReleaseDateReminderBackgroundService"/> class.
     /// </summary>
@@ -72,7 +75,7 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
             FeatureKeys.ReleaseDateReminders,
             _health,
             _logger,
-            TimeSpan.FromHours(12),
+            TickInterval,
             maxConsecutiveFailures: BackgroundServiceResilience.DefaultMaxConsecutiveFailures,
             restartDelay: BackgroundServiceResilience.DefaultRestartDelay,
             stoppingToken);
@@ -153,6 +156,11 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
         }
     }
 
+    /// <summary>Notifies a user about a release date.</summary>
+    /// <param name="reminder">The reminder.</param>
+    /// <param name="releaseDateUtc">The release date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when notified.</returns>
     private async Task<bool> NotifyUserAsync(ReleaseDateReminderItem reminder, DateTime releaseDateUtc, CancellationToken cancellationToken)
     {
         var user = _discordClient.GetUser(reminder.DiscordUserId);

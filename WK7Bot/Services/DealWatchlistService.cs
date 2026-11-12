@@ -17,6 +17,9 @@ using WK7Bot.Services.Interfaces;
 /// </summary>
 public class DealWatchlistService : IDealWatchlistService
 {
+    /// <summary>Minimum time between repeat alerts for the same watched game.</summary>
+    private static readonly TimeSpan AlertCooldown = TimeSpan.FromDays(3);
+
     private readonly IDealWatchRepository _repository;
     private readonly IWishlistDealService _dealService;
     private readonly DiscordSocketClient _discordClient;
@@ -121,7 +124,7 @@ public class DealWatchlistService : IDealWatchlistService
                 continue;
             }
 
-            if (item.LastAlertedAt.HasValue && DateTime.UtcNow - item.LastAlertedAt.Value < TimeSpan.FromDays(3))
+            if (item.LastAlertedAt.HasValue && DateTime.UtcNow - item.LastAlertedAt.Value < AlertCooldown)
             {
                 continue;
             }

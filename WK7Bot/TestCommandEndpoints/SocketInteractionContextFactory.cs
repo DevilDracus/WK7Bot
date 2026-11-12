@@ -109,6 +109,11 @@ public static class SocketInteractionContextFactory
         return null;
     }
 
+    /// <summary>Sets a field via reflection.</summary>
+    /// <param name="target">The target object.</param>
+    /// <param name="type">The type.</param>
+    /// <param name="fieldName">The field name.</param>
+    /// <param name="value">The value.</param>
     private static void SetField(object target, Type type, string fieldName, object? value)
     {
         var field = FindField(type, fieldName);

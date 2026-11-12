@@ -83,6 +83,9 @@ public static class CardBuilder
         }
     }
 
+    /// <summary>Appends the embed's fields to the collected field text list.</summary>
+    /// <param name="fields">The collected field strings.</param>
+    /// <param name="embed">The source embed.</param>
     private static void BuildFields(List<string> fields, Embed embed)
     {
         foreach (var field in embed.Fields)

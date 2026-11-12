@@ -36,6 +36,18 @@ public class ErrorNotificationDispatcher : BackgroundService
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan SendDelay = TimeSpan.FromSeconds(1);
 
+    /// <summary>Maximum length of the error message excerpt rendered in the plain-text mirror.</summary>
+    private const int MessageExcerptLength = 80;
+
+    /// <summary>Maximum length of the plain-text mirror summary.</summary>
+    private const int PlainTextSummaryLimit = 200;
+
+    /// <summary>Number of stack-trace characters hashed to identify recurring failures.</summary>
+    private const int StackTraceHashInputLimit = 500;
+
+    /// <summary>Length of the hex hash produced from the stack trace.</summary>
+    private const int StackTraceHashLength = 8;
+
     private readonly DiscordSocketClient _discordClient;
     private readonly ErrorNotificationQueue _queue;
     private readonly IFeatureHealthTracker _health;
@@ -305,7 +317,7 @@ public class ErrorNotificationDispatcher : BackgroundService
 
         var context = ContextHelpers.ShortContext(notification.Context);
         var exceptionType = notification.ExceptionType ?? "Error";
-        var message = Truncate(notification.Message, 80);
+        var message = Truncate(notification.Message, MessageExcerptLength);
         var hash = ComputeStackTraceHash(notification.StackTrace);
 
         var summary = $"⚠️ {context}: {exceptionType} [{hash}]";
@@ -314,7 +326,7 @@ public class ErrorNotificationDispatcher : BackgroundService
             summary += $" — {message}";
         }
 
-        return Truncate(summary, 200);
+        return Truncate(summary, PlainTextSummaryLimit);
     }
 
     /// <summary>
@@ -330,10 +342,10 @@ public class ErrorNotificationDispatcher : BackgroundService
             return "none";
         }
 
-        var trimmed = stackTrace.Trim().Length > 500 ? stackTrace[..500] : stackTrace.Trim();
+        var trimmed = stackTrace.Trim().Length > StackTraceHashInputLimit ? stackTrace[..StackTraceHashInputLimit] : stackTrace.Trim();
         var bytes = System.Text.Encoding.UTF8.GetBytes(trimmed);
         var hash = System.Security.Cryptography.SHA256.HashData(bytes);
-        return Convert.ToHexString(hash)[..8];
+        return Convert.ToHexString(hash)[..StackTraceHashLength];
     }
 
     /// <summary>

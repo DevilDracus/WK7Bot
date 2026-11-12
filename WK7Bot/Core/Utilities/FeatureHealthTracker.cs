@@ -81,6 +81,9 @@ public sealed class FeatureHealthTracker : IFeatureHealthTracker
         }
     }
 
+    /// <summary>Gets or creates the health state for a feature.</summary>
+    /// <param name="feature">The feature key.</param>
+    /// <returns>The feature health state.</returns>
     private FeatureHealth GetOrAdd(string feature)
     {
         if (!_states.TryGetValue(feature, out var state))
@@ -103,11 +106,17 @@ public sealed class FeatureHealthTracker : IFeatureHealthTracker
 
         public string? LastError { get; private set; }
 
+        /// <summary>Records a successful execution.</summary>
+        /// <param name="succeededAtUtc">The success timestamp.</param>
         public void RecordSuccess(DateTime succeededAtUtc)
         {
             LastSuccessUtc = succeededAtUtc;
+            LastError = null;
         }
 
+        /// <summary>Records a failed execution.</summary>
+        /// <param name="failedAtUtc">The failure timestamp.</param>
+        /// <param name="error">The error message.</param>
         public void RecordFailure(DateTime failedAtUtc, string? error)
         {
             LastFailureUtc = failedAtUtc;

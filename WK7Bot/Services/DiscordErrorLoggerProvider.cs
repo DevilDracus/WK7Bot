@@ -42,6 +42,9 @@ public sealed class DiscordErrorLoggerProvider : ILoggerProvider
         private readonly string _categoryName;
         private readonly ErrorNotificationQueue _queue;
 
+        /// <summary>Initializes a new queueing error logger.</summary>
+        /// <param name="categoryName">The category name.</param>
+        /// <param name="queue">The error notification queue.</param>
         public QueueingErrorLogger(string categoryName, ErrorNotificationQueue queue)
         {
             _categoryName = categoryName;

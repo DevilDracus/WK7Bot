@@ -17,6 +17,9 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
     private const string UserAgent = "WK7Bot/1.0 (Discord bot)";
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(1);
 
+    /// <summary>Cache lifetime applied to negative (not-found) results, shorter than the hit cache.</summary>
+    private static readonly TimeSpan NullResultCacheLifetime = TimeSpan.FromMinutes(5);
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenFoodFactsService> _logger;
     private readonly IMemoryCache _cache;
@@ -75,7 +78,7 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
             if (product == null)
             {
                 _logger.LogInformation("No Open Food Facts product found for query '{Query}'.", query);
-                _cache.Set<OpenFoodFactsProduct?>(cacheKey, null, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5), Size = 1 });
+                _cache.Set<OpenFoodFactsProduct?>(cacheKey, null, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = NullResultCacheLifetime, Size = 1 });
                 return null;
             }
             _logger.LogInformation("Found product '{ProductName}' for query '{Query}'.", product.ProductName, query);

@@ -32,11 +32,23 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
     private const int MaxAttemptsValue = 3;
     private const int MaxWowCharacters = 5;
 
+    /// <summary>Concurrency limit for the Battle.net API throttle (process-wide).</summary>
+    private const int ApiThrottleConcurrency = 2;
+
+    /// <summary>Base retry delay in milliseconds for transient Battle.net API failures.</summary>
+    private const int RetryDelayMilliseconds = 500;
+
+    /// <summary>Unix timestamp threshold above which a value is treated as milliseconds rather than seconds.</summary>
+    private const long UnixTimestampMillisecondThreshold = 100_000_000_000L;
+
+    /// <summary>Number of hex characters retained from the refresh-token hash when building the token cache key.</summary>
+    private const int TokenCacheKeyHashLength = 16;
+
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _cache;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<BattleNetService> _logger;
-    private readonly SemaphoreSlim _apiThrottle = new(2, 2);
+    private readonly SemaphoreSlim _apiThrottle = new(ApiThrottleConcurrency, ApiThrottleConcurrency);
 
     /// <inheritdoc/>
     protected override int MaxAttempts => MaxAttemptsValue;
@@ -51,7 +63,7 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
     /// <summary>
     /// Gets the base delay applied between retry attempts for transient Battle.net API failures. Virtual for testability.
     /// </summary>
-    protected override TimeSpan RetryDelay => TimeSpan.FromMilliseconds(500);
+    protected override TimeSpan RetryDelay => TimeSpan.FromMilliseconds(RetryDelayMilliseconds);
 
     /// <inheritdoc/>
     protected override SemaphoreSlim ApiThrottle => _apiThrottle;
@@ -236,7 +248,7 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
             return null;
         }
 
-        return unixTimestamp > 100_000_000_000
+        return unixTimestamp > UnixTimestampMillisecondThreshold
             ? DateTimeOffset.FromUnixTimeMilliseconds(unixTimestamp)
             : DateTimeOffset.FromUnixTimeSeconds(unixTimestamp);
     }
@@ -250,7 +262,7 @@ public partial class BattleNetService : BaseGameApiClient, IBattleNetService
     private static string BuildTokenCacheKey(string refreshToken)
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
-        return $"battlenet_access_token_v1_{Convert.ToHexString(hash)[..16]}";
+        return $"battlenet_access_token_v1_{Convert.ToHexString(hash)[..TokenCacheKeyHashLength]}";
     }
 
     /// <summary>

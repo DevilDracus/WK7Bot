@@ -25,6 +25,9 @@ public static class SeasonalTermPicker
     /// <summary>Relative weight of a nut term.</summary>
     public const int NutWeight = 1;
 
+    /// <summary>Maximum number of distinct seasonal terms picked.</summary>
+    public const int MaxTermCount = 2;
+
     /// <summary>
     /// Randomly picks up to two distinct seasonal terms from the given produce.
     /// </summary>
@@ -51,8 +54,8 @@ public static class SeasonalTermPicker
             return Array.Empty<string>();
         }
 
-        var terms = new List<string>(Math.Min(2, candidates.Count));
-        int take = Math.Min(2, candidates.Count);
+        var terms = new List<string>(Math.Min(MaxTermCount, candidates.Count));
+        int take = Math.Min(MaxTermCount, candidates.Count);
         while (terms.Count < take)
         {
             int totalWeight = 0;

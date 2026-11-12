@@ -163,6 +163,10 @@ public static class RecipeHtmlParser
         return false;
     }
 
+    /// <summary>Determines whether a value matches a type name.</summary>
+    /// <param name="value">The value.</param>
+    /// <param name="typeName">The type name.</param>
+    /// <returns>True when matching.</returns>
     private static bool MatchesType(string? value, string typeName)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -194,6 +198,9 @@ public static class RecipeHtmlParser
         return ReadScalar(property);
     }
 
+    /// <summary>Reads a scalar value from a JSON element.</summary>
+    /// <param name="property">The JSON element.</param>
+    /// <returns>The scalar text.</returns>
     private static string ReadScalar(JsonElement property)
     {
         switch (property.ValueKind)
@@ -280,6 +287,9 @@ public static class RecipeHtmlParser
         return steps;
     }
 
+    /// <summary>Appends instructions from a JSON element to the step list.</summary>
+    /// <param name="property">The JSON element.</param>
+    /// <param name="steps">The step list.</param>
     private static void AppendInstructions(JsonElement property, List<string> steps)
     {
         switch (property.ValueKind)

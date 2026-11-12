@@ -34,6 +34,15 @@ public sealed class WishlistDealService : IWishlistDealService
     private const string ItadPricesEndpoint = "https://api.isthereanydeal.com/games/prices/v3";
     private const int MaxAttempts = 3;
 
+    /// <summary>Maximum number of ITAD game IDs per prices request (API limit).</summary>
+    private const int ItadPriceChunkSize = 200;
+
+    /// <summary>Expected length of a 64-bit Steam ID.</summary>
+    private const int SteamId64Length = 17;
+
+    /// <summary>Prefix shared by all 64-bit Steam IDs.</summary>
+    private const string SteamId64Prefix = "7656119";
+
     private readonly HttpClient _httpClient;
     private readonly Wk7BotOptions _options;
     private readonly ILogger<WishlistDealService> _logger;
@@ -56,7 +65,7 @@ public sealed class WishlistDealService : IWishlistDealService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(steamId);
 
-        if (!steamId.StartsWith("7656119", StringComparison.Ordinal) || steamId.Length != 17)
+        if (!steamId.StartsWith(SteamId64Prefix, StringComparison.Ordinal) || steamId.Length != SteamId64Length)
         {
             _logger.LogWarning("Steam ID {SteamId} does not look like a 64-bit Steam ID; wishlist fetch may fail.", steamId);
         }
@@ -167,7 +176,7 @@ public sealed class WishlistDealService : IWishlistDealService
 
         try
         {
-            foreach (var chunk in Chunk(allItadIds, 200))
+            foreach (var chunk in Chunk(allItadIds, ItadPriceChunkSize))
             {
                 using var priceResponse = await PostWithRetryAsync(priceUrl, chunk, cancellationToken);
                 if (!priceResponse.IsSuccessStatusCode)
@@ -379,10 +388,19 @@ public sealed class WishlistDealService : IWishlistDealService
         }
     }
 
+    /// <summary>Performs a GET with retry.</summary>
+    /// <param name="url">The URL.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The response.</returns>
     internal async Task<HttpResponseMessage> GetWithRetryAsync(string url, CancellationToken cancellationToken = default)
         => await ExecuteWithRetryAsync(() => _httpClient.GetAsync(url, cancellationToken), cancellationToken);
 
 
+    /// <summary>Performs a POST with retry.</summary>
+    /// <param name="url">The URL.</param>
+    /// <param name="payload">The payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The response.</returns>
     internal async Task<HttpResponseMessage> PostWithRetryAsync(string url, object payload, CancellationToken cancellationToken = default)
         => await ExecuteWithRetryAsync(
             async () =>
@@ -392,6 +410,10 @@ public sealed class WishlistDealService : IWishlistDealService
             },
             cancellationToken);
 
+    /// <summary>Executes a send factory with retry.</summary>
+    /// <param name="sendFactory">The send factory.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The response.</returns>
     internal async Task<HttpResponseMessage> ExecuteWithRetryAsync(Func<Task<HttpResponseMessage>> sendFactory, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sendFactory);

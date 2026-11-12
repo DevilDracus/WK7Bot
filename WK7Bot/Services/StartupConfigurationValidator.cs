@@ -13,9 +13,11 @@ using WK7Bot.Options;
 /// </summary>
 public class StartupConfigurationValidator : BackgroundService
 {
+    /// <summary>Polling interval while waiting for the Discord gateway to connect.</summary>
+    private static readonly TimeSpan GatewayPollInterval = TimeSpan.FromSeconds(1);
+
     private readonly DiscordSocketClient _discordClient;
     private readonly Wk7BotOptions _options;
-    private readonly MqttConnectionCoordinator _mqttCoordinator;
     private readonly ILogger<StartupConfigurationValidator> _logger;
 
     /// <summary>
@@ -24,12 +26,10 @@ public class StartupConfigurationValidator : BackgroundService
     public StartupConfigurationValidator(
         DiscordSocketClient discordClient,
         IOptions<Wk7BotOptions> options,
-        MqttConnectionCoordinator mqttCoordinator,
         ILogger<StartupConfigurationValidator> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _mqttCoordinator = mqttCoordinator ?? throw new ArgumentNullException(nameof(mqttCoordinator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -44,7 +44,7 @@ public class StartupConfigurationValidator : BackgroundService
             // Wait for the gateway so we can post to Discord.
             while (_discordClient.ConnectionState != ConnectionState.Connected && !stoppingToken.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                await Task.Delay(GatewayPollInterval, stoppingToken).ConfigureAwait(false);
             }
 
             if (stoppingToken.IsCancellationRequested)

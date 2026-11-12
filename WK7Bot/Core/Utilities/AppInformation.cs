@@ -14,6 +14,8 @@ public static class AppInformation
     /// </summary>
     public static string Version { get; } = ReadVersion();
 
+    /// <summary>Reads the assembly informational version, falling back to the assembly version.</summary>
+    /// <returns>The version string.</returns>
     private static string ReadVersion()
     {
         var assembly = typeof(AppInformation).Assembly;

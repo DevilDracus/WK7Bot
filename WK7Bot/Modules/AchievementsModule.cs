@@ -10,6 +10,21 @@ using WK7Bot.Services.Interfaces;
 /// </summary>
 public class AchievementsModule : BotModuleBase
 {
+    /// <summary>Maximum number of unlocked achievements rendered.</summary>
+    private const int UnlockedListLimit = 10;
+
+    /// <summary>Maximum number of locked achievements rendered.</summary>
+    private const int LockedListLimit = 5;
+
+    /// <summary>Discord's per-field character limit.</summary>
+    private const int FieldLimit = 1024;
+
+    /// <summary>Length of the ellipsis suffix appended when a field value is truncated.</summary>
+    private const int EllipsisLength = 3;
+
+    /// <summary>Timeout applied to the Steam store search HTTP request.</summary>
+    private static readonly TimeSpan StoreSearchTimeout = TimeSpan.FromSeconds(15);
+
     private readonly ISteamService _steamService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AchievementsModule> _logger;
@@ -52,7 +67,7 @@ public class AchievementsModule : BotModuleBase
         else
         {
             using var http = _httpClientFactory.CreateClient();
-            http.Timeout = TimeSpan.FromSeconds(15);
+            http.Timeout = StoreSearchTimeout;
             try
             {
                 var url = $"https://store.steampowered.com/api/storesearch/?term={Uri.EscapeDataString(game)}&cc=de&l=german";
@@ -97,19 +112,19 @@ public class AchievementsModule : BotModuleBase
             .WithColor(Color.Gold);
 
         // Show unlocked achievements first (most recent), then locked
-        var unlockedList = achievements.Where(a => a.UnlockTime.HasValue).OrderByDescending(a => a.UnlockTime).Take(10).ToList();
-        var lockedList = achievements.Where(a => !a.UnlockTime.HasValue).Take(5).ToList();
+        var unlockedList = achievements.Where(a => a.UnlockTime.HasValue).OrderByDescending(a => a.UnlockTime).Take(UnlockedListLimit).ToList();
+        var lockedList = achievements.Where(a => !a.UnlockTime.HasValue).Take(LockedListLimit).ToList();
 
         if (unlockedList.Count > 0)
         {
             var text = string.Join("\n", unlockedList.Select(a => $"✅ {a.Name}"));
-            embed.AddField("Freigeschaltet (zuletzt)", text.Length > 1024 ? text[..1021] + "..." : text, inline: false);
+            embed.AddField("Freigeschaltet (zuletzt)", text.Length > FieldLimit ? text[..(FieldLimit - EllipsisLength)] + "..." : text, inline: false);
         }
 
         if (lockedList.Count > 0)
         {
             var text = string.Join("\n", lockedList.Select(a => $"🔒 {a.Name}" + (string.IsNullOrWhiteSpace(a.Description) ? "" : $" — {a.Description}")));
-            embed.AddField("Noch offen", text.Length > 1024 ? text[..1021] + "..." : text, inline: false);
+            embed.AddField("Noch offen", text.Length > FieldLimit ? text[..(FieldLimit - EllipsisLength)] + "..." : text, inline: false);
         }
 
         await FollowupAsync(embed: embed.Build(), ephemeral: true).ConfigureAwait(false);

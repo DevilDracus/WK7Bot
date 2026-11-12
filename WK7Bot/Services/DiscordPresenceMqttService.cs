@@ -42,6 +42,9 @@ public class DiscordPresenceMqttService : BackgroundService
     private static readonly TimeSpan SteamFetchCooldown = ServiceCooldowns.SteamPresenceData;
     private static readonly TimeSpan BattleNetFetchCooldown = ServiceCooldowns.BattleNetPresenceData;
 
+    /// <summary>Pixel size of the Discord avatar URL requested for Home Assistant discovery.</summary>
+    private const int AvatarImageSize = 256;
+
     /// <summary>
     /// How often mapped users are re-fetched from Steam/Battle.net and republished, independent of Discord
     /// presence events. Without this sweep, playtime and achievement progress would only refresh when the
@@ -341,7 +344,7 @@ public class DiscordPresenceMqttService : BackgroundService
             Username = user.Username,
             DiscordUserId = user.Id,
             Status = status,
-            AvatarUrl = user.GetDisplayAvatarUrl(ImageFormat.Auto, 256),
+            AvatarUrl = user.GetDisplayAvatarUrl(ImageFormat.Auto, AvatarImageSize),
             LastUpdated = DateTimeOffset.UtcNow
         };
 

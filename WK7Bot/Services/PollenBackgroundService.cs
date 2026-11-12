@@ -23,6 +23,18 @@ public class PollenBackgroundService : BackgroundService
 {
     private static readonly JsonSerializerOptions ForecastJsonOptions = new(JsonSerializerDefaults.Web);
 
+    /// <summary>
+    /// Minimum number of days between two pollen posts for the same guild. A post is due again once
+    /// at least this many days have elapsed since the last one.
+    /// </summary>
+    private const int PollenCadenceDays = 3;
+
+    /// <summary>
+    /// Number of forecast days (today, tomorrow, day after tomorrow) covered by a single DWD pollen
+    /// forecast and compared during change detection.
+    /// </summary>
+    private const int ForecastDayCount = 3;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IPollenService _pollenService;
@@ -194,9 +206,13 @@ public class PollenBackgroundService : BackgroundService
            && time < TimeSpan.FromDays(1);
 
     /// <summary>
-    /// Decides whether a post is due for <paramref name="today"/> given the last communicated state
+    /// Decides whether a post is due for <paramref name="today" /> given the last communicated state
     /// and the current forecast.
     /// </summary>
+    /// <param name="last">The last communicated dispatch state, or <see langword="null" /> when none exists.</param>
+    /// <param name="today">The current date.</param>
+    /// <param name="current">The current pollen forecast, or <see langword="null" /> when unavailable.</param>
+    /// <returns><see langword="true" /> when a post is due; otherwise <see langword="false" />.</returns>
     internal static bool ShouldPost(PollenDispatchState? last, DateTime today, PollenForecast? current)
     {
         if (last is null)
@@ -210,7 +226,7 @@ public class PollenBackgroundService : BackgroundService
         }
 
         var daysSince = (today.Date - last.LastPostedDate.Date).Days;
-        if (daysSince < 0 || daysSince >= 3)
+        if (daysSince < 0 || daysSince >= PollenCadenceDays)
         {
             return true;
         }
@@ -230,12 +246,25 @@ public class PollenBackgroundService : BackgroundService
             return true;
         }
 
-        // Change detection by calendar date: compare the levels for every overlapping day.
-        for (var offset = 0; offset < 3; offset++)
+        return HasForecastChanged(last.LastPostedDate.Date, today.Date, previous, current);
+    }
+
+    /// <summary>
+    /// Compares the previously communicated forecast with the current one and reports whether any
+    /// overlapping day changed (level, type set) so a re-post is warranted.
+    /// </summary>
+    /// <param name="lastPostedDate">The date of the last post.</param>
+    /// <param name="today">The current date.</param>
+    /// <param name="previous">The previously communicated forecast.</param>
+    /// <param name="current">The current forecast.</param>
+    /// <returns><see langword="true" /> when a change was detected; otherwise <see langword="false" />.</returns>
+    private static bool HasForecastChanged(DateTime lastPostedDate, DateTime today, PollenForecast previous, PollenForecast current)
+    {
+        for (var offset = 0; offset < ForecastDayCount; offset++)
         {
-            var previousDate = last.LastPostedDate.Date.AddDays(offset);
+            var previousDate = lastPostedDate.Date.AddDays(offset);
             var currentOffset = (previousDate - today.Date).Days;
-            if (currentOffset < 0 || currentOffset > 2)
+            if (currentOffset < 0 || currentOffset > ForecastDayCount - 1)
             {
                 continue;
             }

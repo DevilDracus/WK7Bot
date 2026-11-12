@@ -10,6 +10,18 @@ using WK7Bot.Models;
 /// </summary>
 public static class PollenEmbedBuilder
 {
+    /// <summary>Upper UV index bound of the "none to low" band (DWD wording).</summary>
+    private const int UvLowMax = 2;
+
+    /// <summary>Upper UV index bound of the "moderate" band (DWD wording).</summary>
+    private const int UvMediumMax = 4;
+
+    /// <summary>Upper UV index bound of the "high" band (DWD wording).</summary>
+    private const int UvHighMax = 6;
+
+    /// <summary>Upper UV index bound of the "very high" band (DWD wording); above this is "extreme".</summary>
+    private const int UvVeryHighMax = 8;
+
     /// <summary>Builds the embed from the pollen and (optional) UV forecast.</summary>
     /// <param name="pollen">The pollen forecast, or <see langword="null"/> when unavailable.</param>
     /// <param name="uv">The UV forecast, or <see langword="null"/> when unavailable.</param>
@@ -72,10 +84,10 @@ public static class PollenEmbedBuilder
     /// <returns>The description.</returns>
     private static string DescribeUv(int index) => index switch
     {
-        <= 2 => "keine bis geringe Belastung",
-        3 or 4 => "mittlere Belastung",
-        5 or 6 => "hohe Belastung",
-        7 or 8 => "sehr hohe Belastung",
+        <= UvLowMax => "keine bis geringe Belastung",
+        <= UvMediumMax => "mittlere Belastung",
+        <= UvHighMax => "hohe Belastung",
+        <= UvVeryHighMax => "sehr hohe Belastung",
         _ => "extrem hohe Belastung"
     };
 }

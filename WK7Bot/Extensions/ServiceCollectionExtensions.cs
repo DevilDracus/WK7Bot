@@ -19,6 +19,23 @@ namespace WK7Bot.Extensions;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>Size limit (entry count) applied to the application-wide memory cache.</summary>
+    private const int MemoryCacheSizeLimit = 1024;
+
+    /// <summary>Fast HTTP timeout (seconds) for local/proxy calls.</summary>
+    private const int HttpTimeoutFastSeconds = 10;
+
+    /// <summary>Medium HTTP timeout (seconds) for moderately slow endpoints.</summary>
+    private const int HttpTimeoutMediumSeconds = 15;
+
+    /// <summary>Default HTTP timeout (seconds) for external API calls.</summary>
+    private const int HttpTimeoutDefaultSeconds = 30;
+
+    /// <summary>Slow HTTP timeout (seconds) for open-data feeds and large payloads.</summary>
+    private const int HttpTimeoutSlowSeconds = 45;
+
+    /// <summary>Extended HTTP timeout (seconds) for Gemini AI generation.</summary>
+    private const int HttpTimeoutGeminiSeconds = 60;
     /// <summary>
     /// Registers Entity Framework Core SQLite database services.
     /// </summary>
@@ -63,7 +80,7 @@ public static class ServiceCollectionExtensions
     /// <returns>The service collection instance for method chaining.</returns>
     public static IServiceCollection AddBotDiscordAndClients(this IServiceCollection services)
     {
-        services.AddMemoryCache(options => options.SizeLimit = 1024);
+        services.AddMemoryCache(options => options.SizeLimit = MemoryCacheSizeLimit);
         services.AddSingleton<IRandomSource, SystemRandomSource>();
 
         // Single shared instance: the background services record outcomes into it and both the MQTT
@@ -90,24 +107,24 @@ public static class ServiceCollectionExtensions
         {
             // The Supervisor proxy is a local service: a request still pending after this window is
             // treated as unreachable instead of hanging for the HttpClient default of 100 seconds.
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutFastSeconds);
         });
         services.AddHttpClient<ILeipzigWasteService, LeipzigWasteService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutDefaultSeconds);
         });
         services.AddHttpClient<ISteamService, SteamService>(client =>
         {
             // Bound external Steam calls so one slow API response cannot block the presence refresh
             // for the HttpClient default of 100 seconds. 30 s matches the API-grade default ceiling.
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutDefaultSeconds);
         });
         services.AddHttpClient<IBattleNetService, BattleNetService>(client =>
         {
             // Keep the Battle.net profile refresh from stalling on slow external responses.
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutDefaultSeconds);
         });
-        services.AddHttpClient<IGeminiFoodService, GeminiFoodService>(client => client.Timeout = TimeSpan.FromSeconds(60));
+        services.AddHttpClient<IGeminiFoodService, GeminiFoodService>(client => client.Timeout = TimeSpan.FromSeconds(HttpTimeoutGeminiSeconds));
 
         // Gemini circuit breaker — prevents hammering Gemini when unavailable.
         services.AddSingleton<ICircuitBreaker, GeminiCircuitBreaker>();
@@ -115,35 +132,35 @@ public static class ServiceCollectionExtensions
         // External dependency health checker for /health command.
         services.AddHttpClient<IExternalDependencyHealthChecker, ExternalDependencyHealthChecker>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutFastSeconds);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("WK7Bot/1.0");
         });
         services.AddHttpClient<IRecipeSearchService, WebRecipeSearchService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutDefaultSeconds);
         });
         services.AddHttpClient<IOpenFoodFactsService, OpenFoodFactsService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(15);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutMediumSeconds);
         });
         services.AddHttpClient<IWishlistDealService, WishlistDealService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutDefaultSeconds);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("WK7Bot/1.0");
         });
         services.AddHttpClient<ISteamStoreService, SteamStoreService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutDefaultSeconds);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("WK7Bot/1.0");
         });
         services.AddHttpClient<AddOnOptionsWriter>(client =>
         {
             client.BaseAddress = new Uri("http://supervisor/");
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutFastSeconds);
         });
         services.AddHttpClient<IAccountLinkService, AccountLinkService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(15);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutMediumSeconds);
         });
         services.AddTransient<IWeatherService, WeatherService>();
         services.AddTransient<ILeaderboardService, LeaderboardService>();
@@ -151,16 +168,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDiscordScheduledEventService, DiscordScheduledEventService>();
         services.AddHttpClient<IDealWatchlistService, DealWatchlistService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutDefaultSeconds);
         });
         services.AddHttpClient<IWeekendEventSource, LeipzigWeekendEventSource>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutDefaultSeconds);
         });
         services.AddHttpClient<IPollenService, PollenService>(client =>
         {
             // Same host as the CAP warnings: a slow open-data response must not hang the caller.
-            client.Timeout = TimeSpan.FromSeconds(45);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutSlowSeconds);
         }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
             AutomaticDecompression = DecompressionMethods.All,
@@ -169,7 +186,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddHttpClient<IDwdWarningService, DwdWarningService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(45);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutSlowSeconds);
         }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
             AutomaticDecompression = DecompressionMethods.All,
@@ -188,14 +205,14 @@ public static class ServiceCollectionExtensions
         {
             // The notification dispatch runs detached from the gateway handler, so bound the wait
             // instead of keeping the request open for the HttpClient default of 100 seconds.
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutFastSeconds);
         });
 
         services.AddTransient<RssParserService>();
         services.AddHttpClient<IOpmlService, OpmlService>(client =>
         {
             // OPML files are small; a stalled download should not hold the interaction for 100 s.
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(HttpTimeoutDefaultSeconds);
         });
 
         // Command usage metrics repository

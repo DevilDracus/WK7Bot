@@ -16,6 +16,15 @@ public class LeipzigWasteModule : BotModuleBase
 
     private static readonly TimeSpan WasteCheckCooldown = TimeSpan.FromSeconds(30);
 
+    /// <summary>Default number of days shown when no explicit range is given.</summary>
+    private const int DefaultWasteRangeDays = 2;
+
+    /// <summary>Maximum number of days allowed in a waste date range.</summary>
+    private const int MaxWasteRangeDays = 14;
+
+    /// <summary>Day-count threshold above which empty (no-collection) days are skipped in the preview.</summary>
+    private const int EmptyDaySkipThreshold = 3;
+
     private readonly ILeipzigWasteService _wasteService;
     private readonly CommandRateLimiter _rateLimiter;
     private readonly ILogger<LeipzigWasteModule> _logger;
@@ -73,7 +82,7 @@ public class LeipzigWasteModule : BotModuleBase
                 return;
             }
 
-            var rangeDays = Math.Clamp(days ?? 2, 1, 14);
+            var rangeDays = Math.Clamp(days ?? DefaultWasteRangeDays, 1, MaxWasteRangeDays);
             await HandleDateRangeQueryAsync(rangeDays).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
@@ -135,7 +144,7 @@ public class LeipzigWasteModule : BotModuleBase
             var targetDate = today.AddDays(i);
             var collections = await _wasteService.GetWasteTypesForDateAsync(targetDate);
 
-            if (collections.Count == 0 && daysCount > 3)
+            if (collections.Count == 0 && daysCount > EmptyDaySkipThreshold)
             {
                 continue;
             }
@@ -159,7 +168,7 @@ public class LeipzigWasteModule : BotModuleBase
             }
         }
 
-        if (daysCount > 3 && !foundAny)
+        if (daysCount > EmptyDaySkipThreshold && !foundAny)
         {
             embedBuilder.WithDescription($"In den nächsten {daysCount} Tagen stehen keine Müllabholungen an.");
         }
