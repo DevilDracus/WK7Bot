@@ -14,6 +14,7 @@ public static class OpenFoodFactsEmbedBuilder
     private const double PotassiumHighThresholdMg = 300;
     private const double PhosphorusHighThresholdMg = 200;
     private const double SodiumHighThresholdMg = 400;
+    private const double GramsToMilligrams = 1000;
     /// <summary>
     /// Builds the embed for the supplied product.
     /// </summary>
@@ -124,21 +125,21 @@ public static class OpenFoodFactsEmbedBuilder
 
         if (n.Potassium.HasValue)
         {
-            var potassiumMg = n.Potassium.Value * 1000;
+            var potassiumMg = n.Potassium.Value * GramsToMilligrams;
             var status = potassiumMg > PotassiumHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
             renalText.AppendLine($"**Kalium:** {potassiumMg:F0} mg — {status}");
         }
 
         if (n.Phosphorus.HasValue)
         {
-            var phosphorusMg = n.Phosphorus.Value * 1000;
+            var phosphorusMg = n.Phosphorus.Value * GramsToMilligrams;
             var status = phosphorusMg > PhosphorusHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
             renalText.AppendLine($"**Phosphor:** {phosphorusMg:F0} mg — {status}");
         }
 
         if (n.Sodium.HasValue)
         {
-            var sodiumMg = n.Sodium.Value * 1000;
+            var sodiumMg = n.Sodium.Value * GramsToMilligrams;
             var status = sodiumMg > SodiumHighThresholdMg ? "⚠️ Hoch (Nieren-Vorsicht)" : "✅ Niedrig";
             renalText.AppendLine($"**Natrium:** {sodiumMg:F0} mg — {status}");
         }
