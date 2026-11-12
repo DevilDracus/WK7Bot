@@ -29,6 +29,7 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 - **Personal reminders** — `/remind <wann> <text> [hier]` schedules a reminder (`in 30m`, `in 2h`, `18:30`, `morgen 08:00`), delivered as a DM or as a channel post; `/reminders` lists the pending ones and `/remind-cancel <id>` removes one (`reminders_enabled`).
 - **Trivia** — `/quiz` starts a round with a random question and answer buttons; `/trivia-leaderboard` shows the current week's top scores.
 - **Birthdays** — `/birthday-set` (or `/add-birthday`) stores a member's birthday; `BirthdayBackgroundService` announces it once per year in `birthday_channel_name` (`birthday_enabled`).
+- **Voice channel stats** — `VoiceStatsService` records voice-channel sessions of at least 5 seconds for later reporting (`VoiceStatsRepository`).
 - **Components V2 cards everywhere** — every embed the bot used to send is rendered as a Components V2 container: `/profile` and `/leaderboard` (accent colour, dividers, avatar thumbnail), `/deals`, `/check-food`, recipes, `/check-waste`, `/weather`, `/pollen`, `/stats`, `/health`, `/help`, the weekly leaderboard post, the daily waste/pollen/food posts and the deal-watchlist DMs. `CardBuilder.FromEmbed` projects title, description, fields, thumbnail, full-width image, title link, footer and timestamp into text displays, a section accessory and a media gallery; the per-message text budget and the 40-child container limit are enforced.
 - **Card delivery is fail-safe** — channel notifications go through `CardSender`, which falls back to the original embed when Discord rejects a card, so a presentation change can never silently swallow an alert. Interaction responses pass `ephemeral` and the Components V2 flag together; Discord.Net OR-combines both (`flags |= ComponentsV2`, `flags |= Ephemeral`), so ephemeral answers stay ephemeral.
 - **Still embed-based by design** — messages that must carry a mention or a native poll (RSS feed posts and wishlist deal alerts with role/user pings, the Spontan-Treff post with its `@everyone` ping, the weekend digest with its poll, the error notifications) stay embeds: a Components V2 message cannot carry `content` or `embeds`.
@@ -139,6 +140,7 @@ A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — 
 | `PollenBackgroundService` | Daily DWD pollen/UV post | `pollen_alerts_enabled` |
 | `ReminderBackgroundService` | Deliver due personal reminders | `reminders_enabled` |
 | `BirthdayBackgroundService` | Daily birthday announcements | `birthday_enabled` |
+| `VoiceStatsService` | Track voice-channel sessions (minimum 5 seconds) for later reporting | always on |
 
 `WeekendDigestDispatcher` is registered as a singleton helper used by `WeekendDigestBackgroundService` for channel resolution and per-guild dispatch deduplication.
 

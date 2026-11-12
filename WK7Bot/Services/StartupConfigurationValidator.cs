@@ -18,7 +18,6 @@ public class StartupConfigurationValidator : BackgroundService
 
     private readonly DiscordSocketClient _discordClient;
     private readonly Wk7BotOptions _options;
-    private readonly MqttConnectionCoordinator _mqttCoordinator;
     private readonly ILogger<StartupConfigurationValidator> _logger;
 
     /// <summary>
@@ -27,12 +26,10 @@ public class StartupConfigurationValidator : BackgroundService
     public StartupConfigurationValidator(
         DiscordSocketClient discordClient,
         IOptions<Wk7BotOptions> options,
-        MqttConnectionCoordinator mqttCoordinator,
         ILogger<StartupConfigurationValidator> logger)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _mqttCoordinator = mqttCoordinator ?? throw new ArgumentNullException(nameof(mqttCoordinator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 

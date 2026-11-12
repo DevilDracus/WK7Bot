@@ -111,6 +111,7 @@ public sealed class FeatureHealthTracker : IFeatureHealthTracker
         public void RecordSuccess(DateTime succeededAtUtc)
         {
             LastSuccessUtc = succeededAtUtc;
+            LastError = null;
         }
 
         /// <summary>Records a failed execution.</summary>
