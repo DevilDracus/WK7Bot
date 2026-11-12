@@ -170,6 +170,7 @@ public class RemindModule : BotModuleBase
     /// <summary>
     /// Lists the invoking user's pending reminders.
     /// </summary>
+    [SlashCommand("reminders", "Zeigt deine offenen Erinnerungen an.")]
     public async Task ListAsync()
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
