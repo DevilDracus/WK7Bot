@@ -19,6 +19,18 @@ public class LeipzigWasteBackgroundService : BackgroundService
 {
     private const string TargetChannelName = "🗑️leipzig-waste";
 
+    /// <summary>Hour of day (local) at which the daily waste confirmation is dispatched.</summary>
+    private const int DailyNotificationHour = 8;
+
+    /// <summary>Hour of day (local, Monday only) at which the weekly waste overview is dispatched.</summary>
+    private const int WeeklyOverviewHour = 9;
+
+    /// <summary>Number of days covered by the weekly waste overview (Monday through Sunday).</summary>
+    private const int WeeklyOverviewDayCount = 7;
+
+    /// <summary>Offset from the starting Monday to the last day (Sunday) of the weekly overview.</summary>
+    private const int WeeklyOverviewLastDayOffset = 6;
+
     /// <summary>Dispatch records older than this are pruned after each daily/weekly evaluation.</summary>
     private static readonly TimeSpan DispatchRetention = TimeSpan.FromDays(90);
 
@@ -96,7 +108,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// <returns>A task representing the asynchronous schedule evaluation.</returns>
     protected virtual async Task EvaluateScheduleAsync(DateTime now, CancellationToken stoppingToken)
     {
-        if (now.Hour >= 8 && _lastDailyNotificationDate.Date < now.Date)
+        if (now.Hour >= DailyNotificationHour && _lastDailyNotificationDate.Date < now.Date)
         {
             // The in-memory flag only advances when the dispatch actually completed. Advancing it on
             // a partial failure (a guild whose channel could not be resolved) would suppress every
@@ -107,7 +119,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
             }
         }
 
-        if (now.DayOfWeek == DayOfWeek.Monday && now.Hour >= 9 && _lastWeeklyOverviewDate.Date < now.Date)
+        if (now.DayOfWeek == DayOfWeek.Monday && now.Hour >= WeeklyOverviewHour && _lastWeeklyOverviewDate.Date < now.Date)
         {
             if (await SendWeeklyWasteOverviewAsync(now.Date, stoppingToken))
             {
@@ -278,7 +290,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
     /// <returns>A task returning the constructed weekly overview embed.</returns>
     private async Task<Embed?> BuildWeeklyOverviewEmbedAsync(DateTime startDate, CancellationToken cancellationToken)
     {
-        var endDate = startDate.AddDays(6);
+        var endDate = startDate.AddDays(WeeklyOverviewLastDayOffset);
 
         var embedBuilder = new EmbedBuilder()
             .WithTitle("🗑️ Stadtreinigung Leipzig — Wochenübersicht")
@@ -288,7 +300,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
 
         var foundAny = false;
 
-        for (var i = 0; i < 7; i++)
+        for (var i = 0; i < WeeklyOverviewDayCount; i++)
         {
             var targetDate = startDate.AddDays(i);
             var collections = await _wasteService.GetWasteTypesForDateAsync(targetDate, cancellationToken);
