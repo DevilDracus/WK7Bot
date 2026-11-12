@@ -55,6 +55,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRssRepository, RssRepository>();
         services.AddScoped<IWasteDispatchRepository, WasteDispatchRepository>();
         services.AddScoped<ISpontanTreffRepository, SpontanTreffRepository>();
+        services.AddScoped<IGameNightRepository, GameNightRepository>();
+        services.AddScoped<IGameNightsRepository, GameNightRepository>();
+        services.AddScoped<IGameNightSchedulerRepository, GameNightRepository>();
         services.AddScoped<IWarningDispatchRepository, WarningDispatchRepository>();
         services.AddScoped<IFoodDispatchRepository, FoodDispatchRepository>();
         services.AddScoped<IPollenDispatchRepository, PollenDispatchRepository>();
@@ -288,6 +291,11 @@ public static class ServiceCollectionExtensions
         if (featureGate.IsEnabled(FeatureKeys.SpontanTreff))
         {
             services.AddHostedService<SpontanTreffExpiryService>();
+        }
+
+        if (featureGate.IsEnabled(FeatureKeys.GameNight))
+        {
+            services.AddHostedService<GameNightExpiryService>();
         }
 
         if (featureGate.IsEnabled(FeatureKeys.WeekendDigest))

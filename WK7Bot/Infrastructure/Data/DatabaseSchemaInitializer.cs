@@ -58,6 +58,7 @@ public static class DatabaseSchemaInitializer
         // introduced after the initial release so existing deployments pick them up as well.
         await ExecuteWithBusyRetryAsync(connection, CreateWasteDispatchLogsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateSpontanTreffSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateGameNightsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateWarningDispatchLogsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateFoodDispatchLogsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreatePollenDispatchStatesSql, cancellationToken).ConfigureAwait(false);
@@ -584,4 +585,42 @@ public static class DatabaseSchemaInitializer
         );
         CREATE UNIQUE INDEX IF NOT EXISTS IX_SteamAchievementBaselines_User_Steam_App_Api ON SteamAchievementBaselines (DiscordUserId, SteamId, AppId, ApiName);
         """;
+
+
+    /// <summary>
+    /// Raw DDL for game night tables.
+    /// </summary>
+    public const string CreateGameNightsSql =
+        """
+        CREATE TABLE IF NOT EXISTS GameNights (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            GuildId       INTEGER NOT NULL,
+            ChannelId     INTEGER NOT NULL,
+            MessageId     INTEGER NOT NULL,
+            OrganizerId   INTEGER NOT NULL,
+            OrganizerName TEXT    NOT NULL,
+            Title         TEXT    NULL,
+            CreatedAt     TEXT    NOT NULL,
+            ClosesAt      TEXT    NOT NULL,
+            Closed        INTEGER NOT NULL DEFAULT 0,
+            BestSlotId    INTEGER NULL,
+            BestSlot      TEXT    NULL
+        );
+        CREATE TABLE IF NOT EXISTS GameNightSlots (
+            Id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            GameNightId INTEGER NOT NULL REFERENCES GameNights(Id) ON DELETE CASCADE,
+            Position    INTEGER NOT NULL,
+            Label       TEXT    NOT NULL,
+            SlotTime    TEXT    NULL
+        );
+        CREATE TABLE IF NOT EXISTS GameNightVotes (
+            SlotId      INTEGER NOT NULL REFERENCES GameNightSlots(Id) ON DELETE CASCADE,
+            UserId      INTEGER NOT NULL,
+            GameNightId INTEGER NOT NULL,
+            Available   INTEGER NOT NULL,
+            VotedAt     TEXT    NOT NULL,
+            PRIMARY KEY (SlotId, UserId)
+        );
+        """;
+
 }

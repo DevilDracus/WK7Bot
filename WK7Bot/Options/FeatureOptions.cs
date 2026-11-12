@@ -62,6 +62,12 @@ public class FeatureOptions
     public bool SpontanTreffEnabled { get; init; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the game night scheduler feature is enabled.
+    /// </summary>
+    [ConfigurationKeyName("game_night_enabled")]
+    public bool GameNightEnabled { get; init; } = true;
+
+    /// <summary>
     /// Gets or sets a value indicating whether the weekly Leipzig weekend digest with voting poll is posted.
     /// </summary>
     [ConfigurationKeyName("weekend_digest_enabled")]
@@ -165,6 +171,7 @@ public class FeatureOptions
         FeatureKeys.BattleNetPresence => BattleNetPresenceEnabled,
         FeatureKeys.FoodService => FoodServiceEnabled,
         FeatureKeys.SpontanTreff => SpontanTreffEnabled,
+        FeatureKeys.GameNight => GameNightEnabled,
         FeatureKeys.WeekendDigest => WeekendDigestEnabled,
         FeatureKeys.DwdWarning => DwdWarningEnabled,
         FeatureKeys.ErrorNotifications => ErrorNotificationsEnabled,

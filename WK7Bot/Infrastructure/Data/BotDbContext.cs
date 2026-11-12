@@ -57,6 +57,21 @@ public class BotDbContext : DbContext
     public DbSet<SpontanTreffResponse> SpontanTreffResponses => Set<SpontanTreffResponse>();
 
     /// <summary>
+    /// Gets or sets the database set for game nights.
+    /// </summary>
+    public DbSet<GameNight> GameNights => Set<GameNight>();
+
+    /// <summary>
+    /// Gets or sets the database set for game night slots.
+    /// </summary>
+    public DbSet<GameNightSlot> GameNightSlots => Set<GameNightSlot>();
+
+    /// <summary>
+    /// Gets or sets the database set for game night votes.
+    /// </summary>
+    public DbSet<GameNightVote> GameNightVotes => Set<GameNightVote>();
+
+    /// <summary>
     /// Gets or sets the database set for tracking slash command usage metrics.
     /// </summary>
     public DbSet<CommandUsageLog> CommandUsageLogs => Set<CommandUsageLog>();
@@ -197,6 +212,33 @@ public class BotDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.MeetupId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GameNight>(entity =>
+        {
+            entity.ToTable("GameNights");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.OrganizerName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Title).HasMaxLength(200);
+            entity.HasMany(e => e.Slots).WithOne(s => s.GameNight).HasForeignKey(s => s.GameNightId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.Closed, e.ClosesAt });
+        });
+
+        modelBuilder.Entity<GameNightSlot>(entity =>
+        {
+            entity.ToTable("GameNightSlots");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Label).IsRequired().HasMaxLength(200);
+            entity.HasMany(e => e.Votes).WithOne().HasForeignKey(v => v.SlotId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.GameNightId);
+        });
+
+        modelBuilder.Entity<GameNightVote>(entity =>
+        {
+            entity.ToTable("GameNightVotes");
+            entity.HasKey(e => new { e.SlotId, e.UserId });
+            entity.Property(e => e.Available).IsRequired();
+            entity.HasIndex(e => e.GameNightId);
         });
 
         modelBuilder.Entity<CommandUsageLog>(entity =>

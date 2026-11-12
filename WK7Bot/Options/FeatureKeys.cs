@@ -34,6 +34,9 @@ public static class FeatureKeys
     /// <summary>Key of the spontaneous meetup expiry feature.</summary>
     public const string SpontanTreff = "spontan_treff_enabled";
 
+    /// <summary>Key of the game night scheduler feature.</summary>
+    public const string GameNight = "game_night_enabled";
+
     /// <summary>Key of the weekend digest feature.</summary>
     public const string WeekendDigest = "weekend_digest_enabled";
 
@@ -91,6 +94,7 @@ public static class FeatureKeys
         BattleNetPresence,
         FoodService,
         SpontanTreff,
+        GameNight,
         WeekendDigest,
         DwdWarning,
         ErrorNotifications,
