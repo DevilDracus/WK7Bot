@@ -150,6 +150,13 @@ public class Wk7BotOptions
     public FeatureOptions Features { get; init; } = new();
 
     /// <summary>
+    /// Gets or sets level-to-role mappings granted when a user reaches the configured level.
+    /// Keys are levels, values are Discord role IDs.
+    /// </summary>
+    [ConfigurationKeyName("xp_level_roles")]
+    public Dictionary<int, ulong> XpLevelRoles { get; init; } = new();
+
+    /// <summary>
     /// Gets or sets a value indicating whether the startup configuration validator posts a full report
     /// even when all checks pass. When <see langword="false"/> (default), only problems are reported.
     /// </summary>

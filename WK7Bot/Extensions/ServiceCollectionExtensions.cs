@@ -74,6 +74,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBirthdayRepository, BirthdayRepository>();
         services.AddScoped<IVoiceStatsRepository, VoiceStatsRepository>();
         services.AddScoped<ITriviaScoreRepository, TriviaScoreRepository>();
+        services.AddScoped<IXpRepository, XpRepository>();
         return services;
     }
 
@@ -371,6 +372,11 @@ public static class ServiceCollectionExtensions
 
         // Achievement unlock digest (polls Steam achievements for linked users)
         services.AddHostedService<AchievementUnlockDigestBackgroundService>();
+
+        if (featureGate.IsEnabled(FeatureKeys.Xp))
+        {
+            services.AddHostedService<XpTrackingService>();
+        }
 
         // Always-on infrastructure services
         services.AddHostedService<StartupConfigurationValidator>();

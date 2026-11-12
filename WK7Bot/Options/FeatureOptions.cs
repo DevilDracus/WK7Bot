@@ -153,6 +153,13 @@ public class FeatureOptions
     [ConfigurationKeyName("price_history_enabled")]
     public bool PriceHistoryEnabled { get; init; } = true;
 
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the leveling &amp; XP system is enabled.
+    /// </summary>
+    [ConfigurationKeyName("xp_enabled")]
+    public bool XpEnabled { get; init; } = true;
+
     /// <summary>
     /// Resolves the enabled state of a feature key against the bound flags. Keys are matched
     /// case-insensitively; an unknown key is treated as enabled so a new key does not silently disable a
@@ -186,6 +193,7 @@ public class FeatureOptions
         FeatureKeys.ReleaseDateReminders => ReleaseDateRemindersEnabled,
         FeatureKeys.SteamFriendDigest => SteamFriendDigestEnabled,
         FeatureKeys.PriceHistory => PriceHistoryEnabled,
+        FeatureKeys.Xp => XpEnabled,
         _ => true
     };
 }

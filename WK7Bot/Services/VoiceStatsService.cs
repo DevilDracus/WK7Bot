@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Options;
 
 /// <summary>
@@ -118,6 +119,56 @@ public class VoiceStatsService : IHostedService
             LeftAt = leftAt,
             DurationSeconds = duration
         }).ConfigureAwait(false);
+
+        // Award 1 XP per minute spent in voice.
+        var featureGate = scope.ServiceProvider.GetRequiredService<FeatureGate>();
+        if (featureGate.IsEnabled(FeatureKeys.Xp))
+        {
+            var xpRepository = scope.ServiceProvider.GetRequiredService<IXpRepository>();
+            var minutes = duration / 60;
+            if (minutes > 0)
+            {
+                var profile = await xpRepository.GetOrCreateAsync(userId, session.GuildId).ConfigureAwait(false);
+                var oldLevel = profile.Level;
+                profile.Xp += minutes;
+                profile.VoiceMinutes += minutes;
+                profile.LastXpAt = DateTime.UtcNow;
+                var newLevel = (int)Math.Floor(Math.Sqrt(profile.Xp / 100.0));
+                var leveledUp = newLevel > profile.Level;
+                profile.Level = newLevel;
+                await xpRepository.UpsertAsync(profile).ConfigureAwait(false);
+
+                if (leveledUp)
+                {
+                    var options = scope.ServiceProvider.GetRequiredService<IOptions<Wk7BotOptions>>();
+                    var guild = _discordClient.GetGuild(session.GuildId);
+                    if (guild is not null)
+                    {
+                        var channel = guild.TextChannels.FirstOrDefault(c => c.Name.Contains("leaderboard", StringComparison.OrdinalIgnoreCase));
+                        if (channel is not null)
+                        {
+                            try { await channel.SendMessageAsync($"🎉 <@{userId}> reached level {newLevel}! (XP: {profile.Xp})").ConfigureAwait(false); } catch { }
+                        }
+
+                        var mappings = options.Value.XpLevelRoles;
+                        if (mappings is not null && mappings.Count > 0)
+                        {
+                            var guildUser = guild.GetUser(userId);
+                            if (guildUser is not null)
+                            {
+                                foreach (var (level, roleId) in mappings)
+                                {
+                                    if (newLevel < level || guildUser.Roles.Any(r => r.Id == roleId)) continue;
+                                    var role = guild.GetRole(roleId);
+                                    if (role is null) continue;
+                                    try { await guildUser.AddRoleAsync(role).ConfigureAwait(false); } catch { }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
 }

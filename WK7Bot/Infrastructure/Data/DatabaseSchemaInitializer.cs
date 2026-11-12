@@ -79,6 +79,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateVoiceSessionsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateTriviaScoresSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateSteamAchievementBaselinesSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateXpProfilesSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql, cancellationToken).ConfigureAwait(false);
 
@@ -622,5 +623,28 @@ public static class DatabaseSchemaInitializer
             PRIMARY KEY (SlotId, UserId)
         );
         """;
+
+    /// <summary>
+    /// Raw DDL for the XP profile table.
+    /// </summary>
+    public const string CreateXpProfilesSql =
+        """
+        CREATE TABLE IF NOT EXISTS XpProfiles (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId INTEGER NOT NULL,
+            GuildId       INTEGER NOT NULL,
+            Xp            INTEGER NOT NULL DEFAULT 0,
+            Level         INTEGER NOT NULL DEFAULT 0,
+            LastXpAt      TEXT    NOT NULL DEFAULT '0001-01-01T00:00:00',
+            VoiceMinutes  INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_XpProfiles_User_Guild ON XpProfiles (DiscordUserId, GuildId);
+        """;
+
+
+    /// <summary>
+    /// Alias for <see cref="CreateXpProfilesSql"/>.
+    /// </summary>
+    public const string CreateXpProfileSql = CreateXpProfilesSql;
 
 }

@@ -130,6 +130,9 @@ public class BotDbContext : DbContext
     /// <summary>Gets or sets the database set for trivia scores.</summary>
     public DbSet<TriviaScore> TriviaScores => Set<TriviaScore>();
 
+    /// <summary>Gets or sets the database set for XP profiles.</summary>
+    public DbSet<XpProfile> XpProfiles => Set<XpProfile>();
+
     /// <summary>Gets or sets the database set for Steam achievement baselines.</summary>
     public DbSet<SteamAchievementBaseline> SteamAchievementBaselines => Set<SteamAchievementBaseline>();
 
@@ -364,6 +367,13 @@ public class BotDbContext : DbContext
             entity.HasIndex(e => new { e.DiscordUserId, e.SteamId, e.AppId, e.ApiName }).IsUnique();
             entity.Property(e => e.SteamId).IsRequired().HasMaxLength(64);
             entity.Property(e => e.ApiName).IsRequired().HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<XpProfile>(entity =>
+        {
+            entity.ToTable("XpProfiles");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.DiscordUserId, e.GuildId }).IsUnique();
         });
     }
 }

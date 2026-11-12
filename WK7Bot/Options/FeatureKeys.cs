@@ -79,6 +79,9 @@ public static class FeatureKeys
     /// <summary>Key of the price history snapshot feature.</summary>
     public const string PriceHistory = "price_history_enabled";
 
+    /// <summary>Key of the leveling &amp; XP feature.</summary>
+    public const string Xp = "xp_enabled";
+
     /// <summary>
     /// Every known feature key. Used by the runtime <c>/config feature</c> command to validate input
     /// and to render the current state of all switches.
@@ -108,7 +111,8 @@ public static class FeatureKeys
         Birthdays,
         ReleaseDateReminders,
         SteamFriendDigest,
-        PriceHistory
+        PriceHistory,
+        Xp
     };
 
     /// <summary>
