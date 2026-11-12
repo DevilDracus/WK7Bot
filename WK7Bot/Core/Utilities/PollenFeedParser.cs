@@ -93,8 +93,8 @@ public static class PollenFeedParser
             return 0;
         }
 
-        return region.Equals(regionName, StringComparison.OrdinalIgnoreCase) ? 2
-            : region.Contains(regionName, StringComparison.OrdinalIgnoreCase) ? 1
+        return region.Equals(regionName, StringComparison.OrdinalIgnoreCase) ? ExactRegionMatchScore
+            : region.Contains(regionName, StringComparison.OrdinalIgnoreCase) ? SubstringRegionMatchScore
             : 0;
     }
 
@@ -105,8 +105,8 @@ public static class PollenFeedParser
             return 0;
         }
 
-        return part.Equals(partRegionName, StringComparison.OrdinalIgnoreCase) ? 4
-            : part.Contains(partRegionName, StringComparison.OrdinalIgnoreCase) ? 2
+        return part.Equals(partRegionName, StringComparison.OrdinalIgnoreCase) ? ExactPartRegionMatchScore
+            : part.Contains(partRegionName, StringComparison.OrdinalIgnoreCase) ? SubstringPartRegionMatchScore
             : 0;
     }
 
