@@ -23,6 +23,24 @@ public class SteamFriendDigestBackgroundService : BackgroundService
     private DateOnly? _lastPostedWeek;
     private readonly object _lastPostedLock = new();
 
+    /// <summary>Number of days in the Steam playtime window shown in the digest (14 days).</summary>
+    private const int SteamPlaytimeWindowDays = 14;
+
+    /// <summary>Maximum number of users rendered in the "recently played" section.</summary>
+    private const int RecentUsersLimit = 10;
+
+    /// <summary>Maximum number of games rendered per user in the "recently played" section.</summary>
+    private const int RecentGamesPerUserLimit = 3;
+
+    /// <summary>Discord's per-field character limit.</summary>
+    private const int FieldLimit = 1024;
+
+    /// <summary>Length of the ellipsis suffix appended when a field value is truncated.</summary>
+    private const int EllipsisLength = 3;
+
+    /// <summary>Offset added to the current day-of-week to compute the Monday of the current week (Sunday = 6).</summary>
+    private const int DaysSinceMondayOffset = 6;
+
     /// <summary>Initializes a new instance of the <see cref="SteamFriendDigestBackgroundService"/> class.</summary>
     public SteamFriendDigestBackgroundService(
         DiscordSocketClient discordClient,
@@ -98,7 +116,7 @@ public class SteamFriendDigestBackgroundService : BackgroundService
             return;
         }
 
-        var daysSinceMonday = ((int)now.DayOfWeek + 6) % 7;
+        var daysSinceMonday = ((int)now.DayOfWeek + DaysSinceMondayOffset) % 7;
         var week = DateOnly.FromDateTime(now.AddDays(-daysSinceMonday));
         lock (_lastPostedLock)
         {
@@ -189,7 +207,7 @@ public class SteamFriendDigestBackgroundService : BackgroundService
         var recentByUser = activities
             .Where(a => a.RecentGames.Count > 0)
             .OrderByDescending(a => a.RecentGames.Sum(g => g.PlaytimeTwoWeeksMinutes))
-            .Take(10)
+            .Take(RecentUsersLimit)
             .ToList();
 
         if (recentByUser.Count > 0)
@@ -198,15 +216,15 @@ public class SteamFriendDigestBackgroundService : BackgroundService
             {
                 var recentLines = user.RecentGames
                     .OrderByDescending(g => g.PlaytimeTwoWeeksMinutes)
-                    .Take(3)
+                    .Take(RecentGamesPerUserLimit)
                     .Select(g => $"\u2022 {g.Name} \u2014 {SteamUserData.FormatPlaytime(g.PlaytimeTwoWeeksMinutes)}")
                     .ToList();
 
                 var fieldTitle = $"{user.PersonaName} (14 Tage)";
                 var fieldValue = string.Join("\n", recentLines);
-                if (fieldValue.Length > 1024)
+                if (fieldValue.Length > FieldLimit)
                 {
-                    fieldValue = fieldValue[..1021] + "...";
+                    fieldValue = fieldValue[..(FieldLimit - EllipsisLength)] + "...";
                 }
 
                 builder.AddField(fieldTitle, fieldValue, inline: true);
