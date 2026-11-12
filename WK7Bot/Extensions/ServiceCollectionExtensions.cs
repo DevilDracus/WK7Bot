@@ -19,6 +19,8 @@ namespace WK7Bot.Extensions;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>Size limit (entry count) applied to the application-wide memory cache.</summary>
+    private const int MemoryCacheSizeLimit = 1024;
     /// <summary>
     /// Registers Entity Framework Core SQLite database services.
     /// </summary>
@@ -63,7 +65,7 @@ public static class ServiceCollectionExtensions
     /// <returns>The service collection instance for method chaining.</returns>
     public static IServiceCollection AddBotDiscordAndClients(this IServiceCollection services)
     {
-        services.AddMemoryCache(options => options.SizeLimit = 1024);
+        services.AddMemoryCache(options => options.SizeLimit = MemoryCacheSizeLimit);
         services.AddSingleton<IRandomSource, SystemRandomSource>();
 
         // Single shared instance: the background services record outcomes into it and both the MQTT
