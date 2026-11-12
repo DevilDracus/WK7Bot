@@ -86,6 +86,10 @@ public static class PollenFeedParser
         return best;
     }
 
+    /// <summary>Scores how well a region matches the requested region name.</summary>
+    /// <param name="region">The candidate region.</param>
+    /// <param name="regionName">The requested region name.</param>
+    /// <returns>The match score.</returns>
     private static int ScoreRegion(string region, string? regionName)
     {
         if (string.IsNullOrWhiteSpace(regionName))
@@ -98,6 +102,10 @@ public static class PollenFeedParser
             : 0;
     }
 
+    /// <summary>Scores how well a part region matches the requested part region name.</summary>
+    /// <param name="part">The candidate part region.</param>
+    /// <param name="partRegionName">The requested part region name.</param>
+    /// <returns>The match score.</returns>
     private static int ScorePart(string part, string? partRegionName)
     {
         if (string.IsNullOrWhiteSpace(partRegionName))
@@ -110,6 +118,10 @@ public static class PollenFeedParser
             : 0;
     }
 
+    /// <summary>Builds the list of pollen type forecasts from a JSON element.</summary>
+    /// <param name="pollen">The pollen JSON element.</param>
+    /// <param name="legend">The legend mapping.</param>
+    /// <returns>The pollen type forecasts.</returns>
     private static List<PollenTypeForecast> BuildPollenTypes(JsonElement pollen, Dictionary<string, string> legend)
     {
         var types = new List<PollenTypeForecast>();

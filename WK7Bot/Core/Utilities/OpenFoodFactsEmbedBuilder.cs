@@ -96,6 +96,9 @@ public static class OpenFoodFactsEmbedBuilder
         return embed;
     }
 
+    /// <summary>Builds the nutrition text block for the embed.</summary>
+    /// <param name="n">The nutriments.</param>
+    /// <returns>The nutrition text.</returns>
     private static StringBuilder BuildNutritionText(OpenFoodFactsNutriments n)
     {
         var nutritionText = new StringBuilder();
@@ -119,6 +122,9 @@ public static class OpenFoodFactsEmbedBuilder
         return nutritionText;
     }
 
+    /// <summary>Builds the renal-safety text block for the embed.</summary>
+    /// <param name="n">The nutriments.</param>
+    /// <returns>The renal-safety text.</returns>
     private static StringBuilder BuildRenalSafetyText(OpenFoodFactsNutriments n)
     {
         var renalText = new StringBuilder();

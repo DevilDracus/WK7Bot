@@ -388,10 +388,19 @@ public sealed class WishlistDealService : IWishlistDealService
         }
     }
 
+    /// <summary>Performs a GET with retry.</summary>
+    /// <param name="url">The URL.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The response.</returns>
     internal async Task<HttpResponseMessage> GetWithRetryAsync(string url, CancellationToken cancellationToken = default)
         => await ExecuteWithRetryAsync(() => _httpClient.GetAsync(url, cancellationToken), cancellationToken);
 
 
+    /// <summary>Performs a POST with retry.</summary>
+    /// <param name="url">The URL.</param>
+    /// <param name="payload">The payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The response.</returns>
     internal async Task<HttpResponseMessage> PostWithRetryAsync(string url, object payload, CancellationToken cancellationToken = default)
         => await ExecuteWithRetryAsync(
             async () =>
@@ -401,6 +410,10 @@ public sealed class WishlistDealService : IWishlistDealService
             },
             cancellationToken);
 
+    /// <summary>Executes a send factory with retry.</summary>
+    /// <param name="sendFactory">The send factory.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The response.</returns>
     internal async Task<HttpResponseMessage> ExecuteWithRetryAsync(Func<Task<HttpResponseMessage>> sendFactory, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sendFactory);

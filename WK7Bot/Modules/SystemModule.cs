@@ -261,6 +261,10 @@ public class SystemModule : BotModuleBase
         }
     }
 
+    /// <summary>Adds a command category field to the help embed.</summary>
+    /// <param name="embed">The embed.</param>
+    /// <param name="category">The category name.</param>
+    /// <param name="commands">The commands.</param>
     private static void AddCommandField(EmbedBuilder embed, string category, string[] commands)
     {
         if (commands.Length == 0)

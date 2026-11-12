@@ -141,6 +141,9 @@ public class RemindModule : BotModuleBase
         };
     }
 
+    /// <summary>Persists a reminder and returns whether it was stored.</summary>
+    /// <param name="reminder">The reminder to store.</param>
+    /// <returns>True when stored.</returns>
     private async Task<bool> StoreReminderAsync(Reminder reminder)
     {
         try
@@ -156,6 +159,10 @@ public class RemindModule : BotModuleBase
         }
     }
 
+    /// <summary>Sends a confirmation message for a stored reminder.</summary>
+    /// <param name="reminder">The reminder.</param>
+    /// <param name="hier">Whether to post in the current channel.</param>
+    /// <returns>A task tracking the operation.</returns>
     private async Task SendReminderConfirmationAsync(Reminder reminder, bool hier)
     {
         var unix = new DateTimeOffset(reminder.DueAt, TimeSpan.Zero).ToUnixTimeSeconds();

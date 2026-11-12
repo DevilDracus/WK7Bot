@@ -41,6 +41,10 @@ public static class WasteSummaryMapper
         return $"🗑️ {rawSummary}";
     }
 
+    /// <summary>Determines whether the haystack contains any of the needles.</summary>
+    /// <param name="haystack">The text to search.</param>
+    /// <param name="needles">The needles.</param>
+    /// <returns>True when any needle is contained.</returns>
     private static bool ContainsAny(string haystack, params string[] needles)
         => needles.Any(n => haystack.Contains(n, StringComparison.OrdinalIgnoreCase));
 

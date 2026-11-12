@@ -183,6 +183,9 @@ public class SteamFriendDigestBackgroundService : BackgroundService
         }
     }
 
+    /// <summary>Builds the Discord embed for the Steam friend digest.</summary>
+    /// <param name="activities">The user activities.</param>
+    /// <returns>The embed.</returns>
     internal Embed BuildDigestEmbed(IReadOnlyList<SteamUserActivity> activities)
     {
         var builder = new EmbedBuilder()

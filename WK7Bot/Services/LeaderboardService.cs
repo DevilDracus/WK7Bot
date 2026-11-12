@@ -55,6 +55,12 @@ public class LeaderboardService : ILeaderboardService
         };
     }
 
+    /// <summary>Builds the Steam leaderboard.</summary>
+    /// <param name="guildId">The guild id.</param>
+    /// <param name="limit">The result limit.</param>
+    /// <param name="achievements">Whether to include achievements.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The leaderboard result.</returns>
     private async Task<LeaderboardResult> BuildSteamAsync(ulong guildId, int limit, bool achievements, CancellationToken cancellationToken)
     {
         var links = await GetSteamLinksAsync(cancellationToken).ConfigureAwait(false);
@@ -84,6 +90,11 @@ public class LeaderboardService : ILeaderboardService
         return Rank(achievements ? "🏆 Steam-Errungenschaften (14 Tage)" : "⏱️ Steam-Spielzeit (14 Tage)", rows, limit, "WK7 Bot • Leaderboard");
     }
 
+    /// <summary>Builds the Battle.net WoW leaderboard.</summary>
+    /// <param name="guildId">The guild id.</param>
+    /// <param name="limit">The result limit.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The leaderboard result.</returns>
     private async Task<LeaderboardResult> BuildBattleNetWowAsync(ulong guildId, int limit, CancellationToken cancellationToken)
     {
         var links = await GetBattleNetLinksAsync(cancellationToken).ConfigureAwait(false);
@@ -105,6 +116,11 @@ public class LeaderboardService : ILeaderboardService
         return Rank("⚔️ World of Warcraft — höchste Stufe", rows, limit, "WK7 Bot • Leaderboard");
     }
 
+    /// <summary>Builds the Battle.net Diablo leaderboard.</summary>
+    /// <param name="guildId">The guild id.</param>
+    /// <param name="limit">The result limit.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The leaderboard result.</returns>
     private async Task<LeaderboardResult> BuildBattleNetDiabloAsync(ulong guildId, int limit, CancellationToken cancellationToken)
     {
         var links = await GetBattleNetLinksAsync(cancellationToken).ConfigureAwait(false);
@@ -171,6 +187,10 @@ public class LeaderboardService : ILeaderboardService
         return result.Select(kv => (kv.Key, kv.Value)).ToList();
     }
 
+    /// <summary>Resolves a display name for a user.</summary>
+    /// <param name="guildId">The guild id.</param>
+    /// <param name="discordUserId">The Discord user id.</param>
+    /// <returns>The display name.</returns>
     private string ResolveDisplayName(ulong guildId, ulong discordUserId)
     {
         var guild = _discordClient.GetGuild(guildId);

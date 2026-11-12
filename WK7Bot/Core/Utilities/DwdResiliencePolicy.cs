@@ -198,6 +198,9 @@ public sealed class DwdResiliencePolicy
     private static bool IsTransientResult(object? result)
         => result is HttpResponseMessage response && IsTransientStatusCode(response.StatusCode);
 
+    /// <summary>Determines whether the HTTP status code is transient.</summary>
+    /// <param name="statusCode">The status code.</param>
+    /// <returns>True when transient.</returns>
     private static bool IsTransientStatusCode(HttpStatusCode statusCode)
         => (int)statusCode >= 500 || statusCode == HttpStatusCode.RequestTimeout;
 }

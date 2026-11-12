@@ -133,12 +133,17 @@ public class TriviaModule : BotModuleBase
         await FollowupAsync(builder.ToString().TrimEnd(), ephemeral: true).ConfigureAwait(false);
     }
 
+    /// <summary>Computes the start of the week (Monday) for the given UTC date.</summary>
+    /// <param name="utc">The UTC date.</param>
+    /// <returns>The week start.</returns>
     private static DateTime GetWeekStart(DateTime utc)
     {
         var date = utc.Date;
         var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
         return date.AddDays(-diff);
     }
+    /// <summary>Loads the trivia question set.</summary>
+    /// <returns>The questions.</returns>
     private static List<TriviaQuestion> LoadQuestions()
     {
         try

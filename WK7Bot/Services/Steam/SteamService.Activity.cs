@@ -67,6 +67,9 @@ public partial class SteamService
         }
     }
 
+    /// <summary>Maps a player summary to a Steam user activity.</summary>
+    /// <param name="player">The player summary.</param>
+    /// <returns>The activity.</returns>
     private static SteamUserActivity ToActivity(PlayerSummaryItem player)
     {
         var hasCurrentGame = !string.IsNullOrWhiteSpace(player.GameExtraInfo);
@@ -95,6 +98,10 @@ public partial class SteamService
         await Task.WhenAll(fetchTasks).ConfigureAwait(false);
     }
 
+    /// <summary>Enriches an activity with recent game details.</summary>
+    /// <param name="activity">The activity.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task tracking the operation.</returns>
     private async Task EnrichRecentGamesAsync(SteamUserActivity activity, CancellationToken cancellationToken)
     {
         var url = $"https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/?key={_options.SteamApiKey}&steamid={activity.SteamId}&format=json";

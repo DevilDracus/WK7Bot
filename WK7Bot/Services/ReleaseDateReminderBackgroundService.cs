@@ -156,6 +156,11 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
         }
     }
 
+    /// <summary>Notifies a user about a release date.</summary>
+    /// <param name="reminder">The reminder.</param>
+    /// <param name="releaseDateUtc">The release date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when notified.</returns>
     private async Task<bool> NotifyUserAsync(ReleaseDateReminderItem reminder, DateTime releaseDateUtc, CancellationToken cancellationToken)
     {
         var user = _discordClient.GetUser(reminder.DiscordUserId);

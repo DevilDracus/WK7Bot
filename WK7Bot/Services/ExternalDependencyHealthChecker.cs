@@ -70,6 +70,9 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         return results;
     }
 
+    /// <summary>Checks Home Assistant health.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The health status.</returns>
     private async Task<DependencyHealthStatus> CheckHomeAssistantAsync(CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
@@ -93,6 +96,9 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         }
     }
 
+    /// <summary>Checks DWD health.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The health status.</returns>
     private async Task<DependencyHealthStatus> CheckDwdAsync(CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
@@ -125,6 +131,9 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         }
     }
 
+    /// <summary>Checks Steam health.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The health status.</returns>
     private async Task<DependencyHealthStatus> CheckSteamAsync(CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
@@ -157,6 +166,9 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         }
     }
 
+    /// <summary>Checks Gemini health.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The health status.</returns>
     private Task<DependencyHealthStatus> CheckGeminiAsync(CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.Value.GeminiApiKey))
@@ -167,6 +179,9 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         return Task.FromResult(new DependencyHealthStatus("Gemini", true, "API-Key konfiguriert"));
     }
 
+    /// <summary>Checks OpenFoodFacts health.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The health status.</returns>
     private async Task<DependencyHealthStatus> CheckOpenFoodFactsAsync(CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
@@ -199,6 +214,9 @@ public sealed class ExternalDependencyHealthChecker : IExternalDependencyHealthC
         }
     }
 
+    /// <summary>Checks IsThereAnyDeal health.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The health status.</returns>
     private async Task<DependencyHealthStatus> CheckIsThereAnyDealAsync(CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();

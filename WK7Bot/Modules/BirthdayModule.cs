@@ -49,6 +49,10 @@ public class BirthdayModule : BotModuleBase
         [Summary("monat", "Monat (1-12)")] int month)
         => await SetBirthdayAsync(day, month).ConfigureAwait(false);
 
+    /// <summary>Sets the invoking user's birthday.</summary>
+    /// <param name="day">The day of month.</param>
+    /// <param name="month">The month.</param>
+    /// <returns>A task tracking the operation.</returns>
     private async Task SetBirthdayAsync(int day, int month)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);

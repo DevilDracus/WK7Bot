@@ -315,9 +315,15 @@ public static class RecipeEmbedBuilder
             : $"{text}\n[🔗 Original-Rezept]({sourceUrl})";
     }
 
+    /// <summary>Formats the ingredient list for display.</summary>
+    /// <param name="ingredients">The ingredients.</param>
+    /// <returns>The formatted text.</returns>
     private static string FormatIngredients(IReadOnlyCollection<string> ingredients)
         => string.Join("\n", ingredients.Where(i => !string.IsNullOrWhiteSpace(i)).Select(i => $"• {i}"));
 
+    /// <summary>Formats the instruction list for display.</summary>
+    /// <param name="instructions">The instructions.</param>
+    /// <returns>The formatted text.</returns>
     private static string FormatInstructions(IReadOnlyCollection<string> instructions)
         => string.Join("\n", instructions.Where(i => !string.IsNullOrWhiteSpace(i)).Select((inst, idx) => $"{idx + 1}. {inst}"));
 }
