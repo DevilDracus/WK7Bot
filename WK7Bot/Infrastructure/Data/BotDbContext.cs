@@ -115,6 +115,9 @@ public class BotDbContext : DbContext
     /// <summary>Gets or sets the database set for trivia scores.</summary>
     public DbSet<TriviaScore> TriviaScores => Set<TriviaScore>();
 
+    /// <summary>Gets or sets the database set for Steam achievement baselines.</summary>
+    public DbSet<SteamAchievementBaseline> SteamAchievementBaselines => Set<SteamAchievementBaseline>();
+
     /// <summary>
     /// Configures entity mappings, database constraints, and table schemas during model construction.
     /// </summary>
@@ -310,6 +313,15 @@ public class BotDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.GuildId, e.WeekStart });
             entity.HasIndex(e => new { e.DiscordUserId, e.GuildId, e.WeekStart }).IsUnique();
+        });
+
+        modelBuilder.Entity<SteamAchievementBaseline>(entity =>
+        {
+            entity.ToTable("SteamAchievementBaselines");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.DiscordUserId, e.SteamId, e.AppId, e.ApiName }).IsUnique();
+            entity.Property(e => e.SteamId).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.ApiName).IsRequired().HasMaxLength(200);
         });
     }
 }

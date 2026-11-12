@@ -542,3 +542,51 @@ public class PlayerAchievementItem
     public bool IsAchieved => Achieved == 1;
 }
 
+
+/// <summary>
+/// Root container model for the Steam IPlayerService/GetOwnedGames Web API response.
+/// </summary>
+public class SteamOwnedGamesResponse
+{
+    /// <summary>
+    /// Gets or sets the owned games response container.
+    /// </summary>
+    [JsonPropertyName("response")]
+    public OwnedGamesContainer? Response { get; set; }
+}
+
+/// <summary>
+/// Inner container holding the owned games list.
+/// </summary>
+public class OwnedGamesContainer
+{
+    /// <summary>
+    /// Gets or sets the number of games owned.
+    /// </summary>
+    [JsonPropertyName("game_count")]
+    public int GameCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the collection of owned games.
+    /// </summary>
+    [JsonPropertyName("games")]
+    public List<OwnedGameItem>? Games { get; set; }
+}
+
+/// <summary>
+/// Represents a single game owned by the player.
+/// </summary>
+public class OwnedGameItem
+{
+    /// <summary>
+    /// Gets or sets the unique Steam application identifier.
+    /// </summary>
+    [JsonPropertyName("appid")]
+    public uint AppId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the display name of the game.
+    /// </summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+}

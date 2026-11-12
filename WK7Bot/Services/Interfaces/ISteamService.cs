@@ -38,6 +38,16 @@ public interface ISteamService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves the list of games owned by the specified Steam user.
+    /// </summary>
+    /// <param name="steamId">The 64-bit Steam identifier of the user.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A collection of owned games as (AppId, Name) tuples.</returns>
+    Task<IReadOnlyList<(uint AppId, string Name)>> GetOwnedGamesAsync(
+        string steamId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Fetches lightweight activity summaries for multiple Steam IDs in a single batch.
     /// </summary>
     /// <param name="steamIds">The 64-bit Steam IDs to query.</param>

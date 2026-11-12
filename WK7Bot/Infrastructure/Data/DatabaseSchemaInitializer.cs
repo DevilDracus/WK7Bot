@@ -77,6 +77,7 @@ public static class DatabaseSchemaInitializer
         await ExecuteWithBusyRetryAsync(connection, CreateBirthdaysSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateVoiceSessionsSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateTriviaScoresSql, cancellationToken).ConfigureAwait(false);
+        await ExecuteWithBusyRetryAsync(connection, CreateSteamAchievementBaselinesSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateDispatchPruneIndexesSql, cancellationToken).ConfigureAwait(false);
         await ExecuteWithBusyRetryAsync(connection, CreateRssFeedsNameIndexSql, cancellationToken).ConfigureAwait(false);
 
@@ -564,5 +565,23 @@ public static class DatabaseSchemaInitializer
         CREATE INDEX IF NOT EXISTS IX_CommandUsageLogs_InvokedAt ON CommandUsageLogs (InvokedAt);
         CREATE INDEX IF NOT EXISTS IX_CommandUsageLogs_CommandName ON CommandUsageLogs (CommandName);
         CREATE INDEX IF NOT EXISTS IX_CommandUsageLogs_CommandName_InvokedAt ON CommandUsageLogs (CommandName, InvokedAt);
+        """;
+
+    /// <summary>
+    /// Raw DDL for the Steam achievement baseline table.
+    /// </summary>
+    public const string CreateSteamAchievementBaselinesSql =
+        """
+        CREATE TABLE IF NOT EXISTS SteamAchievementBaselines (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            DiscordUserId INTEGER NOT NULL,
+            SteamId       TEXT    NOT NULL,
+            AppId         INTEGER NOT NULL,
+            ApiName       TEXT    NOT NULL,
+            Achieved      INTEGER NOT NULL DEFAULT 0,
+            UnlockTime    TEXT    NULL,
+            LastChecked   TEXT    NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_SteamAchievementBaselines_User_Steam_App_Api ON SteamAchievementBaselines (DiscordUserId, SteamId, AppId, ApiName);
         """;
 }

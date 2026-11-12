@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IManualWishlistRepository, ManualWishlistRepository>();
         services.AddScoped<IReleaseDateReminderRepository, ReleaseDateReminderRepository>();
         services.AddScoped<IPriceHistoryRepository, PriceHistoryRepository>();
+        services.AddScoped<ISteamAchievementBaselineRepository, SteamAchievementBaselineRepository>();
         services.AddScoped<IAccountLinkResolver, AccountLinkResolver>();
         services.AddScoped<IDiscordScheduledEventRepository, DiscordScheduledEventRepository>();
         services.AddScoped<IReminderRepository, ReminderRepository>();
@@ -359,6 +360,9 @@ public static class ServiceCollectionExtensions
         {
             services.AddHostedService<BirthdayBackgroundService>();
         }
+
+        // Achievement unlock digest (polls Steam achievements for linked users)
+        services.AddHostedService<AchievementUnlockDigestBackgroundService>();
 
         // Always-on infrastructure services
         services.AddHostedService<StartupConfigurationValidator>();
