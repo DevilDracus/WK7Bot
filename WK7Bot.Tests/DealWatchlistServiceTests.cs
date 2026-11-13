@@ -6,7 +6,6 @@ using Moq;
 using Moq.Protected;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
-using WK7Bot.Options;
 using WK7Bot.Services;
 using WK7Bot.Services.Interfaces;
 using Xunit;

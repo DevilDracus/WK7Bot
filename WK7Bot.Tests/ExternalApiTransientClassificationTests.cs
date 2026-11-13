@@ -6,7 +6,6 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Utilities;
-using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
 

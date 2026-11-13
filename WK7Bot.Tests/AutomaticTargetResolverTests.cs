@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Utilities;
-using WK7Bot.Options;
 using Xunit;
 
 namespace WK7Bot.Tests;

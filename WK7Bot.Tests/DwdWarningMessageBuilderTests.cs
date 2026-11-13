@@ -1,7 +1,6 @@
 using Discord;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
-using WK7Bot.Options;
 using Xunit;
 
 namespace WK7Bot.Tests;

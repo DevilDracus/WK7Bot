@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Configuration;
-using WK7Bot.Options;
 using Xunit;
 
 namespace WK7Bot.Tests;

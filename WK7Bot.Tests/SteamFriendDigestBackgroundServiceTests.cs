@@ -5,7 +5,6 @@ using Microsoft.Extensions.Options;
 using Moq;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
-using WK7Bot.Options;
 using WK7Bot.Services;
 using WK7Bot.Services.Interfaces;
 using Xunit;

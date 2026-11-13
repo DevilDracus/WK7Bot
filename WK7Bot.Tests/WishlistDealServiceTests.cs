@@ -6,7 +6,6 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Moq.Protected;
 using WK7Bot.Models;
-using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
 
@@ -37,7 +36,7 @@ public class WishlistDealServiceTests
         };
         return new WishlistDealService(
             client,
-            Options.Create(options),
+            Microsoft.Extensions.Options.Options.Create(options),
             NullLogger<WishlistDealService>.Instance);
     }
 
@@ -231,8 +230,8 @@ public class WishlistDealServiceTests
     [Fact]
     public void Constructor_Throws_WhenDependenciesAreNull()
     {
-        Assert.Throws<ArgumentNullException>(() => new WishlistDealService(null!, Options.Create(new Wk7BotOptions()), NullLogger<WishlistDealService>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new WishlistDealService(null!, Microsoft.Extensions.Options.Options.Create(new Wk7BotOptions()), NullLogger<WishlistDealService>.Instance));
         Assert.Throws<ArgumentNullException>(() => new WishlistDealService(new HttpClient(), null!, NullLogger<WishlistDealService>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new WishlistDealService(new HttpClient(), Options.Create(new Wk7BotOptions()), null!));
+        Assert.Throws<ArgumentNullException>(() => new WishlistDealService(new HttpClient(), Microsoft.Extensions.Options.Options.Create(new Wk7BotOptions()), null!));
     }
 }

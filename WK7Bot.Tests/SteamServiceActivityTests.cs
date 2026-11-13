@@ -6,7 +6,6 @@ using Moq;
 using Moq.Protected;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models.Steam;
-using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
 using OptionsFactory = Microsoft.Extensions.Options.Options;

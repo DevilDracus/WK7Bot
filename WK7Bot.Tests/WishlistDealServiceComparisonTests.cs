@@ -4,7 +4,6 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Moq.Protected;
 using WK7Bot.Models;
-using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
 using OptionsFactory = Microsoft.Extensions.Options.Options;

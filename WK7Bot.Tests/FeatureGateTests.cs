@@ -1,7 +1,7 @@
+using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using WK7Bot.Core.Utilities;
-using WK7Bot.Options;
 using Xunit;
 
 namespace WK7Bot.Tests;

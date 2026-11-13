@@ -29,6 +29,35 @@ internal static class DiscordTestDoubles
     public static DiscordSocketClient CreateClient() => new();
 
     /// <summary>
+    /// Creates a real (but inert) socket guild with the given identity.
+    /// </summary>
+    /// <param name="id">The guild ID.</param>
+    /// <returns>The populated guild instance.</returns>
+    public static SocketGuild CreateGuild(ulong id)
+    {
+        var guildType = typeof(SocketGuild);
+        var ctor = guildType.GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            null,
+            new[] { typeof(DiscordSocketClient), typeof(ulong) },
+            null)
+            ?? throw new InvalidOperationException("SocketGuild constructor not found.");
+
+        return (SocketGuild)ctor.Invoke(new object?[] { CreateClient(), id });
+    }
+
+    /// <summary>
+    /// Attaches a socket guild with the given identity to an uninitialised interaction context.
+    /// </summary>
+    /// <param name="context">The uninitialised context.</param>
+    /// <param name="guildId">The guild ID the modules see.</param>
+    public static void SetGuild(SocketInteractionContext context, ulong guildId)
+    {
+        var guild = CreateGuild(guildId);
+        SetPropertyOrField(context, context.GetType(), "Guild", guild);
+    }
+
+    /// <summary>
     /// Attaches a socket user with the given identity to an uninitialised interaction context.
     /// </summary>
     /// <param name="context">The uninitialised context.</param>

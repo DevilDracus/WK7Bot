@@ -7,7 +7,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Infrastructure.Data;
-using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
 

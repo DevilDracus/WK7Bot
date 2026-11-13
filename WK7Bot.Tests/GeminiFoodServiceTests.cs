@@ -4,7 +4,6 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Models;
-using WK7Bot.Options;
 using WK7Bot.Services;
 using Xunit;
 
