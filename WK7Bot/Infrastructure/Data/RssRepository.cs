@@ -59,11 +59,9 @@ public class RssRepository : IRssRepository
     public async Task AddFeedAsync(RssFeed feed, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        // ensure normalized column is populated even if caller set Name before NormalizedName
-        if (string.IsNullOrEmpty(feed.NormalizedName))
-        {
-            feed.NormalizedName = feed.Name.ToLowerInvariant();
-        }
+        // NormalizedName has no side-effect setter on RssFeed anymore, so derive it here
+        // to keep the indexed lookup column in sync with Name.
+        feed.NormalizedName = (feed.Name ?? string.Empty).Trim().ToLowerInvariant();
         await context.RssFeeds.AddAsync(feed, cancellationToken).ConfigureAwait(false);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -77,6 +75,8 @@ public class RssRepository : IRssRepository
     public async Task UpdateFeedAsync(RssFeed feed, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        // Keep the indexed normalized column in sync with Name (no side-effect setter anymore).
+        feed.NormalizedName = (feed.Name ?? string.Empty).Trim().ToLowerInvariant();
         context.RssFeeds.Update(feed);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -111,7 +111,7 @@ public class RssRepository : IRssRepository
                 entity.LastPolledAt = updated.LastPolledAt;
                 entity.IsPaused = updated.IsPaused;
                 entity.Name = updated.Name;
-                entity.NormalizedName = updated.NormalizedName;
+                entity.NormalizedName = (updated.Name ?? string.Empty).Trim().ToLowerInvariant();
                 entity.Url = updated.Url;
                 entity.ChannelId = updated.ChannelId;
                 entity.RoleId = updated.RoleId;

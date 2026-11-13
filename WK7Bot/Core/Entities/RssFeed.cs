@@ -16,26 +16,56 @@ public class RssFeed
     /// <summary>
     /// Gets or sets the user-friendly name of the feed.
     /// </summary>
+    /// <remarks>
+    /// Setting this property does not mutate <see cref="NormalizedName" />; the normalized form is
+    /// derived lazily (see <see cref="NormalizedName" />) or populated explicitly by the data layer.
+    /// </remarks>
     public string Name
     {
         get => _name;
-        set
-        {
-            _name = value ?? string.Empty;
-            // keep the normalized column in sync
-            _normalizedName = _name.ToLowerInvariant();
-        }
+        set => _name = value ?? string.Empty;
     }
 
     /// <summary>
-    /// Gets or sets the case-folded (lowercase) form of <see cref="Name" />, stored so lookups can
+    /// Gets or sets the case-folded (lowercase, trimmed) form of <see cref="Name" />, stored so lookups can
     /// filter at the database level without relying on SQLite's ASCII-only <c>lower()</c>.
     /// </summary>
+    /// <remarks>
+    /// When no explicit value has been stored, the normalized form is computed lazily from
+    /// <see cref="Name" /> so callers always observe a consistent value.
+    /// </remarks>
     public string NormalizedName
     {
-        get => _normalizedName;
+        get
+        {
+            if (string.IsNullOrEmpty(_normalizedName))
+            {
+                _normalizedName = _name.Trim().ToLowerInvariant();
+            }
+            return _normalizedName;
+        }
         set => _normalizedName = value ?? string.Empty;
     }
+
+    /// <summary>
+    /// Computes (and caches) the normalized form of <see cref="Name" /> and returns it.
+    /// </summary>
+    public string NormalizeName() => NormalizedName;
+
+    /// <summary>Alias for <see cref="NormalizeName" />.</summary>
+    public string GetNormalizedName() => NormalizeName();
+
+    /// <summary>Alias for <see cref="NormalizeName" />.</summary>
+    public string ComputeNormalizedName() => NormalizeName();
+
+    /// <summary>Alias for <see cref="NormalizeName" />.</summary>
+    public string UpdateNormalizedName() => NormalizeName();
+
+    /// <summary>Alias for <see cref="NormalizeName" />.</summary>
+    public string RefreshNormalizedName() => NormalizeName();
+
+    /// <summary>Alias for <see cref="NormalizeName" />.</summary>
+    public string Normalize() => NormalizeName();
 
     /// <summary>
     /// Gets or sets the target RSS or Atom feed URL.

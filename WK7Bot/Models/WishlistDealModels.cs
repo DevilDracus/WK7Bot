@@ -1,5 +1,6 @@
 namespace WK7Bot.Models;
 
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 /// <summary>
@@ -34,6 +35,7 @@ public sealed class SteamWishlistSub
 /// Represents the raw JSON response from the Steam wishlist endpoint.
 /// The endpoint returns a flat object where keys are app IDs and values are item objects.
 /// </summary>
+[JsonConverter(typeof(SteamWishlistResponseJsonConverter))]
 public sealed class SteamWishlistResponse : Dictionary<string, SteamWishlistItem>
 {
 }
@@ -126,4 +128,55 @@ public sealed class WishlistDealAlert
 
     /// <summary>The Discord user IDs who have this game on their wishlist.</summary>
     public List<ulong> NotifiedUserIds { get; set; } = new();
+}
+
+/// <summary>
+/// JSON converter for <see cref="SteamWishlistResponse" /> that skips null/empty entries
+/// and tolerates null/empty payloads.
+/// </summary>
+public sealed class SteamWishlistResponseJsonConverter : JsonConverter<SteamWishlistResponse>
+{
+    /// <inheritdoc />
+    public override SteamWishlistResponse? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return null;
+        }
+
+        if (reader.TokenType != JsonTokenType.StartObject)
+        {
+            reader.Skip();
+            return new SteamWishlistResponse();
+        }
+
+        var response = new SteamWishlistResponse();
+        using var document = JsonDocument.ParseValue(ref reader);
+        foreach (var property in document.RootElement.EnumerateObject())
+        {
+            if (string.IsNullOrWhiteSpace(property.Name))
+            {
+                continue;
+            }
+
+            if (property.Value.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var item = JsonSerializer.Deserialize<SteamWishlistItem>(property.Value.GetRawText(), options);
+            if (item is not null)
+            {
+                response[property.Name] = item;
+            }
+        }
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public override void Write(Utf8JsonWriter writer, SteamWishlistResponse value, JsonSerializerOptions options)
+    {
+        JsonSerializer.Serialize(writer, (IDictionary<string, SteamWishlistItem>)value, options);
+    }
 }

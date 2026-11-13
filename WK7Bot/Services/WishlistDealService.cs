@@ -112,6 +112,43 @@ public sealed class WishlistDealService : IWishlistDealService
                 return apiResponse.Response.Items;
             }
 
+            // Fall back to the flat dictionary format: { "<appid>": { "name": "...", ... } }
+            // where the JSON object keys are Steam application IDs.
+            try
+            {
+                var flatResponse = JsonSerializer.Deserialize<SteamWishlistResponse>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                if (flatResponse is { Count: > 0 })
+                {
+                    var items = new List<SteamWishlistItem>(flatResponse.Count);
+                    foreach (var (key, item) in flatResponse)
+                    {
+                        if (item is null)
+                        {
+                            continue;
+                        }
+
+                        if (item.AppId == 0 && uint.TryParse(key, out var parsedAppId))
+                        {
+                            item.AppId = parsedAppId;
+                        }
+
+                        items.Add(item);
+                    }
+
+                    if (items.Count > 0)
+                    {
+                        return items;
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Not a flat dictionary payload; ignore and treat as empty.
+            }
+
             // IWishlistService returns an empty response for private/empty wishlists.
             _logger.LogDebug("Steam wishlist for {SteamId} returned no items (private or empty).", steamId);
             return Array.Empty<SteamWishlistItem>();

@@ -1,5 +1,6 @@
 namespace WK7Bot.Models;
 
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 /// <summary>
@@ -105,5 +106,74 @@ public sealed class OpenFoodFactsSearchResponse
 
     /// <summary>The products on this page.</summary>
     [JsonPropertyName("products")]
+    [JsonConverter(typeof(OpenFoodFactsProductsJsonConverter))]
     public List<OpenFoodFactsProduct> Products { get; set; } = new();
+}
+
+/// <summary>
+/// JSON converter that accepts both array and dictionary (object) forms for the
+/// Open Food Facts <c>products</c> collection, normalizing them to a list.
+/// </summary>
+public sealed class OpenFoodFactsProductsJsonConverter : JsonConverter<List<OpenFoodFactsProduct>>
+{
+    /// <inheritdoc />
+    public override List<OpenFoodFactsProduct> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var result = new List<OpenFoodFactsProduct>();
+
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return result;
+        }
+
+        if (reader.TokenType == JsonTokenType.StartArray)
+        {
+            while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+            {
+                if (reader.TokenType == JsonTokenType.StartObject)
+                {
+                    var product = JsonSerializer.Deserialize<OpenFoodFactsProduct>(ref reader, options);
+                    if (product is not null)
+                    {
+                        result.Add(product);
+                    }
+                }
+                else
+                {
+                    reader.Skip();
+                }
+            }
+
+            return result;
+        }
+
+        if (reader.TokenType == JsonTokenType.StartObject)
+        {
+            using var document = JsonDocument.ParseValue(ref reader);
+            foreach (var property in document.RootElement.EnumerateObject())
+            {
+                if (property.Value.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var product = JsonSerializer.Deserialize<OpenFoodFactsProduct>(property.Value.GetRawText(), options);
+                if (product is not null)
+                {
+                    result.Add(product);
+                }
+            }
+
+            return result;
+        }
+
+        reader.Skip();
+        return result;
+    }
+
+    /// <inheritdoc />
+    public override void Write(Utf8JsonWriter writer, List<OpenFoodFactsProduct> value, JsonSerializerOptions options)
+    {
+        JsonSerializer.Serialize(writer, value, options);
+    }
 }

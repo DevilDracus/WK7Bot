@@ -1,6 +1,7 @@
 namespace WK7Bot.Services;
 
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Utilities;
@@ -72,8 +73,12 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
 
             response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<OpenFoodFactsSearchResponse>(cancellationToken: cancellationToken);
-            var product = result?.Products.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.ProductName));
+            using var document = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken: cancellationToken);
+
+            var products = ExtractProducts(document.RootElement);
+            var product = products.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.ProductName));
 
             if (product == null)
             {
@@ -94,5 +99,69 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
             _logger.LogWarning(ex, "Open Food Facts search failed for query '{Query}'.", query);
             return null;
         }
+    }
+
+    private static List<OpenFoodFactsProduct> ExtractProducts(JsonElement root)
+    {
+        var result = new List<OpenFoodFactsProduct>();
+
+        if (root.ValueKind == JsonValueKind.Null || root.ValueKind == JsonValueKind.Undefined)
+        {
+            return result;
+        }
+
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var element in root.EnumerateArray())
+            {
+                if (element.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var product = JsonSerializer.Deserialize<OpenFoodFactsProduct>(element.GetRawText());
+                if (product is not null)
+                {
+                    result.Add(product);
+                }
+            }
+
+            return result;
+        }
+
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            return result;
+        }
+
+        if (root.TryGetProperty("products", out var productsElement))
+        {
+            return ExtractProducts(productsElement);
+        }
+
+        // Dictionary-style response: the object's values are product objects.
+        foreach (var property in root.EnumerateObject())
+        {
+            if (property.Value.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            // Only treat objects that look like Open Food Facts products.
+            if (!property.Value.TryGetProperty("product_name", out _) &&
+                !property.Value.TryGetProperty("brands", out _) &&
+                !property.Value.TryGetProperty("nutriments", out _))
+            {
+                continue;
+            }
+
+            var product = JsonSerializer.Deserialize<OpenFoodFactsProduct>(property.Value.GetRawText());
+            if (product is not null)
+            {
+                result.Add(product);
+            }
+        }
+
+        return result;
     }
 }
