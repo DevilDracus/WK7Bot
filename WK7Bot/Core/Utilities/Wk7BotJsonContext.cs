@@ -42,12 +42,12 @@ using WK7Bot.Models;
 [JsonSerializable(typeof(AlexaNotificationPayload))]
 [JsonSerializable(typeof(AddOnOptionsPayload))]
 [JsonSerializable(typeof(BotStatusDevice))]
-public partial class Wk7BotJsonContext : JsonSerializerContext
+internal partial class Wk7BotJsonContext : JsonSerializerContext
 {
 }
 
 /// <summary>Home Assistant discovery payload for a Discord presence entity.</summary>
-public sealed class DiscordPresenceDiscoveryPayload
+internal sealed class DiscordPresenceDiscoveryPayload
 {
     [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
     [JsonPropertyName("unique_id")] public string UniqueId { get; set; } = string.Empty;
@@ -59,7 +59,7 @@ public sealed class DiscordPresenceDiscoveryPayload
 }
 
 /// <summary>Home Assistant notification discovery payload.</summary>
-public sealed class HomeAssistantNotificationDiscoveryPayload
+internal sealed class HomeAssistantNotificationDiscoveryPayload
 {
     [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
     [JsonPropertyName("unique_id")] public string UniqueId { get; set; } = string.Empty;
@@ -68,7 +68,7 @@ public sealed class HomeAssistantNotificationDiscoveryPayload
 }
 
 /// <summary>Presence state payload published to MQTT.</summary>
-public sealed class DiscordPresenceStatePayload
+internal sealed class DiscordPresenceStatePayload
 {
     public string Username { get; set; } = string.Empty;
     public ulong DiscordUserId { get; set; }
@@ -93,13 +93,13 @@ public sealed class DiscordPresenceStatePayload
 }
 
 /// <summary>Alexa notification payload.</summary>
-public sealed class AlexaNotificationPayload
+internal sealed class AlexaNotificationPayload
 {
     [JsonPropertyName("message")] public string Message { get; set; } = string.Empty;
 }
 
 /// <summary>Add-on options write payload.</summary>
-public sealed class AddOnOptionsPayload
+internal sealed class AddOnOptionsPayload
 {
     [JsonPropertyName("options")] public JsonObject Options { get; set; } = new();
 }

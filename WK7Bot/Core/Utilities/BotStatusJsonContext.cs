@@ -15,12 +15,12 @@ using System.Text.Json.Serialization;
 [JsonSerializable(typeof(ProblemDiscoveryJson))]
 [JsonSerializable(typeof(ProblemAttributesJson))]
 [JsonSerializable(typeof(StatusAttributesJson))]
-public partial class BotStatusJsonContext : JsonSerializerContext
+internal partial class BotStatusJsonContext : JsonSerializerContext
 {
 }
 
 /// <summary>Payload published on the availability topic entry of a discovery config.</summary>
-public sealed record BotStatusAvailability
+internal sealed record BotStatusAvailability
 {
     [JsonPropertyName("topic")] public string Topic { get; init; } = string.Empty;
     [JsonPropertyName("payload_available")] public string PayloadAvailable { get; init; } = string.Empty;
@@ -28,7 +28,7 @@ public sealed record BotStatusAvailability
 }
 
 /// <summary>Payload published as the <c>device</c> block of a discovery config.</summary>
-public sealed record BotStatusDevice
+internal sealed record BotStatusDevice
 {
     [JsonPropertyName("identifiers")] public string[] Identifiers { get; init; } = Array.Empty<string>();
     [JsonPropertyName("name")] public string Name { get; init; } = string.Empty;
@@ -38,7 +38,7 @@ public sealed record BotStatusDevice
 }
 
 /// <summary>Discovery payload for the bot status sensor.</summary>
-public sealed record StatusDiscoveryJson
+internal sealed record StatusDiscoveryJson
 {
     [JsonPropertyName("name")] public string Name { get; init; } = string.Empty;
     [JsonPropertyName("object_id")] public string ObjectId { get; init; } = string.Empty;
@@ -54,7 +54,7 @@ public sealed record StatusDiscoveryJson
 }
 
 /// <summary>Discovery payload for a feature's enabled sensor.</summary>
-public sealed record EnabledDiscoveryJson
+internal sealed record EnabledDiscoveryJson
 {
     [JsonPropertyName("name")] public string Name { get; init; } = string.Empty;
     [JsonPropertyName("object_id")] public string ObjectId { get; init; } = string.Empty;
@@ -67,7 +67,7 @@ public sealed record EnabledDiscoveryJson
 }
 
 /// <summary>Discovery payload for a feature's problem sensor.</summary>
-public sealed record ProblemDiscoveryJson
+internal sealed record ProblemDiscoveryJson
 {
     [JsonPropertyName("name")] public string Name { get; init; } = string.Empty;
     [JsonPropertyName("object_id")] public string ObjectId { get; init; } = string.Empty;
@@ -83,7 +83,7 @@ public sealed record ProblemDiscoveryJson
 }
 
 /// <summary>Attribute payload for a feature's problem sensor.</summary>
-public sealed record ProblemAttributesJson
+internal sealed record ProblemAttributesJson
 {
     [JsonPropertyName("feature")] public string Feature { get; init; } = string.Empty;
     [JsonPropertyName("last_success_utc")] public string? LastSuccessUtc { get; init; }
@@ -92,7 +92,7 @@ public sealed record ProblemAttributesJson
 }
 
 /// <summary>Attribute payload for the bot status sensor.</summary>
-public sealed record StatusAttributesJson
+internal sealed record StatusAttributesJson
 {
     [JsonPropertyName("version")] public string Version { get; init; } = string.Empty;
     [JsonPropertyName("started_at_utc")] public string? StartedAtUtc { get; init; }
