@@ -134,5 +134,10 @@ public sealed class MetricsRegistry : IMetricsRegistry
 
     private static string Format(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
 
-    private static string Escape(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+    private static string Escape(string value) =>
+        value.Replace("\\", "\\\\")
+             .Replace("\"", "\\\"")
+             .Replace("\n", "\\n")
+             .Replace("\r", "\\r")
+             .Replace("\t", "\\t");
 }
