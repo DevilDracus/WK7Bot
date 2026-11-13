@@ -371,7 +371,10 @@ public static class ServiceCollectionExtensions
         }
 
         // Achievement unlock digest (polls Steam achievements for linked users)
-        services.AddHostedService<AchievementUnlockDigestBackgroundService>();
+        if (featureGate.IsEnabled("achievement_unlock_digest"))
+        {
+            services.AddHostedService<AchievementUnlockDigestBackgroundService>();
+        }
 
         if (featureGate.IsEnabled(FeatureKeys.Xp))
         {
