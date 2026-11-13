@@ -10,10 +10,12 @@ using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using WK7Bot.Core.Interfaces;
 using WK7Bot.Core.Utilities;
 using WK7Bot.Infrastructure.Data;
 using WK7Bot.Modules;
+using WK7Bot.Options;
 using WK7Bot.Services;
 using WK7Bot.Services.Interfaces;
 
@@ -37,6 +39,11 @@ internal static class TestCommandRunner
         try
         {
             var context = SocketInteractionContextFactory.Create(services, guildId, userId, username);
+
+            // Every test-API invocation runs inside a dry-run scope: mutating handlers skip
+            // persistence and AutomaticTargetResolver routes all outbound traffic to this guild.
+            using var testScope = TestMode.Enter(guildId);
+
             var message = await ExecuteAsync(services, normalized, request.Args, context, ct);
             return new TestCommandResult
             {
@@ -65,6 +72,21 @@ internal static class TestCommandRunner
         CancellationToken ct)
     {
         string Arg(string key) => args.TryGetValue(key, out var value) ? value ?? string.Empty : string.Empty;
+
+        // Some commands expose the same value under two names (slash option name and legacy alias).
+        string ArgFirst(params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                var value = Arg(key);
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+
+            return string.Empty;
+        }
 
         switch (command)
         {
@@ -365,6 +387,30 @@ internal static class TestCommandRunner
                     await module.WishlistAddAsync(Arg("url")).ConfigureAwait(false);
                     return "wishlist-add completed";
                 }
+            case "wishlist-add-appid":
+                {
+                    var appId = uint.TryParse(ArgFirst("appid", "game"), out var parsedAppId) ? parsedAppId : 730u;
+                    var name = string.IsNullOrWhiteSpace(Arg("name")) ? null : Arg("name");
+                    var module = CreateModule<TestableLinkModule>(services);
+                    SetContext(module, context);
+                    await module.WishlistAddAppIdAsync(appId, name).ConfigureAwait(false);
+                    return $"wishlist-add-appid completed ({appId})";
+                }
+            case "wishlist-remove-appid":
+                {
+                    var appId = uint.TryParse(ArgFirst("appid", "game"), out var parsedAppId) ? parsedAppId : 730u;
+                    var module = CreateModule<TestableLinkModule>(services);
+                    SetContext(module, context);
+                    await module.WishlistRemoveAppIdAsync(appId).ConfigureAwait(false);
+                    return $"wishlist-remove-appid completed ({appId})";
+                }
+            case "wishlist-list-appid":
+                {
+                    var module = CreateModule<TestableLinkModule>(services);
+                    SetContext(module, context);
+                    await module.WishlistListAppIdAsync().ConfigureAwait(false);
+                    return "wishlist-list-appid completed";
+                }
             case "weather":
                 {
                     var module = CreateModule<TestableWeatherModule>(services);
@@ -401,6 +447,170 @@ internal static class TestCommandRunner
                     SetContext(module, context);
                     await module.WatchlistAsync().ConfigureAwait(false);
                     return "watchlist completed";
+                }
+            case "achievements":
+                {
+                    var game = ArgFirst("game", "appId");
+                    var module = CreateModule<TestableAchievementsModule>(services);
+                    SetContext(module, context);
+                    await module.AchievementsAsync(string.IsNullOrWhiteSpace(game) ? "730" : game).ConfigureAwait(false);
+                    return "achievements completed";
+                }
+            case "birthday-set":
+                {
+                    var day = TryParseInt(ArgFirst("tag", "day"), out var parsedDay) ? parsedDay : 1;
+                    var month = TryParseInt(ArgFirst("monat", "month"), out var parsedMonth) ? parsedMonth : 1;
+                    var module = CreateModule<TestableBirthdayModule>(services);
+                    SetContext(module, context);
+                    await module.SetAsync(day, month).ConfigureAwait(false);
+                    return $"birthday-set completed ({day:00}.{month:00}.)";
+                }
+            case "add-birthday":
+                {
+                    var day = TryParseInt(ArgFirst("tag", "day"), out var parsedDay) ? parsedDay : 1;
+                    var month = TryParseInt(ArgFirst("monat", "month"), out var parsedMonth) ? parsedMonth : 1;
+                    var module = CreateModule<TestableBirthdayModule>(services);
+                    SetContext(module, context);
+                    await module.AddBirthdayAsync(day, month).ConfigureAwait(false);
+                    return $"add-birthday completed ({day:00}.{month:00}.)";
+                }
+            case "birthday-show":
+                {
+                    var module = CreateModule<TestableBirthdayModule>(services);
+                    SetContext(module, context);
+                    await module.ShowAsync().ConfigureAwait(false);
+                    return "birthday-show completed";
+                }
+            case "birthday-remove":
+                {
+                    var module = CreateModule<TestableBirthdayModule>(services);
+                    SetContext(module, context);
+                    await module.RemoveAsync().ConfigureAwait(false);
+                    return "birthday-remove completed";
+                }
+            case "gamenight-create":
+                {
+                    var slots = string.IsNullOrWhiteSpace(Arg("slots")) ? null : Arg("slots");
+                    var title = string.IsNullOrWhiteSpace(Arg("title")) ? null : Arg("title");
+                    var module = CreateModule<TestableGameNightModule>(services);
+                    SetContext(module, context);
+                    await module.CreateAsync(slots, title).ConfigureAwait(false);
+                    return "gamenight-create completed";
+                }
+            case "gamenight-reschedule":
+                {
+                    var slot = string.IsNullOrWhiteSpace(Arg("slot")) ? "Test" : Arg("slot");
+                    var gameNightId = TryParseInt(Arg("gamenight"), out var parsedGameNight) ? parsedGameNight : 0;
+                    var module = CreateModule<TestableGameNightModule>(services);
+                    SetContext(module, context);
+                    await module.RescheduleAsync(slot, gameNightId).ConfigureAwait(false);
+                    return $"gamenight-reschedule completed ({slot})";
+                }
+            case "gamenight-close":
+                {
+                    var gameNightId = TryParseInt(Arg("gamenight"), out var parsedGameNight) ? parsedGameNight : 0;
+                    var module = CreateModule<TestableGameNightModule>(services);
+                    SetContext(module, context);
+                    await module.CloseAsync(gameNightId).ConfigureAwait(false);
+                    return $"gamenight-close completed ({gameNightId})";
+                }
+            case "compare-prices":
+                {
+                    var game = ArgFirst("game", "appId");
+                    var module = CreateModule<TestablePriceComparisonModule>(services);
+                    SetContext(module, context);
+                    await module.ComparePricesAsync(string.IsNullOrWhiteSpace(game) ? "730" : game).ConfigureAwait(false);
+                    return "compare-prices completed";
+                }
+            case "price-history":
+                {
+                    var game = ArgFirst("game", "appId");
+                    var module = CreateModule<TestablePriceHistoryModule>(services);
+                    SetContext(module, context);
+                    await module.PriceHistoryAsync(string.IsNullOrWhiteSpace(game) ? "730" : game).ConfigureAwait(false);
+                    return "price-history completed";
+                }
+            case "release-remind":
+                {
+                    var game = ArgFirst("game", "appid");
+                    var module = CreateModule<TestableReleaseDateReminderModule>(services);
+                    SetContext(module, context);
+                    await module.ReleaseRemindAsync(string.IsNullOrWhiteSpace(game) ? "730" : game).ConfigureAwait(false);
+                    return "release-remind completed";
+                }
+            case "release-unremind":
+                {
+                    var appId = uint.TryParse(ArgFirst("appid", "game"), out var parsedAppId) ? parsedAppId : 730u;
+                    var module = CreateModule<TestableReleaseDateReminderModule>(services);
+                    SetContext(module, context);
+                    await module.ReleaseUnremindAsync(appId).ConfigureAwait(false);
+                    return $"release-unremind completed ({appId})";
+                }
+            case "release-list":
+                {
+                    var module = CreateModule<TestableReleaseDateReminderModule>(services);
+                    SetContext(module, context);
+                    await module.ReleaseListAsync().ConfigureAwait(false);
+                    return "release-list completed";
+                }
+            case "steam-friends-digest":
+                {
+                    var module = CreateModule<TestableSteamFriendDigestModule>(services);
+                    SetContext(module, context);
+                    await module.TriggerAsync().ConfigureAwait(false);
+                    return "steam-friends-digest completed";
+                }
+            case "quiz":
+                {
+                    var module = CreateModule<TestableTriviaModule>(services);
+                    SetContext(module, context);
+                    await module.QuizAsync().ConfigureAwait(false);
+                    return "quiz completed";
+                }
+            case "trivia-leaderboard":
+                {
+                    var module = CreateModule<TestableTriviaModule>(services);
+                    SetContext(module, context);
+                    await module.LeaderboardAsync().ConfigureAwait(false);
+                    return "trivia-leaderboard completed";
+                }
+            case "xp":
+                {
+                    var module = CreateModule<TestableXpModule>(services);
+                    SetContext(module, context);
+                    await module.XpAsync().ConfigureAwait(false);
+                    return "xp completed";
+                }
+            case "xp-rank":
+                {
+                    var module = CreateModule<TestableXpModule>(services);
+                    SetContext(module, context);
+                    await module.RankAsync().ConfigureAwait(false);
+                    return "xp-rank completed";
+                }
+            case "xp-leaderboard":
+                {
+                    var scope = string.IsNullOrWhiteSpace(Arg("scope")) ? "server" : Arg("scope");
+                    var limit = TryParseInt(Arg("limit"), out var parsedXpLimit) ? parsedXpLimit : 10;
+                    var module = CreateModule<TestableXpModule>(services);
+                    SetContext(module, context);
+                    await module.LeaderboardAsync(scope, limit).ConfigureAwait(false);
+                    return $"xp-leaderboard completed ({scope})";
+                }
+            case "xp-reset":
+                {
+                    var module = CreateModule<TestableXpModule>(services);
+                    SetContext(module, context);
+                    await module.ResetAsync(context.User).ConfigureAwait(false);
+                    return "xp-reset completed";
+                }
+            case "xp-set":
+                {
+                    var level = TryParseInt(Arg("level"), out var parsedLevel) ? parsedLevel : 1;
+                    var module = CreateModule<TestableXpModule>(services);
+                    SetContext(module, context);
+                    await module.SetAsync(context.User, level).ConfigureAwait(false);
+                    return $"xp-set completed (level {level})";
                 }
             default:
                 throw new NotSupportedException($"Unknown test command: {command}");
@@ -610,4 +820,140 @@ internal sealed class TestableDealWatchlistModule : DealWatchlistModule
         Task.CompletedTask;
     protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
     protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableAchievementsModule : AchievementsModule
+{
+    public TestableAchievementsModule(
+        ISteamService steamService,
+        IHttpClientFactory httpClientFactory,
+        ILogger<AchievementsModule> logger)
+        : base(steamService, httpClientFactory, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableBirthdayModule : BirthdayModule
+{
+    public TestableBirthdayModule(IBirthdayRepository repository, ILogger<BirthdayModule> logger)
+        : base(repository, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableGameNightModule : GameNightModule
+{
+    public TestableGameNightModule(
+        IGameNightRepository repository,
+        IDiscordScheduledEventService scheduledEventService,
+        IReminderRepository? reminderRepository,
+        IOptions<ServersOptions>? serversOptions,
+        ILogger<GameNightModule> logger)
+        : base(repository, scheduledEventService, reminderRepository, serversOptions, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestablePriceComparisonModule : PriceComparisonModule
+{
+    public TestablePriceComparisonModule(
+        IWishlistDealService dealService,
+        ISteamStoreService steamStoreService,
+        ILogger<PriceComparisonModule> logger)
+        : base(dealService, steamStoreService, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestablePriceHistoryModule : PriceHistoryModule
+{
+    public TestablePriceHistoryModule(
+        IPriceHistoryRepository priceHistoryRepository,
+        ISteamStoreService steamStoreService,
+        IWishlistDealService dealService,
+        ILogger<PriceHistoryModule> logger)
+        : base(priceHistoryRepository, steamStoreService, dealService, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableReleaseDateReminderModule : ReleaseDateReminderModule
+{
+    public TestableReleaseDateReminderModule(
+        IReleaseDateReminderRepository repository,
+        ISteamStoreService steamStoreService,
+        ILogger<ReleaseDateReminderModule> logger)
+        : base(repository, steamStoreService, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableSteamFriendDigestModule : SteamFriendDigestModule
+{
+    public TestableSteamFriendDigestModule(
+        SteamFriendDigestBackgroundService backgroundService,
+        ISteamService steamService,
+        IOptions<Wk7BotOptions> options,
+        FeatureGate featureGate,
+        ILogger<SteamFriendDigestModule> logger)
+        : base(backgroundService, steamService, options, featureGate, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableTriviaModule : TriviaModule
+{
+    public TestableTriviaModule(ITriviaScoreRepository scoreRepository, ILogger<TriviaModule> logger)
+        : base(scoreRepository, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+
+    // QuizAsync stores the id of the message returned by FollowupAsync, so the usual null no-op reply
+    // would throw. Hand back an inert socket message whose default id (0) is harmless.
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.FromResult<IUserMessage>((SocketUserMessage)RuntimeHelpers.GetUninitializedObject(typeof(SocketUserMessage)));
+
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+}
+
+internal sealed class TestableXpModule : XpModule
+{
+    public TestableXpModule(IXpRepository repository, IOptions<Wk7BotOptions> options, ILogger<XpModule> logger)
+        : base(repository, options, logger) { }
+
+    protected override Task RespondAsync(string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, RequestOptions? options = null, MessageComponent? components = null, Embed? embed = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) =>
+        Task.CompletedTask;
+    protected override Task DeferAsync(bool ephemeral, RequestOptions options) => Task.CompletedTask;
+    protected override Task<IUserMessage> FollowupAsync(string text, Embed[] embeds, bool isTTS, bool ephemeral, AllowedMentions allowedMentions, RequestOptions options, MessageComponent components, Embed embed, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
+    protected override Task<IUserMessage> FollowupWithFileAsync(Stream fileStream, string fileName, string? text = null, Embed[]? embeds = null, bool isTTS = false, bool ephemeral = false, AllowedMentions? allowedMentions = null, MessageComponent? components = null, Embed? embed = null, RequestOptions? options = null, PollProperties? poll = null, MessageFlags flags = MessageFlags.None) => Task.FromResult<IUserMessage>(null!);
 }

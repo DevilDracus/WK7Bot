@@ -37,7 +37,7 @@ public class BirthdayModule : BotModuleBase
     public async Task SetAsync(
         [Summary("tag", "Tag des Monats (1-31)")] int day,
         [Summary("monat", "Monat (1-12)")] int month)
-        => await SetBirthdayAsync(day, month).ConfigureAwait(false);
+        => await SetBirthdayAsync(day, month, "birthday-set").ConfigureAwait(false);
 
     /// <summary>Adds or updates the invoking user's birthday (alias for <c>/birthday-set</c>).</summary>
     /// <param name="day">Day of month (1-31).</param>
@@ -47,19 +47,26 @@ public class BirthdayModule : BotModuleBase
     public async Task AddBirthdayAsync(
         [Summary("tag", "Tag des Monats (1-31)")] int day,
         [Summary("monat", "Monat (1-12)")] int month)
-        => await SetBirthdayAsync(day, month).ConfigureAwait(false);
+        => await SetBirthdayAsync(day, month, "add-birthday").ConfigureAwait(false);
 
     /// <summary>Sets the invoking user's birthday.</summary>
     /// <param name="day">The day of month.</param>
     /// <param name="month">The month.</param>
+    /// <param name="command">The slash-command name reported by the test-mode dry run.</param>
     /// <returns>A task tracking the operation.</returns>
-    private async Task SetBirthdayAsync(int day, int month)
+    private async Task SetBirthdayAsync(int day, int month, string command)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         if (month < 1 || month > 12 || day < 1 || day > DateTime.DaysInMonth(2000, month))
         {
             await FollowupAsync("❌ Ungültiges Datum.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated(command), ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -108,6 +115,12 @@ public class BirthdayModule : BotModuleBase
     public async Task RemoveAsync()
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("birthday-remove"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
 
         var removed = await _repository.RemoveAsync(Context.User.Id);
         await FollowupAsync(

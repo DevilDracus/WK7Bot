@@ -5,6 +5,7 @@ using Discord.Interactions;
 using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>
@@ -43,6 +44,13 @@ public class LinkModule : BotModuleBase
     public async Task LinkSteamAsync([Summary("steam", "SteamID64 oder Profil-URL")] string steam)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("link-steam"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var result = await _accountLinkService.LinkSteamAsync(Context.User.Id, steam);
         await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }
@@ -58,6 +66,13 @@ public class LinkModule : BotModuleBase
         [Summary("battle_tag", "Optionaler BattleTag")] string? battleTag = null)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("link-battlenet"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var result = await _accountLinkService.LinkBattleNetAsync(Context.User.Id, refreshToken, region, battleTag);
         await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }
@@ -84,6 +99,13 @@ public class LinkModule : BotModuleBase
     public async Task LinkRemoveAsync([Summary("provider", "steam oder battlenet")] string provider)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("link-remove"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var result = await _accountLinkService.UnlinkAsync(Context.User.Id, provider.Trim().ToLowerInvariant());
         await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }
@@ -94,6 +116,13 @@ public class LinkModule : BotModuleBase
     public async Task WishlistAddAsync([Summary("url", "Steam-Wunschlisten-URL")] string url)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("wishlist-add"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var result = await _accountLinkService.LinkWishlistAsync(Context.User.Id, url);
         await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }
@@ -107,6 +136,12 @@ public class LinkModule : BotModuleBase
         [Summary("name", "Optionaler Anzeigename")] string? name = null)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("wishlist-add-appid"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
 
         var existing = await _manualWishlistRepository.GetForUserAsync(Context.User.Id).ConfigureAwait(false);
         if (existing.Any(i => i.AppId == appid))
@@ -131,6 +166,13 @@ public class LinkModule : BotModuleBase
     public async Task WishlistRemoveAppIdAsync([Summary("appid", "Steam AppID")] uint appid)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("wishlist-remove-appid"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var removed = await _manualWishlistRepository.RemoveAsync(Context.User.Id, appid).ConfigureAwait(false);
         await FollowupAsync(removed
             ? $"✅ AppID **{appid}** wurde entfernt."

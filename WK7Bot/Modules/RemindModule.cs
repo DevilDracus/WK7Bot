@@ -59,6 +59,12 @@ public class RemindModule : BotModuleBase
             return;
         }
 
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("remind"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var reminder = CreateReminderEntity(Context.User.Id, Context.Guild, Context.Channel, reminderText, dueAt, wiederholung);
 
         if (!await StoreReminderAsync(reminder).ConfigureAwait(false))
@@ -209,6 +215,12 @@ public class RemindModule : BotModuleBase
     public async Task CancelAsync([Summary("id", "ID aus /reminders")] int id)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("remind-cancel"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
 
         var removed = await _repository.RemovePendingAsync(id, Context.User.Id);
         await FollowupAsync(

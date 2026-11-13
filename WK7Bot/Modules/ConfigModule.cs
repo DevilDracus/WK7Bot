@@ -61,6 +61,12 @@ public class ConfigModule : BotModuleBase
             return;
         }
 
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("config feature"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var enabled = string.Equals(state, "on", StringComparison.OrdinalIgnoreCase)
                       || string.Equals(state, "true", StringComparison.OrdinalIgnoreCase);
 

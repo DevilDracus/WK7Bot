@@ -83,6 +83,12 @@ public class RssModule : BotModuleBase
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
 
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("rss add"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var result = await CreateFeedAsync(name, url);
         if (result.Outcome != FeedCreationOutcome.Created)
         {
@@ -227,6 +233,12 @@ public class RssModule : BotModuleBase
             return;
         }
 
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("rss import"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         await ImportFromUrlCoreAsync(datei.Url).ConfigureAwait(false);
     }
 
@@ -239,6 +251,13 @@ public class RssModule : BotModuleBase
     internal async Task ImportFromUrlAsync(string url)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("rss import"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         await ImportFromUrlCoreAsync(url).ConfigureAwait(false);
     }
 
@@ -363,6 +382,12 @@ public class RssModule : BotModuleBase
             return;
         }
 
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("rss remove"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var feed = await _repository.GetFeedByNameAsync(name);
         if (feed == null)
         {
@@ -434,6 +459,12 @@ public class RssModule : BotModuleBase
     [RequireUserPermission(GuildPermission.ManageRoles)]
     public async Task PostDashboardAsync()
     {
+        if (TestMode.IsActive)
+        {
+            await RespondAsync(TestMode.Simulated("rss dashboard"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var responseSent = false;
         try
         {
@@ -579,6 +610,12 @@ public class RssModule : BotModuleBase
         if (name.Length == 0)
         {
             await FollowupAsync("\u274c Bitte gib den Namen des Feeds an.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated(paused ? "rss pause" : "rss resume"), ephemeral: true).ConfigureAwait(false);
             return;
         }
 

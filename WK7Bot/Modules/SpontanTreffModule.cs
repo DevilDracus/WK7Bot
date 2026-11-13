@@ -108,6 +108,12 @@ public class SpontanTreffModule : BotModuleBase
                 return;
             }
 
+            if (TestMode.IsActive)
+            {
+                await FollowupAsync(TestMode.Simulated("spontan-treff"), ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
             var targetChannel = await GetOrCreateTreffChannelAsync();
             if (targetChannel == null)
             {

@@ -30,6 +30,12 @@ public static class AutomaticTargetResolver
     {
         ArgumentNullException.ThrowIfNull(availableGuildIds);
 
+        // An active test-API scope must never reach the production server.
+        if (TestMode.GuildOverride is { } testGuildId)
+        {
+            return new[] { testGuildId };
+        }
+
         var preferred = SelectPreferredServerId(servers, featureKey);
         if (preferred.HasValue)
         {
@@ -56,6 +62,11 @@ public static class AutomaticTargetResolver
     /// <returns>The test server guild ID, or an empty list when none is configured.</returns>
     public static IReadOnlyList<ulong> ResolveTestServerOnly(ServersOptions? servers, ILogger? logger = null)
     {
+        if (TestMode.GuildOverride is { } testGuildId)
+        {
+            return new[] { testGuildId };
+        }
+
         if (servers is not null && servers.TryGetTestServerId(out var testServerId))
         {
             return new[] { testServerId };

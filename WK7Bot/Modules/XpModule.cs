@@ -93,6 +93,13 @@ public class XpModule : BotModuleBase
     public async Task ResetAsync([Summary("user", "Der User")] IUser user)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("xp reset"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var guildId = Context.Guild?.Id ?? 0;
         await _repository.ResetAsync(user.Id, guildId).ConfigureAwait(false);
         await FollowupAsync($"✅ XP für <@{user.Id}> zurückgesetzt.", ephemeral: true).ConfigureAwait(false);
@@ -104,6 +111,13 @@ public class XpModule : BotModuleBase
     public async Task SetAsync([Summary("user", "Der User")] IUser user, [Summary("level", "Level")] int level)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("xp set"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var guildId = Context.Guild?.Id ?? 0;
         await _repository.SetLevelAsync(user.Id, guildId, level).ConfigureAwait(false);
         await FollowupAsync($"✅ <@{user.Id}> ist jetzt Level {level}.", ephemeral: true).ConfigureAwait(false);

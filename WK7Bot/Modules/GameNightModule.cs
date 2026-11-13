@@ -81,6 +81,12 @@ public class GameNightModule : BotModuleBase
             return;
         }
 
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("gamenight create"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         try
         {
             var slotLabels = ParseSlots(slots);
@@ -157,6 +163,12 @@ public class GameNightModule : BotModuleBase
                 return;
             }
 
+            if (TestMode.IsActive)
+            {
+                await FollowupAsync(TestMode.Simulated("gamenight reschedule"), ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
             var slots = await _repository.GetSlotsAsync(gn.Id);
             var target = slots.FirstOrDefault(s => string.Equals(s.Label, slot.Trim(), StringComparison.OrdinalIgnoreCase));
             if (target == null)
@@ -202,6 +214,12 @@ public class GameNightModule : BotModuleBase
             if (gn.OrganizerId != Context.User.Id)
             {
                 await FollowupAsync("❌ Nur der Organisator darf schließen.", ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
+            if (TestMode.IsActive)
+            {
+                await FollowupAsync(TestMode.Simulated("gamenight close"), ephemeral: true).ConfigureAwait(false);
                 return;
             }
 

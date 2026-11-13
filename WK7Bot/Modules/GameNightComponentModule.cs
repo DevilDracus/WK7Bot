@@ -74,6 +74,12 @@ public class GameNightComponentModule : BotModuleBase
                 return;
             }
 
+            if (TestMode.IsActive)
+            {
+                await FollowupAsync(TestMode.Simulated("gamenight vote"), ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
             var userId = Context.User.Id;
             var current = await _repository.GetVoteAsync(gameNight.Id, slot.Id, userId);
             string confirmation;

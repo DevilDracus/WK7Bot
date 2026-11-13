@@ -3,6 +3,7 @@ namespace WK7Bot.Modules;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.Logging;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>
@@ -36,6 +37,13 @@ public class DealWatchlistModule : BotModuleBase
         [Summary("target_price", "Optionaler Zielpreis in Euro")] double? target_price = null)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("watch"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var result = await _watchlistService.WatchAsync(Context.User.Id, game, min_discount, target_price.HasValue ? (decimal)target_price.Value : null);
         await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }
@@ -46,6 +54,13 @@ public class DealWatchlistModule : BotModuleBase
     public async Task UnwatchAsync([Summary("game", "Name des Spiels")] string game)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("unwatch"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var result = await _watchlistService.UnwatchAsync(Context.User.Id, game);
         await FollowupAsync(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}", ephemeral: true).ConfigureAwait(false);
     }

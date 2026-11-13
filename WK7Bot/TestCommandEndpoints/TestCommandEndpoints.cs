@@ -59,8 +59,15 @@ public static class TestCommandEndpoints
                 "deals", "spontan-treff", "rss-list", "rss-add", "rss-remove", "rss-dashboard",
                 "rss-pause", "rss-resume", "rss-test", "rss-export", "rss-import",
                 "link-steam", "link-battlenet", "link-status", "link-remove", "wishlist-add", "weather", "leaderboard",
+                "wishlist-add-appid", "wishlist-remove-appid", "wishlist-list-appid",
                 "watch", "unwatch", "watchlist", "config-feature", "config-list", "profile", "poll",
-                "pollen", "remind", "reminders", "remind-cancel"
+                "pollen", "remind", "reminders", "remind-cancel",
+                "achievements", "birthday-set", "add-birthday", "birthday-show", "birthday-remove",
+                "gamenight-create", "gamenight-reschedule", "gamenight-close",
+                "compare-prices", "price-history",
+                "release-remind", "release-unremind", "release-list",
+                "steam-friends-digest", "quiz", "trivia-leaderboard",
+                "xp", "xp-rank", "xp-leaderboard", "xp-reset", "xp-set"
             }
         }));
 

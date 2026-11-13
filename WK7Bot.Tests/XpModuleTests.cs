@@ -90,6 +90,21 @@ public class XpModuleTests
     }
 
     [Fact]
+    public async Task ResetAsync_InTestMode_SkipsPersistence()
+    {
+        var repository = new Mock<IXpRepository>();
+        var module = CreateModule(repository);
+
+        using (WK7Bot.Core.Utilities.TestMode.Enter(551130054776717323ul))
+        {
+            await module.ResetAsync(CreateUser(42));
+        }
+
+        repository.Verify(r => r.ResetAsync(It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Contains(module.Followups, f => f.Contains("Testmodus"));
+    }
+
+    [Fact]
     public async Task ResetAsync_Success_ReportsSuccess()
     {
         var repository = new Mock<IXpRepository>();

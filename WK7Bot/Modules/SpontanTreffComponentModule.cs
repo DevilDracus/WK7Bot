@@ -86,6 +86,12 @@ public class SpontanTreffComponentModule : BotModuleBase
                 return;
             }
 
+            if (TestMode.IsActive)
+            {
+                await FollowupAsync(TestMode.Simulated("spontan-treff Antwort"), ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
             bool wantsToGo = action == SpontanTreffMessageBuilder.GoAction;
             var userId = Context.User.Id;
             var current = await _repository.GetResponseAsync(meetupId, userId);

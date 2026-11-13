@@ -5,6 +5,7 @@ using Discord.Interactions;
 using Microsoft.Extensions.Logging;
 using WK7Bot.Core.Entities;
 using WK7Bot.Core.Interfaces;
+using WK7Bot.Core.Utilities;
 using WK7Bot.Services.Interfaces;
 
 /// <summary>
@@ -36,6 +37,12 @@ public class ReleaseDateReminderModule : BotModuleBase
     public async Task ReleaseRemindAsync([Summary("game", "Name oder Steam AppID des Spiels")] string game)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("release-remind"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
 
         uint appId;
         string title;
@@ -95,6 +102,13 @@ public class ReleaseDateReminderModule : BotModuleBase
     public async Task ReleaseUnremindAsync([Summary("appid", "Steam AppID")] uint appid)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        if (TestMode.IsActive)
+        {
+            await FollowupAsync(TestMode.Simulated("release-unremind"), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var removed = await _repository.RemoveAsync(Context.User.Id, appid).ConfigureAwait(false);
         await FollowupAsync(removed
             ? $"\u2705 AppID **{appid}** wurde aus den Release-Erinnerungen entfernt."
