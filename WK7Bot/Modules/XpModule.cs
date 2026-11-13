@@ -30,7 +30,6 @@ public class XpModule : BotModuleBase
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    /// <summary>Shows the XP leaderboard.</summary>
     /// <summary>Shows the caller's XP and level.</summary>
     [SlashCommand("xp", "Zeigt dein Level und XP")]
     public async Task XpAsync()

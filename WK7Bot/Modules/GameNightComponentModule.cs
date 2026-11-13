@@ -123,10 +123,6 @@ public class GameNightComponentModule : BotModuleBase
         slotId = 0;
         var parts = (payload ?? string.Empty).Split(':', 2);
         if (parts.Length != 2) return false;
-        if (parts[0] != GameNightMessageBuilder.ToggleAction && parts[0] != "slot" && parts[0] != "vote")
-        {
-            // allow any action prefix for compatibility
-        }
         return int.TryParse(parts[1], out slotId) && slotId > 0;
     }
 }

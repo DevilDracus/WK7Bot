@@ -42,9 +42,9 @@ public class GameNightModule : BotModuleBase
     }
 
     protected virtual Task<ITextChannel?> GetChannelAsync()
-        => GetOrCreateTreffChannelAsync();
+        => GetTreffChannelAsync();
 
-    protected virtual Task<ITextChannel?> GetOrCreateTreffChannelAsync()
+    protected virtual Task<ITextChannel?> GetTreffChannelAsync()
         => Task.FromResult(Context.Channel as ITextChannel);
 
     protected virtual Task<IUserMessage> PostAsync(ITextChannel channel, Embed embed, MessageComponent components)
@@ -105,7 +105,7 @@ public class GameNightModule : BotModuleBase
 
             try
             {
-                var channel = await GetOrCreateTreffChannelAsync();
+                var channel = await GetTreffChannelAsync();
                 if (channel == null)
                 {
                     await FollowupAsync("❌ Kanal nicht gefunden.", ephemeral: true).ConfigureAwait(false);
