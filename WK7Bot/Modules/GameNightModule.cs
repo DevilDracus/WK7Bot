@@ -118,7 +118,7 @@ public class GameNightModule : BotModuleBase
             }
             catch (Exception)
             {
-                try { await _repository.RemoveAsync(gameNight.Id); } catch { }
+                try { await _repository.RemoveAsync(gameNight.Id); } catch (Exception ex) { _logger.LogWarning(ex, "Failed to remove game night {GameNightId}.", gameNight.Id); }
                 throw;
             }
         }
@@ -263,7 +263,7 @@ public class GameNightModule : BotModuleBase
                     await msg.ModifyAsync(p => { p.Embed = embed; p.Components = components; });
                 }
             }
-            catch { }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to edit game night message {MessageId}.", gn.MessageId); }
         }
 
         // create native event
@@ -283,7 +283,7 @@ public class GameNightModule : BotModuleBase
                     new DateTimeOffset(end),
                     "game_night");
             }
-            catch { }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to create scheduled event for game night {GameNightId}.", gn.Id); }
         }
 
         // reminders via ReminderRepository
@@ -307,7 +307,7 @@ public class GameNightModule : BotModuleBase
                         CreatedAt = DateTime.UtcNow
                     });
                 }
-                catch { }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed to add reminder for game night {GameNightId}.", gn.Id); }
             }
         }
     }
