@@ -127,7 +127,7 @@ public class Wk7BotOptions
     /// either the nested or the flat form.
     /// </summary>
     [ConfigurationKeyName("weekend_digest_banned_words")]
-    public List<string> WeekendDigestBannedWords
+    public IReadOnlyList<string> WeekendDigestBannedWords
     {
         get => WeekendDigest.BannedWords;
         set => WeekendDigest.BannedWords = value;

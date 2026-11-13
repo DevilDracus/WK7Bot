@@ -25,5 +25,5 @@ public class WeekendDigestOptions
     /// (case-insensitive substring) are excluded from the digest. An empty or unset list disables filtering.
     /// </summary>
     [ConfigurationKeyName("banned_words")]
-    public List<string> BannedWords { get; set; } = new(DefaultBannedWords);
+    public IReadOnlyList<string> BannedWords { get; set; } = new List<string>(DefaultBannedWords);
 }
