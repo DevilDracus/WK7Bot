@@ -112,7 +112,7 @@ public class GameNightExpiryService : BackgroundService
                         {
                             await scheduledEventService.CreateAsync(guild, $"Game Night: {gn.Title ?? "Spieleabend"}", $"Slot: {best.Label}", best.Label, new DateTimeOffset(start), new DateTimeOffset(end), "game_night");
                         }
-                        catch { }
+                        catch (Exception ex) { _logger.LogWarning(ex, "Failed to create scheduled event for game night {GameNightId}.", gn.Id); }
                     }
                 }
 
@@ -137,7 +137,7 @@ public class GameNightExpiryService : BackgroundService
                                 CreatedAt = DateTime.UtcNow
                             }, stoppingToken);
                         }
-                        catch { }
+                        catch (Exception ex) { _logger.LogWarning(ex, "Failed to add reminder for game night {GameNightId}.", gn.Id); }
                     }
                 }
             }

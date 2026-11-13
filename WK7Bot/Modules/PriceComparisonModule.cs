@@ -36,6 +36,8 @@ public class PriceComparisonModule : BotModuleBase
     public async Task ComparePricesAsync([Summary("game", "Name oder Steam AppID des Spiels")] string game)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        try
+        {
 
         uint? appId = null;
         if (uint.TryParse(game, out var parsedAppId))
@@ -81,5 +83,11 @@ public class PriceComparisonModule : BotModuleBase
             .Build();
 
         await FollowupAsync(embed: embed, ephemeral: true).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+        {
+            Logger.LogError(ex, "Error in compare-prices command.");
+            await FollowupAsync("❌ Preisvergleich fehlgeschlagen.", ephemeral: true).ConfigureAwait(false);
+        }
     }
 }

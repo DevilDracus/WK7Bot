@@ -148,7 +148,7 @@ public class VoiceStatsService : IHostedService
                         var channel = guild.TextChannels.FirstOrDefault(c => c.Name.Contains("leaderboard", StringComparison.OrdinalIgnoreCase));
                         if (channel is not null)
                         {
-                            try { await channel.SendMessageAsync($"🎉 <@{userId}> reached level {newLevel}! (XP: {profile.Xp})").ConfigureAwait(false); } catch { }
+                            try { await channel.SendMessageAsync($"🎉 <@{userId}> reached level {newLevel}! (XP: {profile.Xp})").ConfigureAwait(false); } catch (Exception ex) { _logger.LogWarning(ex, "Failed to send level-up announcement."); }
                         }
 
                         var mappings = options.Value.XpLevelRoles;
@@ -162,7 +162,7 @@ public class VoiceStatsService : IHostedService
                                     if (newLevel < level || guildUser.Roles.Any(r => r.Id == roleId)) continue;
                                     var role = guild.GetRole(roleId);
                                     if (role is null) continue;
-                                    try { await guildUser.AddRoleAsync(role).ConfigureAwait(false); } catch { }
+                                    try { await guildUser.AddRoleAsync(role).ConfigureAwait(false); } catch (Exception ex) { _logger.LogWarning(ex, "Failed to add role {RoleId}.", roleId); }
                                 }
 
                                 // Remove lower-level roles so they do not stack.
@@ -171,7 +171,7 @@ public class VoiceStatsService : IHostedService
                                     if (level >= newLevel || !guildUser.Roles.Any(r => r.Id == roleId)) continue;
                                     var role = guild.GetRole(roleId);
                                     if (role is null) continue;
-                                    try { await guildUser.RemoveRoleAsync(role).ConfigureAwait(false); } catch { }
+                                    try { await guildUser.RemoveRoleAsync(role).ConfigureAwait(false); } catch (Exception ex) { _logger.LogWarning(ex, "Failed to remove role {RoleId}.", roleId); }
                                 }
                             }
                         }

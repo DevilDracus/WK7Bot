@@ -41,6 +41,8 @@ public class PriceHistoryModule : BotModuleBase
     public async Task PriceHistoryAsync([Summary("game", "Name oder Steam AppID des Spiels")] string game)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        try
+        {
 
         uint? appId = null;
         string title = game;
@@ -106,6 +108,12 @@ public class PriceHistoryModule : BotModuleBase
             .Build();
 
         await FollowupAsync(embed: embed, ephemeral: true).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+        {
+            Logger.LogError(ex, "Error in price-history command.");
+            await FollowupAsync("❌ Preisverlauf konnte nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
+        }
     }
 }
 
