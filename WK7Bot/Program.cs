@@ -82,6 +82,21 @@ logger.LogInformation("==== WK7 Bot v{Version} starting at {Timestamp:yyyy-MM-dd
 
 await app.InitializeDatabaseAsync(CancellationToken.None).ConfigureAwait(false);
 
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+        if (exception is not null)
+        {
+            logger.LogError(exception, "Unhandled exception in request pipeline.");
+        }
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsync("Internal Server Error");
+    });
+});
+
 app.MapGet("/health", () => Results.Ok("WK7 Bot is healthy."));
 
 app.MapGet("/metrics", (IFeatureHealthTracker health, IOptions<Wk7BotOptions> options, MetricsRegistry metrics) =>
@@ -103,7 +118,7 @@ AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
         {
             Context = "AppDomain.UnhandledException",
             Message = eventArgs.ExceptionObject?.ToString() ?? "Unbekannter Fehler",
-            Timestamp = DateTimeOffset.Now
+            Timestamp = DateTimeOffset.UtcNow
         });
 };
 
