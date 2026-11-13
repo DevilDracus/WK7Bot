@@ -116,17 +116,20 @@ public class AlexaMentionNotificationService : IHostedService, IDisposable
 
                 // Fire-and-forget: awaiting the notification call inside the gateway event would
                 // stall message dispatch for every other handler while the endpoint is slow.
-                _ = Task.Run(async () =>
+                if (!_shutdownCts.IsCancellationRequested)
                 {
-                    try
+                    _ = Task.Run(async () =>
                     {
-                        await SendAlexaNotificationAsync(notificationText, _shutdownCts.Token).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Alexa notification dispatch failed.");
-                    }
-                }, _shutdownCts.Token);
+                        try
+                        {
+                            await SendAlexaNotificationAsync(notificationText, _shutdownCts.Token).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Alexa notification dispatch failed.");
+                        }
+                    });
+                }
             }
         }
         catch (Exception ex)
