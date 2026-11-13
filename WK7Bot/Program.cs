@@ -79,7 +79,12 @@ if (wk7Section.Exists())
 }
 builder.Services.Configure<Wk7BotOptions>(builder.Configuration);
 
-builder.Services.AddBotHostedServices(builder.Configuration);
+#pragma warning disable ASP0000
+// Resolve the DI-registered FeatureGate and pass it through so hosted-service registration and runtime
+// services share one instance instead of creating a second one.
+var featureGate = builder.Services.BuildServiceProvider().GetRequiredService<FeatureGate>();
+#pragma warning restore ASP0000
+builder.Services.AddBotHostedServices(builder.Configuration, featureGate);
 
 var app = builder.Build();
 

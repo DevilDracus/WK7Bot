@@ -19,10 +19,6 @@ public class XpRepository : IXpRepository
     }
 
     /// <inheritdoc />
-    public Task<XpProfile?> GetAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default)
-        => GetByUserAsync(discordUserId, guildId, cancellationToken);
-
-    /// <inheritdoc />
     public async Task<XpProfile?> GetByUserAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -30,10 +26,6 @@ public class XpRepository : IXpRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.DiscordUserId == discordUserId && p.GuildId == guildId, cancellationToken);
     }
-
-    /// <inheritdoc />
-    public Task<XpProfile?> GetProfileAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default)
-        => GetByUserAsync(discordUserId, guildId, cancellationToken);
 
     /// <inheritdoc />
     public async Task<XpProfile> GetOrCreateAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default)
@@ -61,10 +53,6 @@ public class XpRepository : IXpRepository
             throw;
         }
     }
-
-    /// <inheritdoc />
-    public Task<XpProfile> GetOrCreateProfileAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default)
-        => GetOrCreateAsync(discordUserId, guildId, cancellationToken);
 
     /// <inheritdoc />
     public async Task UpsertAsync(XpProfile profile, CancellationToken cancellationToken = default)
@@ -99,10 +87,6 @@ public class XpRepository : IXpRepository
             throw;
         }
     }
-
-    /// <inheritdoc />
-    public async Task UpdateAsync(XpProfile profile, CancellationToken cancellationToken = default)
-        => await UpsertAsync(profile, cancellationToken);
 
     private async Task<XpProfile> EnsureProfileAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken)
     {
@@ -149,14 +133,6 @@ public class XpRepository : IXpRepository
             throw;
         }
     }
-
-    /// <inheritdoc />
-    public Task IncrementAsync(ulong discordUserId, ulong guildId, int amount, CancellationToken cancellationToken = default)
-        => AddXpAsync(discordUserId, guildId, amount, cancellationToken);
-
-    /// <inheritdoc />
-    public Task IncrementXpAsync(ulong discordUserId, ulong guildId, int amount, CancellationToken cancellationToken = default)
-        => AddXpAsync(discordUserId, guildId, amount, cancellationToken);
 
     /// <inheritdoc />
     public async Task SetLevelAsync(ulong discordUserId, ulong guildId, int level, CancellationToken cancellationToken = default)
@@ -234,10 +210,6 @@ public class XpRepository : IXpRepository
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<XpProfile>> GetTopAsync(ulong guildId, int limit, CancellationToken cancellationToken = default)
-        => GetLeaderboardAsync(guildId, limit, cancellationToken);
-
-    /// <inheritdoc />
     public async Task<IReadOnlyList<XpProfile>> GetLeaderboardAsync(ulong guildId, int limit, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -249,10 +221,6 @@ public class XpRepository : IXpRepository
             .Take(limit)
             .ToListAsync(cancellationToken);
     }
-
-    /// <inheritdoc />
-    public Task<IReadOnlyList<XpProfile>> GetTopByVoiceAsync(ulong guildId, int limit, CancellationToken cancellationToken = default)
-        => GetVoiceLeaderboardAsync(guildId, limit, cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<XpProfile>> GetVoiceLeaderboardAsync(ulong guildId, int limit, CancellationToken cancellationToken = default)

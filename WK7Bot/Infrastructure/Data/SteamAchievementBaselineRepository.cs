@@ -19,64 +19,32 @@ public class SteamAchievementBaselineRepository : ISteamAchievementBaselineRepos
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<SteamAchievementBaseline>> GetBaselineAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<SteamAchievementBaseline>> GetBaselineAsync(
+        ulong? discordUserId = null,
+        string? steamId = null,
+        uint? appId = null,
+        string? apiName = null,
+        CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        return await context.SteamAchievementBaselines.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<SteamAchievementBaseline>> GetBaselineAsync(ulong discordUserId, CancellationToken cancellationToken = default)
-    {
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        return await context.SteamAchievementBaselines
-            .AsNoTracking()
-            .Where(b => b.DiscordUserId == discordUserId)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<SteamAchievementBaseline>> GetBaselineAsync(string steamId, CancellationToken cancellationToken = default)
-    {
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        return await context.SteamAchievementBaselines
-            .AsNoTracking()
-            .Where(b => b.SteamId == steamId)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<SteamAchievementBaseline>> GetBaselineAsync(ulong discordUserId, string steamId, CancellationToken cancellationToken = default)
-    {
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        return await context.SteamAchievementBaselines
-            .AsNoTracking()
-            .Where(b => b.DiscordUserId == discordUserId && b.SteamId == steamId)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<SteamAchievementBaseline>> GetBaselineAsync(ulong discordUserId, string steamId, uint appId, CancellationToken cancellationToken = default)
-    {
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        return await context.SteamAchievementBaselines
-            .AsNoTracking()
-            .Where(b => b.DiscordUserId == discordUserId && b.SteamId == steamId && b.AppId == appId)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async Task<SteamAchievementBaseline?> GetBaselineAsync(ulong discordUserId, string steamId, uint appId, string apiName, CancellationToken cancellationToken = default)
-    {
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        return await context.SteamAchievementBaselines
-            .AsNoTracking()
-            .FirstOrDefaultAsync(b => b.DiscordUserId == discordUserId && b.SteamId == steamId && b.AppId == appId && b.ApiName == apiName, cancellationToken)
-            .ConfigureAwait(false);
+        var query = context.SteamAchievementBaselines.AsNoTracking();
+        if (discordUserId.HasValue)
+        {
+            query = query.Where(b => b.DiscordUserId == discordUserId.Value);
+        }
+        if (steamId is not null)
+        {
+            query = query.Where(b => b.SteamId == steamId);
+        }
+        if (appId.HasValue)
+        {
+            query = query.Where(b => b.AppId == appId.Value);
+        }
+        if (apiName is not null)
+        {
+            query = query.Where(b => b.ApiName == apiName);
+        }
+        return await query.ToListAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

@@ -141,7 +141,7 @@ public class AchievementUnlockDigestBackgroundService : BackgroundService
                 }
 
                 var baselineRows = await baselineRepository
-                    .GetBaselineAsync(link.DiscordUserId, steamId, game.AppId, cancellationToken)
+                    .GetBaselineAsync(link.DiscordUserId, steamId, game.AppId, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 var baselineByApi = baselineRows.ToDictionary(b => b.ApiName, StringComparer.OrdinalIgnoreCase);
 

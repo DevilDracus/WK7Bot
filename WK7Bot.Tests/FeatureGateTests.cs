@@ -8,25 +8,28 @@ namespace WK7Bot.Tests;
 
 public sealed class FeatureGateTests
 {
-    [Theory]
-    [InlineData(FeatureKeys.RssPolling, true)]
-    [InlineData(FeatureKeys.RssPolling, false)]
-    [InlineData(FeatureKeys.WishlistDealAlerts, true)]
-    [InlineData(FeatureKeys.WishlistDealAlerts, false)]
-    [InlineData(FeatureKeys.FoodService, true)]
-    [InlineData(FeatureKeys.FoodService, false)]
-    public void IsEnabled_RespectsBoundOptions(string featureKey, bool enabled)
-    {
-        var options = new Wk7BotOptions
+    public static IEnumerable<object[]> AllFeatureKeyStates() =>
+        FeatureKeys.All.SelectMany(key => new[]
         {
-            Features = new FeatureOptions
-            {
-                RssPollingEnabled = enabled,
-                WishlistDealAlertsEnabled = enabled,
-                FoodServiceEnabled = enabled
-            }
-        };
+            new object[] { key, true },
+            new object[] { key, false }
+        });
 
+    [Theory]
+    [MemberData(nameof(AllFeatureKeyStates))]
+    public void IsEnabled_RespectsBoundOptions_AllFeatureKeys(string featureKey, bool enabled)
+    {
+        var features = new FeatureOptions();
+        var property = typeof(FeatureOptions).GetProperties()
+            .First(p => string.Equals(
+                p.GetCustomAttributes(typeof(ConfigurationKeyNameAttribute), false)
+                    .OfType<ConfigurationKeyNameAttribute>()
+                    .FirstOrDefault()?.Name,
+                featureKey,
+                StringComparison.OrdinalIgnoreCase));
+        property.SetValue(features, enabled);
+
+        var options = new Wk7BotOptions { Features = features };
         var gate = new FeatureGate(Microsoft.Extensions.Options.Options.Create(options));
 
         Assert.Equal(enabled, gate.IsEnabled(featureKey));

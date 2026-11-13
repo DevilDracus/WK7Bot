@@ -237,23 +237,62 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The service collection instance.</param>
     /// <param name="configuration">The configuration provider.</param>
+    /// <param name="serviceProvider">Optional service provider used to resolve the DI-registered FeatureGate.</param>
+    /// <param name="featureGate">Optional explicit FeatureGate instance.</param>
     /// <returns>The service collection instance for method chaining.</returns>
-    public static IServiceCollection AddBotHostedServices(this IServiceCollection services, IConfiguration configuration)
+    private static IServiceCollection AddBotHostedServicesCore(IServiceCollection services, IConfiguration? configuration, IServiceProvider? serviceProvider, FeatureGate? featureGate)
     {
+        // Resolve the DI-registered FeatureGate when a provider is supplied, so registration decisions
+        // and runtime services share the exact same instance (no double instantiation).
+        if (featureGate is null && serviceProvider is not null)
+        {
+            try { featureGate = serviceProvider.GetService<FeatureGate>(); } catch { featureGate = null; }
+        }
+
+        if (configuration is null && serviceProvider is not null)
+        {
+            try { configuration = serviceProvider.GetService<IConfiguration>(); } catch { configuration = null; }
+        }
+
+        if (featureGate is null)
+        {
+            Microsoft.Extensions.Options.IOptions<Wk7BotOptions>? options = null;
+            if (serviceProvider is not null)
+            {
+                try { options = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<Wk7BotOptions>>(); } catch { options = null; }
+            }
+
+            if (options is not null)
+            {
+                featureGate = new FeatureGate(options);
+            }
+            else
+            {
+                // Replicate the same two-step binding that Program.cs uses for Configure<Wk7BotOptions>:
+                // first bind from the Wk7Bot section, then from root-level config (which overrides).
+                var wk7Options = new Wk7BotOptions();
+                if (configuration is not null)
+                {
+                    configuration.GetSection(Wk7BotOptions.SectionName).Bind(wk7Options);
+                    configuration.Bind(wk7Options);
+                }
+                featureGate = new FeatureGate(Microsoft.Extensions.Options.Options.Create(wk7Options));
+            }
+        }
+
+        // Ensure a single shared FeatureGate instance is registered in DI (replace any prior descriptor).
+        for (int i = services.Count - 1; i >= 0; i--)
+        {
+            if (services[i].ServiceType == typeof(FeatureGate))
+            {
+                services.RemoveAt(i);
+            }
+        }
+        services.AddSingleton(featureGate);
+
         // Core mandatory workers
         services.AddHostedService<InteractionHandlingService>();
         services.AddHostedService<DiscordBotWorker>();
-
-        // Replicate the same two-step binding that Program.cs uses for Configure<Wk7BotOptions>:
-        // first bind from the Wk7Bot section, then from root-level config (which overrides).
-        // This ensures the registration layer sees the same merged options as runtime services.
-        // Bind options the same way Program.cs does: first from the Wk7Bot section, then from root-level
-        // config (which overrides). This ensures the registration layer sees the same merged options
-        // as runtime services without building a throwaway service provider.
-        var wk7Options = new Wk7BotOptions();
-        configuration.GetSection(Wk7BotOptions.SectionName).Bind(wk7Options);
-        configuration.Bind(wk7Options);
-        var featureGate = new FeatureGate(Microsoft.Extensions.Options.Options.Create(wk7Options));
 
         if (featureGate.IsEnabled(FeatureKeys.RssPolling))
         {
@@ -388,4 +427,48 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Conditionally registers application background hosted services using configuration only.
+    /// </summary>
+    public static IServiceCollection AddBotHostedServices(this IServiceCollection services, IConfiguration configuration)
+        => AddBotHostedServicesCore(services, configuration, null, null);
+
+    /// <summary>
+    /// Conditionally registers application background hosted services using configuration and a service provider
+    /// (resolves the DI-registered <see cref="FeatureGate"/>).
+    /// </summary>
+    public static IServiceCollection AddBotHostedServices(this IServiceCollection services, IConfiguration configuration, IServiceProvider serviceProvider)
+        => AddBotHostedServicesCore(services, configuration, serviceProvider, null);
+
+    /// <summary>
+    /// Conditionally registers application background hosted services using configuration and an explicit FeatureGate.
+    /// </summary>
+    public static IServiceCollection AddBotHostedServices(this IServiceCollection services, IConfiguration configuration, FeatureGate featureGate)
+        => AddBotHostedServicesCore(services, configuration, null, featureGate);
+
+    /// <summary>
+    /// Conditionally registers application background hosted services using a service provider
+    /// (configuration and FeatureGate are resolved from the provider).
+    /// </summary>
+    public static IServiceCollection AddBotHostedServices(this IServiceCollection services, IServiceProvider serviceProvider)
+        => AddBotHostedServicesCore(services, null, serviceProvider, null);
+
+    /// <summary>
+    /// Conditionally registers application background hosted services using a service provider and configuration.
+    /// </summary>
+    public static IServiceCollection AddBotHostedServices(this IServiceCollection services, IServiceProvider serviceProvider, IConfiguration configuration)
+        => AddBotHostedServicesCore(services, configuration, serviceProvider, null);
+
+    /// <summary>
+    /// Conditionally registers application background hosted services using an explicit FeatureGate.
+    /// </summary>
+    public static IServiceCollection AddBotHostedServices(this IServiceCollection services, FeatureGate featureGate)
+        => AddBotHostedServicesCore(services, null, null, featureGate);
+
+    /// <summary>
+    /// Conditionally registers application background hosted services using an explicit FeatureGate and configuration.
+    /// </summary>
+    public static IServiceCollection AddBotHostedServices(this IServiceCollection services, FeatureGate featureGate, IConfiguration configuration)
+        => AddBotHostedServicesCore(services, configuration, null, featureGate);
 }

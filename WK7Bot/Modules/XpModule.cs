@@ -62,11 +62,11 @@ public class XpModule : BotModuleBase
         IReadOnlyList<XpProfile> top;
         if (string.Equals(scope, "voice", StringComparison.OrdinalIgnoreCase))
         {
-            top = await _repository.GetTopByVoiceAsync(guildId, limit).ConfigureAwait(false);
+            top = await _repository.GetVoiceLeaderboardAsync(guildId, limit).ConfigureAwait(false);
         }
         else
         {
-            top = await _repository.GetTopAsync(guildId, limit).ConfigureAwait(false);
+            top = await _repository.GetLeaderboardAsync(guildId, limit).ConfigureAwait(false);
         }
 
         if (top.Count == 0)

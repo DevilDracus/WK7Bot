@@ -47,8 +47,8 @@ public class SteamAchievementBaselineRepositoryTests : IDisposable
         });
 
         var loaded = await _repository.GetBaselineAsync(1, "steam1", 10, "ach1");
-        Assert.NotNull(loaded);
-        Assert.True(loaded!.Achieved);
+        Assert.Single(loaded);
+        Assert.True(loaded[0].Achieved);
 
         await _repository.UpsertManyAsync(new[]
         {
@@ -56,8 +56,8 @@ public class SteamAchievementBaselineRepositoryTests : IDisposable
         });
 
         var updated = await _repository.GetBaselineAsync(1, "steam1", 10, "ach1");
-        Assert.NotNull(updated);
-        Assert.False(updated!.Achieved);
+        Assert.Single(updated);
+        Assert.False(updated[0].Achieved);
     }
 
     [Fact]

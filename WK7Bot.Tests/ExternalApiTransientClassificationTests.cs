@@ -69,6 +69,20 @@ public class ExternalApiTransientClassificationTests
     }
 
     [Fact]
+    public async Task Steam_GetEnrichedAchievements_FromGenuineCancellation_Propagates()
+    {
+        var service = CreateSteamService();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.GetEnrichedAchievementsAsync(
+                steamId: "76561198012345678",
+                appId: 1104330u,
+                cancellationToken: cts.Token));
+    }
+
+    [Fact]
     public async Task BattleNet_GetBattleNetUserData_FromTimeout_ReturnsNull()
     {
         var service = CreateBattleNetService();
@@ -78,5 +92,17 @@ public class ExternalApiTransientClassificationTests
             cancellationToken: CancellationToken.None);
 
         Assert.Null(result);
+    }
+    [Fact]
+    public async Task BattleNet_GetBattleNetUserData_FromGenuineCancellation_Propagates()
+    {
+        var service = CreateBattleNetService();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.GetBattleNetUserDataAsync(
+                refreshToken: "test-refresh-token",
+                cancellationToken: cts.Token));
     }
 }
