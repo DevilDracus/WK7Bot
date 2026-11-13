@@ -36,8 +36,9 @@ public class PriceHistoryRepository : IPriceHistoryRepository
 
             // Deduplicate within the same hour and store to avoid runaway growth. In-memory filtering
             // works across SQLite and EF InMemory providers; database-backed queries cannot see pending adds.
+            var appIds = list.Select(x => x.AppId).Distinct().ToList();
             var existing = await context.PriceHistorySnapshots
-                .Where(s => list.Select(x => x.AppId).Contains(s.AppId))
+                .Where(s => appIds.Contains(s.AppId))
                 .Select(s => new { s.AppId, s.Store, Hour = new DateTime(s.RecordedAt.Year, s.RecordedAt.Month, s.RecordedAt.Day, s.RecordedAt.Hour, 0, 0, DateTimeKind.Utc) })
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
