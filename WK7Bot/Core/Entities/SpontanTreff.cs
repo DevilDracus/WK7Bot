@@ -46,12 +46,12 @@ public class SpontanTreff
     public string? Location { get; set; }
 
     /// <summary>
-    /// Gets or sets the local time the meetup was created.
+    /// Gets or sets the UTC time the meetup was created.
     /// </summary>
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
-    /// Gets or sets the local time after which the meetup is closed and the buttons stop working.
+    /// Gets or sets the UTC time after which the meetup is closed and the buttons stop working.
     /// </summary>
     public DateTime ExpiresAt { get; set; }
 
