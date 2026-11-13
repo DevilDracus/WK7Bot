@@ -1,5 +1,6 @@
 namespace WK7Bot.Modules;
 
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Discord;
 using Discord.Interactions;
@@ -13,8 +14,8 @@ using WK7Bot.Core.Utilities;
 /// </summary>
 public class TriviaModule : BotModuleBase
 {
-    private static readonly Random Rng = new();
-    private static readonly Dictionary<ulong, int> ActiveAnswers = new(); // messageId -> correct option index
+    private static readonly Random Rng = Random.Shared;
+    private static readonly ConcurrentDictionary<ulong, int> ActiveAnswers = new(); // messageId -> correct option index
 
     /// <summary>Number of days of trivia scores retained for pruning.</summary>
     private const int TriviaPruneDays = 14;
@@ -62,10 +63,7 @@ public class TriviaModule : BotModuleBase
             $"❓ **{q.Question}**",
             components: builder.Build()).ConfigureAwait(false);
 
-        lock (ActiveAnswers)
-        {
-            ActiveAnswers[message.Id] = q.Answer;
-        }
+        ActiveAnswers[message.Id] = q.Answer;
     }
 
     /// <summary>Handles an answer button click.</summary>
@@ -74,10 +72,11 @@ public class TriviaModule : BotModuleBase
     [ComponentInteraction("trivia:answer:*")]
     public async Task AnswerAsync(int optionIndex)
     {
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var component = Context.Interaction as SocketMessageComponent;
         if (component is null || !ActiveAnswers.TryGetValue(component.Message.Id, out var correct))
         {
-            await RespondAsync("Diese Runde ist nicht mehr aktiv.", ephemeral: true).ConfigureAwait(false);
+            await FollowupAsync("Diese Runde ist nicht mehr aktiv.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -93,13 +92,13 @@ public class TriviaModule : BotModuleBase
                 _logger.LogWarning(ex, "Could not persist trivia score for user {UserId}.", Context.User.Id);
             }
 
-            await RespondAsync($"✅ Richtig, <@{Context.User.Id}>!", ephemeral: false).ConfigureAwait(false);
-            lock (ActiveAnswers)
-            { if (component != null) ActiveAnswers.Remove(component.Message.Id); }
+            await FollowupAsync($"✅ Richtig, <@{Context.User.Id}>!", ephemeral: false).ConfigureAwait(false);
+            ActiveAnswers.TryRemove(component.Message.Id, out _);
         }
         else
         {
-            await RespondAsync("❌ Leider falsch. Versuch's nochmal!", ephemeral: true).ConfigureAwait(false);
+            await FollowupAsync("❌ Leider falsch. Versuch's nochmal!", ephemeral: true).ConfigureAwait(false);
+            ActiveAnswers.TryRemove(component.Message.Id, out _);
         }
     }
 

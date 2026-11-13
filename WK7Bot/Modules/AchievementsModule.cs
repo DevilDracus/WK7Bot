@@ -71,7 +71,7 @@ public class AchievementsModule : BotModuleBase
             try
             {
                 var url = $"https://store.steampowered.com/api/storesearch/?term={Uri.EscapeDataString(game)}&cc=de&l=german";
-                var response = await http.GetAsync(url, CancellationToken.None).ConfigureAwait(false);
+                using var response = await http.GetAsync(url, CancellationToken.None).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
                     await FollowupAsync($"❌ Spiel \"{game}\" nicht gefunden.", ephemeral: true).ConfigureAwait(false);

@@ -35,6 +35,8 @@ public class WeatherModule : BotModuleBase
     public async Task WeatherAsync([Summary("entity", "Optional: Wetter-Entity, z. B. weather.home")] string? entity = null)
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        try
+        {
         var snapshot = await _weatherService.GetAsync(entity);
         if (snapshot is null)
         {
@@ -68,5 +70,11 @@ public class WeatherModule : BotModuleBase
         }
 
         await FollowupAsync(components: CardBuilder.FromEmbed(embed.Build()), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+        {
+            _logger.LogError(ex, "Error in weather command.");
+            await FollowupAsync("❌ Wetter konnte nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
+        }
     }
 }

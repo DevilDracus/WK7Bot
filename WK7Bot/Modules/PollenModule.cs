@@ -35,7 +35,8 @@ public class PollenModule : BotModuleBase
     public async Task PollenAsync()
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
-
+        try
+        {
         var pollen = await _pollenService.GetPollenAsync();
         var uv = await _pollenService.GetUvAsync();
 
@@ -48,5 +49,11 @@ public class PollenModule : BotModuleBase
         }
 
         await FollowupAsync(components: CardBuilder.FromEmbed(embed), flags: MessageFlags.ComponentsV2, ephemeral: true).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+        {
+            _logger.LogError(ex, "Error in pollen command.");
+            await FollowupAsync("❌ Pollen-Daten konnten nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
+        }
     }
 }

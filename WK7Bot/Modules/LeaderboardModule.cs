@@ -43,6 +43,13 @@ public class LeaderboardModule : BotModuleBase
         [Summary("limit", "Anzahl der Einträge (1-25)")] int limit = 10)
     {
         await DeferAsync().ConfigureAwait(false);
+        try
+        {
+        if (Context.Guild is null)
+        {
+            await FollowupAsync("❌ Dieser Befehl ist nur in einem Server verfügbar.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
         var result = await _leaderboardService.GetAsync(type, Context.Guild.Id, limit);
         if (result.Entries.Count == 0)
         {
@@ -53,5 +60,11 @@ public class LeaderboardModule : BotModuleBase
         await FollowupAsync(
             components: LeaderboardCardBuilder.Build(result),
             flags: MessageFlags.ComponentsV2);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+        {
+            Logger.LogError(ex, "Error in leaderboard command.");
+            await FollowupAsync("❌ Leaderboard konnte nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
+        }
     }
 }

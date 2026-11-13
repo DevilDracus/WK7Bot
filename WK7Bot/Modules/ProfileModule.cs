@@ -40,7 +40,8 @@ public class ProfileModule : BotModuleBase
     public async Task ProfileAsync([Summary("user", "Mitglied, dessen Profil gezeigt werden soll")] IUser? user = null)
     {
         await DeferAsync().ConfigureAwait(false);
-
+        try
+        {
         var target = user ?? Context.User;
         var result = await _profileService.GetAsync(target.Id, Context.Guild.Id);
 
@@ -55,5 +56,11 @@ public class ProfileModule : BotModuleBase
         await FollowupAsync(
             components: ProfileCardBuilder.Build(result),
             flags: MessageFlags.ComponentsV2);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
+        {
+            Logger.LogError(ex, "Error in profile command.");
+            await FollowupAsync("❌ Profil konnte nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
+        }
     }
 }
