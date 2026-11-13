@@ -38,7 +38,7 @@ public class PollenBackgroundServiceTests
             TimeProvider? timeProvider = null)
             : base(
                 scopeFactory,
-                (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
+                DiscordTestDoubles.CreateClient(),
                 pollenService,
                 new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(options ?? new Wk7BotOptions

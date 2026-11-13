@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Discord;
@@ -13,6 +14,20 @@ namespace WK7Bot.Tests;
 /// </summary>
 internal static class DiscordTestDoubles
 {
+    /// <summary>
+    /// Creates an uninitialised interaction context. Centralised so the fragile construction lives
+    /// in a single place.
+    /// </summary>
+    public static SocketInteractionContext CreateContext() =>
+        (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
+
+    /// <summary>
+    /// Creates a real (but inert) socket client. Prefers the public constructor over
+    /// <see cref="RuntimeHelpers.GetUninitializedObject"/> so we no longer depend on the type's
+    /// internal layout.
+    /// </summary>
+    public static DiscordSocketClient CreateClient() => new();
+
     /// <summary>
     /// Attaches a socket user with the given identity to an uninitialised interaction context.
     /// </summary>
@@ -37,13 +52,31 @@ internal static class DiscordTestDoubles
         var userType = typeof(SocketUser).Assembly.GetType("Discord.WebSocket.SocketGlobalUser")
             ?? throw new InvalidOperationException("Discord.WebSocket.SocketGlobalUser type not found.");
 
-        var user = (SocketUser)RuntimeHelpers.GetUninitializedObject(userType);
-        SetPropertyOrField(user, userType, "Username", username);
-        if (id.HasValue)
+        // Prefer the type's own constructor so the identity (Id) is initialised the way Discord.Net
+        // intends, instead of poking the compiler-generated backing field. Fall back to the legacy
+        // uninitialised-object path only if the constructor shape changes.
+        SocketUser user;
+        try
         {
-            SetPropertyOrField(user, userType, "Id", id.Value);
+            var ctor = userType.GetConstructor(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(DiscordSocketClient), typeof(ulong) },
+                null)
+                ?? throw new InvalidOperationException("SocketGlobalUser constructor not found.");
+
+            user = (SocketUser)ctor.Invoke(new object?[] { CreateClient(), id ?? 0UL });
+        }
+        catch
+        {
+            user = (SocketUser)RuntimeHelpers.GetUninitializedObject(userType);
+            if (id.HasValue)
+            {
+                SetPropertyOrField(user, userType, "Id", id.Value);
+            }
         }
 
+        SetPropertyOrField(user, userType, "Username", username);
         return user;
     }
 
@@ -74,9 +107,9 @@ internal static class DiscordTestDoubles
     /// <param name="type">The type to search.</param>
     /// <param name="fieldName">The field name to look for.</param>
     /// <returns>The field, or null when no type in the hierarchy declares it.</returns>
-    public static FieldInfo? FindField(Type type, string fieldName)
+    public static FieldInfo? FindField(Type? type, string fieldName)
     {
-        while (type != null)
+        while (type is not null)
         {
             var field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             if (field != null)
@@ -84,7 +117,31 @@ internal static class DiscordTestDoubles
                 return field;
             }
 
-            type = type.BaseType!;
+            // Fall back to a looser match for compiler-generated backing fields whose exact
+            // name may vary between compiler versions (e.g. "<User>k__BackingField").
+            var needle = fieldName.Trim('<', '>');
+            if (needle.EndsWith("k__BackingField", StringComparison.Ordinal))
+            {
+                needle = needle[..^"k__BackingField".Length];
+            }
+
+            field = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                .FirstOrDefault(f => f.Name.Contains(needle, StringComparison.Ordinal)
+                    && f.Name.Contains("BackingField", StringComparison.Ordinal));
+            if (field != null)
+            {
+                return field;
+            }
+
+            // Last resort: an exact simple field name such as "_client".
+            field = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                .FirstOrDefault(f => f.Name.Equals(fieldName, StringComparison.Ordinal));
+            if (field != null)
+            {
+                return field;
+            }
+
+            type = type.BaseType;
         }
 
         return null;

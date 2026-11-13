@@ -36,7 +36,7 @@ public class DwdWarningBackgroundServiceTests
             Wk7BotOptions? options = null)
             : base(
                 scopeFactory,
-                (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
+                DiscordTestDoubles.CreateClient(),
                 warningSource,
                 new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(options ?? new Wk7BotOptions()),

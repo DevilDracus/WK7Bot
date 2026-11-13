@@ -129,20 +129,22 @@ public static class BotStatusEntities
     /// </summary>
     /// <param name="softwareVersion">The version reported as device software version.</param>
     /// <returns>The serialized MQTT discovery configuration.</returns>
-    public static string StatusDiscoveryConfig(string softwareVersion) => JsonSerializer.Serialize(new
-    {
-        name = "Bot Status",
-        object_id = EntityObjectId("Bot Status"),
-        unique_id = $"{DeviceId}_status",
-        state_topic = StatusStateTopic,
-        json_attributes_topic = StatusAttributesTopic,
-        device_class = "duration",
-        state_class = "measurement",
-        unit_of_measurement = "s",
-        expire_after = StatusExpireAfterSeconds,
-        availability = BuildAvailability(),
-        device = BuildDevice(softwareVersion)
-    });
+    public static string StatusDiscoveryConfig(string softwareVersion) => JsonSerializer.Serialize(
+        new StatusDiscoveryJson
+        {
+            Name = "Bot Status",
+            ObjectId = EntityObjectId("Bot Status"),
+            UniqueId = $"{DeviceId}_status",
+            StateTopic = StatusStateTopic,
+            JsonAttributesTopic = StatusAttributesTopic,
+            DeviceClass = "duration",
+            StateClass = "measurement",
+            UnitOfMeasurement = "s",
+            ExpireAfter = StatusExpireAfterSeconds,
+            Availability = BuildAvailability(),
+            Device = BuildDevice(softwareVersion)
+        },
+        BotStatusJsonContext.Default.StatusDiscoveryJson);
 
     /// <summary>
     /// Builds the discovery payload for a feature's enabled sensor (ON while the feature flag is set).
@@ -150,17 +152,19 @@ public static class BotStatusEntities
     /// <param name="feature">The feature.</param>
     /// <param name="softwareVersion">The version reported as device software version.</param>
     /// <returns>The serialized MQTT discovery configuration.</returns>
-    public static string EnabledDiscoveryConfig(BotStatusFeature feature, string softwareVersion) => JsonSerializer.Serialize(new
-    {
-        name = $"{feature.DisplayName} Enabled",
-        object_id = EntityObjectId(feature.DisplayName, "enabled"),
-        unique_id = $"{DeviceId}_{feature.Slug}_enabled",
-        state_topic = EnabledStateTopic(feature),
-        payload_on = OnPayload,
-        payload_off = OffPayload,
-        availability = BuildAvailability(),
-        device = BuildDevice(softwareVersion)
-    });
+    public static string EnabledDiscoveryConfig(BotStatusFeature feature, string softwareVersion) => JsonSerializer.Serialize(
+        new EnabledDiscoveryJson
+        {
+            Name = $"{feature.DisplayName} Enabled",
+            ObjectId = EntityObjectId(feature.DisplayName, "enabled"),
+            UniqueId = $"{DeviceId}_{feature.Slug}_enabled",
+            StateTopic = EnabledStateTopic(feature),
+            PayloadOn = OnPayload,
+            PayloadOff = OffPayload,
+            Availability = BuildAvailability(),
+            Device = BuildDevice(softwareVersion)
+        },
+        BotStatusJsonContext.Default.EnabledDiscoveryJson);
 
     /// <summary>
     /// Builds the discovery payload for a feature's problem sensor: ON while the feature's most
@@ -170,20 +174,22 @@ public static class BotStatusEntities
     /// <param name="feature">The feature.</param>
     /// <param name="softwareVersion">The version reported as device software version.</param>
     /// <returns>The serialized MQTT discovery configuration.</returns>
-    public static string ProblemDiscoveryConfig(BotStatusFeature feature, string softwareVersion) => JsonSerializer.Serialize(new
-    {
-        name = $"{feature.DisplayName} Problem",
-        object_id = EntityObjectId(feature.DisplayName, "problem"),
-        unique_id = $"{DeviceId}_{feature.Slug}_problem",
-        state_topic = ProblemStateTopic(feature),
-        json_attributes_topic = ProblemAttributesTopic(feature),
-        device_class = "problem",
-        payload_on = OnPayload,
-        payload_off = OffPayload,
-        expire_after = ProblemExpireAfterSeconds,
-        availability = BuildAvailability(),
-        device = BuildDevice(softwareVersion)
-    });
+    public static string ProblemDiscoveryConfig(BotStatusFeature feature, string softwareVersion) => JsonSerializer.Serialize(
+        new ProblemDiscoveryJson
+        {
+            Name = $"{feature.DisplayName} Problem",
+            ObjectId = EntityObjectId(feature.DisplayName, "problem"),
+            UniqueId = $"{DeviceId}_{feature.Slug}_problem",
+            StateTopic = ProblemStateTopic(feature),
+            JsonAttributesTopic = ProblemAttributesTopic(feature),
+            DeviceClass = "problem",
+            PayloadOn = OnPayload,
+            PayloadOff = OffPayload,
+            ExpireAfter = ProblemExpireAfterSeconds,
+            Availability = BuildAvailability(),
+            Device = BuildDevice(softwareVersion)
+        },
+        BotStatusJsonContext.Default.ProblemDiscoveryJson);
 
     /// <summary>
     /// Builds the state payload of a feature's enabled sensor.
@@ -205,13 +211,15 @@ public static class BotStatusEntities
     /// </summary>
     /// <param name="snapshot">The feature's health snapshot.</param>
     /// <returns>The serialized JSON attributes.</returns>
-    public static string ProblemAttributesPayload(FeatureHealthSnapshot snapshot) => JsonSerializer.Serialize(new
-    {
-        feature = snapshot.Feature,
-        last_success_utc = FormatTimestamp(snapshot.LastSuccessUtc),
-        last_failure_utc = FormatTimestamp(snapshot.LastFailureUtc),
-        last_error = snapshot.LastError
-    });
+    public static string ProblemAttributesPayload(FeatureHealthSnapshot snapshot) => JsonSerializer.Serialize(
+        new ProblemAttributesJson
+        {
+            Feature = snapshot.Feature,
+            LastSuccessUtc = FormatTimestamp(snapshot.LastSuccessUtc),
+            LastFailureUtc = FormatTimestamp(snapshot.LastFailureUtc),
+            LastError = snapshot.LastError
+        },
+        BotStatusJsonContext.Default.ProblemAttributesJson);
 
     /// <summary>
     /// Builds the state payload of the bot status sensor.
@@ -226,31 +234,33 @@ public static class BotStatusEntities
     /// </summary>
     /// <param name="attributes">The attribute values to publish.</param>
     /// <returns>The serialized JSON attributes.</returns>
-    public static string StatusAttributesPayload(BotStatusAttributes attributes) => JsonSerializer.Serialize(new
-    {
-        version = attributes.Version,
-        started_at_utc = FormatTimestamp(attributes.StartedAtUtc),
-        uptime_seconds = attributes.UptimeSeconds,
-        discord_connection = attributes.DiscordConnection,
-        guilds = attributes.Guilds,
-        features_total = attributes.FeaturesTotal,
-        features_problem = attributes.FeaturesProblem
-    });
+    public static string StatusAttributesPayload(BotStatusAttributes attributes) => JsonSerializer.Serialize(
+        new StatusAttributesJson
+        {
+            Version = attributes.Version,
+            StartedAtUtc = FormatTimestamp(attributes.StartedAtUtc),
+            UptimeSeconds = attributes.UptimeSeconds,
+            DiscordConnection = attributes.DiscordConnection,
+            Guilds = attributes.Guilds,
+            FeaturesTotal = attributes.FeaturesTotal,
+            FeaturesProblem = attributes.FeaturesProblem
+        },
+        BotStatusJsonContext.Default.StatusAttributesJson);
 
-    private static object BuildAvailability() => new
+    private static BotStatusAvailability BuildAvailability() => new()
     {
-        topic = AvailabilityTopic,
-        payload_available = AvailabilityOnlinePayload,
-        payload_not_available = AvailabilityLostPayload
+        Topic = AvailabilityTopic,
+        PayloadAvailable = AvailabilityOnlinePayload,
+        PayloadNotAvailable = AvailabilityLostPayload
     };
 
-    private static object BuildDevice(string softwareVersion) => new
+    private static BotStatusDevice BuildDevice(string softwareVersion) => new()
     {
-        identifiers = new[] { DeviceId },
-        name = DeviceName,
-        model = "C# Discord Integration",
-        manufacturer = "Custom Application",
-        sw_version = softwareVersion
+        Identifiers = new[] { DeviceId },
+        Name = DeviceName,
+        Model = "C# Discord Integration",
+        Manufacturer = "Custom Application",
+        SwVersion = softwareVersion
     };
 
     /// <summary>

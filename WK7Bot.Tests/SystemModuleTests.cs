@@ -119,7 +119,7 @@ public sealed class SystemModuleTests
     public async Task HelpCommandAsync_DMContext_RespondsWithoutError()
     {
         // Arrange: build a DM interaction context (no guild).
-        var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
+        var context = DiscordTestDoubles.CreateContext();
         DiscordTestDoubles.SetUser(context, "tester", 123456789ul);
 
         var module = CreateModule(context);
@@ -133,7 +133,7 @@ public sealed class SystemModuleTests
     [Fact]
     public async Task HomeAssistantStatusCommandAsync_ImmediateSecondCall_IsRateLimited()
     {
-        var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
+        var context = DiscordTestDoubles.CreateContext();
         DiscordTestDoubles.SetUser(context, "tester", 424242ul);
         var module = CreateModule(context);
 
@@ -152,7 +152,7 @@ public sealed class SystemModuleTests
     [Fact]
     public async Task HealthCommandAsync_ImmediateSecondCall_IsRateLimited()
     {
-        var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
+        var context = DiscordTestDoubles.CreateContext();
         DiscordTestDoubles.SetUser(context, "tester", 424242ul);
         var module = CreateModule(context);
 

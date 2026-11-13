@@ -61,14 +61,31 @@ public static class SocketInteractionContextFactory
         var userType = typeof(SocketUser).Assembly.GetType("Discord.WebSocket.SocketGlobalUser")
             ?? throw new InvalidOperationException("Discord.WebSocket.SocketGlobalUser type not found.");
 
-        var user = (SocketUser)RuntimeHelpers.GetUninitializedObject(userType);
-        SetPropertyOrField(user, userType, "Username", username);
-
-        if (id.HasValue)
+        // Prefer the type's own constructor so the identity (Id) is initialised the way Discord.Net
+        // intends, instead of poking the compiler-generated backing field. Fall back to the legacy
+        // uninitialised-object path only if the constructor shape changes.
+        SocketUser user;
+        try
         {
-            SetPropertyOrField(user, userType, "Id", id.Value);
+            var ctor = userType.GetConstructor(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(DiscordSocketClient), typeof(ulong) },
+                null)
+                ?? throw new InvalidOperationException("SocketGlobalUser constructor not found.");
+
+            user = (SocketUser)ctor.Invoke(new object?[] { new DiscordSocketClient(), id ?? 0UL });
+        }
+        catch
+        {
+            user = (SocketUser)RuntimeHelpers.GetUninitializedObject(userType);
+            if (id.HasValue)
+            {
+                SetPropertyOrField(user, userType, "Id", id.Value);
+            }
         }
 
+        SetPropertyOrField(user, userType, "Username", username);
         return user;
     }
 

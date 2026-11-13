@@ -67,11 +67,7 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
 });
 
-// Modular service registrations
-builder.Services.AddBotDatabase(connectionString);
-builder.Services.AddBotDiscordAndClients();
-
-// Configure Wk7BotOptions first so FeatureGate (resolved in AddBotHostedServices via DI) sees bound values.
+// Configure Wk7BotOptions first so FeatureGate (registered below) sees bound values.
 var wk7Section = builder.Configuration.GetSection(Wk7BotOptions.SectionName);
 if (wk7Section.Exists())
 {
@@ -79,11 +75,18 @@ if (wk7Section.Exists())
 }
 builder.Services.Configure<Wk7BotOptions>(builder.Configuration);
 
-#pragma warning disable ASP0000
-// Resolve the DI-registered FeatureGate and pass it through so hosted-service registration and runtime
-// services share one instance instead of creating a second one.
-var featureGate = builder.Services.BuildServiceProvider().GetRequiredService<FeatureGate>();
-#pragma warning restore ASP0000
+// Modular service registrations
+builder.Services.AddBotDatabase(connectionString);
+builder.Services.AddBotDiscordAndClients();
+
+// Create the single DI-registered FeatureGate instance from the bound options and pass it through,
+// so hosted-service registration and runtime services share one instance (no BuildServiceProvider,
+// no second instantiation). AddBotHostedServices removes any prior FeatureGate descriptor.
+var wk7Options = new Wk7BotOptions();
+builder.Configuration.GetSection(Wk7BotOptions.SectionName).Bind(wk7Options);
+builder.Configuration.Bind(wk7Options);
+var featureGate = new FeatureGate(Microsoft.Extensions.Options.Options.Create(wk7Options));
+builder.Services.AddSingleton(featureGate);
 builder.Services.AddBotHostedServices(builder.Configuration, featureGate);
 
 var app = builder.Build();

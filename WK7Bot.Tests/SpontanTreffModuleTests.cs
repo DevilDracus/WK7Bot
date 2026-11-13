@@ -123,7 +123,7 @@ public class SpontanTreffModuleTests
     {
         var module = new TestSpontanTreffModule(fixture.Repository, channel, denyPingOnce);
 
-        var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
+        var context = DiscordTestDoubles.CreateContext();
         DiscordTestDoubles.SetUser(context, username, userId);
         ((IInteractionModuleBase)module).SetContext(context);
 
@@ -252,7 +252,7 @@ public class SpontanTreffModuleTests
         using var fixture = new Fixture();
         var throwing = new ThrowingModule(fixture.Repository);
 
-        var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
+        var context = DiscordTestDoubles.CreateContext();
         DiscordTestDoubles.SetUser(context, "Tester", 42);
         ((IInteractionModuleBase)throwing).SetContext(context);
 

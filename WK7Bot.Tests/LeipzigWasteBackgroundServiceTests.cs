@@ -42,7 +42,7 @@ public class LeipzigWasteBackgroundServiceTests
             IReadOnlyList<ulong> guildIds)
             : base(
                 scopeFactory,
-                (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
+                DiscordTestDoubles.CreateClient(),
                 wasteService,
                 new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(new Wk7BotOptions()),

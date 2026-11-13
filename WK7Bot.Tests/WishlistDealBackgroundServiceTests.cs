@@ -44,7 +44,7 @@ public class WishlistDealBackgroundServiceTests
         var options = Microsoft.Extensions.Options.Options.Create(new Wk7BotOptions());
         return new TestableWishlistDealBackgroundService(
             Mock.Of<IServiceScopeFactory>(),
-            (DiscordSocketClient)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
+            DiscordTestDoubles.CreateClient(),
             Mock.Of<IWishlistDealService>(),
             Mock.Of<ISteamService>(),
             manualRepository,

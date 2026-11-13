@@ -118,7 +118,7 @@ public class SpontanTreffComponentModuleTests
     {
         var module = new TestComponentModule(fixture.Repository, failEdit);
 
-        var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
+        var context = DiscordTestDoubles.CreateContext();
         DiscordTestDoubles.SetUser(context, "Gast", actingUserId);
         ((IInteractionModuleBase)module).SetContext(context);
 
@@ -314,7 +314,7 @@ public class SpontanTreffComponentModuleTests
         await using var provider = services.BuildServiceProvider();
 
         using var interactions = new InteractionService(
-            (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)));
+            DiscordTestDoubles.CreateClient());
         await interactions.AddModuleAsync(typeof(SpontanTreffComponentModule), provider);
 
         AssertMatches(interactions, SpontanTreffMessageBuilder.BuildCustomId("go", 7), "go:7");

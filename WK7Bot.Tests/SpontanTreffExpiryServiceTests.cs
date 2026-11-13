@@ -23,7 +23,7 @@ public class SpontanTreffExpiryServiceTests
         public TestableExpiryService(IServiceScopeFactory scopeFactory, bool enabled = true)
             : base(
                 scopeFactory,
-                (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
+                DiscordTestDoubles.CreateClient(),
                 new Core.Utilities.FeatureHealthTracker(),
                 Microsoft.Extensions.Options.Options.Create(
                     new Wk7BotOptions { Features = new FeatureOptions { SpontanTreffEnabled = enabled } }),

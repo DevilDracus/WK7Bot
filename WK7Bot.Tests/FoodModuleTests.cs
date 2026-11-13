@@ -84,7 +84,7 @@ public class FoodModuleTests
             randomSource ?? new StubRandomSource(),
             openFoodFactsService);
 
-        var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
+        var context = DiscordTestDoubles.CreateContext();
         DiscordTestDoubles.SetUser(context, username);
         ((IInteractionModuleBase)module).SetContext(context);
 

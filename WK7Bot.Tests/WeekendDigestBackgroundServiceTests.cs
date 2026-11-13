@@ -35,7 +35,7 @@ public class WeekendDigestBackgroundServiceTests
 
         public TestableDispatcher()
             : base(
-                (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
+                DiscordTestDoubles.CreateClient(),
                 new Mock<IDiscordScheduledEventService>().Object,
                 NullLogger<WeekendDigestDispatcher>.Instance)
         {
@@ -77,7 +77,7 @@ public class WeekendDigestBackgroundServiceTests
             Wk7BotOptions? options = null)
             : base(
                 scopeFactory,
-                (DiscordSocketClient)RuntimeHelpers.GetUninitializedObject(typeof(DiscordSocketClient)),
+                DiscordTestDoubles.CreateClient(),
                 eventSource,
                 Mock.Of<IWeatherService>(),
                 new Core.Utilities.FeatureHealthTracker(),

@@ -74,7 +74,7 @@ public class LeipzigWasteModuleTests
     private static TestLeipzigWasteModule CreateModule(Mock<ILeipzigWasteService> wasteService)
     {
         var module = new TestLeipzigWasteModule(wasteService, new CommandRateLimiter());
-        var context = (SocketInteractionContext)RuntimeHelpers.GetUninitializedObject(typeof(SocketInteractionContext));
+        var context = DiscordTestDoubles.CreateContext();
         DiscordTestDoubles.SetUser(context, "Tester", 123UL);
         ((IInteractionModuleBase)module).SetContext(context);
         return module;
