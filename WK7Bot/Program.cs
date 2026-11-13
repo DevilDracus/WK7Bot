@@ -35,14 +35,13 @@ builder.Logging.AddProvider(new DiscordErrorLoggerProvider(errorNotificationQueu
 
 // Configure minimum log level from add-on options (defaults to Warning to keep HA log output concise).
 var configuredLevel = builder.Configuration["log_level"] ?? "Warning";
-if (Enum.TryParse<LogLevel>(configuredLevel, true, out var parsedLevel))
+var parsedLevel = LogLevel.Warning;
+if (Enum.TryParse<LogLevel>(configuredLevel, true, out var tempLevel))
 {
-    builder.Logging.SetMinimumLevel(parsedLevel);
+    parsedLevel = tempLevel;
 }
-else
-{
-    builder.Logging.SetMinimumLevel(LogLevel.Warning);
-}
+
+builder.Logging.SetMinimumLevel(parsedLevel);
 
 // Replace all framework logging filter rules (including appsettings.json) with the single
 // operator-selected minimum so no category can emit below Warning unless explicitly configured.

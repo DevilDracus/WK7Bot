@@ -45,7 +45,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddBotDatabase(this IServiceCollection services, string connectionString)
     {
         services.AddDbContext<BotDbContext>(options =>
-            options.UseSqlite(connectionString));
+            options.UseSqlite(connectionString), ServiceLifetime.Singleton);
 
         // Factory registered so the data repositories can resolve IDbContextFactory<BotDbContext>
         // and operate on short-lived contexts, preventing context accumulation across requests.
