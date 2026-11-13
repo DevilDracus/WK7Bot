@@ -35,7 +35,7 @@ public sealed record ErrorNotification
     /// <summary>
     /// Gets or sets the timestamp at which the error was captured.
     /// </summary>
-    public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.Now;
+    public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
 
     /// <summary>
     /// Gets the deduplication signature used to throttle identical error reports within the throttle window.
