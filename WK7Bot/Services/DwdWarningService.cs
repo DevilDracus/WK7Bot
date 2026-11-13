@@ -130,20 +130,24 @@ public partial class DwdWarningService : IDwdWarningService
     {
         var warnings = new List<CapWarning>();
 
-        ZipArchive archive;
+        ZipArchive? archive = null;
+        MemoryStream? archiveStream = null;
         try
         {
-            archive = new ZipArchive(new MemoryStream(archiveBytes), ZipArchiveMode.Read);
+            archiveStream = new MemoryStream(archiveBytes);
+            archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
         }
         catch (InvalidDataException ex)
         {
             // A non-zip body (proxy error page, truncated download) must not surface as an unhandled
             // exception on every poll; report it once as a warning and treat the snapshot as empty.
+            archiveStream?.Dispose();
             _logger.LogWarning(ex, "DWD warning snapshot {Snapshot} is not a readable zip archive.", snapshotName);
             return warnings;
         }
 
         using (archive)
+        using (archiveStream)
         {
             foreach (var entry in archive.Entries)
             {

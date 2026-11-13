@@ -99,9 +99,10 @@ public static class OpenFoodFactsEmbedBuilder
     /// <summary>Builds the nutrition text block for the embed.</summary>
     /// <param name="n">The nutriments.</param>
     /// <returns>The nutrition text.</returns>
-    private static StringBuilder BuildNutritionText(OpenFoodFactsNutriments n)
+    private static StringBuilder BuildNutritionText(OpenFoodFactsNutriments? n)
     {
         var nutritionText = new StringBuilder();
+        if (n is null) return nutritionText;
         if (n.EnergyKcal.HasValue)
             nutritionText.AppendLine($"🔥 **Kalorien:** {n.EnergyKcal.Value:F0} kcal");
         if (n.Proteins.HasValue)
@@ -125,9 +126,10 @@ public static class OpenFoodFactsEmbedBuilder
     /// <summary>Builds the renal-safety text block for the embed.</summary>
     /// <param name="n">The nutriments.</param>
     /// <returns>The renal-safety text.</returns>
-    private static StringBuilder BuildRenalSafetyText(OpenFoodFactsNutriments n)
+    private static StringBuilder BuildRenalSafetyText(OpenFoodFactsNutriments? n)
     {
         var renalText = new StringBuilder();
+        if (n is null) return renalText;
 
         if (n.Potassium.HasValue)
         {

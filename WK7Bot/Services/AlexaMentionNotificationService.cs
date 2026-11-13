@@ -158,7 +158,7 @@ public class AlexaMentionNotificationService : IHostedService, IDisposable
             using var response = await HttpRetry.ExecuteAsync(
                 async () =>
                 {
-                    var req = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
+                    using var req = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
                     var cleanToken = apiToken.Trim();
                     var cleanSecret = apiSecret.Trim();
                     var authBytes = Encoding.UTF8.GetBytes($"{cleanToken}:{cleanSecret}");

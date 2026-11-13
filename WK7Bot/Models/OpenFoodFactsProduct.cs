@@ -37,7 +37,7 @@ public sealed class OpenFoodFactsProduct
 
     /// <summary>The nutritional values per 100g.</summary>
     [JsonPropertyName("nutriments")]
-    public OpenFoodFactsNutriments Nutriments { get; set; } = new();
+    public OpenFoodFactsNutriments? Nutriments { get; set; }
 }
 
 /// <summary>
