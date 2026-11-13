@@ -1,5 +1,6 @@
 namespace WK7Bot.Services;
 
+using System.Collections.Concurrent;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,8 +20,8 @@ public class XpTrackingService : IHostedService
     private readonly IOptions<Wk7BotOptions> _options;
     private readonly FeatureGate _featureGate;
     private readonly ILogger<XpTrackingService> _logger;
-    private readonly Dictionary<ulong, (string Content, DateTime At)> _recentMessages = new();
-    private readonly Random _random = new();
+    private readonly ConcurrentDictionary<ulong, (string Content, DateTime At)> _recentMessages = new();
+    // Random.Shared is thread-safe (introduced in .NET 6)
 
     /// <summary>Cooldown between XP awards for the same user.</summary>
     private static readonly TimeSpan XpCooldown = TimeSpan.FromSeconds(60);
@@ -106,7 +107,7 @@ public class XpTrackingService : IHostedService
                 return;
             }
 
-            var xpGain = _random.Next(15, 26);
+            var xpGain = Random.Shared.Next(15, 26);
             profile.Xp += xpGain;
             profile.LastXpAt = now;
             var newLevel = (int)Math.Floor(Math.Sqrt(profile.Xp / 100.0));

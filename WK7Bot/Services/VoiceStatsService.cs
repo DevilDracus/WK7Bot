@@ -1,5 +1,6 @@
 namespace WK7Bot.Services;
 
+using System.Collections.Concurrent;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,7 +18,7 @@ public class VoiceStatsService : IHostedService
     private readonly DiscordSocketClient _discordClient;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<VoiceStatsService> _logger;
-    private readonly Dictionary<ulong, (ulong GuildId, ulong ChannelId, DateTime JoinedAt)> _active = new();
+    private readonly ConcurrentDictionary<ulong, (ulong GuildId, ulong ChannelId, DateTime JoinedAt)> _active = new();
 
     /// <summary>Minimum voice session length (in seconds) worth recording; shorter sessions are ignored as noise.</summary>
     private const int MinimumSessionDurationSeconds = 5;
@@ -71,7 +72,7 @@ public class VoiceStatsService : IHostedService
                 if (_active.TryGetValue(userId, out var session))
                 {
                     await RecordSessionAsync(userId, session, DateTime.UtcNow).ConfigureAwait(false);
-                    _active.Remove(userId);
+                    _active.TryRemove(userId, out _);
                 }
                 return;
             }
