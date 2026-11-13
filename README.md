@@ -1,293 +1,23 @@
 # WK7Bot
 
-A modular Discord automation bot and Home Assistant Add-On built on .NET 10 — slash commands, RSS syndication, presence enrichment, wishlist deals, recipes, meetups, a weekend digest with polls, weather warnings and waste reminders in one background-service framework.
+A modular Discord automation bot and Home Assistant add-on built on .NET 10. Slash commands, RSS syndication, Steam and Battle.net enrichment, deal alerts, weather and waste reminders, polls, reminders and stats — all behind one feature-gate and a background-service framework.
 
 [![Run Unit Tests](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml/badge.svg)](https://github.com/DevilDracus/WK7Bot/actions/workflows/tests.yml)
 [![Add repository to Home Assistant][repository-badge]][repository-url]
 
-## Features
+## Highlights
 
-- **Discord** — `Discord.Interactions` with auto-registered modules (`InteractionHandlingService`), interactive select menus and go/pass buttons. Every interaction gets a reply: failed preconditions, command errors and unparseable commands are answered instead of timing out with "Die Anwendung reagiert nicht".
-- **Message routing** — scheduled posts go to the test server while a feature is listed in `servers.testing_features`, otherwise the WK7 server (all-guild fallback when no ID is configured). **Error notifications always go to the test server only** — never the WK7 server.
-- **RSS syndication** — per-feed intervals, backlog-free first poll, duplicate suppression by `LastItemGuid`/`LastPublishedDate`, `/rss add|list|remove|dashboard` with auto-created role + private channel and role-based subscription menus.
-- **Leipzig waste reminders** — Stadtreinigung `.ics` parsing, daily confirmation and Monday overview, `/check-waste`, restart-safe dedup per guild.
-- **Spontan-Treff** — `/spontan-treff` posts a meetup with an `@everyone` ping (graceful 403 fallback), go/pass buttons that re-render live, and a 30-minute default window auto-closed by `SpontanTreffExpiryService`.
-- **Native Discord events** — Spontan-Treff and the Thursday weekend digest create a guild scheduled event (external) so members get native reminders; `DiscordScheduledEventCleanupService` deletes them after their end time (`discord_events_enabled`).
-- **Weekend digest** — Thursdays 14:15 the curated leipzig.de digest posts with a native Discord poll, retrying up to 4×.
-- **DWD warnings** — 2-minute CAP feed polling, point-in-polygon matching, German embeds with onset countdown into `#⛈️weather-warnings`.
-- **Steam presence & Battle.net profile enrichment** — token-based Battle.net mapping (no passwords), Discord presence tracking, retries and caches, published to a single MQTT sensor per user (attributes include Steam game, Battle.net WoW/Diablo profile data).
-- **Wishlist deal alerts** — 12-hour Steam wishlist polling through IsThereAnyDeal, historical-low detection, and on-demand `/deals` lookups. Requires a **public Steam wishlist** (Steam's privacy settings are all-or-nothing: "Game details" must be set to Public). Alert titles are resolved from IsThereAnyDeal. Alerts post to `deal_alert_channel_name` (default `game-deals`); the minimum non-historical-low discount defaults to 60%.
-- **Account linking** — `/link-steam`, `/link-battlenet`, `/link-status` and `/link-remove`; new mappings are stored in SQLite and mirrored into the Home Assistant add-on options through the Supervisor API (`link_auto_write_options`).
-- **Steam wishlist links** — `/wishlist-add <url>` parses Steam profile and wishlist URLs, resolves vanity names through the Steam Web API, and links the account.
-- **Weather** — `/weather [entity]` reads a configurable Home Assistant weather entity (`weather_entity`) and posts current conditions plus an optional forecast.
-- **Leaderboards** — `/leaderboard` ranks linked members by Steam playtime, Steam achievements, WoW level or Diablo Paragon; a weekly post goes to `leaderboard_channel_name` on `leaderboard_post_weekday` at `leaderboard_post_time`.
-- **Per-user deal watchlist** — `/watch`, `/unwatch` and `/watchlist` with background price checks and DM alerts (`deal_watchlist_*` options).
-- **Release-date reminders** — `/release-remind <game>` tracks an upcoming Steam release; `ReleaseDateReminderBackgroundService` notifies when the date is near or has arrived (`release_date_reminders_enabled`).
-- **Steam friend digest** — `SteamFriendDigestBackgroundService` posts a weekly summary of what linked Steam friends are currently playing and have played in the last two weeks (`steam_friend_digest_enabled`).
-- **Prometheus metrics** — `GET /metrics` exposes command, error, feature-health, uptime and per-operation HTTP request/failure/duration metrics when `metrics_enabled` is true; the game API clients, the Supervisor client and the dependency health checks feed the HTTP counters.
-- **Pollen & UV index** — `/pollen` renders the DWD pollen hazard index (eight pollen types, today/tomorrow/the day after) for the configured region plus the DWD UV index of the configured city; a daily post goes to `pollen_channel_name` at `pollen_post_time` (`pollen_alerts_enabled`). Same open-data host and resilience policy as the CAP warnings.
-- **Personal reminders** — `/remind <wann> <text> [hier]` schedules a reminder (`in 30m`, `in 2h`, `18:30`, `morgen 08:00`), delivered as a DM or as a channel post; `/reminders` lists the pending ones and `/remind-cancel <id>` removes one (`reminders_enabled`).
-- **Trivia** — `/quiz` starts a round with a random question and answer buttons; `/trivia-leaderboard` shows the current week's top scores.
-- **Birthdays** — `/birthday-set` (or `/add-birthday`) stores a member's birthday; `BirthdayBackgroundService` announces it once per year in `birthday_channel_name` (`birthday_enabled`).
-- **Voice channel stats** — `VoiceStatsService` records voice-channel sessions of at least 5 seconds for later reporting (`VoiceStatsRepository`).
-- **Components V2 cards everywhere** — every embed the bot used to send is rendered as a Components V2 container: `/profile` and `/leaderboard` (accent colour, dividers, avatar thumbnail), `/deals`, `/check-food`, recipes, `/check-waste`, `/weather`, `/pollen`, `/stats`, `/health`, `/help`, the weekly leaderboard post, the daily waste/pollen/food posts and the deal-watchlist DMs. `CardBuilder.FromEmbed` projects title, description, fields, thumbnail, full-width image, title link, footer and timestamp into text displays, a section accessory and a media gallery; the per-message text budget and the 40-child container limit are enforced.
-- **Card delivery is fail-safe** — channel notifications go through `CardSender`, which falls back to the original embed when Discord rejects a card, so a presentation change can never silently swallow an alert. Interaction responses pass `ephemeral` and the Components V2 flag together; Discord.Net OR-combines both (`flags |= ComponentsV2`, `flags |= Ephemeral`), so ephemeral answers stay ephemeral.
-- **Still embed-based by design** — messages that must carry a mention or a native poll (RSS feed posts and wishlist deal alerts with role/user pings, the Spontan-Treff post with its `@everyone` ping, the weekend digest with its poll, the error notifications) stay embeds: a Components V2 message cannot carry `content` or `embeds`.
-- **OPML import/export** — `/rss export` downloads every registered feed as an OPML 2.0 file; `/rss import <datei>` creates feeds from an OPML attachment (max 15 entries, existing names are skipped).
-- **Feed preview & pause** — `/rss test <url>` previews the newest items of any feed URL without registering it; `/rss pause`/`/rss resume` stop and restart polling while keeping the channel, role and baseline.
-- **Runtime feature toggles** — `/config feature <key> <on|off>` (administrator) applies a `FeatureGate` override immediately and persists it to the add-on options via the Supervisor API; `/config list` shows every switch and whether a runtime override is active.
-- **Profile cards** — `/profile [user]` renders Steam persona, 14-day playtime and achievements plus the WoW characters and Diablo heroes of the linked Battle.net account.
-- **Ad-hoc polls** — `/poll <frage> <optionen>` posts a native Discord poll (2-10 answers, 1-168 h, optional multiselect); answers are separated by `|` or line breaks.
-- **Food & recipes** — DuckDuckGo/Chefkoch web search with JSON-LD parsing, Gemini-generated renal-safe recipes, monthly produce calendar, weekly seasonal recipe, and `/check-food` nutrition/renal-safety checks via Open Food Facts.
-- **Home Assistant notifier** — listens for MQTT notify messages and forwards them to configured Discord channels or DMs.
-- **Alexa mention notifications** — forwards Discord mentions to Alexa through the configured getnotify.me endpoint.
-- **Error notifications** — every `Error`/`Critical` log is buffered, throttled (5 min per signature) and posted to `#🤖WK7Errors❗` on the test server, pinging `error_notify_user_ids`, with DM fallback. Plain-text mirror includes an 8-character stack-trace hash for quick grepping.
-- **Command usage & rate limiting** — every slash command is logged (`CommandUsageLog`); `/stats` shows the top commands of the last 7 days. Per-user cooldowns protect expensive commands such as `/health`, `/ha-status` and `/deals`.
-- **Startup configuration validation** — `StartupConfigurationValidator` checks the Discord token, DWD postal code, Gemini/Steam/Battle.net keys, MQTT host and error recipients after login and posts a report (brief confirmation when everything is valid).
-- **Database maintenance** — `DatabaseMaintenanceService` runs daily, creating compressed backups and pruning old dispatch/command-usage logs.
-- **MQTT health sensors** — uptime, Discord connection state, guild count and a per-feature *enabled*/*problem* sensor for Home Assistant, with a last-will testament so a killed process reports OFFLINE.
-- **External dependency health checks** — `/health` reports reachability and latency for Home Assistant, DWD, Steam, Open Food Facts, and IsThereAnyDeal (Gemini is key-presence only) alongside background service status.
-- **Gemini circuit breaker** — after 3 consecutive Gemini API failures, the circuit opens for 5 minutes, preventing retry storms when the API is unavailable.
-- **Consolidated feature gate** — all feature flag decisions (DI registration + runtime) resolve through a single `FeatureGate` service, eliminating divergence between the two previous decision points.
-- **Optional HTTP test API** — when `test_api_enabled` is true and `test_api_key` (or `WK7_TEST_API_KEY`) is set, `GET /test/commands` lists supported commands and `POST /test/commands/{command}` runs one through a synthetic interaction context. Useful for smoke-testing commands without a Discord client.
+- **Discord** — `Discord.Interactions` with auto-registered modules. Every interaction is answered: failed preconditions, command errors and unparseable input all return a reply instead of a Discord timeout.
+- **RSS syndication** — per-feed intervals, backlog-free first poll, duplicate suppression, OPML import/export, pause/resume, and an auto-provisioned role plus private channel with subscription menus.
+- **Steam & Battle.net** — account linking, presence snapshots published to Home Assistant over MQTT, wishlist deal alerts through IsThereAnyDeal, achievement progress, discount history and cross-store price comparison.
+- **Home Assistant** — native add-on packaging, Supervisor option mirroring, MQTT health sensors with last-will, and Prometheus metrics on `/metrics`.
+- **Daily life** — DWD weather and pollen/UV warnings, Leipzig waste collection reminders, seasonal produce calendar and recipe generation.
+- **Community** — meetups with go/pass buttons and native Discord events, a weekend digest with polls, trivia, birthdays, personal reminders and leaderboards.
+- **Operability** — startup configuration validation, `/health` dependency checks, per-feature health sensors, and a throttled error channel that every `Error`/`Critical` log reaches.
 
-## Slash Commands
+## Quick Start
 
-| Command | Description | Permission |
-| --- | --- | --- |
-| `/rss add <name> <url>` | Register a feed + role + private read-only channel | `ManageChannels` |
-| `/rss list` | List all registered feeds | everyone |
-| `/rss remove <name>` | Remove a feed and clean up its channel/role | `ManageChannels` |
-| `/rss dashboard` | Post the interactive subscription menu | `ManageRoles` |
-| `/rss pause <name>` | Pause polling for a feed (keeps channel/role/baseline) | `ManageChannels` |
-| `/rss resume <name>` | Resume polling for a paused feed | `ManageChannels` |
-| `/rss test <url>` | Preview the newest items of a feed URL | everyone |
-| `/rss export` | Download all feeds as an OPML 2.0 file | `ManageChannels` |
-| `/rss import <datei>` | Import feeds from an OPML attachment | `ManageChannels` |
-| `/check-waste [days] [datum]` | Query Leipzig waste dates | everyone |
-| `/recipe query:<text>` | Web-search a recipe and post it to `#🍎food` | everyone |
-| `/recipe-seasonal [query]` | Search seeded with seasonal ingredients | everyone |
-| `/recipe-generate` | Generate a seasonal renal-safe recipe via Gemini | everyone |
-| `/seasonal-produce [month]` | Post the seasonal produce calendar | everyone |
-| `/check-food <query>` | Check a food product's nutrition and renal safety via Open Food Facts | everyone |
-| `/deals` | Check Steam wishlist deals on demand | everyone |
-| `/achievements <game>` | Show Steam achievement progress for a game | everyone |
-| `/quiz` | Start a trivia round with a random question | everyone |
-| `/trivia-leaderboard` | Show this week's trivia leaderboard | everyone |
-| `/wishlist-add-appid <appid> [name]` | Add a Steam AppID to your manual wishlist | everyone |
-| `/wishlist-remove-appid <appid>` | Remove a Steam AppID from your manual wishlist | everyone |
-| `/wishlist-list-appid` | List your manual Steam AppID wishlist | everyone |
-| `/release-remind <game>` | Get notified before a game releases | everyone |
-| `/release-unremind <appid>` | Remove a release reminder | everyone |
-| `/release-list` | List your release reminders | everyone |
-| `/steam-friends-digest` | Manually trigger the Steam friend activity digest | everyone |
-| `/price-history <game>` | Show discount history text chart for a game | everyone |
-| `/compare-prices <game>` | Compare current game prices across stores via ITAD | everyone |
-| `/link-steam <steam>` | Link a Steam account from SteamID64 or profile URL | everyone |
-| `/link-battlenet <refresh_token> [region] [battle_tag]` | Link a Battle.net account | everyone |
-| `/link-status` | Show your linked accounts | everyone |
-| `/link-remove <provider>` | Remove a Steam or Battle.net link | everyone |
-| `/wishlist-add <url>` | Link a Steam wishlist by URL | everyone |
-| `/weather [entity]` | Current weather from a Home Assistant weather entity | everyone |
-| `/leaderboard [type] [limit]` | Steam/Battle.net leaderboard for linked members | everyone |
-| `/watch <game> [min_discount] [target_price]` | Watch a game for price drops | everyone |
-| `/unwatch <game>` | Remove a game from your watchlist | everyone |
-| `/watchlist` | List your watched games | everyone |
-| `/spontan-treff <plan> [ort] [minuten]` | Meetup with ping + go/pass buttons | everyone |
-| `/profile [user]` | Steam/Battle.net profile card (Components V2) | everyone |
-| `/pollen` | DWD pollen hazard index + UV index | everyone |
-| `/remind <wann> <text> [hier]` | Schedule a reminder (DM or channel) | everyone |
-| `/reminders` | List your pending reminders | everyone |
-| `/remind-cancel <id>` | Cancel a pending reminder | everyone |
-| `/birthday-set <tag> <monat>` | Set or update your birthday | everyone |
-| `/add-birthday <tag> <monat>` | Alias for `/birthday-set` | everyone |
-| `/birthday-show` | Show your stored birthday | everyone |
-| `/birthday-remove` | Remove your stored birthday | everyone |
-| `/poll <frage> <optionen> [dauer_stunden] [mehrfachauswahl]` | Native Discord poll | everyone |
-| `/config feature <key> <on\|off>` | Enable/disable a feature at runtime and persist it | `Administrator` |
-| `/config list` | List all feature switches and their state | `Administrator` |
-| `/ping` | Gateway latency | everyone |
-| `/ha-status` | Test the Home Assistant Supervisor API | everyone |
-| `/stats` | Top commands of the last 7 days | everyone |
-| `/health` | Background service + external dependency status | everyone |
-| `/help` | List all available commands | everyone |
-
-## Hosted Services
-
-| Service | Purpose | Feature flag |
-| --- | --- | --- |
-| `DiscordBotWorker` | Gateway login/start, log forwarding | always on |
-| `InteractionHandlingService` | Module registration, interaction routing and guaranteed replies | always on |
-| `StartupConfigurationValidator` | Validate critical configuration and post a startup report | always on |
-| `DatabaseMaintenanceService` | Daily compressed backup + log pruning | always on |
-| `RssPollingBackgroundService` | Poll feeds, post embeds | `rss_polling_enabled` |
-| `HomeAssistantNotifierService` | MQTT notify → channels/DMs | `home_assistant_notifier_enabled` |
-| `LeipzigWasteBackgroundService` | Daily/weekly waste reminders | `leipzig_waste_enabled` |
-| `AlexaMentionNotificationService` | Mentions → Alexa API | `alexa_notifications_enabled` |
-| `DiscordPresenceMqttService` | Presence snapshots → MQTT | `discord_presence_mqtt_enabled` |
-| `FoodPublisherService` | Produce calendar + weekly recipe | `food_service_enabled` |
-| `SpontanTreffExpiryService` | Close overdue meetups | `spontan_treff_enabled` |
-| `WeekendDigestBackgroundService` | Thursday digest + poll | `weekend_digest_enabled` |
-| `DwdWarningBackgroundService` | CAP polling and warnings | `dwd_warning_enabled` |
-| `ErrorNotificationDispatcher` | Error embeds to the test server (DM fallback) | `error_notifications_enabled` |
-| `BotStatusMqttService` | Uptime + per-feature health to MQTT | `mqtt_bot_status_enabled` |
-| `WishlistDealBackgroundService` | 12-hour wishlist price polling + deal alerts | `wishlist_deal_alerts_enabled` |
-| `LeaderboardBackgroundService` | Weekly leaderboard post | `leaderboard_enabled` |
-| `DealWatchlistBackgroundService` | Per-user deal watchlist price checks + DM alerts | `deal_watchlist_enabled` |
-| `ReleaseDateReminderBackgroundService` | Release-date reminders for tracked games | `release_date_reminders_enabled` |
-| `SteamFriendDigestBackgroundService` | Weekly Steam friend activity digest | `steam_friend_digest_enabled` |
-| `DiscordScheduledEventCleanupService` | Delete finished Discord scheduled events | `discord_events_enabled` |
-| `PollenBackgroundService` | Daily DWD pollen/UV post | `pollen_alerts_enabled` |
-| `ReminderBackgroundService` | Deliver due personal reminders | `reminders_enabled` |
-| `BirthdayBackgroundService` | Daily birthday announcements | `birthday_enabled` |
-| `VoiceStatsService` | Track voice-channel sessions (minimum 5 seconds) for later reporting | always on |
-
-`WeekendDigestDispatcher` is registered as a singleton helper used by `WeekendDigestBackgroundService` for channel resolution and per-guild dispatch deduplication.
-
-Flags resolve from `Wk7Bot:features`, then root-level `features`, then default enabled.
-
-## MQTT Health Sensors
-
-`BotStatusMqttService` publishes a device *WK7 Bot* with a last-will on `wk7bot/status`:
-
-| Entity | States |
-| --- | --- |
-| `sensor.wk7_bot_status` | uptime in seconds; attributes `version`, `started_at_utc`, `uptime_seconds`, `discord_connection`, `guilds`, `features_total`, `features_problem` |
-| `binary_sensor.wk7_bot_<feature>_enabled` | ON while the feature flag is set |
-| `binary_sensor.wk7_bot_<feature>_problem` | ON while the feature's last pass failed; attributes `last_success_utc`, `last_failure_utc`, `last_error` |
-
-`<feature>` ∈ `food`, `rss`, `leipzig_waste`, `weekend_digest`, `dwd_warning`, `spontan_treff`. All entities expire to `unavailable` within 2–5 minutes if the heartbeat stops, so a dead bot is visible immediately.
-
-Example dashboard cards (Mushroom + grid layout):
-
-```yaml
-- type: custom:mushroom-chips-card
-  alignment: end
-  chips:
-    - type: entity
-      entity: sensor.wk7_bot_status
-      name: WK7 Bot
-      icon: mdi:robot
-      icon_color: |-
-        {% if is_state('sensor.wk7_bot_status', 'unavailable') %}red
-        {% elif state_attr('sensor.wk7_bot_status', 'discord_connection') != 'Connected' %}orange
-        {% else %}green{% endif %}
-    - type: entity
-      entity: binary_sensor.wk7_bot_rss_problem
-      name: RSS
-      icon: mdi:rss
-      icon_color: |-
-        {% if is_state('binary_sensor.wk7_bot_rss_problem', 'on') %}red{% else %}green{% endif %}
-    - type: entity
-      entity: binary_sensor.wk7_bot_leipzig_waste_problem
-      name: Müll
-      icon: mdi:trash-can
-      icon_color: |-
-        {% if is_state('binary_sensor.wk7_bot_leipzig_waste_problem', 'on') %}red{% else %}green{% endif %}
-    - type: entity
-      entity: binary_sensor.wk7_bot_weekend_digest_problem
-      name: Digest
-      icon: mdi:calendar-weekend
-      icon_color: |-
-        {% if is_state('binary_sensor.wk7_bot_weekend_digest_problem', 'on') %}red{% else %}green{% endif %}
-    - type: entity
-      entity: binary_sensor.wk7_bot_dwd_warning_problem
-      name: DWD
-      icon: mdi:weather-lightning
-      icon_color: |-
-        {% if is_state('binary_sensor.wk7_bot_dwd_warning_problem', 'on') %}red{% else %}green{% endif %}
-    - type: entity
-      entity: binary_sensor.wk7_bot_food_problem
-      name: Food
-      icon: mdi:food
-      icon_color: |-
-        {% if is_state('binary_sensor.wk7_bot_food_problem', 'on') %}red{% else %}green{% endif %}
-```
-
-## Configuration
-
-Bound from `appsettings.json`, environment variables or the Add-On `config.yaml`; the `Wk7Bot` section supplies defaults and root-level keys override per key. The add-on schema lives in `WK7Bot/config.yaml`; application-level options not listed there (`deal_alert_channel_name`, `deal_check_interval_hours`, `deal_min_discount_percent`, `startup_report_verbose`, `http_timeouts.fast/default/slow`) can be supplied through `appsettings.json`, environment variables, or user secrets.
-
-```yaml
-discord_token: "YOUR_DISCORD_BOT_TOKEN"
-log_level: "Warning"                     # Debug, Information, Warning, Error
-mqtt_host: "core-mosquitto"
-mqtt_port: 1883
-steam_api_key: ""
-battlenet_client_id: ""
-battlenet_client_secret: ""
-battlenet_region: "eu"
-battlenet_locale: "de_DE"
-gemini_api_key: ""
-itad_api_key: ""
-test_api_enabled: false                  # optional /test API
-test_api_key: ""                         # required when test_api_enabled is true
-weather_entity: "weather.home"
-metrics_enabled: true
-link_auto_write_options: true
-deal_alert_channel_name: "game-deals"
-deal_check_interval_hours: 12
-deal_min_discount_percent: 60
-deal_watchlist_check_interval_hours: 6
-deal_watchlist_min_discount_percent: 40
-leaderboard_channel_name: "leaderboard"
-birthday_channel_name: "🎂birthdays"
-leaderboard_post_weekday: "Monday"
-leaderboard_post_time: "18:00"
-http_timeouts:
-  fast: 10
-  default: 30
-  slow: 45
-error_notify_user_ids:
-  - "162201162257399808"
-discord_dm_user_ids: []
-discord_steam_mappings: []               # [{ discord_user_id: "...", steam_id: "..." }]
-discord_battlenet_mappings: []           # [{ discord_user_id: "...", refresh_token: "..." }]
-features:
-  rss_polling_enabled: true
-  home_assistant_notifier_enabled: true
-  leipzig_waste_enabled: true
-  alexa_notifications_enabled: true
-  discord_presence_mqtt_enabled: true
-  steam_presence_enabled: true
-  battlenet_presence_enabled: true
-  food_service_enabled: true
-  spontan_treff_enabled: true
-  weekend_digest_enabled: true
-  dwd_warning_enabled: true
-  error_notifications_enabled: true
-  mqtt_bot_status_enabled: true
-  wishlist_deal_alerts_enabled: true
-  leaderboard_enabled: true
-  deal_watchlist_enabled: true
-  birthday_enabled: true
-  release_date_reminders_enabled: true
-  steam_friend_digest_enabled: true
-servers:
-  wk7_server_id: "YOUR_WK7_SERVER_ID"    # scheduled messages
-  test_server_id: "YOUR_BOT_TEST_SERVER_ID"  # testing_features + all error reports
-  testing_features: []                   # e.g. [ "dwd_warning" ]
-dwd_warning:
-  postal_code: "01234"
-  latitude: 00.00
-  longitude: 00.00
-  lead_minutes: 30
-```
-
-`servers.*_server_id` ship as placeholders; an unparsable or empty ID counts as "not configured", so a fresh install never breaks. Environment variables (`DISCORD_BOT_TOKEN`, `SUPERVISOR_TOKEN`, `WK7_TEST_API_KEY`) and .NET user secrets also work.
-
-### Optional HTTP test API
-
-When `test_api_enabled` is true and a non-empty key is configured (`test_api_key` or `WK7_TEST_API_KEY`), the bot exposes:
-
-- `GET /test/commands` — list of supported test commands.
-- `POST /test/commands/{command}` — run a command with `{ "args": { ... } }`; the legacy `POST /test/run/{command}` route is also kept for compatibility.
-
-Every request must carry `X-WK7-Test: <key>`. The API is off by default and stays inactive while the flag is false or the key is empty.
-
-## Getting Started
-
-Requires the **.NET 10 SDK** (`dotnet --version` should report `10.x`).
+Requires the **.NET 10 SDK**.
 
 ```bash
 git clone https://github.com/DevilDracus/WK7Bot.git
@@ -295,40 +25,140 @@ cd WK7Bot
 dotnet run --project WK7Bot
 ```
 
-Health check: `GET /health`. Docker: `docker build -f WK7Bot/Dockerfile -t wk7bot WK7Bot`. As an Add-On: add the repository above, install **WK7Bot**, set `discord_token` and MQTT, start.
+**As a Home Assistant add-on:** add this repository to the add-on store, install **WK7Bot**, set `discord_token`, configure MQTT, and start.
 
-On Windows override `ConnectionStrings:DefaultConnection` to a writable path (e.g. `Data Source=wk7bot.db`) unless `C:\data` can be created.
+**As a container:**
+
+```bash
+docker build -f WK7Bot/Dockerfile -t wk7bot WK7Bot
+```
+
+Health check: `GET /health` · Metrics: `GET /metrics`
+
+On Windows, override `ConnectionStrings:DefaultConnection` to a writable path (for example `Data Source=wk7bot.db`) unless `C:\data` can be created.
+
+## Configuration
+
+Options bind from `appsettings.json`, environment variables or the add-on `config.yaml`. The `Wk7Bot` section supplies defaults; root-level keys override per key. The complete annotated schema lives in `WK7Bot/config.yaml`.
+
+```yaml
+discord_token: "YOUR_DISCORD_BOT_TOKEN"
+log_level: "Warning"
+mqtt_host: "core-mosquitto"
+mqtt_port: 1883
+steam_api_key: ""
+battlenet_client_id: ""
+battlenet_client_secret: ""
+gemini_api_key: ""
+itad_api_key: ""
+metrics_enabled: true
+servers:
+  wk7_server_id: "YOUR_WK7_SERVER_ID"        # scheduled message target
+  test_server_id: "YOUR_BOT_TEST_SERVER_ID"  # testing features and all error reports
+  testing_features: []
+dwd_warning:
+  postal_code: "01234"
+  latitude: 00.00
+  longitude: 00.00
+features:
+  rss_polling_enabled: true
+  dwd_warning_enabled: true
+  wishlist_deal_alerts_enabled: true
+  # remaining flags default to enabled
+```
+
+Server IDs ship as placeholders and count as "not configured" while empty or unparsable, so a fresh install never breaks on them. Flags resolve from `Wk7Bot:features`, then root-level `features`, then default enabled, and can be switched at runtime with `/config feature <key> <on|off>`. Environment variables (`DISCORD_BOT_TOKEN`, `SUPERVISOR_TOKEN`, `WK7_TEST_API_KEY`) and .NET user secrets also work.
+
+## Commands
+
+### RSS
+
+| Command | Description |
+| --- | --- |
+| `/rss add`, `/rss remove` | Register a feed with its role and private channel, or remove both |
+| `/rss list`, `/rss dashboard` | List feeds or post the subscription menu |
+| `/rss pause`, `/rss resume` | Stop or restart polling while keeping channel, role and baseline |
+| `/rss test` | Preview a feed without registering it |
+| `/rss export`, `/rss import` | OPML export or import |
+
+### Steam & Battle.net
+
+| Command | Description |
+| --- | --- |
+| `/link-steam`, `/link-battlenet`, `/link-status`, `/link-remove` | Manage account links |
+| `/deals` | On-demand wishlist deal lookup |
+| `/watch`, `/unwatch`, `/watchlist` | Personal price watchlist with DM alerts |
+| `/achievements` | Steam achievement progress |
+| `/price-history`, `/compare-prices` | Discount history and cross-store comparison |
+| `/release-remind`, `/release-unremind`, `/release-list` | Release-date reminders |
+| `/wishlist-add`, `/wishlist-add-appid`, `/wishlist-list-appid`, `/wishlist-remove-appid` | Wishlist management |
+| `/leaderboard`, `/profile` | Steam and Battle.net statistics |
+
+### Daily Life
+
+| Command | Description |
+| --- | --- |
+| `/weather` | Current conditions from a Home Assistant weather entity |
+| `/pollen` | DWD pollen hazard and UV index |
+| `/check-waste` | Leipzig waste collection dates |
+| `/recipe`, `/recipe-seasonal`, `/recipe-generate`, `/seasonal-produce`, `/check-food` | Recipes, produce calendar and nutrition checks |
+
+### Community
+
+| Command | Description |
+| --- | --- |
+| `/spontan-treff` | Meetup with ping and go/pass buttons |
+| `/poll` | Native Discord poll |
+| `/quiz`, `/trivia-leaderboard` | Trivia rounds and weekly ranking |
+| `/birthday-set`, `/birthday-show`, `/birthday-remove` | Birthday tracking |
+| `/remind`, `/reminders`, `/remind-cancel` | Personal reminders |
+
+### Operations
+
+| Command | Description | Permission |
+| --- | --- | --- |
+| `/config feature`, `/config list` | Runtime feature switches | `Administrator` |
+| `/health`, `/ha-status`, `/ping` | Dependency, Supervisor and latency checks | everyone |
+| `/stats` | Top commands of the last 7 days | everyone |
+| `/help` | Command index | everyone |
+
+## Architecture
+
+- **Hosted services** — one background service per feature area, each gated by a feature flag and reporting health through `FeatureHealthTracker`.
+- **Delivery** — Components V2 cards via `CardBuilder` and `CardSender`, with automatic fallback to embeds wherever a card would drop content, mentions or native polls.
+- **Persistence** — EF Core on SQLite with restart-safe dispatch deduplication and daily compressed backups.
+- **Resilience** — Polly policies for external APIs, a Gemini circuit breaker, and a throttled error notification pipeline.
+
+### MQTT health sensors
+
+`BotStatusMqttService` publishes a *WK7 Bot* device with a last will on `wk7bot/status`:
+
+| Entity | States |
+| --- | --- |
+| `sensor.wk7_bot_status` | uptime in seconds; attributes `version`, `discord_connection`, `guilds`, `features_total`, `features_problem` |
+| `binary_sensor.wk7_bot_<feature>_enabled` | ON while the feature flag is set |
+| `binary_sensor.wk7_bot_<feature>_problem` | ON while the last pass failed |
+
+Entities expire to `unavailable` within minutes if the heartbeat stops, so a dead bot is visible immediately.
 
 ## Testing
 
 ```bash
 dotnet test WK7Bot.sln
-dotnet test WK7Bot.Tests --no-build
 ```
 
-| **852 tests** cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite DDL replay for restart-safe dispatch, circuit breaker logic, feature gate resolution (including runtime overrides), DM-context module safety, command cooldowns and usage metrics, startup validation, reminder time parsing, DWD pollen/UV parsing, OPML import/export, Components V2 card structure, all embed/poll/button builders, bulk dispatch-state helpers, and FeatureHealthTracker problem-state transitions. Last verified: 852 passed, 0 failed.
+**1130 tests** cover API mapping and retry behaviour against stubbed HTTP handlers, options binding, error-queue throttling, interaction routing and guaranteed replies, SQLite schema replay, circuit breaker logic, feature gate resolution, command cooldowns, startup validation, DWD pollen and UV parsing, OPML round-trips, Components V2 card structure, and the embed, poll and button builders.
 
 ## Stack
 
-.NET 10 (C# 14) · `Discord.Net` 3.19 (`Discord.Interactions`, Components V2) · EF Core + SQLite · `MQTTnet` · Polly 8 · `CodeHollow.FeedReader`, `Ical.Net`, JSON-LD recipes · DuckDuckGo/Chefkoch search · Open Food Facts · Steam Web API, Battle.net OAuth and IsThereAnyDeal · DWD CAP open data · Google Gemini · xUnit, Moq, EF InMemory · Docker, Home Assistant Supervisor Add-On.
+.NET 10 (C# 14) · `Discord.Net` 3.19 (Interactions, Components V2) · EF Core + SQLite · `MQTTnet` · Polly 8 · `CodeHollow.FeedReader` · `Ical.Net` · Steam Web API · Battle.net OAuth · IsThereAnyDeal · Open Food Facts · DWD open data · Google Gemini · xUnit, Moq, EF InMemory · Docker · Home Assistant Supervisor add-on.
 
 ## Troubleshooting
 
-- **DWD warnings never post.** The service polls `opendata.dwd.de` every 2 minutes. Three common causes:
-  - `dwd_warning.postal_code` is empty → the service stays idle and posts nothing (no error). Set a postal code in the add-on options.
-  - `servers.wk7_server_id` / `test_server_id` are still the shipped placeholders → `AutomaticTargetResolver` skips posting and logs a Warning. Set real guild IDs.
-  - `dwd_warning_enabled` is false, or no active warning matches the configured events/area. DWD warnings are episodic; absence of posts is normal when nothing is active.
-- **DWD `TaskCanceledException` (45 s timeout) spam in `#🤖WK7Errors❗`.** The DWD feed answers in ~0.2 s from outside the container; timeouts mean the HA container's network path to DWD is stalled (often a stale/broken `HTTP_PROXY`). The bot bypasses the proxy for DWD/Pollen and reports these timeouts at **Warning** level (not Error) so they no longer flood the error channel. Check the HA container's DNS/IPv4 reachability to `opendata.dwd.de` if they persist.
-- **Wishlist deal alerts never post.** Four common causes:
-  - `itad_api_key` is empty → `FetchPricesAsync` returns no prices and the run stops early. Register a key at https://isthereanydeal.com/developers/.
-  - No Discord↔Steam link configured → `mappings.Count == 0` stops the run before fetching anything. Use `/link-steam` or `discord_steam_mappings`.
-  - `wk7_server_id` / `test_server_id` are still placeholders → `AutomaticTargetResolver` yields no delivery targets. Set real guild IDs.
-  - The Steam wishlist is private → IWishlistService returns an empty response. Steam's privacy settings are all-or-nothing ("Game details" must be Public). There is no programmatic way to read a private wishlist. Set "Game details" to Public in Steam profile privacy settings.
-- **Wishlist alert titles are blank.** Titles are resolved from IsThereAnyDeal's lookup response; if the lookup fails (bad API key, unknown app), the title stays empty. Check `/health` for the IsThereAnyDeal dependency status.
-- **Error channel is empty but something feels broken.** An empty channel only means no `Error`/`Critical` logs were emitted. Idle or misconfigured services (missing API keys, empty postal codes) produce no posts and no errors. Check `StartupConfigurationValidator`'s report and the per-feature `binary_sensor.wk7_bot_<feature>_problem` entities.
-- **`no such column` SQLite crash loop on startup.** Schema-order bug in `DatabaseSchemaInitializer`: an index/constraint was added before its column. Move the DDL after the `AddColumnIfMissingAsync` call.
-- **`wk7_errors_total` stays 0 on `/metrics`.** `MetricsRegistry` is registered twice (Program.cs instance + DI container instance); the queue uses the Program.cs instance. Known gap, not a runtime error.
-- **Build fails with `no such column` or version mismatch.** Run `dotnet build WK7Bot.sln --no-incremental`; the assembly version is read from `WK7Bot/config.yaml` at build time.
+- **DWD warnings never post** — check that `dwd_warning.postal_code` is set, that `servers.wk7_server_id` is a real ID, and that `dwd_warning_enabled` is on. DWD warnings are episodic; silence is normal when nothing is active.
+- **Wishlist deal alerts never post** — requires a non-empty `itad_api_key`, at least one Discord to Steam link, real server IDs, and a **public** Steam wishlist ("Game details" must be Public).
+- **Error channel is empty but something feels broken** — an empty channel only means no `Error` or `Critical` log was emitted. Idle services with missing keys post nothing and log nothing; check the startup validation report and the per-feature `_problem` sensors.
+- **`no such column` SQLite crash loop** — a schema-ordering bug: an index or constraint was added before its column. Move the DDL after `AddColumnIfMissingAsync`.
 
 ## License
 
