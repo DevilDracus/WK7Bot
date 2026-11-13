@@ -27,11 +27,11 @@ public class GameNightExpiryService : BackgroundService
         IOptions<Wk7BotOptions> options,
         ILogger<GameNightExpiryService> logger)
     {
-        _scopeFactory = scopeFactory;
-        _discordClient = discordClient;
-        _health = health;
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
+        _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
+        _health = health ?? throw new ArgumentNullException(nameof(health));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _logger = logger;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
