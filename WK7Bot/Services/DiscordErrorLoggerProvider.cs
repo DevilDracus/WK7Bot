@@ -84,7 +84,7 @@ public sealed class DiscordErrorLoggerProvider : ILoggerProvider
                     ExceptionType = exception?.GetType().FullName,
                     ExceptionMessage = exception?.Message,
                     StackTrace = exception?.ToString(),
-                    Timestamp = DateTimeOffset.Now,
+                    Timestamp = DateTimeOffset.UtcNow,
                 });
             }
             catch (Exception)

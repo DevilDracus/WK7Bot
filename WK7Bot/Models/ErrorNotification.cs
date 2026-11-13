@@ -60,7 +60,7 @@ public sealed record ErrorNotification
             ExceptionType = exception.GetType().FullName,
             ExceptionMessage = exception.Message,
             StackTrace = exception.ToString(),
-            Timestamp = timestamp ?? DateTimeOffset.Now,
+            Timestamp = timestamp ?? DateTimeOffset.UtcNow,
         };
     }
 }

@@ -43,7 +43,7 @@ public class ErrorNotificationQueue : IErrorNotificationQueue
 
         _capacity = capacity;
         _throttleWindow = throttleWindow ?? DefaultThrottleWindow;
-        _clock = clock ?? (static () => DateTimeOffset.Now);
+        _clock = clock ?? (() => DateTimeOffset.UtcNow);
         _metrics = metrics ?? new MetricsRegistry();
     }
 

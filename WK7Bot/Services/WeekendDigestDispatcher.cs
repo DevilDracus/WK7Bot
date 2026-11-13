@@ -82,7 +82,7 @@ public class WeekendDigestDispatcher
 
                 if (channel.Guild is not null)
                 {
-                    var now = DateTimeOffset.Now;
+                    var now = DateTimeOffset.UtcNow;
                     await _scheduledEventService.CreateAsync(
                         channel.Guild,
                         "Wochenend-Digest",

@@ -15,7 +15,7 @@ using WK7Bot.Core.Utilities;
 public class TriviaModule : BotModuleBase
 {
     private static readonly Random Rng = Random.Shared;
-    private static readonly ConcurrentDictionary<ulong, int> ActiveAnswers = new(); // messageId -> correct option index
+    private static readonly ConcurrentDictionary<ulong, (int Answer, DateTime CreatedAt)> ActiveAnswers = new(); // messageId -> (correct option index, creation time)
 
     /// <summary>Number of days of trivia scores retained for pruning.</summary>
     private const int TriviaPruneDays = 14;
@@ -52,6 +52,16 @@ public class TriviaModule : BotModuleBase
             return;
         }
 
+        // Prune stale entries (quizzes older than 5 minutes that were never answered)
+        var cutoff = DateTime.UtcNow.AddMinutes(-5);
+        foreach (var kvp in ActiveAnswers)
+        {
+            if (kvp.Value.CreatedAt < cutoff)
+            {
+                ActiveAnswers.TryRemove(kvp.Key, out _);
+            }
+        }
+
         var q = questions[Rng.Next(questions.Count)];
         var builder = new ComponentBuilder();
         for (var i = 0; i < q.Options.Count; i++)
@@ -63,7 +73,7 @@ public class TriviaModule : BotModuleBase
             $"❓ **{q.Question}**",
             components: builder.Build()).ConfigureAwait(false);
 
-        ActiveAnswers[message.Id] = q.Answer;
+        ActiveAnswers[message.Id] = (q.Answer, DateTime.UtcNow);
     }
 
     /// <summary>Handles an answer button click.</summary>
@@ -74,13 +84,13 @@ public class TriviaModule : BotModuleBase
     {
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var component = Context.Interaction as SocketMessageComponent;
-        if (component is null || !ActiveAnswers.TryGetValue(component.Message.Id, out var correct))
+        if (component is null || !ActiveAnswers.TryGetValue(component.Message.Id, out var entry))
         {
             await FollowupAsync("Diese Runde ist nicht mehr aktiv.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        if (optionIndex == correct)
+        if (optionIndex == entry.Answer)
         {
             try
             {
