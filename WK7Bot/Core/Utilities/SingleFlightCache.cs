@@ -164,8 +164,10 @@ public abstract class SingleFlightCache<TValue>
     /// </summary>
     private void EvictInFlight(string key, Task<TValue?> fetch)
     {
-        ((ICollection<KeyValuePair<string, Task<TValue?>>>)_inFlight)
-            .Remove(new KeyValuePair<string, Task<TValue?>>(key, fetch));
+        if (_inFlight.TryGetValue(key, out var current) && ReferenceEquals(current, fetch))
+        {
+            _inFlight.TryRemove(key, out _);
+        }
     }
 
     /// <summary>

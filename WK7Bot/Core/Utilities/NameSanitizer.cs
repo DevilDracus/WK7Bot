@@ -59,6 +59,8 @@ public static partial class NameSanitizer
 
     /// <summary>
     /// Converts an arbitrary name into an MQTT discovery-safe identifier (lowercase [a-z0-9_]).
+    /// Non-ASCII letters (e.g. umlauts) are lowercased by <see cref="string.ToLowerInvariant"/> but then
+    /// replaced by underscores because MQTT discovery identifiers only allow ASCII alphanumerics.
     /// </summary>
     /// <param name="rawName">The raw name (e.g. Discord channel or username).</param>
     /// <returns>A sanitized MQTT-safe name.</returns>
