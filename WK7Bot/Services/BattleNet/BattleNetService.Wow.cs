@@ -47,8 +47,8 @@ public partial class BattleNetService
 
         var payload = await response.Content.ReadFromJsonAsync<BattleNetWowAccountProfileResponse>(cancellationToken: cancellationToken);
 
-        var characterKeys = (payload?.WowAccounts ?? new List<BattleNetWowAccount>())
-            .SelectMany(account => account.Characters ?? new List<BattleNetWowCharacterKeyEntry>())
+        var characterKeys = (payload?.WowAccounts ?? [])
+            .SelectMany(account => account.Characters ?? [])
             .Select(entry => TryParseCharacterKey(entry.Key?.Href))
             .Where(key => key.HasValue)
             .Select(key => key!.Value)

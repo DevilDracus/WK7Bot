@@ -26,7 +26,7 @@ public class PriceHistoryRepository : IPriceHistoryRepository
         await AddSnapshotsLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var list = snapshots?.ToList() ?? new List<PriceHistorySnapshot>();
+            var list = snapshots?.ToList() ?? [];
             if (list.Count == 0)
             {
                 return 0;

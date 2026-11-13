@@ -58,7 +58,7 @@ public static class CapWarningParser
             return Array.Empty<GeoPoint>();
         }
 
-        var points = new List<GeoPoint>();
+        List<GeoPoint> points = [];
 
         foreach (var token in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
         {
@@ -331,9 +331,9 @@ public static class CapWarningParser
     /// <returns>The parsed warning.</returns>
     private static CapWarning ParseInfo(XElement info, string identifier, string sent)
     {
-        var areaDescriptions = new List<string>();
-        var polygons = new List<IReadOnlyList<GeoPoint>>();
-        var excludePolygons = new List<IReadOnlyList<GeoPoint>>();
+        List<string> areaDescriptions = [];
+        List<IReadOnlyList<GeoPoint>> polygons = [];
+        List<IReadOnlyList<GeoPoint>> excludePolygons = [];
 
         foreach (var area in info.Elements(CapNamespace + "area"))
         {

@@ -162,22 +162,22 @@ public class TriviaModule : BotModuleBase
                 .FirstOrDefault(n => n.EndsWith("trivia-questions.json", StringComparison.OrdinalIgnoreCase));
             if (resourceName is null)
             {
-                return new List<TriviaQuestion>();
+                return [];
             }
 
             using var stream = assembly.GetManifestResourceStream(resourceName);
             if (stream is null)
             {
-                return new List<TriviaQuestion>();
+                return [];
             }
 
             using var reader = new StreamReader(stream);
             var json = reader.ReadToEnd();
-            return JsonSerializer.Deserialize<List<TriviaQuestion>>(json) ?? new List<TriviaQuestion>();
+            return JsonSerializer.Deserialize<List<TriviaQuestion>>(json) ?? [];
         }
         catch
         {
-            return new List<TriviaQuestion>();
+            return [];
         }
     }
 

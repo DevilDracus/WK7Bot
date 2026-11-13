@@ -141,7 +141,7 @@ public static class WeekendDigestCurator
             .ThenBy(x => x.Event.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var picked = new List<WeekendEvent>();
+        List<WeekendEvent> picked = [];
         var usedVenues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var preferredDays = new[] { weekendFriday, weekendFriday.AddDays(1), weekendFriday.AddDays(2) };
 

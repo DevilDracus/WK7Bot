@@ -27,7 +27,7 @@ public class AccountLinkResolver : IAccountLinkResolver
     /// <inheritdoc />
     public async Task<IReadOnlyList<SteamAccountLink>> GetSteamLinksAsync(CancellationToken cancellationToken = default)
     {
-        var merged = new Dictionary<ulong, (string SteamId, string? WishlistUrl)>();
+        Dictionary<ulong, (string SteamId, string? WishlistUrl)> merged = [];
         foreach (var mapping in _options.Value.DiscordSteamMappings)
         {
             if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.SteamId))
@@ -57,7 +57,7 @@ public class AccountLinkResolver : IAccountLinkResolver
     /// <inheritdoc />
     public async Task<IReadOnlyList<BattleNetAccountLink>> GetBattleNetLinksAsync(CancellationToken cancellationToken = default)
     {
-        var merged = new Dictionary<ulong, BattleNetAccountLink>();
+        Dictionary<ulong, BattleNetAccountLink> merged = [];
         foreach (var mapping in _options.Value.DiscordBattleNetMappings)
         {
             if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.RefreshToken))
@@ -86,7 +86,7 @@ public class AccountLinkResolver : IAccountLinkResolver
     {
         var allLinks = await _repository.GetAllAsync(cancellationToken).ConfigureAwait(false);
 
-        var steamMerged = new Dictionary<ulong, (string SteamId, string? WishlistUrl)>();
+        Dictionary<ulong, (string SteamId, string? WishlistUrl)> steamMerged = [];
         foreach (var mapping in _options.Value.DiscordSteamMappings)
         {
             if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.SteamId))
@@ -95,7 +95,7 @@ public class AccountLinkResolver : IAccountLinkResolver
             }
         }
 
-        var battleNetMerged = new Dictionary<ulong, BattleNetAccountLink>();
+        Dictionary<ulong, BattleNetAccountLink> battleNetMerged = [];
         foreach (var mapping in _options.Value.DiscordBattleNetMappings)
         {
             if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.RefreshToken))

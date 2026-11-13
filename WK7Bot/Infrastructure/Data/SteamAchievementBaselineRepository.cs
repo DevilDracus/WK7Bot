@@ -50,7 +50,7 @@ public class SteamAchievementBaselineRepository : ISteamAchievementBaselineRepos
     /// <inheritdoc />
     public async Task<int> UpsertManyAsync(IEnumerable<SteamAchievementBaseline> baselines, CancellationToken cancellationToken = default)
     {
-        var list = baselines?.ToList() ?? new List<SteamAchievementBaseline>();
+        var list = baselines?.ToList() ?? [];
         if (list.Count == 0)
         {
             return 0;

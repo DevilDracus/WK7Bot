@@ -66,7 +66,7 @@ public class AddOnOptionsWriter : IAddOnOptionsWriter
         var options = await ReadCurrentOptionsAsync().ConfigureAwait(false);
         foreach (var (key, value) in patch)
         {
-            options[key] = JsonSerializer.SerializeToNode(value);
+            options[key] = value is null ? null : JsonSerializer.SerializeToNode(value, Wk7BotJsonContext.Default.GetTypeInfo(value.GetType())!);
         }
 
         return await WriteOptionsAsync(options, cancellationToken);
@@ -109,7 +109,7 @@ public class AddOnOptionsWriter : IAddOnOptionsWriter
             return false;
         }
 
-        var payload = JsonSerializer.Serialize(new { options });
+        var payload = JsonSerializer.Serialize(new AddOnOptionsPayload { Options = options }, Wk7BotJsonContext.Default.GetTypeInfo(typeof(AddOnOptionsPayload))!);
 
         try
         {

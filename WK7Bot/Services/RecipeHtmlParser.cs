@@ -226,7 +226,7 @@ public static class RecipeHtmlParser
     /// </summary>
     private static List<string> ReadStringList(JsonElement node, string propertyName)
     {
-        var values = new List<string>();
+        List<string> values = [];
         if (!node.TryGetProperty(propertyName, out var property))
         {
             return values;
@@ -277,7 +277,7 @@ public static class RecipeHtmlParser
     /// </summary>
     private static List<string> ReadInstructions(JsonElement node)
     {
-        var steps = new List<string>();
+        List<string> steps = [];
         if (!node.TryGetProperty("recipeInstructions", out var property))
         {
             return steps;
@@ -379,7 +379,7 @@ public static class RecipeHtmlParser
             return value.Trim();
         }
 
-        var parts = new List<string>();
+        List<string> parts = [];
         if (match.Groups["days"].Success)
         {
             parts.Add($"{match.Groups["days"].Value} Tg.");

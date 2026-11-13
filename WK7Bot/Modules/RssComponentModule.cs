@@ -52,7 +52,7 @@ public class RssComponentModule : BotModuleBase
             var feeds = await _repository.GetAllFeedsAsync();
             var allFeedRoleIds = feeds.Select(f => f.RoleId).ToHashSet();
 
-            var selectedSet = new HashSet<ulong>();
+            HashSet<ulong> selectedSet = [];
             var staleMenu = false;
 
             foreach (var value in selectedValues ?? Array.Empty<string>())

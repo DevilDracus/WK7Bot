@@ -33,5 +33,5 @@ public sealed class PriceComparisonResult
     public uint AppId { get; set; }
 
     /// <summary>The offers ordered by price ascending.</summary>
-    public IReadOnlyList<StorePriceOffer> Offers { get; set; } = new List<StorePriceOffer>();
+    public IReadOnlyList<StorePriceOffer> Offers { get; set; } = [];
 }

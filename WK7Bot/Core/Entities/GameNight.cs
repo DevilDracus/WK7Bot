@@ -104,7 +104,7 @@ public class GameNight
     /// <summary>
     /// Gets or sets the candidate slots.
     /// </summary>
-    public ICollection<GameNightSlot> Slots { get; set; } = new List<GameNightSlot>();
+    public ICollection<GameNightSlot> Slots { get; set; } = [];
 }
 
 /// <summary>
@@ -171,7 +171,7 @@ public class GameNightSlot
     /// <summary>
     /// Gets or sets the votes for this slot.
     /// </summary>
-    public ICollection<GameNightVote> Votes { get; set; } = new List<GameNightVote>();
+    public ICollection<GameNightVote> Votes { get; set; } = [];
 }
 
 /// <summary>

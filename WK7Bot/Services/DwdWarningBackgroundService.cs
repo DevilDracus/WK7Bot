@@ -190,7 +190,7 @@ public class DwdWarningBackgroundService : BackgroundService
         // "no server configured" warning for every active warning.
         var targetGuildIds = GetTargetGuildIds();
         var pendingGuildIds = await repository.FilterNotSentAsync(targetGuildIds, warning.Identifier, stoppingToken).ConfigureAwait(false);
-        var postedGuildIds = new List<ulong>();
+        List<ulong> postedGuildIds = [];
 
         foreach (var guildId in pendingGuildIds)
         {

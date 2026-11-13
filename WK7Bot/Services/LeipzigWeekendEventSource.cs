@@ -62,7 +62,7 @@ public class LeipzigWeekendEventSource : IWeekendEventSource
     public async Task<IReadOnlyList<WeekendEvent>> FetchWeekendEventsAsync(DateTime weekendFriday, CancellationToken cancellationToken = default)
     {
         var urls = new[] { WeekendListingUrl, BuildMonthUrl(weekendFriday) };
-        var events = new List<WeekendEvent>();
+        List<WeekendEvent> events = [];
         var seenUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var fetchedAny = false;
 

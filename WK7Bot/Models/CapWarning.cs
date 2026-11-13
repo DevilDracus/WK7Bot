@@ -71,16 +71,16 @@ public sealed record CapWarning
     /// <summary>
     /// Gets or sets the area descriptions (e.g. <c>Stadt Leipzig</c>) the warning covers.
     /// </summary>
-    public IReadOnlyList<string> AreaDescriptions { get; init; } = new List<string>();
+    public IReadOnlyList<string> AreaDescriptions { get; init; } = [];
 
     /// <summary>
     /// Gets or sets the include polygons of the warning.
     /// </summary>
-    public IReadOnlyList<IReadOnlyList<GeoPoint>> Polygons { get; init; } = new List<IReadOnlyList<GeoPoint>>();
+    public IReadOnlyList<IReadOnlyList<GeoPoint>> Polygons { get; init; } = [];
 
     /// <summary>
     /// Gets or sets the carved-out exclusion polygons (<c>EXCLUDE_POLYGON</c> geocodes) that punch
     /// holes into the covered area.
     /// </summary>
-    public IReadOnlyList<IReadOnlyList<GeoPoint>> ExcludePolygons { get; init; } = new List<IReadOnlyList<GeoPoint>>();
+    public IReadOnlyList<IReadOnlyList<GeoPoint>> ExcludePolygons { get; init; } = [];
 }

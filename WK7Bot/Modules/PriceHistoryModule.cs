@@ -167,7 +167,7 @@ internal static class PriceHistoryChartRenderer
             rows[y, x] = '\u2588';
         }
 
-        var lines = new List<string>();
+        List<string> lines = [];
         for (var y = 0; y < height; y++)
         {
             var label = y == 0 ? $"{maxDiscount,3}%" :

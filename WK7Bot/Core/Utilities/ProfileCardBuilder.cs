@@ -141,7 +141,7 @@ public static class ProfileCardBuilder
             foreach (var hero in battleNet.DiabloHeroes)
             {
                 var score = hero.ParagonLevel > 0 ? $"Paragon {hero.ParagonLevel}" : $"Stufe {hero.Level}";
-                var flags = new List<string>();
+                List<string> flags = [];
                 if (hero.Seasonal)
                 {
                     flags.Add("Season");

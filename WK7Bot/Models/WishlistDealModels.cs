@@ -2,6 +2,7 @@ namespace WK7Bot.Models;
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using WK7Bot.Core.Utilities;
 
 /// <summary>
 /// Represents a single game entry on a Steam user's wishlist.
@@ -177,6 +178,7 @@ public sealed class SteamWishlistResponseJsonConverter : JsonConverter<SteamWish
     /// <inheritdoc />
     public override void Write(Utf8JsonWriter writer, SteamWishlistResponse value, JsonSerializerOptions options)
     {
-        JsonSerializer.Serialize(writer, (IDictionary<string, SteamWishlistItem>)value, options);
+        var context = new Wk7BotJsonContext(options);
+        JsonSerializer.Serialize(writer, (IDictionary<string, SteamWishlistItem>)value, context.GetTypeInfo(typeof(Dictionary<string, SteamWishlistItem>))!);
     }
 }

@@ -43,7 +43,7 @@ public static class SeasonalTermPicker
             return Array.Empty<string>();
         }
 
-        var candidates = new List<WeightedTerm>();
+        List<WeightedTerm> candidates = [];
         AddCategory(candidates, produce.Vegetables, VegetableWeight);
         AddCategory(candidates, produce.Fruits, FruitWeight);
         AddCategory(candidates, produce.Herbs, HerbWeight);

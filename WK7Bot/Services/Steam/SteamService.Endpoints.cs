@@ -128,7 +128,7 @@ public partial class SteamService
     {
         var steamId = userData.SteamId;
 
-        var appIdsToFetch = new HashSet<uint>();
+        HashSet<uint> appIdsToFetch = [];
 
         if (userData.CurrentGameAppId.HasValue)
         {
@@ -161,7 +161,7 @@ public partial class SteamService
                 steamId);
         }
 
-        var progressByAppId = new Dictionary<uint, (int Unlocked, int Total)>();
+        Dictionary<uint, (int Unlocked, int Total)> progressByAppId = [];
         for (int i = 0; i < appIds.Length; i++)
         {
             var schema = await GetGameSchemaAsync(appIds[i], cancellationToken);
@@ -233,7 +233,7 @@ public partial class SteamService
             var achievements = schemaResponse?.Game?.AvailableGameStats?.Achievements;
             if (achievements == null || achievements.Count == 0)
             {
-                var emptySchema = new Dictionary<string, SchemaAchievementItem>();
+                Dictionary<string, SchemaAchievementItem> emptySchema = [];
                 _cache.Set(cacheKey, emptySchema, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = SchemaCacheLifetime, Size = 1 });
                 return emptySchema;
             }
@@ -311,11 +311,11 @@ public partial class SteamService
                     "Steam API returned 400 BadRequest for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId}); game likely has no achievements.",
                     appId,
                     steamId);
-                return new List<SteamAchievement>();
+                return [];
             }
 
             _logger.LogWarning("Steam API returned status code {StatusCode} for GetPlayerAchievements (AppId: {AppId}, SteamId: {SteamId})", response.StatusCode, appId, steamId);
-            return new List<SteamAchievement>();
+            return [];
         }
 
         var options = new JsonSerializerOptions
@@ -335,10 +335,10 @@ public partial class SteamService
                 steamId,
                 playerStats?.Success,
                 playerStats?.Error ?? "none");
-            return new List<SteamAchievement>();
+            return [];
         }
 
-        var results = new List<SteamAchievement>();
+        List<SteamAchievement> results = [];
 
         foreach (var item in playerStats.Achievements.Where(a => a.IsAchieved))
         {
@@ -380,17 +380,17 @@ public partial class SteamService
                 response.StatusCode,
                 appId,
                 steamId);
-            return new List<SteamAchievement>();
+            return [];
         }
 
         var payload = await response.Content.ReadFromJsonAsync<SteamTopAchievementsResponse>(cancellationToken: cancellationToken);
         var game = payload?.Response?.Games?.FirstOrDefault(g => g.AppId == appId);
         if (game?.Achievements == null || game.Achievements.Count == 0)
         {
-            return new List<SteamAchievement>();
+            return [];
         }
 
-        var results = new List<SteamAchievement>();
+        List<SteamAchievement> results = [];
 
         foreach (var item in game.Achievements)
         {

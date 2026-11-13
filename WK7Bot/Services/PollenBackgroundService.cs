@@ -22,6 +22,7 @@ using WK7Bot.Services.Interfaces;
 public class PollenBackgroundService : BackgroundService
 {
     private static readonly JsonSerializerOptions ForecastJsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly Wk7BotJsonContext PollenJsonContext = new(ForecastJsonOptions);
 
     /// <summary>
     /// Minimum number of days between two pollen posts for the same guild. A post is due again once
@@ -124,10 +125,10 @@ public class PollenBackgroundService : BackgroundService
             throw new InvalidOperationException("The DWD pollen and UV feeds were both unavailable.");
         }
 
-        var forecastJson = pollen is null ? "null" : JsonSerializer.Serialize(pollen, ForecastJsonOptions);
+        var forecastJson = pollen is null ? "null" : JsonSerializer.Serialize(pollen, PollenJsonContext.GetTypeInfo(typeof(PollenForecast))!);
 
         var lastByGuildId = await dispatchRepository.GetLastForGuildsAsync(guildIds, stoppingToken).ConfigureAwait(false);
-        var pending = new List<ulong>();
+        List<ulong> pending = [];
         foreach (var guildId in guildIds)
         {
             if (ShouldPost(lastByGuildId[guildId], now.Date, pollen))
@@ -141,7 +142,7 @@ public class PollenBackgroundService : BackgroundService
             return;
         }
 
-        var postedGuildIds = new List<ulong>();
+        List<ulong> postedGuildIds = [];
         foreach (var guildId in pending)
         {
             var channel = await GetOrCreatePollenChannelAsync(guildId);
@@ -234,7 +235,7 @@ public class PollenBackgroundService : BackgroundService
         PollenForecast? previous;
         try
         {
-            previous = JsonSerializer.Deserialize<PollenForecast>(last.ForecastJson, ForecastJsonOptions);
+            previous = JsonSerializer.Deserialize(last.ForecastJson, typeof(PollenForecast), PollenJsonContext) as PollenForecast;
         }
         catch (JsonException)
         {

@@ -95,7 +95,7 @@ public class ReleaseDateReminderBackgroundService : BackgroundService
 
         var now = DateTime.UtcNow;
         var notified = false;
-        var updatedReminders = new List<ReleaseDateReminderItem>();
+        List<ReleaseDateReminderItem> updatedReminders = [];
 
         foreach (var reminder in reminders)
         {

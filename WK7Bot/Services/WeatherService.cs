@@ -48,7 +48,7 @@ public class WeatherService : IWeatherService
                 ? name.GetString() ?? entityId
                 : entityId;
 
-            var forecast = new List<WeatherForecastDay>();
+            List<WeatherForecastDay> forecast = [];
             if (attributes.ValueKind == JsonValueKind.Object && attributes.TryGetProperty("forecast", out var forecastArray) && forecastArray.ValueKind == JsonValueKind.Array)
             {
                 foreach (var day in forecastArray.EnumerateArray())

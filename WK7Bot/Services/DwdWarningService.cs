@@ -128,7 +128,7 @@ public partial class DwdWarningService : IDwdWarningService
     /// <returns>The parsed warnings.</returns>
     private IReadOnlyList<CapWarning> ParseSnapshot(byte[] archiveBytes, string snapshotName)
     {
-        var warnings = new List<CapWarning>();
+        List<CapWarning> warnings = [];
 
         ZipArchive? archive = null;
         MemoryStream? archiveStream = null;

@@ -62,7 +62,7 @@ public static class WeekendEventParser
             return Array.Empty<WeekendEvent>();
         }
 
-        var events = new List<WeekendEvent>();
+        List<WeekendEvent> events = [];
 
         foreach (Match item in ItemRegex.Matches(html))
         {

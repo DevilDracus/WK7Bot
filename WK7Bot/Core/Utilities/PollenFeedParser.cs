@@ -124,7 +124,7 @@ public static class PollenFeedParser
     /// <returns>The pollen type forecasts.</returns>
     private static List<PollenTypeForecast> BuildPollenTypes(JsonElement pollen, Dictionary<string, string> legend)
     {
-        var types = new List<PollenTypeForecast>();
+        List<PollenTypeForecast> types = [];
 
         foreach (var typeName in PollenTypes)
         {
@@ -246,7 +246,7 @@ public static class PollenFeedParser
         }
 
         var parts = raw.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var values = new List<double>();
+        List<double> values = [];
         foreach (var part in parts)
         {
             if (double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))

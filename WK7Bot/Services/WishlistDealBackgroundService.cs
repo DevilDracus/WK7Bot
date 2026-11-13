@@ -182,8 +182,8 @@ public class WishlistDealBackgroundService : BackgroundService
         IReadOnlyList<SteamAccountLink> mappings,
         CancellationToken cancellationToken)
     {
-        var wishlistsByDiscordId = new Dictionary<ulong, List<SteamWishlistItem>>();
-        var allAppIds = new HashSet<uint>();
+        Dictionary<ulong, List<SteamWishlistItem>> wishlistsByDiscordId = [];
+        HashSet<uint> allAppIds = [];
 
         foreach (var mapping in mappings)
         {
@@ -223,7 +223,7 @@ public class WishlistDealBackgroundService : BackgroundService
         {
             if (!wishlistsByDiscordId.TryGetValue(item.DiscordUserId, out var list))
             {
-                list = new List<SteamWishlistItem>();
+                list = [];
                 wishlistsByDiscordId[item.DiscordUserId] = list;
             }
 
@@ -320,20 +320,20 @@ public class WishlistDealBackgroundService : BackgroundService
         CancellationToken cancellationToken)
     {
         // Build reverse mapping: appId -> list of Discord user IDs who wishlisted it
-        var usersByAppId = new Dictionary<uint, List<ulong>>();
+        Dictionary<uint, List<ulong>> usersByAppId = [];
         foreach (var (discordUserId, items) in wishlistsByDiscordId)
         {
             foreach (var item in items)
             {
                 if (!usersByAppId.ContainsKey(item.AppId))
                 {
-                    usersByAppId[item.AppId] = new List<ulong>();
+                    usersByAppId[item.AppId] = [];
                 }
                 usersByAppId[item.AppId].Add(discordUserId);
             }
         }
 
-        var alerts = new List<WishlistDealAlert>();
+        List<WishlistDealAlert> alerts = [];
         using (var scope = _scopeFactory.CreateScope())
         {
             var repository = scope.ServiceProvider.GetRequiredService<IWishlistDealRepository>();

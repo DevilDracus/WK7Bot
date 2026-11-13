@@ -35,7 +35,7 @@ public class WarningDispatchRepository : DispatchRepositoryBase<WarningDispatchL
         var guildIdSet = guildIds.ToList();
         if (guildIdSet.Count == 0)
         {
-            return new List<ulong>();
+            return [];
         }
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);

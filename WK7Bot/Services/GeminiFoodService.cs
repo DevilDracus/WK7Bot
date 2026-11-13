@@ -246,8 +246,8 @@ public class GeminiFoodService : IGeminiFoodService
         {
             SourceUrl = recipe.SourceUrl,
             ImageUrl = recipe.ImageUrl,
-            SeasonalIngredientsUsed = new List<string>(),
-            DietTags = new List<string>(),
+            SeasonalIngredientsUsed = [],
+            DietTags = [],
             TransplantSafetyNotes = string.Empty
         };
 
@@ -308,7 +308,7 @@ public class GeminiFoodService : IGeminiFoodService
             using var response = await HttpRetry.ExecuteAsync(
                 async () =>
                 {
-                    string jsonPayload = JsonSerializer.Serialize(requestPayload);
+                    string jsonPayload = JsonSerializer.Serialize(requestPayload, Wk7BotJsonContext.Default.JsonObject);
                     using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
                     return await _httpClient.PostAsync(requestUrl, content, cancellationToken).ConfigureAwait(false);
                 },
@@ -361,7 +361,7 @@ public class GeminiFoodService : IGeminiFoodService
     private static JsonObject BuildGeminiRequestPayload(string prompt, JsonObject jsonSchema)
     {
         // Deep clone jsonSchema to avoid "node already has a parent" when reused across calls
-        var schemaClone = JsonSerializer.Deserialize<JsonObject>(JsonSerializer.Serialize(jsonSchema))!;
+        var schemaClone = JsonSerializer.Deserialize<JsonObject>(JsonSerializer.Serialize(jsonSchema, Wk7BotJsonContext.Default.JsonObject), Wk7BotJsonContext.Default.JsonObject)!;
 
         var payload = new JsonObject
         {

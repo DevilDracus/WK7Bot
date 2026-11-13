@@ -127,7 +127,7 @@ public class SpontanTreffModule : BotModuleBase
                 ExpiresAt = DateTime.UtcNow.AddMinutes(minuten)
             });
 
-            var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, new List<SpontanTreffResponse>(), DateTime.UtcNow);
+            var (embed, components) = SpontanTreffMessageBuilder.Build(meetup, [], DateTime.UtcNow);
 
             try
             {

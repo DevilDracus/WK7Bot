@@ -136,7 +136,7 @@ public static class SpontanTreffMessageBuilder
             return EmptyValue;
         }
 
-        var lines = new List<string>();
+        List<string> lines = [];
         int length = 0;
         int hidden = 0;
 

@@ -40,7 +40,7 @@ public static class GameNightMessageBuilder
         foreach (var slot in slots.OrderBy(s => s.Position).ThenBy(s => s.Id))
         {
             var count = votesBySlot.TryGetValue(slot.Id, out var list) ? list.Count : 0;
-            var voters = votesBySlot.TryGetValue(slot.Id, out var l) ? l : new List<ulong>();
+            var voters = votesBySlot.TryGetValue(slot.Id, out var l) ? l : [];
             embed.AddField($"{slot.Label} ({count})", FormatMentions(voters), false);
         }
 
@@ -81,11 +81,11 @@ public static class GameNightMessageBuilder
         GameNight gameNight,
         IReadOnlyList<GameNightVote> votes,
         DateTime now)
-        => Build(gameNight, gameNight.Slots?.ToList() ?? new List<GameNightSlot>(), votes, now);
+        => Build(gameNight, gameNight.Slots?.ToList() ?? [], votes, now);
 
     private static string BuildDescription(GameNight gameNight, bool active, DateTime now)
     {
-        var lines = new List<string>();
+        List<string> lines = [];
         if (!string.IsNullOrWhiteSpace(gameNight.Title))
         {
             lines.Add($"**{gameNight.Title}**");

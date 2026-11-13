@@ -2,6 +2,7 @@ namespace WK7Bot.Models;
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using WK7Bot.Core.Utilities;
 
 /// <summary>
 /// Represents a single product returned by the Open Food Facts search API.
@@ -119,7 +120,7 @@ public sealed class OpenFoodFactsProductsJsonConverter : JsonConverter<List<Open
     /// <inheritdoc />
     public override List<OpenFoodFactsProduct> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        var result = new List<OpenFoodFactsProduct>();
+        List<OpenFoodFactsProduct> result = [];
 
         if (reader.TokenType == JsonTokenType.Null)
         {
@@ -174,6 +175,7 @@ public sealed class OpenFoodFactsProductsJsonConverter : JsonConverter<List<Open
     /// <inheritdoc />
     public override void Write(Utf8JsonWriter writer, List<OpenFoodFactsProduct> value, JsonSerializerOptions options)
     {
-        JsonSerializer.Serialize(writer, value, options);
+        var context = new Wk7BotJsonContext(options);
+        JsonSerializer.Serialize(writer, value, context.GetTypeInfo(typeof(List<OpenFoodFactsProduct>))!);
     }
 }

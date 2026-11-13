@@ -256,9 +256,9 @@ public class RssModule : BotModuleBase
             return;
         }
 
-        var created = new List<string>();
-        var skipped = new List<string>();
-        var failed = new List<string>();
+        List<string> created = [];
+        List<string> skipped = [];
+        List<string> failed = [];
 
         foreach (var entry in entries)
         {

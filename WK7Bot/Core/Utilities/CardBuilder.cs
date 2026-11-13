@@ -39,9 +39,9 @@ public static class CardBuilder
         ArgumentNullException.ThrowIfNull(embed);
 
         var budget = new TextBudget(MaxTotalTextLength);
-        var head = new List<IMessageComponentBuilder>();
-        var fields = new List<string>();
-        var tail = new List<IMessageComponentBuilder>();
+        List<IMessageComponentBuilder> head = [];
+        List<string> fields = [];
+        List<IMessageComponentBuilder> tail = [];
 
         BuildHead(head, budget, embed);
         BuildFields(fields, embed);
@@ -223,7 +223,7 @@ public static class CardBuilder
     /// <returns>The footer text, or <see langword="null"/> when the embed has neither footer nor timestamp.</returns>
     private static string? BuildFooter(Embed embed)
     {
-        var parts = new List<string>();
+        List<string> parts = [];
 
         if (!string.IsNullOrWhiteSpace(embed.Footer?.Text))
         {

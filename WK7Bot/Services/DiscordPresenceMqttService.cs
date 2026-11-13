@@ -34,6 +34,7 @@ public class DiscordPresenceMqttService : BackgroundService
     private readonly ILogger<DiscordPresenceMqttService> _logger;
     private readonly IFeatureHealthTracker _health;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly CancellationTokenSource _shutdownCts = new();
     private static readonly JsonSerializerOptions CompactJsonOptions = new() { WriteIndented = false };
     private readonly ConcurrentDictionary<ulong, bool> _discoveredUsers = new();
     private readonly ConcurrentDictionary<ulong, string> _steamLinks = new();
@@ -101,6 +102,8 @@ public class DiscordPresenceMqttService : BackgroundService
             return;
         }
 
+        stoppingToken.Register(() => _shutdownCts.Cancel());
+
         await RefreshAccountLinksAsync(stoppingToken).ConfigureAwait(false);
 
         _discordClient.PresenceUpdated += OnPresenceUpdatedAsync;
@@ -142,10 +145,32 @@ public class DiscordPresenceMqttService : BackgroundService
         }
         finally
         {
+            _shutdownCts.Cancel();
             _discordClient.PresenceUpdated -= OnPresenceUpdatedAsync;
             _discordClient.Ready -= OnDiscordReadyAsync;
             _coordinator.ConnectionEstablishedAsync -= OnMqttConnectionEstablishedAsync;
         }
+    }
+
+    /// <summary>
+    /// Cancels the fire-and-forget initial presence sweep and releases resources on shutdown.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token monitored during shutdown.</param>
+    /// <returns>A task representing shutdown completion.</returns>
+    public override Task StopAsync(CancellationToken cancellationToken)
+    {
+        _shutdownCts.Cancel();
+        return base.StopAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Releases the shutdown cancellation token source.
+    /// </summary>
+    public override void Dispose()
+    {
+        _shutdownCts.Cancel();
+        _shutdownCts.Dispose();
+        base.Dispose();
     }
 
     /// <summary>
@@ -229,28 +254,37 @@ public class DiscordPresenceMqttService : BackgroundService
         _logger.LogInformation("Discord client ready. Running initial user presence sweep for Home Assistant...");
 
         // Run the sweep in the background so the gateway task is not blocked.
-        _ = Task.Run(async () =>
+        if (!_shutdownCts.IsCancellationRequested)
         {
-            try
+            _ = Task.Run(async () =>
             {
-                foreach (var guild in _discordClient.Guilds)
+                try
                 {
-                    foreach (var user in guild.Users)
+                    foreach (var guild in _discordClient.Guilds)
                     {
-                        if (user.IsBot)
+                        foreach (var user in guild.Users)
                         {
-                            continue;
-                        }
+                            _shutdownCts.Token.ThrowIfCancellationRequested();
 
-                        await ProcessUserPresenceAsync(user, null).ConfigureAwait(false);
+                            if (user.IsBot)
+                            {
+                                continue;
+                            }
+
+                            await ProcessUserPresenceAsync(user, null, cancellationToken: _shutdownCts.Token).ConfigureAwait(false);
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during initial user presence sweep.");
-            }
-        });
+                catch (OperationCanceledException) when (_shutdownCts.IsCancellationRequested)
+                {
+                    // Host is shutting down; stop the sweep cleanly.
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error during initial user presence sweep.");
+                }
+            }, _shutdownCts.Token);
+        }
 
         return Task.CompletedTask;
     }
@@ -437,22 +471,22 @@ public class DiscordPresenceMqttService : BackgroundService
         string deviceId = $"discord_user_{entity.DiscordUserId}";
         string stateTopic = $"wk7bot/presence/users/{entity.DiscordUserId}";
 
-        var singleEntityDiscovery = new
-        {
-            name = $"{entity.Username} Presence",
-            unique_id = deviceId,
-            state_topic = stateTopic,
-            value_template = "{{ value_json.Status }}",
-            json_attributes_topic = stateTopic,
-            icon = "mdi:discord",
-            device = new
-            {
-                identifiers = new[] { deviceId },
-                name = $"{entity.Username} (Discord)",
-                model = "Discord Presence Tracker",
-                manufacturer = "WK7Bot"
-            }
-        };
+        var singleEntityDiscovery = new DiscordPresenceDiscoveryPayload
+                {
+                    Name = $"{entity.Username} Presence",
+                    UniqueId = deviceId,
+                    StateTopic = stateTopic,
+                    ValueTemplate = "{{ value_json.Status }}",
+                    JsonAttributesTopic = stateTopic,
+                    Icon = "mdi:discord",
+                    Device = new BotStatusDevice
+                    {
+                        Identifiers = new[] { deviceId },
+                        Name = $"{entity.Username} (Discord)",
+                        Model = "Discord Presence Tracker",
+                        Manufacturer = "WK7Bot"
+                    }
+                };
 
         await SendMqttDiscoveryPayloadAsync($"homeassistant/sensor/{deviceId}/config", singleEntityDiscovery).ConfigureAwait(false);
 
@@ -466,9 +500,9 @@ public class DiscordPresenceMqttService : BackgroundService
     /// <param name="topic">The target discovery topic path.</param>
     /// <param name="payloadObject">The object payload to serialize as JSON.</param>
     /// <returns>A task tracking asynchronous publication.</returns>
-    private async Task SendMqttDiscoveryPayloadAsync(string topic, object payloadObject)
+    private async Task SendMqttDiscoveryPayloadAsync(string topic, DiscordPresenceDiscoveryPayload payloadObject)
     {
-        string payloadJson = JsonSerializer.Serialize(payloadObject, CompactJsonOptions);
+        string payloadJson = JsonSerializer.Serialize(payloadObject, Wk7BotJsonContext.Default.GetTypeInfo(typeof(DiscordPresenceDiscoveryPayload))!);
 
         await _mqttClient.PublishRetainedAsync(topic, payloadJson).ConfigureAwait(false);
     }
@@ -495,33 +529,33 @@ public class DiscordPresenceMqttService : BackgroundService
         //   2. Nested SteamData / BattleNetData blocks used by the dashboard for richer drill-down.
         // Do not remove either shape without migrating every consumer in Personal/HomeAssistant/WK7DiscordView/DiscordView.yml,
         // or HA cards will break after upgrading.
-        var payloadObj = new
+        var payloadObj = new DiscordPresenceStatePayload
         {
-            entity.Username,
-            entity.DiscordUserId,
-            entity.Status,
-            entity.AvatarUrl,
-            entity.GameName,
-            entity.GameDetails,
-            entity.GameThumbnailUrl,
+            Username = entity.Username,
+            DiscordUserId = entity.DiscordUserId,
+            Status = entity.Status,
+            AvatarUrl = entity.AvatarUrl,
+            GameName = entity.GameName,
+            GameDetails = entity.GameDetails,
+            GameThumbnailUrl = entity.GameThumbnailUrl,
             CurrentGameTitle = entity.SteamData?.CurrentGameTitle,
             CurrentGameAppId = entity.SteamData?.CurrentGameAppId,
             PlaytimeLastTwoWeeksMinutes = entity.SteamData?.PlaytimeLastTwoWeeksMinutes,
             PlaytimeDisplay = entity.SteamData?.PlaytimeDisplay,
             PersonaState = entity.SteamData?.PersonaState,
             SteamAvatarUrl = entity.SteamData?.SteamAvatarUrl,
-            entity.SteamData,
+            SteamData = entity.SteamData,
             BattleTag = entity.BattleNetData?.BattleTag,
             BattleNetAvatarUrl = entity.BattleNetData?.AvatarUrl,
             WoWMainCharacter = entity.BattleNetData?.MainCharacterDisplay,
-            entity.BattleNetData,
-            entity.LastUpdated,
-            entity_picture = !string.IsNullOrWhiteSpace(entity.GameThumbnailUrl)
+            BattleNetData = entity.BattleNetData,
+            LastUpdated = entity.LastUpdated,
+            EntityPicture = !string.IsNullOrWhiteSpace(entity.GameThumbnailUrl)
                 ? entity.GameThumbnailUrl
                 : entity.AvatarUrl
         };
 
-        string payload = JsonSerializer.Serialize(payloadObj, CompactJsonOptions);
+        string payload = JsonSerializer.Serialize(payloadObj, Wk7BotJsonContext.Default.GetTypeInfo(typeof(DiscordPresenceStatePayload))!);
 
         try
         {

@@ -277,21 +277,21 @@ public class HomeAssistantNotifierService : BackgroundService
         var discoveryTopic = $"homeassistant/notify/{uniqueId}/config";
         var commandTopic = $"homeassistant/notify/wk7_{channel.Id}/set";
 
-        var discoveryPayload = new
+        var discoveryPayload = new HomeAssistantNotificationDiscoveryPayload
         {
-            name = $"Discord #{channel.Name} ({channel.Guild.Name})",
-            unique_id = uniqueId,
-            command_topic = commandTopic,
-            device = new
+            Name = $"Discord #{channel.Name} ({channel.Guild.Name})",
+            UniqueId = uniqueId,
+            CommandTopic = commandTopic,
+            Device = new BotStatusDevice
             {
-                identifiers = new[] { "csharp_discord_bot" },
-                name = "Discord Bot Service",
-                model = "C# Discord Integration",
-                manufacturer = "Custom Application"
+                Identifiers = new[] { "csharp_discord_bot" },
+                Name = "Discord Bot Service",
+                Model = "C# Discord Integration",
+                Manufacturer = "Custom Application"
             }
         };
 
-        var jsonPayload = JsonSerializer.Serialize(discoveryPayload);
+        var jsonPayload = JsonSerializer.Serialize(discoveryPayload, Wk7BotJsonContext.Default.GetTypeInfo(typeof(HomeAssistantNotificationDiscoveryPayload))!);
 
         await _mqttClient.PublishRetainedAsync(discoveryTopic, jsonPayload).ConfigureAwait(false);
     }
@@ -316,21 +316,21 @@ public class HomeAssistantNotifierService : BackgroundService
         var discoveryTopic = $"homeassistant/notify/{uniqueId}/config";
         var commandTopic = $"homeassistant/notify/wk7_dm_{userId}/set";
 
-        var discoveryPayload = new
+        var discoveryPayload = new HomeAssistantNotificationDiscoveryPayload
         {
-            name = $"Discord DM (@{username})",
-            unique_id = uniqueId,
-            command_topic = commandTopic,
-            device = new
+            Name = $"Discord DM (@{username})",
+            UniqueId = uniqueId,
+            CommandTopic = commandTopic,
+            Device = new BotStatusDevice
             {
-                identifiers = new[] { "csharp_discord_bot" },
-                name = "Discord Bot Service",
-                model = "C# Discord Integration",
-                manufacturer = "Custom Application"
+                Identifiers = new[] { "csharp_discord_bot" },
+                Name = "Discord Bot Service",
+                Model = "C# Discord Integration",
+                Manufacturer = "Custom Application"
             }
         };
 
-        var jsonPayload = JsonSerializer.Serialize(discoveryPayload);
+        var jsonPayload = JsonSerializer.Serialize(discoveryPayload, Wk7BotJsonContext.Default.GetTypeInfo(typeof(HomeAssistantNotificationDiscoveryPayload))!);
 
         await _mqttClient.PublishRetainedAsync(discoveryTopic, jsonPayload).ConfigureAwait(false);
     }

@@ -48,7 +48,7 @@ public class LeipzigWasteService : ILeipzigWasteService
     /// <returns>A list of user-friendly waste collection descriptions scheduled for the given date.</returns>
     public async Task<List<string>> GetWasteTypesForDateAsync(DateTime targetDate, CancellationToken cancellationToken = default)
     {
-        var detectedWasteTypes = new List<string>();
+        List<string> detectedWasteTypes = [];
 
         // Root key (config.yaml / /data/options.json) overrides the appsettings default so the
         // add-on's private street address can be replaced without rebuilding the image.

@@ -129,7 +129,7 @@ public class RssPollingBackgroundService : BackgroundService
 
         var feeds = await repository.GetAllFeedsAsync(cancellationToken);
         var clean = true;
-        var touchedFeeds = new List<RssFeed>();
+        List<RssFeed> touchedFeeds = [];
 
         foreach (var feed in feeds)
         {

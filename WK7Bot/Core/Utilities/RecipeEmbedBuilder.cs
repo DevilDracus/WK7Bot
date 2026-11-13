@@ -66,12 +66,12 @@ public static class RecipeEmbedBuilder
         // Sections that are added after the variable-length ones are measured up front (field names
         // included) so the recipe text can never crowd out the diet/safety/disclaimer fields and the
         // embed stays inside Discord's total length limit.
-        var dietTags = recipe.DietTags ?? new List<string>();
+        var dietTags = recipe.DietTags ?? [];
         var formattedTags = dietTags.Count > 0 ? DietTagFormatter.Format(dietTags) : string.Empty;
         var safetyNotes = string.IsNullOrWhiteSpace(recipe.TransplantSafetyNotes)
             ? string.Empty
             : recipe.TransplantSafetyNotes!;
-        var seasonalIngredients = string.Join(", ", recipe.SeasonalIngredientsUsed ?? new List<string>());
+        var seasonalIngredients = string.Join(", ", recipe.SeasonalIngredientsUsed ?? []);
         var disclaimer = includeDisclaimer ? BuildDisclaimer(recipe.SourceUrl) : string.Empty;
 
         int reserved =
@@ -230,8 +230,8 @@ public static class RecipeEmbedBuilder
     /// </summary>
     private static IReadOnlyList<string> SplitValue(string value, int limit)
     {
-        var chunks = new List<string>();
-        var current = new List<string>();
+        List<string> chunks = [];
+        List<string> current = [];
         int currentLength = 0;
 
         void Flush()
@@ -276,7 +276,7 @@ public static class RecipeEmbedBuilder
     /// </summary>
     private static string BuildDescription(RenalRecipeData recipe)
     {
-        var meta = new List<string>();
+        List<string> meta = [];
         if (!string.IsNullOrWhiteSpace(recipe.PrepTime))
         {
             meta.Add($"⏱️ **Prep Time:** {recipe.PrepTime}");

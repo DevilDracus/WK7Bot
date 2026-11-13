@@ -66,7 +66,7 @@ public class WeekendDigestDispatcher
         }
 
         int dispatchedCount = 0;
-        var postedGuildIds = new List<ulong>();
+        List<ulong> postedGuildIds = [];
         foreach (var guildId in pendingGuildIds)
         {
             var channel = await GetOrCreateWeekendChannelAsync(guildId);

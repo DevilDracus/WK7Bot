@@ -78,8 +78,8 @@ public class ReminderBackgroundService : BackgroundService
         var repository = scope.ServiceProvider.GetRequiredService<IReminderRepository>();
 
         var due = await repository.GetDueAsync(DateTime.UtcNow, cancellationToken);
-        var deliveredIds = new List<int>();
-        var rescheduled = new List<(int Id, DateTime NewDueAt)>();
+        List<int> deliveredIds = [];
+        List<(int Id, DateTime NewDueAt)> rescheduled = [];
         foreach (var reminder in due)
         {
             try

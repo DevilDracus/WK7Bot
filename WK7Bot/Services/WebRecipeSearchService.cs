@@ -358,7 +358,7 @@ public class WebRecipeSearchService : IRecipeSearchService
     /// </summary>
     private async Task<RenalRecipeData?> TryParseFirstRecipeAsync(IReadOnlyList<string> candidateUrls, CancellationToken cancellationToken)
     {
-        var pending = new Dictionary<int, Task<string?>>();
+        Dictionary<int, Task<string?>> pending = [];
 
         try
         {
@@ -443,7 +443,7 @@ public class WebRecipeSearchService : IRecipeSearchService
     /// </summary>
     private static IReadOnlyList<string> ExtractChefkochRecipeUrls(string listingHtml)
     {
-        var urls = new List<string>();
+        List<string> urls = [];
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (Match match in ChefkochRecipeUrlRegex.Matches(listingHtml))
@@ -517,7 +517,7 @@ public class WebRecipeSearchService : IRecipeSearchService
     /// </summary>
     private static IReadOnlyList<string> ExtractCandidateUrls(string searchHtml)
     {
-        var urls = new List<string>();
+        List<string> urls = [];
 
         foreach (Match match in ResultLinkRegex.Matches(searchHtml))
         {

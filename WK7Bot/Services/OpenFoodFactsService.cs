@@ -103,7 +103,7 @@ public sealed class OpenFoodFactsService : IOpenFoodFactsService
 
     private static List<OpenFoodFactsProduct> ExtractProducts(JsonElement root)
     {
-        var result = new List<OpenFoodFactsProduct>();
+        List<OpenFoodFactsProduct> result = [];
 
         if (root.ValueKind == JsonValueKind.Null || root.ValueKind == JsonValueKind.Undefined)
         {

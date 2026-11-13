@@ -145,7 +145,7 @@ public class LeaderboardService : ILeaderboardService
 
     private async Task<List<(ulong DiscordUserId, string SteamId)>> GetSteamLinksAsync(CancellationToken cancellationToken)
     {
-        var result = new Dictionary<ulong, string>();
+        Dictionary<ulong, string> result = [];
         foreach (var mapping in _options.Value.DiscordSteamMappings)
         {
             if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.SteamId))
@@ -167,7 +167,7 @@ public class LeaderboardService : ILeaderboardService
 
     private async Task<List<(ulong DiscordUserId, string RefreshToken)>> GetBattleNetLinksAsync(CancellationToken cancellationToken)
     {
-        var result = new Dictionary<ulong, string>();
+        Dictionary<ulong, string> result = [];
         foreach (var mapping in _options.Value.DiscordBattleNetMappings)
         {
             if (ulong.TryParse(mapping.DiscordUserId, out var id) && !string.IsNullOrWhiteSpace(mapping.RefreshToken))

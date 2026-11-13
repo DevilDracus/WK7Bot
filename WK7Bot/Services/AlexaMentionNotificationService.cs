@@ -166,8 +166,8 @@ public class AlexaMentionNotificationService : IHostedService, IDisposable
                     var cleanSecret = apiSecret.Trim();
                     var authBytes = Encoding.UTF8.GetBytes($"{cleanToken}:{cleanSecret}");
                     req.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
-                    var payload = new { message = notificationText };
-                    var json = JsonSerializer.Serialize(payload);
+                    var payload = new AlexaNotificationPayload { Message = notificationText };
+                    var json = JsonSerializer.Serialize(payload, Wk7BotJsonContext.Default.GetTypeInfo(typeof(AlexaNotificationPayload))!);
                     req.Content = new StringContent(json, Encoding.UTF8, "application/json");
                     return await _httpClient.SendAsync(req, cancellationToken);
                 },

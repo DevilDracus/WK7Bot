@@ -218,7 +218,7 @@ public class GameNightModule : BotModuleBase
     // wizard button/modal could be added; placeholder no-op
     private static List<string> ParseSlots(string? slots)
     {
-        if (string.IsNullOrWhiteSpace(slots)) return new List<string>();
+        if (string.IsNullOrWhiteSpace(slots)) return [];
         return slots.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .ToList();

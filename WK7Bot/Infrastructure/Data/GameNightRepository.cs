@@ -102,7 +102,7 @@ public class GameNightRepository : IGameNightRepository, IGameNightsRepository, 
     public async Task<IReadOnlyList<GameNightSlot>> AddSlotsAsync(int gameNightId, IEnumerable<string> slotLabels, CancellationToken cancellationToken = default)
     {
         var labels = slotLabels.ToList();
-        var slots = new List<GameNightSlot>();
+        List<GameNightSlot> slots = [];
         int pos = 0;
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         foreach (var label in labels)

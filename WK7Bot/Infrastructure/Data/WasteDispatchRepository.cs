@@ -36,7 +36,7 @@ public class WasteDispatchRepository : DispatchRepositoryBase<WasteDispatchLog>,
         var guildIdSet = guildIds.ToList();
         if (guildIdSet.Count == 0)
         {
-            return new List<ulong>();
+            return [];
         }
 
         var normalizedDate = sentOn.Date;

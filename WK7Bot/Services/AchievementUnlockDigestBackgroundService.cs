@@ -106,7 +106,7 @@ public class AchievementUnlockDigestBackgroundService : BackgroundService
             return;
         }
 
-        var newAchievements = new List<(string GameName, SteamAchievement Achievement, ulong DiscordUserId)>();
+        List<(string GameName, SteamAchievement Achievement, ulong DiscordUserId)> newAchievements = [];
 
         foreach (var link in steamLinks)
         {
@@ -146,7 +146,7 @@ public class AchievementUnlockDigestBackgroundService : BackgroundService
                 var baselineByApi = baselineRows.ToDictionary(b => b.ApiName, StringComparer.OrdinalIgnoreCase);
 
                 var now = DateTime.UtcNow;
-                var toUpsert = new List<SteamAchievementBaseline>();
+                List<SteamAchievementBaseline> toUpsert = [];
 
                 foreach (var achievement in achievements)
                 {

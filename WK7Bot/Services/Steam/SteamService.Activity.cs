@@ -54,16 +54,16 @@ public partial class SteamService
                 _logger.LogWarning(
                     "Steam API returned status code {StatusCode} for batch GetPlayerSummaries.",
                     response.StatusCode);
-                return new List<PlayerSummaryItem>();
+                return [];
             }
 
             var result = await response.Content.ReadFromJsonAsync<SteamPlayerSummariesResponse>(cancellationToken: cancellationToken);
-            return result?.Response?.Players ?? new List<PlayerSummaryItem>();
+            return result?.Response?.Players ?? [];
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Batch GetPlayerSummaries request failed.");
-            return new List<PlayerSummaryItem>();
+            return [];
         }
     }
 

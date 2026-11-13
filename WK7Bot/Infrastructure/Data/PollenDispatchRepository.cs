@@ -47,7 +47,7 @@ public class PollenDispatchRepository : IPollenDispatchRepository
             .ConfigureAwait(false);
 
         var stateByGuildId = states.ToDictionary(state => state.GuildId, state => (PollenDispatchState?)state);
-        var result = new Dictionary<ulong, PollenDispatchState?>();
+        Dictionary<ulong, PollenDispatchState?> result = [];
         foreach (var guildId in guildIdSet)
         {
             result[guildId] = stateByGuildId.TryGetValue(guildId, out var state) ? state : null;

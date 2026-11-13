@@ -84,7 +84,7 @@ public class OpmlService : IOpmlService
             response.EnsureSuccessStatusCode();
             var xml = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var document = XDocument.Parse(xml);
-            var entries = new List<OpmlFeedEntry>();
+            List<OpmlFeedEntry> entries = [];
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var outline in document.Descendants("outline"))

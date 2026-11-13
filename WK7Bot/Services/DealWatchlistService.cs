@@ -107,7 +107,7 @@ public class DealWatchlistService : IDealWatchlistService
 
         var prices = await _dealService.FetchPricesAsync(appIds, cancellationToken).ConfigureAwait(false);
         var alerts = 0;
-        var priceUpdates = new List<DealWatchPriceUpdate>();
+        List<DealWatchPriceUpdate> priceUpdates = [];
         foreach (var item in items)
         {
             if (!uint.TryParse(item.ItadId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var appId) ||

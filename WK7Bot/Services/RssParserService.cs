@@ -36,7 +36,7 @@ public class RssParserService
     {
         ArgumentNullException.ThrowIfNull(feed);
 
-        var newItems = new List<FeedItem>();
+        List<FeedItem> newItems = [];
 
         try
         {

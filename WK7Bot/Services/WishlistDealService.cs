@@ -175,7 +175,7 @@ public sealed class WishlistDealService : IWishlistDealService
             return new Dictionary<uint, ItadPriceData>();
         }
 
-        var results = new Dictionary<uint, ItadPriceData>();
+        Dictionary<uint, ItadPriceData> results = [];
 
         var apiKey = _options.ItadApiKey;
         if (string.IsNullOrWhiteSpace(apiKey))

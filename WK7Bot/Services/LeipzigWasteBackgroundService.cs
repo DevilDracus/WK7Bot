@@ -205,7 +205,7 @@ public class LeipzigWasteBackgroundService : BackgroundService
             return true;
         }
 
-        var deliveredGuildIds = new List<ulong>();
+        List<ulong> deliveredGuildIds = [];
         foreach (var guildId in pendingGuildIds)
         {
             var channel = await GetOrCreateWasteChannelAsync(guildId);
