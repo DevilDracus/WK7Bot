@@ -309,13 +309,14 @@ public class RssModule : BotModuleBase
     [SlashCommand("list", "Zeigt alle registrierten RSS-Feeds an")]
     public async Task ListFeedsAsync()
     {
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
         try
         {
             var feeds = await _repository.GetAllFeedsAsync();
 
             if (feeds.Count == 0)
             {
-                await RespondAsync("Noch keine RSS-Feeds registriert. F\u00fcge einen mit `/rss add` hinzu.", ephemeral: true).ConfigureAwait(false);
+                await FollowupAsync("Noch keine RSS-Feeds registriert. Füge einen mit `/rss add` hinzu.", ephemeral: true).ConfigureAwait(false);
                 return;
             }
 
@@ -335,12 +336,12 @@ public class RssModule : BotModuleBase
                     inline: false);
             }
 
-            await RespondAsync(embed: embed.Build(), ephemeral: true).ConfigureAwait(false);
+            await FollowupAsync(embed: embed.Build(), ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || ex is TaskCanceledException)
         {
             _logger.LogError(ex, "Listing RSS feeds failed.");
-            await RespondAsync("\u274c Feeds konnten nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
+            await FollowupAsync("❌ Feeds konnten nicht geladen werden.", ephemeral: true).ConfigureAwait(false);
         }
     }
 

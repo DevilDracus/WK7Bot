@@ -119,8 +119,8 @@ public class RemindModule : BotModuleBase
 
     private static Reminder CreateReminderEntity(
         ulong userId,
-        dynamic guild,
-        dynamic channel,
+        IGuild? guild,
+        IChannel? channel,
         string reminderText,
         DateTimeOffset dueAt,
         string? wiederholung)
@@ -131,8 +131,8 @@ public class RemindModule : BotModuleBase
         return new Reminder
         {
             DiscordUserId = userId,
-            GuildId = Convert.ToUInt64(guild?.Id ?? 0),
-            ChannelId = Convert.ToUInt64(channel?.Id ?? 0),
+            GuildId = guild?.Id ?? 0,
+            ChannelId = channel?.Id ?? 0,
             Text = reminderText,
             DueAt = dueAt.UtcDateTime,
             CreatedAt = DateTime.UtcNow,
