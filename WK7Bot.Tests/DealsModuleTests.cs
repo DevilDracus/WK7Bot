@@ -194,6 +194,28 @@ public class DealsModuleTests
     }
 
     [Fact]
+    public async Task GetDealsAsync_HandlesBlankWishlistTitle()
+    {
+        var steamService = new Mock<ISteamService>();
+        steamService.Setup(s => s.GetSteamIdForDiscordUser(It.IsAny<string>())).Returns("1");
+        var dealService = new Mock<IWishlistDealService>();
+        dealService.Setup(s => s.FetchWishlistAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SteamWishlistItem> { new SteamWishlistItem { AppId = 4242, Name = "   " } });
+        dealService.Setup(s => s.FetchPricesAsync(It.IsAny<IEnumerable<uint>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<uint, ItadPriceData>
+            {
+                [4242] = new ItadPriceData { CurrentPrice = 4.99m, RegularPrice = 9.99m, StoreName = "Steam", DealUrl = "http://deal" }
+            });
+        var module = CreateModule(dealService, steamService);
+
+        await module.GetDealsAsync();
+
+        // A blank wishlist title must not surface as an ArgumentException from EmbedBuilder.AddField.
+        Assert.DoesNotContain(module.Followups, f => f.Contains("unerwarteter Fehler"));
+        Assert.Single(module.FollowupComponents);
+    }
+
+    [Fact]
     public async Task GetDealsAsync_ReportsError_WhenServiceThrows()
     {
         var steamService = new Mock<ISteamService>();

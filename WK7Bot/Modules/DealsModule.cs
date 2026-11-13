@@ -148,7 +148,13 @@ public class DealsModule : BotModuleBase
                 dealText += " 🏆";
             }
 
-            embed.AddField(item.Name, $"[{dealText}]({priceData.DealUrl}) bei {priceData.StoreName}", inline: false);
+            // Discord rejects empty field names; wishlist titles can arrive blank when the
+            // IsThereAnyDeal title lookup fails, so fall back to the app id.
+            var fieldName = string.IsNullOrWhiteSpace(item.Name)
+                ? $"App {item.AppId}"
+                : EmbedText.Truncate(item.Name, EmbedText.FieldNameLimit);
+
+            embed.AddField(fieldName, $"[{dealText}]({priceData.DealUrl}) bei {priceData.StoreName}", inline: false);
         }
 
         if (embed.Fields.Count == 0)
