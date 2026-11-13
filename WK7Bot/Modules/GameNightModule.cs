@@ -21,7 +21,7 @@ public class GameNightModule : BotModuleBase
 
     private readonly IGameNightRepository _repository;
     private readonly IDiscordScheduledEventService _scheduledEventService;
-    private readonly IReminderRepository _reminderRepository;
+    private readonly IReminderRepository? _reminderRepository;
     private readonly IOptions<ServersOptions>? _serversOptions;
     private readonly ILogger<GameNightModule> _logger;
 
@@ -36,7 +36,7 @@ public class GameNightModule : BotModuleBase
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _scheduledEventService = scheduledEventService ?? throw new ArgumentNullException(nameof(scheduledEventService));
-        _reminderRepository = reminderRepository!;
+        _reminderRepository = reminderRepository;
         _serversOptions = serversOptions;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -180,7 +180,7 @@ public class GameNightModule : BotModuleBase
     }
 
     // overload compatibility
-    public Task RescheduleAsync(int gameNightId, string slot)
+    private Task RescheduleAsync(int gameNightId, string slot)
         => RescheduleAsync(slot, gameNightId);
 
     [SlashCommand("close", "Schließt die Game Night vorzeitig.")]
