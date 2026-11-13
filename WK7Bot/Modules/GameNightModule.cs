@@ -27,23 +27,6 @@ public class GameNightModule : BotModuleBase
 
     protected override ILogger Logger => _logger;
 
-    private GameNightModule(
-        IGameNightRepository repository,
-        IDiscordScheduledEventService scheduledEventService,
-        ILogger<GameNightModule> logger)
-        : this(repository, scheduledEventService, null, null, logger)
-    {
-    }
-
-    private GameNightModule(
-        IGameNightRepository repository,
-        IDiscordScheduledEventService scheduledEventService,
-        IReminderRepository reminderRepository,
-        ILogger<GameNightModule> logger)
-        : this(repository, scheduledEventService, reminderRepository, null, logger)
-    {
-    }
-
     public GameNightModule(
         IGameNightRepository repository,
         IDiscordScheduledEventService scheduledEventService,
