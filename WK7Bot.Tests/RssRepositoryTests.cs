@@ -72,8 +72,8 @@ public class RssRepositoryTests : IDisposable
         await _repository.AddFeedAsync(feed);
 
         feed.LastItemGuid = "guid-1";
-        feed.LastPublishedDate = DateTimeOffset.UtcNow;
-        feed.LastPolledAt = DateTimeOffset.UtcNow;
+        feed.LastPublishedDate = DateTime.UtcNow;
+        feed.LastPolledAt = DateTime.UtcNow;
         await _repository.UpdateFeedAsync(feed);
 
         var reloaded = await _repository.GetFeedByNameAsync(feed.Name);

@@ -32,7 +32,7 @@ public class WishlistDealRepositoryTests : IDisposable
     {
         AppId = appId,
         Name = name,
-        LastUpdated = DateTimeOffset.UtcNow
+        LastUpdated = DateTime.UtcNow
     };
 
     [Fact]

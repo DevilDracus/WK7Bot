@@ -60,7 +60,7 @@ public class RssParserService
                 if (newest != null)
                 {
                     feed.LastItemGuid = newest.Id;
-                    feed.LastPublishedDate = newest.PublishingDate;
+                    feed.LastPublishedDate = newest.PublishingDate.HasValue ? newest.PublishingDate.Value.ToUniversalTime() : null;
                 }
 
                 return newItems;

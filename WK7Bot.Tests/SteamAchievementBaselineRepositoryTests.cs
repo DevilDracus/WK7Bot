@@ -35,7 +35,7 @@ public class SteamAchievementBaselineRepositoryTests : IDisposable
         AppId = appId,
         ApiName = apiName,
         Achieved = achieved,
-        LastChecked = DateTimeOffset.UtcNow
+        LastChecked = DateTime.UtcNow
     };
 
     [Fact]

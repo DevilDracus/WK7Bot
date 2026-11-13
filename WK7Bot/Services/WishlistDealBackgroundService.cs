@@ -266,7 +266,7 @@ public class WishlistDealBackgroundService : BackgroundService
             {
                 AppId = appId,
                 Name = nameByAppId.GetValueOrDefault(appId, string.Empty),
-                LastUpdated = DateTimeOffset.UtcNow
+                LastUpdated = DateTime.UtcNow
             }).ToList();
 
             await repository.ReplaceTrackedGamesAsync(games, cancellationToken).ConfigureAwait(false);

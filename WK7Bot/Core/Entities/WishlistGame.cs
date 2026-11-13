@@ -24,5 +24,5 @@ public class WishlistGame
     /// <summary>
     /// Gets or sets the UTC timestamp when this game was last discovered on a wishlist.
     /// </summary>
-    public DateTimeOffset LastUpdated { get; set; } = DateTimeOffset.UtcNow;
+    public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 }

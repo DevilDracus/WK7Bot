@@ -25,8 +25,8 @@ public class SteamAchievementBaseline
     public bool Achieved { get; set; }
 
     /// <summary>Gets or sets the timestamp the achievement was unlocked, when known.</summary>
-    public DateTimeOffset? UnlockTime { get; set; }
+    public DateTime? UnlockTime { get; set; }
 
     /// <summary>Gets or sets the UTC timestamp when this baseline row was last checked.</summary>
-    public DateTimeOffset LastChecked { get; set; }
+    public DateTime LastChecked { get; set; } = DateTime.UtcNow;
 }

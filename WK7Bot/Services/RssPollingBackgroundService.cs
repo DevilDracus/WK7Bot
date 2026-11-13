@@ -161,7 +161,7 @@ public class RssPollingBackgroundService : BackgroundService
                 _logger.LogWarning(ex, "Failed to process feed '{FeedName}'; retrying at its next interval.", feed.Name);
                 _health.RecordFailure(FeatureKeys.RssPolling, ex.Message);
 
-                feed.LastPolledAt = DateTimeOffset.UtcNow;
+                feed.LastPolledAt = DateTime.UtcNow;
                 touchedFeeds.Add(feed);
             }
         }
@@ -191,7 +191,7 @@ public class RssPollingBackgroundService : BackgroundService
     {
         var minutes = feed.RefreshIntervalMinutes > 0 ? feed.RefreshIntervalMinutes : DefaultRefreshIntervalMinutes;
         return !feed.LastPolledAt.HasValue
-            || DateTimeOffset.UtcNow - feed.LastPolledAt.Value >= TimeSpan.FromMinutes(minutes);
+            || DateTime.UtcNow - feed.LastPolledAt.Value >= TimeSpan.FromMinutes(minutes);
     }
 
     /// <summary>
@@ -213,7 +213,7 @@ public class RssPollingBackgroundService : BackgroundService
         {
             // Advance the baseline so the history is never re-posted and a failing feed waits its
             // full interval before the next attempt. The caller persists the change in a batch.
-            feed.LastPolledAt = DateTimeOffset.UtcNow;
+            feed.LastPolledAt = DateTime.UtcNow;
             return true;
         }
 
@@ -226,7 +226,7 @@ public class RssPollingBackgroundService : BackgroundService
                 "RSS feed '{FeedName}' targets channel {ChannelId}, which is not a text channel; skipping this cycle.",
                 feed.Name,
                 feed.ChannelId);
-            feed.LastPolledAt = DateTimeOffset.UtcNow;
+            feed.LastPolledAt = DateTime.UtcNow;
             _health.RecordFailure(FeatureKeys.RssPolling, $"RSS feed '{feed.Name}' targets channel {feed.ChannelId}, which is not a text channel.");
             return false;
         }
@@ -243,7 +243,7 @@ public class RssPollingBackgroundService : BackgroundService
                 // items that already went out. The values are persisted once after the outer loop, so a
                 // hard crash mid-batch can still re-post the delivered items.
                 feed.LastItemGuid = item.Id;
-                feed.LastPublishedDate = item.PublishingDate;
+                feed.LastPublishedDate = item.PublishingDate.HasValue ? item.PublishingDate.Value.ToUniversalTime() : null;
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
@@ -255,7 +255,7 @@ public class RssPollingBackgroundService : BackgroundService
             }
         }
 
-        feed.LastPolledAt = DateTimeOffset.UtcNow;
+        feed.LastPolledAt = DateTime.UtcNow;
         return clean;
     }
 

@@ -145,7 +145,7 @@ public class AchievementUnlockDigestBackgroundService : BackgroundService
                     .ConfigureAwait(false);
                 var baselineByApi = baselineRows.ToDictionary(b => b.ApiName, StringComparer.OrdinalIgnoreCase);
 
-                var now = DateTimeOffset.UtcNow;
+                var now = DateTime.UtcNow;
                 var toUpsert = new List<SteamAchievementBaseline>();
 
                 foreach (var achievement in achievements)
@@ -165,7 +165,7 @@ public class AchievementUnlockDigestBackgroundService : BackgroundService
                         AppId = game.AppId,
                         ApiName = achievement.ApiName,
                         Achieved = true,
-                        UnlockTime = achievement.UnlockTime,
+                        UnlockTime = achievement.UnlockTime?.UtcDateTime,
                         LastChecked = now
                     });
                 }

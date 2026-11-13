@@ -60,7 +60,7 @@ public class RssFeed
     /// <summary>
     /// Gets or sets the publication timestamp of the last processed item.
     /// </summary>
-    public DateTimeOffset? LastPublishedDate { get; set; }
+    public DateTime? LastPublishedDate { get; set; }
 
     /// <summary>
     /// Gets or sets the polling interval in minutes.
@@ -70,7 +70,7 @@ public class RssFeed
     /// <summary>
     /// Gets or sets the timestamp when the feed was last polled.
     /// </summary>
-    public DateTimeOffset? LastPolledAt { get; set; }
+    public DateTime? LastPolledAt { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether polling for this feed is paused. A paused feed keeps its
