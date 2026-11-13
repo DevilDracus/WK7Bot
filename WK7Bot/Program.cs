@@ -13,6 +13,12 @@ using WK7Bot.Testing;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Default to HA ingress port 8080 when ASPNETCORE_URLS is not set (e.g. running outside the add-on image).
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:8080");
+}
+
 builder.Configuration.AddJsonFile("/data/options.json", optional: true, reloadOnChange: false);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=/data/wk7bot.db";
