@@ -213,13 +213,20 @@ public class XpRepository : IXpRepository
     public async Task<IReadOnlyList<XpProfile>> GetLeaderboardAsync(ulong guildId, int limit, CancellationToken cancellationToken = default)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await context.Set<XpProfile>()
+        // SQLite cannot ORDER BY a ulong column, so the tie-breaker on DiscordUserId has to run
+        // in memory after materialization. The row count is already capped by Take(limit).
+        var rows = await context.Set<XpProfile>()
             .AsNoTracking()
             .Where(p => p.GuildId == guildId)
             .OrderByDescending(p => p.Xp)
-            .ThenBy(p => p.DiscordUserId)
             .Take(limit)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return rows
+            .OrderByDescending(p => p.Xp)
+            .ThenBy(p => p.DiscordUserId)
+            .ToList();
     }
 
     /// <inheritdoc />
